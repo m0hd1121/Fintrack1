@@ -12,6 +12,9 @@ struct RootView: View {
     @Query(filter: #Predicate<SalaryRecord> { $0.isActive }) private var salaryRecords: [SalaryRecord]
     @Query(filter: #Predicate<FreelanceProject> { !$0.isArchived }) private var freelanceProjects: [FreelanceProject]
     @Query(filter: #Predicate<RentalProperty> { $0.isActive }) private var rentalProperties: [RentalProperty]
+    @Query private var moneyLent: [MoneyLent]
+    @Query private var moneyBorrowed: [MoneyBorrowed]
+    @Query(filter: #Predicate<CreditCard> { $0.isActive }) private var activeCreditCards: [CreditCard]
     @Environment(\.modelContext) private var context
     @Environment(\.scenePhase) private var scenePhase
     @Environment(CurrencyService.self) private var currencyService
@@ -47,6 +50,7 @@ struct RootView: View {
             processScheduledTransactions()
             processBillAlerts()
             processIncomeAlerts()
+            processDebtAlerts()
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .background,
@@ -60,6 +64,7 @@ struct RootView: View {
                 processScheduledTransactions()
                 processBillAlerts()
                 processIncomeAlerts()
+                processDebtAlerts()
             }
         }
     }
@@ -94,6 +99,47 @@ struct RootView: View {
             IncomeService.shared.sendOverdueInvoiceAlert(project: project, invoice: invoice)
         }
         if context.hasChanges { try? context.save() }
+    }
+
+    private func processDebtAlerts() {
+        let now = Date()
+        // Money lent reminders
+        for lent in moneyLent where !lent.isFullyRepaid && lent.reminderEnabled {
+            if let due = lent.dueDate {
+                NotificationService.shared.scheduleLentReminder(
+                    id: lent.id.uuidString,
+                    borrowerName: lent.borrowerName,
+                    amount: lent.remainingBalance,
+                    currency: lent.currency,
+                    dueDate: due,
+                    daysBefore: lent.reminderDaysBefore
+                )
+            }
+        }
+        // Money borrowed reminders
+        for borrowed in moneyBorrowed where !borrowed.isFullyRepaid && borrowed.reminderEnabled {
+            if let due = borrowed.dueDate {
+                NotificationService.shared.scheduleBorrowedReminder(
+                    id: borrowed.id.uuidString,
+                    lenderName: borrowed.lenderName,
+                    amount: borrowed.remainingBalance,
+                    currency: borrowed.currency,
+                    dueDate: due,
+                    daysBefore: borrowed.reminderDaysBefore
+                )
+            }
+        }
+        // Credit utilization alerts for cards above 75%
+        for card in activeCreditCards where card.utilizationRate > 0.75 {
+            let daysSinceAlert = UserDefaults.standard.double(forKey: "utilAlert_\(card.id)")
+            if now.timeIntervalSince1970 - daysSinceAlert > 86400 * 7 {
+                NotificationService.shared.sendHighUtilizationAlert(
+                    cardName: card.name,
+                    utilization: card.utilizationRate
+                )
+                UserDefaults.standard.set(now.timeIntervalSince1970, forKey: "utilAlert_\(card.id)")
+            }
+        }
     }
 
     private func processBillAlerts() {

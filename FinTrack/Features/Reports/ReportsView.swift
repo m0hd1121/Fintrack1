@@ -37,6 +37,8 @@ struct ReportsView: View {
     @Query private var cryptoHoldings: [CryptoHolding]
     @Query private var loans: [Loan]
     @Query private var creditCards: [CreditCard]
+    @Query private var moneyLent: [MoneyLent]
+    @Query private var moneyBorrowed: [MoneyBorrowed]
 
     @State private var selectedPeriod: ReportPeriod = .month
     @State private var selectedReport: ReportType = .cashFlow
@@ -125,6 +127,14 @@ struct ReportsView: View {
                                 SpendingReport(transactions: filteredTransactions, currency: baseCurrency)
                             case .income:
                                 IncomeReport(transactions: filteredTransactions, currency: baseCurrency)
+                            case .debt:
+                                DebtReport(
+                                    loans: loans,
+                                    creditCards: creditCards,
+                                    moneyLent: Array(moneyLent),
+                                    moneyBorrowed: Array(moneyBorrowed),
+                                    currency: baseCurrency
+                                )
                             case .netWorth:
                                 NetWorthReport(
                                     accounts: accounts,
@@ -161,6 +171,7 @@ enum ReportType: String, CaseIterable {
     case cashFlow = "Cash Flow"
     case spending = "Spending"
     case income = "Income"
+    case debt = "Debt"
     case netWorth = "Net Worth"
     case trends = "Trends"
 }
@@ -691,5 +702,220 @@ struct ReportSummaryCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(color.opacity(0.08))
         .clipShape(RoundedRectangle(cornerRadius: 14))
+    }
+}
+
+// MARK: - Debt Report
+
+struct DebtReport: View {
+    let loans: [Loan]
+    let creditCards: [CreditCard]
+    let moneyLent: [MoneyLent]
+    let moneyBorrowed: [MoneyBorrowed]
+    let currency: String
+    @Environment(CurrencyService.self) private var currencyService
+
+    private var activeLoans: [Loan] { loans.filter { $0.isActive } }
+    private var activeCards: [CreditCard] { creditCards.filter { $0.isActive } }
+
+    private var totalLoanDebt: Double {
+        activeLoans.reduce(0) { $0 + currencyService.convert($1.outstandingBalance, from: $1.currency, to: currency) }
+    }
+    private var totalCardDebt: Double {
+        activeCards.reduce(0) { $0 + currencyService.convert($1.outstandingBalance, from: $1.currency, to: currency) }
+    }
+    private var totalPersonalDebt: Double {
+        moneyBorrowed.filter { !$0.isFullyRepaid }.reduce(0) {
+            $0 + currencyService.convert($1.remainingBalance, from: $1.currency, to: currency)
+        }
+    }
+    private var totalDebt: Double { totalLoanDebt + totalCardDebt + totalPersonalDebt }
+    private var totalLent: Double {
+        moneyLent.filter { !$0.isFullyRepaid }.reduce(0) {
+            $0 + currencyService.convert($1.remainingBalance, from: $1.currency, to: currency)
+        }
+    }
+    private var totalMonthlyPayments: Double {
+        activeLoans.reduce(0) { $0 + currencyService.convert($1.emiAmount, from: $1.currency, to: currency) }
+        + activeCards.reduce(0) { $0 + currencyService.convert($1.minimumPayment, from: $1.currency, to: currency) }
+    }
+
+    var body: some View {
+        VStack(spacing: FTSpacing.lg) {
+            // Summary hero
+            VStack(spacing: FTSpacing.md) {
+                HStack {
+                    ReportSummaryCard(title: "Total Debt", amount: totalDebt, currency: currency,
+                                      color: FTColor.expense, icon: "creditcard.fill")
+                    ReportSummaryCard(title: "Outstanding Lent", amount: totalLent, currency: currency,
+                                      color: FTColor.income, icon: "hand.raised.fill")
+                }
+                HStack {
+                    ReportSummaryCard(title: "Monthly Payments", amount: totalMonthlyPayments,
+                                      currency: currency, color: FTColor.catPurple, icon: "calendar")
+                    ReportSummaryCard(title: "Net Position", amount: totalLent - totalDebt,
+                                      currency: currency,
+                                      color: totalLent >= totalDebt ? FTColor.income : FTColor.expense,
+                                      icon: "scalemass")
+                }
+            }
+
+            // Breakdown by type
+            if totalDebt > 0 {
+                VStack(alignment: .leading, spacing: FTSpacing.md) {
+                    Text("Debt Breakdown")
+                        .font(.ftHeadline).foregroundStyle(FTColor.textPrimary)
+
+                    VStack(spacing: 0) {
+                        if totalLoanDebt > 0 {
+                            debtBreakdownRow(label: "Bank Loans", amount: totalLoanDebt,
+                                             total: totalDebt, color: FTColor.catPurple,
+                                             icon: "building.columns")
+                            Divider().padding(.leading, 56)
+                        }
+                        if totalCardDebt > 0 {
+                            debtBreakdownRow(label: "Credit Cards", amount: totalCardDebt,
+                                             total: totalDebt, color: FTColor.expense,
+                                             icon: "creditcard")
+                            Divider().padding(.leading, 56)
+                        }
+                        if totalPersonalDebt > 0 {
+                            debtBreakdownRow(label: "Personal Borrowed", amount: totalPersonalDebt,
+                                             total: totalDebt, color: FTColor.catCoral,
+                                             icon: "person.fill")
+                        }
+                    }
+                    .padding(.horizontal, FTSpacing.lg)
+                    .ftGlass(FTRadius.lg)
+                }
+            }
+
+            // Active loans detail
+            if !activeLoans.isEmpty {
+                VStack(alignment: .leading, spacing: FTSpacing.md) {
+                    Text("Loan Details")
+                        .font(.ftHeadline).foregroundStyle(FTColor.textPrimary)
+
+                    VStack(spacing: 0) {
+                        ForEach(Array(activeLoans.enumerated()), id: \.element.id) { idx, loan in
+                            HStack(spacing: FTSpacing.md) {
+                                FTIconTile(symbol: loan.loanType.icon, tint: FTColor.catPurple, size: 36)
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(loan.name).font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                                    Text("\(loan.interestRate.asPercentage()) APR · \(loan.remainingInstallments) payments left")
+                                        .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                                }
+                                Spacer()
+                                Text(currencyService.convert(loan.outstandingBalance, from: loan.currency, to: currency).formatted(as: currency))
+                                    .font(.ftBodySemibold).foregroundStyle(FTColor.expense)
+                            }
+                            .padding(.vertical, FTSpacing.md)
+                            if idx < activeLoans.count - 1 { Divider().padding(.leading, 56) }
+                        }
+                    }
+                    .padding(.horizontal, FTSpacing.lg)
+                    .ftGlass(FTRadius.lg)
+                }
+            }
+
+            // Credit cards utilization
+            if !activeCards.isEmpty {
+                VStack(alignment: .leading, spacing: FTSpacing.md) {
+                    Text("Credit Card Utilization")
+                        .font(.ftHeadline).foregroundStyle(FTColor.textPrimary)
+
+                    VStack(spacing: 0) {
+                        ForEach(Array(activeCards.enumerated()), id: \.element.id) { idx, card in
+                            VStack(spacing: FTSpacing.sm) {
+                                HStack {
+                                    FTIconTile(symbol: "creditcard.fill",
+                                               tint: Color.fromString(card.color), size: 36)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(card.name).font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                                        Text(card.bankName).font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                                    }
+                                    Spacer()
+                                    Text(card.utilizationRate.asPercentage())
+                                        .font(.ftBodySemibold)
+                                        .foregroundStyle(card.utilizationRate > 0.5 ? FTColor.expense :
+                                                         card.utilizationRate > 0.3 ? .orange : FTColor.income)
+                                }
+                                FTProgressBar(
+                                    value: card.utilizationRate,
+                                    color: card.utilizationRate > 0.5 ? FTColor.expense :
+                                           card.utilizationRate > 0.3 ? .orange : FTColor.income
+                                )
+                            }
+                            .padding(.vertical, FTSpacing.md)
+                            if idx < activeCards.count - 1 { Divider().padding(.leading, 56) }
+                        }
+                    }
+                    .padding(.horizontal, FTSpacing.lg)
+                    .ftGlass(FTRadius.lg)
+                }
+            }
+
+            // Money lent summary
+            if !moneyLent.filter({ !$0.isFullyRepaid }).isEmpty {
+                VStack(alignment: .leading, spacing: FTSpacing.md) {
+                    Text("Money You've Lent")
+                        .font(.ftHeadline).foregroundStyle(FTColor.textPrimary)
+
+                    VStack(spacing: 0) {
+                        let active = moneyLent.filter { !$0.isFullyRepaid }
+                        ForEach(Array(active.enumerated()), id: \.element.id) { idx, lent in
+                            HStack(spacing: FTSpacing.md) {
+                                FTIconTile(symbol: "hand.raised.fill",
+                                           tint: Color.fromString(lent.color), size: 36)
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(lent.borrowerName)
+                                        .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                                    Text(lent.computedStatus.rawValue)
+                                        .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                                }
+                                Spacer()
+                                Text(currencyService.convert(lent.remainingBalance, from: lent.currency, to: currency).formatted(as: currency))
+                                    .font(.ftBodySemibold).foregroundStyle(FTColor.income)
+                            }
+                            .padding(.vertical, FTSpacing.md)
+                            if idx < active.count - 1 { Divider().padding(.leading, 56) }
+                        }
+                    }
+                    .padding(.horizontal, FTSpacing.lg)
+                    .ftGlass(FTRadius.lg)
+                }
+            }
+
+            if totalDebt == 0 && totalLent == 0 {
+                VStack(spacing: FTSpacing.md) {
+                    FTIconTile(symbol: "checkmark.seal.fill", tint: FTColor.income, size: 60)
+                    Text("Debt-Free!").font(.ftTitle).foregroundStyle(FTColor.textPrimary)
+                    Text("No active debts. Keep it up!")
+                        .font(.ftBody).foregroundStyle(FTColor.textSecondary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 40)
+            }
+        }
+        .padding(.top, FTSpacing.md)
+    }
+
+    private func debtBreakdownRow(label: String, amount: Double, total: Double,
+                                   color: Color, icon: String) -> some View {
+        VStack(spacing: FTSpacing.sm) {
+            HStack(spacing: FTSpacing.md) {
+                FTIconTile(symbol: icon, tint: color, size: 36)
+                Text(label).font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                Spacer()
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(amount.formatted(as: currency))
+                        .font(.ftBodySemibold).foregroundStyle(FTColor.expense)
+                    Text((total > 0 ? amount / total : 0).asPercentage())
+                        .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                }
+            }
+            FTProgressBar(value: total > 0 ? amount / total : 0, color: color)
+        }
+        .padding(.vertical, FTSpacing.md)
     }
 }

@@ -22,8 +22,10 @@ struct FinTrackBackup: Codable {
     var salaryRecords: [SalaryRecordDTO]?   // v8+
     var freelanceProjects: [FreelanceProjectDTO]?  // v8+
     var rentalProperties: [RentalPropertyDTO]?     // v8+
+    var moneyLent: [MoneyLentDTO]?          // v9+
+    var moneyBorrowed: [MoneyBorrowedDTO]?  // v9+
 
-    static let currentVersion = 3
+    static let currentVersion = 4
 }
 
 struct AccountDTO: Codable {
@@ -167,6 +169,22 @@ struct RentalPropertyDTO: Codable {
     var createdAt: Date; var updatedAt: Date
 }
 
+struct MoneyLentDTO: Codable {
+    var id: UUID; var borrowerName: String; var contactInfo: String?
+    var amount: Double; var currency: String; var lendingDate: Date
+    var dueDate: Date?; var notes: String?; var statusRaw: String
+    var reminderEnabled: Bool; var reminderDaysBefore: Int; var color: String
+    var repaymentsData: Data; var createdAt: Date; var updatedAt: Date
+}
+
+struct MoneyBorrowedDTO: Codable {
+    var id: UUID; var lenderName: String; var contactInfo: String?
+    var amount: Double; var currency: String; var borrowDate: Date
+    var dueDate: Date?; var notes: String?; var statusRaw: String
+    var reminderEnabled: Bool; var reminderDaysBefore: Int; var color: String
+    var repaymentsData: Data; var createdAt: Date; var updatedAt: Date
+}
+
 // MARK: - Service
 
 @MainActor
@@ -193,6 +211,8 @@ final class DataTransferService {
         let salaryRecs      = try context.fetch(FetchDescriptor<SalaryRecord>())
         let freelanceProjs  = try context.fetch(FetchDescriptor<FreelanceProject>())
         let rentalProps     = try context.fetch(FetchDescriptor<RentalProperty>())
+        let lentItems       = try context.fetch(FetchDescriptor<MoneyLent>())
+        let borrowedItems   = try context.fetch(FetchDescriptor<MoneyBorrowed>())
 
         var backup = FinTrackBackup(
             version: FinTrackBackup.currentVersion,
@@ -214,6 +234,8 @@ final class DataTransferService {
         backup.salaryRecords = salaryRecs.map(\.dto)
         backup.freelanceProjects = freelanceProjs.map(\.dto)
         backup.rentalProperties = rentalProps.map(\.dto)
+        backup.moneyLent = lentItems.map(\.dto)
+        backup.moneyBorrowed = borrowedItems.map(\.dto)
 
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
@@ -261,6 +283,8 @@ final class DataTransferService {
         let existingSalaryIds        = mode == .merge ? Set((try? context.fetch(FetchDescriptor<SalaryRecord>()))?.map(\.id) ?? []) : []
         let existingFreelanceIds     = mode == .merge ? Set((try? context.fetch(FetchDescriptor<FreelanceProject>()))?.map(\.id) ?? []) : []
         let existingRentalIds        = mode == .merge ? Set((try? context.fetch(FetchDescriptor<RentalProperty>()))?.map(\.id) ?? []) : []
+        let existingLentIds          = mode == .merge ? Set((try? context.fetch(FetchDescriptor<MoneyLent>()))?.map(\.id) ?? []) : []
+        let existingBorrowedIds      = mode == .merge ? Set((try? context.fetch(FetchDescriptor<MoneyBorrowed>()))?.map(\.id) ?? []) : []
 
         // Insert accounts first, build id→object map for relationship linking
         var accountMap: [UUID: Account] = [:]
@@ -322,6 +346,12 @@ final class DataTransferService {
         for dto in (backup.rentalProperties ?? []) where !existingRentalIds.contains(dto.id) {
             context.insert(dto.toModel()); summary.rentalProperties += 1
         }
+        for dto in (backup.moneyLent ?? []) where !existingLentIds.contains(dto.id) {
+            context.insert(dto.toModel()); summary.moneyLent += 1
+        }
+        for dto in (backup.moneyBorrowed ?? []) where !existingBorrowedIds.contains(dto.id) {
+            context.insert(dto.toModel()); summary.moneyBorrowed += 1
+        }
 
         if mode == .replace {
             if let dto = backup.userProfile  { context.insert(dto.toModel()) }
@@ -349,6 +379,8 @@ final class DataTransferService {
         try context.delete(model: SalaryRecord.self)
         try context.delete(model: FreelanceProject.self)
         try context.delete(model: RentalProperty.self)
+        try context.delete(model: MoneyLent.self)
+        try context.delete(model: MoneyBorrowed.self)
         try context.delete(model: UserProfile.self)
         try context.delete(model: AppSettings.self)
         try context.save()
@@ -360,11 +392,13 @@ struct ImportSummary {
     var loans = 0; var creditCards = 0; var investments = 0; var crypto = 0
     var dividends = 0; var bnpl = 0; var bills = 0
     var salaryRecords = 0; var freelanceProjects = 0; var rentalProperties = 0
+    var moneyLent = 0; var moneyBorrowed = 0
 
     var total: Int {
         accounts + transactions + budgets + goals + loans + creditCards
         + investments + crypto + dividends + bnpl + bills
         + salaryRecords + freelanceProjects + rentalProperties
+        + moneyLent + moneyBorrowed
     }
 
     var description: String {
@@ -382,6 +416,8 @@ struct ImportSummary {
         if salaryRecords > 0     { parts.append("\(salaryRecords) salary records") }
         if freelanceProjects > 0 { parts.append("\(freelanceProjects) freelance projects") }
         if rentalProperties > 0  { parts.append("\(rentalProperties) rental properties") }
+        if moneyLent > 0         { parts.append("\(moneyLent) money lent records") }
+        if moneyBorrowed > 0     { parts.append("\(moneyBorrowed) money borrowed records") }
         return parts.isEmpty ? "Nothing imported" : parts.joined(separator: ", ")
     }
 }
@@ -812,5 +848,55 @@ extension RentalPropertyDTO {
         p.isActive = isActive
         p.createdAt = createdAt; p.updatedAt = updatedAt
         return p
+    }
+}
+
+extension MoneyLent {
+    var dto: MoneyLentDTO {
+        MoneyLentDTO(id: id, borrowerName: borrowerName, contactInfo: contactInfo,
+                     amount: amount, currency: currency, lendingDate: lendingDate,
+                     dueDate: dueDate, notes: notes, statusRaw: status.rawValue,
+                     reminderEnabled: reminderEnabled, reminderDaysBefore: reminderDaysBefore,
+                     color: color, repaymentsData: repaymentsData,
+                     createdAt: createdAt, updatedAt: updatedAt)
+    }
+}
+
+extension MoneyLentDTO {
+    func toModel() -> MoneyLent {
+        let m = MoneyLent(id: id, borrowerName: borrowerName, contactInfo: contactInfo,
+                          amount: amount, currency: currency, lendingDate: lendingDate,
+                          dueDate: dueDate, notes: notes,
+                          status: PersonalDebtStatus(rawValue: statusRaw) ?? .active,
+                          reminderEnabled: reminderEnabled,
+                          reminderDaysBefore: reminderDaysBefore, color: color)
+        m.repaymentsData = repaymentsData
+        m.createdAt = createdAt; m.updatedAt = updatedAt
+        return m
+    }
+}
+
+extension MoneyBorrowed {
+    var dto: MoneyBorrowedDTO {
+        MoneyBorrowedDTO(id: id, lenderName: lenderName, contactInfo: contactInfo,
+                         amount: amount, currency: currency, borrowDate: borrowDate,
+                         dueDate: dueDate, notes: notes, statusRaw: status.rawValue,
+                         reminderEnabled: reminderEnabled, reminderDaysBefore: reminderDaysBefore,
+                         color: color, repaymentsData: repaymentsData,
+                         createdAt: createdAt, updatedAt: updatedAt)
+    }
+}
+
+extension MoneyBorrowedDTO {
+    func toModel() -> MoneyBorrowed {
+        let m = MoneyBorrowed(id: id, lenderName: lenderName, contactInfo: contactInfo,
+                              amount: amount, currency: currency, borrowDate: borrowDate,
+                              dueDate: dueDate, notes: notes,
+                              status: PersonalDebtStatus(rawValue: statusRaw) ?? .active,
+                              reminderEnabled: reminderEnabled,
+                              reminderDaysBefore: reminderDaysBefore, color: color)
+        m.repaymentsData = repaymentsData
+        m.createdAt = createdAt; m.updatedAt = updatedAt
+        return m
     }
 }

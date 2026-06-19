@@ -21,12 +21,15 @@ struct DashboardView: View {
     @Query(filter: #Predicate<SalaryRecord> { $0.isActive }) private var salaryRecords: [SalaryRecord]
     @Query(filter: #Predicate<FreelanceProject> { !$0.isArchived }) private var freelanceProjects: [FreelanceProject]
     @Query(filter: #Predicate<RentalProperty> { $0.isActive }) private var rentalProperties: [RentalProperty]
+    @Query private var moneyLent: [MoneyLent]
+    @Query private var moneyBorrowed: [MoneyBorrowed]
 
     @State private var showingProfile = false
     @State private var showingReports = false
     @State private var showingAI = false
     @State private var showingBills = false
     @State private var showingIncome = false
+    @State private var showingDebt = false
 
     private var baseCurrency: String { appState.baseCurrency }
 
@@ -67,6 +70,7 @@ struct DashboardView: View {
         let b = investments.count &* 19 &+ cryptoHoldings.count &* 23 &+ bnplPlans.count &* 29
         let c = goldHoldings.count &* 37 &+ giftCards.count &* 41 &+ bills.count &* 43
         let d = salaryRecords.count &* 47 &+ freelanceProjects.count &* 53 &+ rentalProperties.count &* 59
+            &+ moneyLent.count &* 61 &+ moneyBorrowed.count &* 67
         return a &+ b &+ c &+ d
     }
 
@@ -189,6 +193,8 @@ struct DashboardView: View {
 
                             incomeOverviewCard
 
+                            debtOverviewCard
+
                             if !metrics.upcomingPayments.isEmpty {
                                 upcomingPaymentsSection
                             }
@@ -220,6 +226,9 @@ struct DashboardView: View {
             }
             .sheet(isPresented: $showingIncome) {
                 IncomeManagementView()
+            }
+            .sheet(isPresented: $showingDebt) {
+                DebtManagementView()
             }
             .task(id: dataStamp) { refreshDashboard() }
             .onAppear { refreshDashboard() }
@@ -520,6 +529,53 @@ struct DashboardView: View {
                             .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
                     } else {
                         Text("Track salary, freelance & rental income")
+                            .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                    }
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(FTColor.textMuted)
+            }
+            .padding(FTSpacing.lg)
+            .ftGlassInteractive(FTRadius.lg)
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Debt Overview Card
+
+    private var debtOverviewCard: some View {
+        let activeLoans = loans.filter { $0.isActive }
+        let activeCards = creditCards.filter { $0.isActive }
+        let totalDebt = activeLoans.reduce(0) {
+            $0 + currencyService.convert($1.outstandingBalance, from: $1.currency, to: baseCurrency)
+        } + activeCards.reduce(0) {
+            $0 + currencyService.convert($1.outstandingBalance, from: $1.currency, to: baseCurrency)
+        }
+        let overdueLoans = activeLoans.filter { $0.nextPaymentDate < Date() }
+        let overdueLent  = moneyLent.filter { !$0.isFullyRepaid && ($0.dueDate ?? .distantFuture) < Date() }
+        let hasAlert     = !overdueLoans.isEmpty || !overdueLent.isEmpty
+        let debtCount    = activeLoans.count + activeCards.count
+
+        return Button { showingDebt = true } label: {
+            HStack(spacing: FTSpacing.md) {
+                FTIconTile(
+                    symbol: hasAlert ? "creditcard.trianglebadge.exclamationmark" : "creditcard.fill",
+                    tint: hasAlert ? FTColor.expense : FTColor.catPurple,
+                    size: 44
+                )
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Debt Management")
+                        .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                    if hasAlert {
+                        Text("\(overdueLoans.count + overdueLent.count) overdue · \(totalDebt.asCompact(currency: baseCurrency)) total")
+                            .font(.ftCaption).foregroundStyle(FTColor.expense)
+                    } else if debtCount > 0 {
+                        Text("\(debtCount) active debt\(debtCount == 1 ? "" : "s") · \(totalDebt.asCompact(currency: baseCurrency)) outstanding")
+                            .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                    } else {
+                        Text("Track loans, cards & personal debts")
                             .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
                     }
                 }

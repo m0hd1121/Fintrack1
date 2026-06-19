@@ -25,6 +25,7 @@ struct BudgetView: View {
     @State private var detailEnvelope: BudgetEnvelope? = nil
     @State private var showingBills = false
     @State private var showingIncome = false
+    @State private var showingDebt = false
 
     private let tabs = ["Monthly", "Annual", "Envelopes", "Zero-Based"]
     private var baseCurrency: String { appState.baseCurrency }
@@ -156,6 +157,9 @@ struct BudgetView: View {
             .sheet(isPresented: $showingIncome) {
                 IncomeManagementView()
             }
+            .sheet(isPresented: $showingDebt) {
+                DebtManagementView()
+            }
             .onAppear {
                 BudgetService.shared.processRollovers(budgets: budgets, transactions: transactions)
                 recommendations = BudgetService.shared.generateRecommendations(
@@ -195,6 +199,9 @@ struct BudgetView: View {
                 }
                 Button { showingIncome = true } label: {
                     Label("Income Management", systemImage: "banknote.fill")
+                }
+                Button { showingDebt = true } label: {
+                    Label("Debt Management", systemImage: "creditcard.trianglebadge.exclamationmark")
                 }
             } label: {
                 Image(systemName: "plus")

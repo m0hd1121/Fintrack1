@@ -162,6 +162,42 @@ final class NotificationService {
         UNUserNotificationCenter.current().add(request)
     }
 
+    // MARK: – Money lent reminder
+    func scheduleLentReminder(id: String, borrowerName: String, amount: Double,
+                              currency: String, dueDate: Date, daysBefore: Int = 3) {
+        schedule(
+            identifier: "lent_\(id)",
+            title: "Repayment Due Soon",
+            body: "\(borrowerName) owes you \(amount.formatted(as: currency)) — due on \(dueDate.formatted).",
+            dueDate: dueDate,
+            daysBefore: daysBefore
+        )
+    }
+
+    // MARK: – Money borrowed reminder
+    func scheduleBorrowedReminder(id: String, lenderName: String, amount: Double,
+                                  currency: String, dueDate: Date, daysBefore: Int = 3) {
+        schedule(
+            identifier: "borrowed_\(id)",
+            title: "Debt Repayment Due",
+            body: "You owe \(lenderName) \(amount.formatted(as: currency)) — due on \(dueDate.formatted).",
+            dueDate: dueDate,
+            daysBefore: daysBefore
+        )
+    }
+
+    // MARK: – Credit utilization alert (immediate)
+    func sendHighUtilizationAlert(cardName: String, utilization: Double) {
+        let content = UNMutableNotificationContent()
+        content.title = "High Credit Utilization ⚠️"
+        content.body = "\(cardName) is at \(Int(utilization * 100))% utilization. Consider paying down the balance to protect your credit score."
+        content.sound = .default
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
+        let id = "utilization_\(cardName.lowercased().replacingOccurrences(of: " ", with: "_"))"
+        let request = UNNotificationRequest(identifier: id, content: content, trigger: trigger)
+        UNUserNotificationCenter.current().add(request)
+    }
+
     // MARK: – Helpers
     func cancelNotification(id: String) {
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [id])
