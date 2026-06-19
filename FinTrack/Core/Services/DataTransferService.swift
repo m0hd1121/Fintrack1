@@ -24,8 +24,9 @@ struct FinTrackBackup: Codable {
     var rentalProperties: [RentalPropertyDTO]?     // v8+
     var moneyLent: [MoneyLentDTO]?          // v9+
     var moneyBorrowed: [MoneyBorrowedDTO]?  // v9+
+    var goldHoldings: [GoldHoldingDTO]?     // v10+
 
-    static let currentVersion = 4
+    static let currentVersion = 5
 }
 
 struct AccountDTO: Codable {
@@ -96,20 +97,34 @@ struct CreditCardDTO: Codable {
 struct InvestmentDTO: Codable {
     var id: UUID; var name: String; var symbol: String; var type: String
     var quantity: Double; var averageCost: Double; var currentPrice: Double
-    var currency: String; var exchange: String?
+    var currency: String; var exchange: String?; var notes: String?
     var purchaseDate: Date; var createdAt: Date; var updatedAt: Date
+    // v10+ additions (optional for backward-compat decoding)
+    var expenseRatio: Double?; var dividendYield: Double?
+    var lotsData: Data?; var salesData: Data?; var realizedPnL: Double?
 }
 
 struct CryptoHoldingDTO: Codable {
     var id: UUID; var name: String; var symbol: String
     var quantity: Double; var averageCost: Double; var currentPrice: Double
-    var currency: String; var walletAddress: String?; var exchange: String?
+    var currency: String; var walletAddress: String?; var exchange: String?; var notes: String?
     var purchaseDate: Date; var createdAt: Date; var updatedAt: Date
+    // v10+ additions
+    var lotsData: Data?; var salesData: Data?; var realizedPnL: Double?
+}
+
+struct GoldHoldingDTO: Codable {
+    var id: UUID; var name: String; var metalRaw: String; var formRaw: String
+    var weightGrams: Double; var weightUnitRaw: String
+    var purchasePricePerGram: Double; var currentPricePerGram: Double
+    var currency: String; var storageLocation: String?; var locationPurchased: String?
+    var isDubaiGoldSoukPurchase: Bool; var purchaseDate: Date
+    var notes: String?; var isArchived: Bool; var createdAt: Date; var updatedAt: Date
 }
 
 struct DividendDTO: Codable {
     var id: UUID; var investmentId: UUID; var amount: Double
-    var currency: String; var date: Date; var notes: String?
+    var currency: String; var date: Date; var paymentDate: Date?; var notes: String?
     var securityName: String?; var exDividendDate: Date?; var taxWithholding: Double?
 }
 
@@ -213,6 +228,7 @@ final class DataTransferService {
         let rentalProps     = try context.fetch(FetchDescriptor<RentalProperty>())
         let lentItems       = try context.fetch(FetchDescriptor<MoneyLent>())
         let borrowedItems   = try context.fetch(FetchDescriptor<MoneyBorrowed>())
+        let goldItems       = try context.fetch(FetchDescriptor<GoldHolding>())
 
         var backup = FinTrackBackup(
             version: FinTrackBackup.currentVersion,
@@ -236,6 +252,7 @@ final class DataTransferService {
         backup.rentalProperties = rentalProps.map(\.dto)
         backup.moneyLent = lentItems.map(\.dto)
         backup.moneyBorrowed = borrowedItems.map(\.dto)
+        backup.goldHoldings = goldItems.map(\.dto)
 
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
@@ -285,6 +302,7 @@ final class DataTransferService {
         let existingRentalIds        = mode == .merge ? Set((try? context.fetch(FetchDescriptor<RentalProperty>()))?.map(\.id) ?? []) : []
         let existingLentIds          = mode == .merge ? Set((try? context.fetch(FetchDescriptor<MoneyLent>()))?.map(\.id) ?? []) : []
         let existingBorrowedIds      = mode == .merge ? Set((try? context.fetch(FetchDescriptor<MoneyBorrowed>()))?.map(\.id) ?? []) : []
+        let existingGoldIds          = mode == .merge ? Set((try? context.fetch(FetchDescriptor<GoldHolding>()))?.map(\.id) ?? []) : []
 
         // Insert accounts first, build id→object map for relationship linking
         var accountMap: [UUID: Account] = [:]
@@ -352,6 +370,9 @@ final class DataTransferService {
         for dto in (backup.moneyBorrowed ?? []) where !existingBorrowedIds.contains(dto.id) {
             context.insert(dto.toModel()); summary.moneyBorrowed += 1
         }
+        for dto in (backup.goldHoldings ?? []) where !existingGoldIds.contains(dto.id) {
+            context.insert(dto.toModel()); summary.goldHoldings += 1
+        }
 
         if mode == .replace {
             if let dto = backup.userProfile  { context.insert(dto.toModel()) }
@@ -381,6 +402,7 @@ final class DataTransferService {
         try context.delete(model: RentalProperty.self)
         try context.delete(model: MoneyLent.self)
         try context.delete(model: MoneyBorrowed.self)
+        try context.delete(model: GoldHolding.self)
         try context.delete(model: UserProfile.self)
         try context.delete(model: AppSettings.self)
         try context.save()
@@ -392,13 +414,13 @@ struct ImportSummary {
     var loans = 0; var creditCards = 0; var investments = 0; var crypto = 0
     var dividends = 0; var bnpl = 0; var bills = 0
     var salaryRecords = 0; var freelanceProjects = 0; var rentalProperties = 0
-    var moneyLent = 0; var moneyBorrowed = 0
+    var moneyLent = 0; var moneyBorrowed = 0; var goldHoldings = 0
 
     var total: Int {
         accounts + transactions + budgets + goals + loans + creditCards
         + investments + crypto + dividends + bnpl + bills
         + salaryRecords + freelanceProjects + rentalProperties
-        + moneyLent + moneyBorrowed
+        + moneyLent + moneyBorrowed + goldHoldings
     }
 
     var description: String {
@@ -418,6 +440,7 @@ struct ImportSummary {
         if rentalProperties > 0  { parts.append("\(rentalProperties) rental properties") }
         if moneyLent > 0         { parts.append("\(moneyLent) money lent records") }
         if moneyBorrowed > 0     { parts.append("\(moneyBorrowed) money borrowed records") }
+        if goldHoldings > 0      { parts.append("\(goldHoldings) gold holdings") }
         return parts.isEmpty ? "Nothing imported" : parts.joined(separator: ", ")
     }
 }
@@ -504,8 +527,12 @@ extension Investment {
     var dto: InvestmentDTO {
         InvestmentDTO(id: id, name: name, symbol: symbol, type: type.rawValue,
                       quantity: quantity, averageCost: averageCost, currentPrice: currentPrice,
-                      currency: currency, exchange: exchange,
-                      purchaseDate: purchaseDate, createdAt: createdAt, updatedAt: updatedAt)
+                      currency: currency, exchange: exchange, notes: notes,
+                      purchaseDate: purchaseDate, createdAt: createdAt, updatedAt: updatedAt,
+                      expenseRatio: expenseRatio, dividendYield: dividendYield,
+                      lotsData: lotsData.isEmpty ? nil : lotsData,
+                      salesData: salesData.isEmpty ? nil : salesData,
+                      realizedPnL: realizedPnL)
     }
 }
 
@@ -514,7 +541,24 @@ extension CryptoHolding {
         CryptoHoldingDTO(id: id, name: name, symbol: symbol,
                          quantity: quantity, averageCost: averageCost, currentPrice: currentPrice,
                          currency: currency, walletAddress: walletAddress, exchange: exchange,
-                         purchaseDate: purchaseDate, createdAt: createdAt, updatedAt: updatedAt)
+                         notes: notes, purchaseDate: purchaseDate,
+                         createdAt: createdAt, updatedAt: updatedAt,
+                         lotsData: lotsData.isEmpty ? nil : lotsData,
+                         salesData: salesData.isEmpty ? nil : salesData,
+                         realizedPnL: realizedPnL)
+    }
+}
+
+extension GoldHolding {
+    var dto: GoldHoldingDTO {
+        GoldHoldingDTO(id: id, name: name, metalRaw: metal.rawValue, formRaw: form.rawValue,
+                       weightGrams: weightGrams, weightUnitRaw: weightUnit.rawValue,
+                       purchasePricePerGram: purchasePricePerGram,
+                       currentPricePerGram: currentPricePerGram, currency: currency,
+                       storageLocation: storageLocation, locationPurchased: locationPurchased,
+                       isDubaiGoldSoukPurchase: isDubaiGoldSoukPurchase,
+                       purchaseDate: purchaseDate, notes: notes, isArchived: isArchived,
+                       createdAt: createdAt, updatedAt: updatedAt)
     }
 }
 
@@ -678,7 +722,12 @@ extension InvestmentDTO {
                            type: InvestmentType(rawValue: type) ?? .stock,
                            quantity: quantity, averageCost: averageCost,
                            currentPrice: currentPrice, currency: currency,
-                           exchange: exchange, purchaseDate: purchaseDate)
+                           exchange: exchange, notes: notes, purchaseDate: purchaseDate,
+                           expenseRatio: expenseRatio ?? 0,
+                           dividendYield: dividendYield ?? 0,
+                           realizedPnL: realizedPnL ?? 0)
+        if let ld = lotsData  { i.lotsData  = ld }
+        if let sd = salesData { i.salesData = sd }
         i.createdAt = createdAt; i.updatedAt = updatedAt
         return i
     }
@@ -690,18 +739,37 @@ extension CryptoHoldingDTO {
                               quantity: quantity, averageCost: averageCost,
                               currentPrice: currentPrice, currency: currency,
                               walletAddress: walletAddress, exchange: exchange,
-                              purchaseDate: purchaseDate)
+                              notes: notes, purchaseDate: purchaseDate,
+                              realizedPnL: realizedPnL ?? 0)
+        if let ld = lotsData  { c.lotsData  = ld }
+        if let sd = salesData { c.salesData = sd }
         c.createdAt = createdAt; c.updatedAt = updatedAt
         return c
+    }
+}
+
+extension GoldHoldingDTO {
+    func toModel() -> GoldHolding {
+        GoldHolding(id: id, name: name,
+                    metal: PreciousMetal(rawValue: metalRaw) ?? .gold,
+                    form: GoldForm(rawValue: formRaw) ?? .bar,
+                    weightGrams: weightGrams,
+                    weightUnit: WeightUnit(rawValue: weightUnitRaw) ?? .grams,
+                    purchasePricePerGram: purchasePricePerGram,
+                    currentPricePerGram: currentPricePerGram,
+                    currency: currency, storageLocation: storageLocation,
+                    locationPurchased: locationPurchased,
+                    isDubaiGoldSoukPurchase: isDubaiGoldSoukPurchase,
+                    purchaseDate: purchaseDate, notes: notes, isArchived: isArchived)
     }
 }
 
 extension DividendDTO {
     func toModel() -> Dividend {
         Dividend(id: id, investmentId: investmentId, amount: amount,
-                 currency: currency, date: date, notes: notes,
-                 securityName: securityName, exDividendDate: exDividendDate,
-                 taxWithholding: taxWithholding ?? 0)
+                 currency: currency, date: date, paymentDate: paymentDate,
+                 notes: notes, securityName: securityName,
+                 exDividendDate: exDividendDate, taxWithholding: taxWithholding ?? 0)
     }
 }
 

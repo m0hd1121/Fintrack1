@@ -30,6 +30,7 @@ struct DashboardView: View {
     @State private var showingBills = false
     @State private var showingIncome = false
     @State private var showingDebt = false
+    @State private var showingPortfolio = false
 
     private var baseCurrency: String { appState.baseCurrency }
 
@@ -193,6 +194,8 @@ struct DashboardView: View {
 
                             incomeOverviewCard
 
+                            portfolioOverviewCard
+
                             debtOverviewCard
 
                             if !metrics.upcomingPayments.isEmpty {
@@ -229,6 +232,9 @@ struct DashboardView: View {
             }
             .sheet(isPresented: $showingDebt) {
                 DebtManagementView()
+            }
+            .sheet(isPresented: $showingPortfolio) {
+                InvestmentPortfolioView()
             }
             .task(id: dataStamp) { refreshDashboard() }
             .onAppear { refreshDashboard() }
@@ -576,6 +582,49 @@ struct DashboardView: View {
                             .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
                     } else {
                         Text("Track loans, cards & personal debts")
+                            .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                    }
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(FTColor.textMuted)
+            }
+            .padding(FTSpacing.lg)
+            .ftGlassInteractive(FTRadius.lg)
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Portfolio Overview Card
+
+    private var portfolioOverviewCard: some View {
+        let svc = InvestmentService.shared
+        let totalVal = svc.totalValue(
+            investments: investments, cryptos: cryptoHoldings,
+            golds: goldHoldings, currencyService: currencyService,
+            baseCurrency: baseCurrency)
+        let pnl = svc.unrealizedPnL(
+            investments: investments, cryptos: cryptoHoldings,
+            golds: goldHoldings, currencyService: currencyService,
+            baseCurrency: baseCurrency)
+        let isGain = pnl >= 0
+        let assetCount = investments.count + cryptoHoldings.count + goldHoldings.filter { !$0.isArchived }.count
+
+        return Button { showingPortfolio = true } label: {
+            HStack(spacing: FTSpacing.md) {
+                FTIconTile(symbol: "chart.line.uptrend.xyaxis.circle.fill",
+                           tint: isGain ? FTColor.income : FTColor.expense,
+                           size: 44)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Investment Portfolio")
+                        .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                    if assetCount > 0 {
+                        Text("\(assetCount) asset\(assetCount == 1 ? "" : "s") · \(totalVal.asCompact(currency: baseCurrency)) · \(isGain ? "+" : "")\(pnl.asCompact(currency: baseCurrency)) P&L")
+                            .font(.ftCaption)
+                            .foregroundStyle(isGain ? FTColor.income : FTColor.expense)
+                    } else {
+                        Text("Track stocks, crypto, gold & more")
                             .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
                     }
                 }

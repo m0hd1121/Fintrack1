@@ -35,6 +35,8 @@ struct ReportsView: View {
     @Query private var accounts: [Account]
     @Query private var investments: [Investment]
     @Query private var cryptoHoldings: [CryptoHolding]
+    @Query private var goldHoldings: [GoldHolding]
+    @Query private var dividends: [Dividend]
     @Query private var loans: [Loan]
     @Query private var creditCards: [CreditCard]
     @Query private var moneyLent: [MoneyLent]
@@ -127,6 +129,14 @@ struct ReportsView: View {
                                 SpendingReport(transactions: filteredTransactions, currency: baseCurrency)
                             case .income:
                                 IncomeReport(transactions: filteredTransactions, currency: baseCurrency)
+                            case .investments:
+                                InvestmentReport(
+                                    investments: investments,
+                                    cryptos: cryptoHoldings,
+                                    golds: goldHoldings,
+                                    dividends: dividends,
+                                    currency: baseCurrency
+                                )
                             case .debt:
                                 DebtReport(
                                     loans: loans,
@@ -168,12 +178,13 @@ enum ReportPeriod: String, CaseIterable {
 }
 
 enum ReportType: String, CaseIterable {
-    case cashFlow = "Cash Flow"
-    case spending = "Spending"
-    case income = "Income"
-    case debt = "Debt"
-    case netWorth = "Net Worth"
-    case trends = "Trends"
+    case cashFlow    = "Cash Flow"
+    case spending    = "Spending"
+    case income      = "Income"
+    case investments = "Investments"
+    case debt        = "Debt"
+    case netWorth    = "Net Worth"
+    case trends      = "Trends"
 }
 
 // MARK: - Cash Flow Report
@@ -917,5 +928,193 @@ struct DebtReport: View {
             FTProgressBar(value: total > 0 ? amount / total : 0, color: color)
         }
         .padding(.vertical, FTSpacing.md)
+    }
+}
+
+// MARK: - Investment Report
+
+struct InvestmentReport: View {
+    @Environment(CurrencyService.self) private var currencyService
+    @Environment(AppState.self) private var appState
+
+    let investments: [Investment]
+    let cryptos: [CryptoHolding]
+    let golds: [GoldHolding]
+    let dividends: [Dividend]
+    let currency: String
+
+    private var svc: InvestmentService { .shared }
+    private var baseCurrency: String { appState.baseCurrency }
+
+    private var totalValue: Double {
+        svc.totalValue(investments: investments, cryptos: cryptos, golds: golds,
+                       currencyService: currencyService, baseCurrency: baseCurrency)
+    }
+    private var totalCost: Double {
+        svc.totalCost(investments: investments, cryptos: cryptos, golds: golds,
+                      currencyService: currencyService, baseCurrency: baseCurrency)
+    }
+    private var unrealizedPnL: Double { totalValue - totalCost }
+    private var realizedPnL: Double {
+        svc.totalRealizedPnL(investments: investments, cryptos: cryptos,
+                             currencyService: currencyService, baseCurrency: baseCurrency)
+    }
+    private var annualDividends: Double {
+        svc.annualDividendIncome(dividends: dividends, currencyService: currencyService,
+                                 baseCurrency: baseCurrency)
+    }
+    private var gainsSummary: CapitalGainsSummary {
+        svc.capitalGainsSummary(investments: investments, cryptos: cryptos,
+                                currencyService: currencyService, baseCurrency: baseCurrency)
+    }
+    private var allocationSlices: [AllocationSlice] {
+        svc.allocationSlices(investments: investments, cryptos: cryptos, golds: golds,
+                             accounts: [], currencyService: currencyService,
+                             baseCurrency: baseCurrency)
+    }
+    private var portfolioReturn: Double {
+        svc.portfolioReturn(investments: investments, cryptos: cryptos, golds: golds,
+                            currencyService: currencyService, baseCurrency: baseCurrency)
+    }
+
+    var body: some View {
+        VStack(spacing: FTSpacing.lg) {
+            // Summary cards
+            portfolioSummarySection
+            // Allocation donut
+            if !allocationSlices.isEmpty { allocationSection }
+            // Capital gains
+            capitalGainsSection
+            // Dividends
+            if annualDividends > 0 { dividendSection }
+        }
+    }
+
+    private var portfolioSummarySection: some View {
+        VStack(alignment: .leading, spacing: FTSpacing.md) {
+            Text("Portfolio Summary")
+                .font(.ftHeadline).foregroundStyle(FTColor.textPrimary)
+            VStack(spacing: 0) {
+                summaryRow(label: "Total Value", value: totalValue, highlight: false)
+                Divider().padding(.leading, 16)
+                summaryRow(label: "Total Cost", value: totalCost, highlight: false)
+                Divider().padding(.leading, 16)
+                summaryRow(label: "Unrealized P&L", value: unrealizedPnL, highlight: true)
+                Divider().padding(.leading, 16)
+                summaryRow(label: "Realized P&L", value: realizedPnL, highlight: true)
+                Divider().padding(.leading, 16)
+                HStack {
+                    Text("Total Return").font(.ftBody).foregroundStyle(FTColor.textSecondary)
+                    Spacer()
+                    Text(portfolioReturn.asPercentage(decimals: 2))
+                        .font(.ftBodySemibold)
+                        .foregroundStyle(portfolioReturn >= 0 ? FTColor.income : FTColor.expense)
+                }
+                .padding(.horizontal, FTSpacing.lg)
+                .padding(.vertical, FTSpacing.md)
+            }
+            .ftGlass(FTRadius.lg)
+        }
+    }
+
+    private func summaryRow(label: String, value: Double, highlight: Bool) -> some View {
+        HStack {
+            Text(label).font(.ftBody).foregroundStyle(FTColor.textSecondary)
+            Spacer()
+            Text(value.formatted(as: baseCurrency))
+                .font(.ftBodySemibold)
+                .foregroundStyle(highlight ? (value >= 0 ? FTColor.income : FTColor.expense) : FTColor.textPrimary)
+        }
+        .padding(.horizontal, FTSpacing.lg)
+        .padding(.vertical, FTSpacing.md)
+    }
+
+    private var allocationSection: some View {
+        VStack(alignment: .leading, spacing: FTSpacing.md) {
+            Text("Asset Allocation")
+                .font(.ftHeadline).foregroundStyle(FTColor.textPrimary)
+            Chart(allocationSlices) { slice in
+                SectorMark(
+                    angle: .value("Value", slice.value),
+                    innerRadius: .ratio(0.55),
+                    angularInset: 2
+                )
+                .foregroundStyle(slice.color)
+                .cornerRadius(4)
+            }
+            .frame(height: 200)
+            .padding(.vertical, FTSpacing.sm)
+
+            VStack(spacing: 0) {
+                ForEach(Array(allocationSlices.enumerated()), id: \.element.id) { idx, slice in
+                    HStack(spacing: FTSpacing.md) {
+                        Circle().fill(slice.color).frame(width: 10, height: 10)
+                        Text(slice.label).font(.ftBody).foregroundStyle(FTColor.textPrimary)
+                        Spacer()
+                        Text(slice.value.asCompact(currency: baseCurrency))
+                            .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                        Text(slice.percentage.asPercentage())
+                            .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                            .frame(width: 52, alignment: .trailing)
+                    }
+                    .padding(.horizontal, FTSpacing.lg)
+                    .padding(.vertical, FTSpacing.md)
+                    if idx < allocationSlices.count - 1 {
+                        Divider().padding(.leading, 42)
+                    }
+                }
+            }
+            .ftGlass(FTRadius.lg)
+        }
+    }
+
+    private var capitalGainsSection: some View {
+        let s = gainsSummary
+        return VStack(alignment: .leading, spacing: FTSpacing.md) {
+            Text("Capital Gains").font(.ftHeadline).foregroundStyle(FTColor.textPrimary)
+            VStack(spacing: 0) {
+                gainRow(label: "Realized Gain", value: s.totalRealizedGain, color: FTColor.income)
+                Divider().padding(.leading, 16)
+                gainRow(label: "Realized Loss", value: -s.totalRealizedLoss, color: FTColor.expense)
+                Divider().padding(.leading, 16)
+                gainRow(label: "Net Realized", value: s.netRealized, color: s.netRealized >= 0 ? FTColor.income : FTColor.expense)
+                Divider().padding(.leading, 16)
+                gainRow(label: "Short-term Gain", value: s.shortTermGain, color: FTColor.catCoral)
+                Divider().padding(.leading, 16)
+                gainRow(label: "Long-term Gain", value: s.longTermGain, color: FTColor.income)
+                Divider().padding(.leading, 16)
+                gainRow(label: "Unrealized", value: s.totalUnrealized, color: s.totalUnrealized >= 0 ? FTColor.income : FTColor.expense)
+            }
+            .ftGlass(FTRadius.lg)
+        }
+    }
+
+    private func gainRow(label: String, value: Double, color: Color) -> some View {
+        HStack {
+            Text(label).font(.ftBody).foregroundStyle(FTColor.textSecondary)
+            Spacer()
+            Text(value.formatted(as: baseCurrency))
+                .font(.ftBodySemibold).foregroundStyle(color)
+        }
+        .padding(.horizontal, FTSpacing.lg)
+        .padding(.vertical, FTSpacing.md)
+    }
+
+    private var dividendSection: some View {
+        VStack(alignment: .leading, spacing: FTSpacing.md) {
+            Text("Dividend Income").font(.ftHeadline).foregroundStyle(FTColor.textPrimary)
+            HStack {
+                FTIconTile(symbol: "dollarsign.circle.fill", tint: FTColor.income, size: 40)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("YTD Dividends")
+                        .font(.ftBody).foregroundStyle(FTColor.textSecondary)
+                    Text(annualDividends.formatted(as: baseCurrency))
+                        .font(.ftTitle).foregroundStyle(FTColor.income)
+                }
+                Spacer()
+            }
+            .padding(FTSpacing.lg)
+            .ftGlass(FTRadius.lg)
+        }
     }
 }

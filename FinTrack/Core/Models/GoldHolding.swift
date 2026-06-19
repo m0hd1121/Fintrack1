@@ -7,16 +7,21 @@ final class GoldHolding {
     var name: String
     var metal: PreciousMetal
     var form: GoldForm
-    var weightGrams: Double             // Weight in grams
+    var weightGrams: Double             // Always stored in grams for consistency
+    var weightUnit: WeightUnit          // Preferred display unit
     var purchasePricePerGram: Double    // Price paid per gram
-    var currentPricePerGram: Double     // Live/manually updated price per gram
+    var currentPricePerGram: Double     // Live / manually-updated price per gram
     var currency: String
-    var storageLocation: String?        // "Home", "Bank Safe", "Vault", etc.
+    var storageLocation: String?
+    var locationPurchased: String?      // e.g. "Dubai Gold Souk"
+    var isDubaiGoldSoukPurchase: Bool   // Badge flag for Dubai Gold Souk purchases
     var purchaseDate: Date
     var notes: String?
     var isArchived: Bool
     var createdAt: Date
     var updatedAt: Date
+
+    // MARK: - Computed
 
     var totalCost: Double { weightGrams * purchasePricePerGram }
     var currentValue: Double { weightGrams * currentPricePerGram }
@@ -24,16 +29,28 @@ final class GoldHolding {
     var profitLossPercent: Double { totalCost > 0 ? (profitLoss / totalCost) * 100 : 0 }
     var isProfit: Bool { profitLoss >= 0 }
 
+    /// Weight displayed in the user's preferred unit.
+    var weightInPreferredUnit: Double { weightUnit.fromGrams(weightGrams) }
+
+    /// Purchase price per preferred weight unit.
+    var purchasePricePerPreferredUnit: Double { purchasePricePerGram * weightUnit.toGrams(1.0) }
+
+    /// Current price per preferred weight unit.
+    var currentPricePerPreferredUnit: Double { currentPricePerGram * weightUnit.toGrams(1.0) }
+
     init(
         id: UUID = UUID(),
         name: String,
         metal: PreciousMetal = .gold,
         form: GoldForm = .bar,
         weightGrams: Double,
+        weightUnit: WeightUnit = .grams,
         purchasePricePerGram: Double,
         currentPricePerGram: Double,
         currency: String = "AED",
         storageLocation: String? = nil,
+        locationPurchased: String? = nil,
+        isDubaiGoldSoukPurchase: Bool = false,
         purchaseDate: Date = Date(),
         notes: String? = nil,
         isArchived: Bool = false
@@ -43,10 +60,13 @@ final class GoldHolding {
         self.metal = metal
         self.form = form
         self.weightGrams = weightGrams
+        self.weightUnit = weightUnit
         self.purchasePricePerGram = purchasePricePerGram
         self.currentPricePerGram = currentPricePerGram
         self.currency = currency
         self.storageLocation = storageLocation
+        self.locationPurchased = locationPurchased
+        self.isDubaiGoldSoukPurchase = isDubaiGoldSoukPurchase
         self.purchaseDate = purchaseDate
         self.notes = notes
         self.isArchived = isArchived
@@ -54,6 +74,8 @@ final class GoldHolding {
         self.updatedAt = Date()
     }
 }
+
+// MARK: - PreciousMetal
 
 enum PreciousMetal: String, Codable, CaseIterable {
     case gold      = "Gold"
@@ -88,7 +110,7 @@ enum PreciousMetal: String, Codable, CaseIterable {
         }
     }
 
-    /// Approximate reference price per gram in USD (user should update manually)
+    /// Reference price per gram in USD (for onboarding default; user updates manually).
     var referencePriceUSD: Double {
         switch self {
         case .gold:      return 95.0
@@ -99,12 +121,14 @@ enum PreciousMetal: String, Codable, CaseIterable {
     }
 }
 
+// MARK: - GoldForm
+
 enum GoldForm: String, Codable, CaseIterable {
-    case bar      = "Bar"
-    case coin     = "Coin"
-    case jewelry  = "Jewelry"
-    case etf      = "ETF"
-    case other    = "Other"
+    case bar     = "Bar"
+    case coin    = "Coin"
+    case jewelry = "Jewelry"
+    case etf     = "ETF"
+    case other   = "Other"
 
     var icon: String {
         switch self {
