@@ -23,6 +23,7 @@ struct BudgetView: View {
     @State private var recommendations: [BudgetRecommendation] = []
     @State private var detailBudget: Budget? = nil
     @State private var detailEnvelope: BudgetEnvelope? = nil
+    @State private var showingBills = false
 
     private let tabs = ["Monthly", "Annual", "Envelopes", "Zero-Based"]
     private var baseCurrency: String { appState.baseCurrency }
@@ -148,6 +149,9 @@ struct BudgetView: View {
             .sheet(item: $detailEnvelope) { env in
                 EnvelopeDetailView(envelope: env, transactions: transactions)
             }
+            .sheet(isPresented: $showingBills) {
+                BillsView()
+            }
             .onAppear {
                 BudgetService.shared.processRollovers(budgets: budgets, transactions: transactions)
                 recommendations = BudgetService.shared.generateRecommendations(
@@ -180,6 +184,10 @@ struct BudgetView: View {
                 }
                 Button { showingRecommendations = true } label: {
                     Label("AI Recommendations", systemImage: "sparkles")
+                }
+                Divider()
+                Button { showingBills = true } label: {
+                    Label("Bills & Subscriptions", systemImage: "calendar.badge.clock")
                 }
             } label: {
                 Image(systemName: "plus")

@@ -10,6 +10,7 @@ struct UpcomingPaymentsView: View {
     @Query(filter: #Predicate<CreditCard> { $0.isActive }) private var creditCards: [CreditCard]
     @Query(filter: #Predicate<BNPLPlan> { !$0.isCompleted }) private var bnplPlans: [BNPLPlan]
     @Query(filter: #Predicate<Transaction> { $0.isRecurring }) private var recurringExpenses: [Transaction]
+    @Query(filter: #Predicate<Bill> { $0.isActive }) private var bills: [Bill]
 
     @State private var selectedRange: DateRangeFilter = .month
     @State private var customStart = Date()
@@ -58,13 +59,14 @@ struct UpcomingPaymentsView: View {
         let isOverdue: Bool
 
         enum SourceType {
-            case loan, creditCard, bnpl, recurring
+            case loan, creditCard, bnpl, recurring, bill
             var label: String {
                 switch self {
                 case .loan: return "Loan"
                 case .creditCard: return "Credit Card"
                 case .bnpl: return "BNPL"
                 case .recurring: return "Recurring"
+                case .bill: return "Bill"
                 }
             }
             var icon: String {
@@ -73,6 +75,7 @@ struct UpcomingPaymentsView: View {
                 case .creditCard: return "creditcard.fill"
                 case .bnpl: return "cart"
                 case .recurring: return "repeat"
+                case .bill: return "calendar.badge.exclamationmark"
                 }
             }
             var color: Color {
@@ -81,6 +84,7 @@ struct UpcomingPaymentsView: View {
                 case .creditCard: return .purple
                 case .bnpl: return .orange
                 case .recurring: return .teal
+                case .bill: return Color.fromString("teal")
                 }
             }
         }
@@ -152,6 +156,22 @@ struct UpcomingPaymentsView: View {
                     currency: baseCurrency,
                     date: rule.nextDueDate,
                     sourceType: .recurring,
+                    isOverdue: overdue
+                ))
+            }
+        }
+
+        // Bills & Subscriptions
+        for bill in bills {
+            let overdue = bill.nextDueDate < today
+            if bill.nextDueDate <= rangeEnd || overdue {
+                result.append(UpcomingPayment(
+                    name: bill.name,
+                    subtitle: bill.provider ?? bill.billCategory.rawValue,
+                    amount: currencyService.convert(bill.amount, from: bill.currency, to: baseCurrency),
+                    currency: baseCurrency,
+                    date: bill.nextDueDate,
+                    sourceType: .bill,
                     isOverdue: overdue
                 ))
             }

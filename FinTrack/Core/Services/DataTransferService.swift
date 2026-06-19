@@ -18,8 +18,9 @@ struct FinTrackBackup: Codable {
     let bnplPlans: [BNPLPlanDTO]
     let userProfile: UserProfileDTO?
     let appSettings: AppSettingsDTO?
+    var bills: [BillDTO]?       // v7+ addition (optional for backward-compatible decoding)
 
-    static let currentVersion = 1
+    static let currentVersion = 2
 }
 
 struct AccountDTO: Codable {
@@ -129,6 +130,16 @@ struct AppSettingsDTO: Codable {
     var cloudSyncEnabled: Bool; var theme: String; var accentColor: String
 }
 
+struct BillDTO: Codable {
+    var id: UUID; var name: String; var provider: String?
+    var billCategoryRaw: String; var amount: Double; var currency: String
+    var billingCycleRaw: String; var nextDueDate: Date; var isAutoPay: Bool
+    var autoPayWindowDays: Int; var paymentMethodRaw: String; var notes: String?
+    var colorName: String; var icon: String; var isActive: Bool; var isSubscription: Bool
+    var reminderDaysBefore: [Int]; var priceHistory: [PriceHistoryEntry]
+    var lastPaidDate: Date?; var lastPaidAmount: Double?; var createdAt: Date
+}
+
 // MARK: - Service
 
 @MainActor
@@ -151,8 +162,9 @@ final class DataTransferService {
         let bnpl         = try context.fetch(FetchDescriptor<BNPLPlan>())
         let profiles     = try context.fetch(FetchDescriptor<UserProfile>())
         let settings     = try context.fetch(FetchDescriptor<AppSettings>())
+        let bills        = try context.fetch(FetchDescriptor<Bill>())
 
-        let backup = FinTrackBackup(
+        var backup = FinTrackBackup(
             version: FinTrackBackup.currentVersion,
             exportedAt: Date(),
             accounts: accounts.map(\.dto),
@@ -168,6 +180,7 @@ final class DataTransferService {
             userProfile: profiles.first?.dto,
             appSettings: settings.first?.dto
         )
+        backup.bills = bills.map(\.dto)
 
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
@@ -211,6 +224,7 @@ final class DataTransferService {
         let existingInvestmentIds = mode == .merge ? Set((try? context.fetch(FetchDescriptor<Investment>()))?.map(\.id) ?? []) : []
         let existingCryptoIds     = mode == .merge ? Set((try? context.fetch(FetchDescriptor<CryptoHolding>()))?.map(\.id) ?? []) : []
         let existingBNPLIds       = mode == .merge ? Set((try? context.fetch(FetchDescriptor<BNPLPlan>()))?.map(\.id) ?? []) : []
+        let existingBillIds       = mode == .merge ? Set((try? context.fetch(FetchDescriptor<Bill>()))?.map(\.id) ?? []) : []
 
         // Insert accounts first, build id→object map for relationship linking
         var accountMap: [UUID: Account] = [:]
@@ -260,6 +274,9 @@ final class DataTransferService {
         for dto in backup.bnplPlans where !existingBNPLIds.contains(dto.id) {
             context.insert(dto.toModel()); summary.bnpl += 1
         }
+        for dto in (backup.bills ?? []) where !existingBillIds.contains(dto.id) {
+            context.insert(dto.toModel()); summary.bills += 1
+        }
 
         if mode == .replace {
             if let dto = backup.userProfile  { context.insert(dto.toModel()) }
@@ -283,6 +300,7 @@ final class DataTransferService {
         try context.delete(model: CryptoHolding.self)
         try context.delete(model: Dividend.self)
         try context.delete(model: BNPLPlan.self)
+        try context.delete(model: Bill.self)
         try context.delete(model: UserProfile.self)
         try context.delete(model: AppSettings.self)
         try context.save()
@@ -292,9 +310,9 @@ final class DataTransferService {
 struct ImportSummary {
     var accounts = 0; var transactions = 0; var budgets = 0; var goals = 0
     var loans = 0; var creditCards = 0; var investments = 0; var crypto = 0
-    var dividends = 0; var bnpl = 0
+    var dividends = 0; var bnpl = 0; var bills = 0
 
-    var total: Int { accounts + transactions + budgets + goals + loans + creditCards + investments + crypto + dividends + bnpl }
+    var total: Int { accounts + transactions + budgets + goals + loans + creditCards + investments + crypto + dividends + bnpl + bills }
 
     var description: String {
         var parts: [String] = []
@@ -307,6 +325,7 @@ struct ImportSummary {
         if investments > 0  { parts.append("\(investments) investments") }
         if crypto > 0       { parts.append("\(crypto) crypto") }
         if bnpl > 0         { parts.append("\(bnpl) BNPL plans") }
+        if bills > 0        { parts.append("\(bills) bills") }
         return parts.isEmpty ? "Nothing imported" : parts.joined(separator: ", ")
     }
 }
@@ -432,6 +451,20 @@ extension UserProfile {
                        language: language.rawValue, monthlyIncomeGoal: monthlyIncomeGoal,
                        monthlySavingsGoal: monthlySavingsGoal, joinDate: joinDate,
                        isPremium: isPremium, hasCompletedOnboarding: hasCompletedOnboarding)
+    }
+}
+
+extension Bill {
+    var dto: BillDTO {
+        BillDTO(id: id, name: name, provider: provider,
+                billCategoryRaw: billCategoryRaw, amount: amount, currency: currency,
+                billingCycleRaw: billingCycleRaw, nextDueDate: nextDueDate,
+                isAutoPay: isAutoPay, autoPayWindowDays: autoPayWindowDays,
+                paymentMethodRaw: paymentMethodRaw, notes: notes,
+                colorName: colorName, icon: icon, isActive: isActive,
+                isSubscription: isSubscription, reminderDaysBefore: reminderDaysBefore,
+                priceHistory: priceHistory, lastPaidDate: lastPaidDate,
+                lastPaidAmount: lastPaidAmount, createdAt: createdAt)
     }
 }
 
@@ -601,6 +634,26 @@ extension UserProfileDTO {
         p.hasCompletedOnboarding = hasCompletedOnboarding
         p.joinDate = joinDate
         return p
+    }
+}
+
+extension BillDTO {
+    func toModel() -> Bill {
+        let b = Bill(id: id, name: name, provider: provider,
+                     billCategory: BillCategory(rawValue: billCategoryRaw) ?? .other,
+                     amount: amount, currency: currency,
+                     billingCycle: BillingCycle(rawValue: billingCycleRaw) ?? .monthly,
+                     nextDueDate: nextDueDate, isAutoPay: isAutoPay,
+                     autoPayWindowDays: autoPayWindowDays,
+                     paymentMethod: PaymentMethod(rawValue: paymentMethodRaw) ?? .bankTransfer,
+                     notes: notes, colorName: colorName, icon: icon,
+                     isActive: isActive, isSubscription: isSubscription,
+                     reminderDaysBefore: reminderDaysBefore)
+        b.priceHistory = priceHistory
+        b.lastPaidDate = lastPaidDate
+        b.lastPaidAmount = lastPaidAmount
+        b.createdAt = createdAt
+        return b
     }
 }
 

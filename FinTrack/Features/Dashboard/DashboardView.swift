@@ -17,10 +17,12 @@ struct DashboardView: View {
     @Query private var budgets: [Budget]
     @Query private var goldHoldings: [GoldHolding]
     @Query private var giftCards: [GiftCard]
+    @Query(filter: #Predicate<Bill> { $0.isActive }) private var bills: [Bill]
 
     @State private var showingProfile = false
     @State private var showingReports = false
     @State private var showingAI = false
+    @State private var showingBills = false
 
     private var baseCurrency: String { appState.baseCurrency }
 
@@ -59,7 +61,7 @@ struct DashboardView: View {
     private var dataStamp: Int {
         let a = transactions.count &* 31 &+ accounts.count &* 7 &+ loans.count &* 13 &+ creditCards.count &* 17
         let b = investments.count &* 19 &+ cryptoHoldings.count &* 23 &+ bnplPlans.count &* 29
-        let c = goldHoldings.count &* 37 &+ giftCards.count &* 41
+        let c = goldHoldings.count &* 37 &+ giftCards.count &* 41 &+ bills.count &* 43
         return a &+ b &+ c
     }
 
@@ -122,6 +124,9 @@ struct DashboardView: View {
         bnplPlans.filter { !$0.isCompleted }.forEach { plan in
             payments.append((plan.name, plan.installmentAmount, plan.nextPaymentDate, "BNPL"))
         }
+        bills.forEach { bill in
+            payments.append((bill.name, currencyService.convert(bill.amount, from: bill.currency, to: baseCurrency), bill.nextDueDate, "Bill"))
+        }
         m.upcomingPayments = payments.sorted { $0.date < $1.date }.prefix(5).map { $0 }
 
         m.recentTransactions = transactions
@@ -173,6 +178,10 @@ struct DashboardView: View {
                                 spendingChartSection
                             }
 
+                            if !bills.isEmpty {
+                                billsAlertCard
+                            }
+
                             if !metrics.upcomingPayments.isEmpty {
                                 upcomingPaymentsSection
                             }
@@ -198,6 +207,9 @@ struct DashboardView: View {
             }
             .sheet(isPresented: $showingAI) {
                 AIAssistantView()
+            }
+            .sheet(isPresented: $showingBills) {
+                BillsView()
             }
             .task(id: dataStamp) { refreshDashboard() }
             .onAppear { refreshDashboard() }
@@ -420,6 +432,45 @@ struct DashboardView: View {
             }
             .ftGlass(FTRadius.xl)
         }
+    }
+
+    // MARK: - Bills Alert Card
+
+    private var billsAlertCard: some View {
+        let overdueBills = bills.filter { $0.isOverdue }
+        let dueSoonBills = bills.filter { !$0.isOverdue && $0.daysUntilDue <= 7 }
+        let totalMonthly = bills.reduce(0) { $0 + $1.monthlyEquivalent }
+
+        return Button { showingBills = true } label: {
+            HStack(spacing: FTSpacing.md) {
+                FTIconTile(
+                    symbol: overdueBills.isEmpty ? "calendar.badge.clock" : "calendar.badge.exclamationmark",
+                    tint: overdueBills.isEmpty ? FTColor.accent : FTColor.expense,
+                    size: 44
+                )
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Bills & Subscriptions")
+                        .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                    if !overdueBills.isEmpty {
+                        Text("\(overdueBills.count) overdue · \(totalMonthly.formatted(as: baseCurrency))/mo")
+                            .font(.ftCaption).foregroundStyle(FTColor.expense)
+                    } else if !dueSoonBills.isEmpty {
+                        Text("\(dueSoonBills.count) due soon · \(totalMonthly.formatted(as: baseCurrency))/mo")
+                            .font(.ftCaption).foregroundStyle(.orange)
+                    } else {
+                        Text("\(bills.count) active · \(totalMonthly.formatted(as: baseCurrency))/mo")
+                            .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                    }
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(FTColor.textMuted)
+            }
+            .padding(FTSpacing.lg)
+            .ftGlassInteractive(FTRadius.lg)
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Upcoming Payments

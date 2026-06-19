@@ -7,6 +7,8 @@ struct RootView: View {
     @Query private var settings: [AppSettings]
     @Query(filter: #Predicate<Transaction> { $0.isRecurring }) private var recurringTxs: [Transaction]
     @Query(filter: #Predicate<Transaction> { $0.isScheduled }) private var scheduledTxs: [Transaction]
+    @Query private var bills: [Bill]
+    @Query private var allTransactions: [Transaction]
     @Environment(\.modelContext) private var context
     @Environment(\.scenePhase) private var scenePhase
     @Environment(CurrencyService.self) private var currencyService
@@ -40,6 +42,7 @@ struct RootView: View {
             }
             processRecurringTransactions()
             processScheduledTransactions()
+            processBillAlerts()
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .background,
@@ -51,6 +54,7 @@ struct RootView: View {
             if phase == .active {
                 processRecurringTransactions()
                 processScheduledTransactions()
+                processBillAlerts()
             }
         }
     }
@@ -75,6 +79,13 @@ struct RootView: View {
             didChange = true
         }
         if didChange { try? context.save() }
+    }
+
+    private func processBillAlerts() {
+        let currency = appState.baseCurrency
+        BillService.shared.scheduleAllReminders(for: bills)
+        BillService.shared.checkAllAlerts(bills: bills, transactions: allTransactions, currency: currency)
+        if context.hasChanges { try? context.save() }
     }
 
     private func ensureDefaults() {
