@@ -129,6 +129,13 @@ final class Transaction {
     var chequeNumber: String?
     var chequeDate: Date?
 
+    // Tax flags
+    var isTaxDeductible: Bool
+    var isVATReclaimable: Bool
+
+    // Custom category override (references CustomCategory.id)
+    var customCategoryID: UUID?
+
     init(
         id: UUID = UUID(),
         title: String,
@@ -157,7 +164,10 @@ final class Transaction {
         splitItems: [SplitItem] = [],
         incomeSource: String? = nil,
         latitude: Double? = nil,
-        longitude: Double? = nil
+        longitude: Double? = nil,
+        isTaxDeductible: Bool = false,
+        isVATReclaimable: Bool = false,
+        customCategoryID: UUID? = nil
     ) {
         self.id = id
         self.title = title
@@ -187,6 +197,9 @@ final class Transaction {
         self.incomeSource = incomeSource
         self.latitude = latitude
         self.longitude = longitude
+        self.isTaxDeductible = isTaxDeductible
+        self.isVATReclaimable = isVATReclaimable
+        self.customCategoryID = customCategoryID
         self.documents = []
         self.createdAt = Date()
         self.updatedAt = Date()

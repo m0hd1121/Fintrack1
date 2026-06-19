@@ -8,6 +8,7 @@ struct CSVImportView: View {
     @Environment(AppState.self) private var appState
     @Query private var existingTransactions: [Transaction]
     @Query private var accounts: [Account]
+    @Query(sort: \CategorizationRule.priority) private var categorizationRules: [CategorizationRule]
 
     enum ImportStep { case upload, map, preview }
     @State private var step: ImportStep = .upload
@@ -498,7 +499,7 @@ struct CSVImportView: View {
     }
 
     private func buildPreview() {
-        let mapped = service.mapRows(csvRows, mapping: mapping, existingTransactions: existingTransactions)
+        let mapped = service.mapRows(csvRows, mapping: mapping, existingTransactions: existingTransactions, rules: categorizationRules)
         importResult = CSVImportResult(rows: mapped, skippedCount: csvRows.count - mapped.count, headers: csvHeaders)
         withAnimation { step = .preview }
     }

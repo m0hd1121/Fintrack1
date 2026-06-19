@@ -16,6 +16,10 @@ struct AddTransactionView: View {
 
     @Query private var accounts: [Account]
     @Query private var budgets: [Budget]
+    @Query(filter: #Predicate<CustomCategory> { !$0.isArchived }, sort: \CustomCategory.sortOrder)
+    private var customCategories: [CustomCategory]
+    @Query(sort: \CategorizationRule.priority)
+    private var categorizationRules: [CategorizationRule]
 
     // — Core fields
     @State private var title = ""
@@ -68,6 +72,21 @@ struct AddTransactionView: View {
 
     // — New: voice
     @State private var showingVoiceEntry = false
+
+    // — New: tax flags & custom category
+    @State private var isTaxDeductible = false
+    @State private var isVATReclaimable = false
+    @State private var customCategoryID: UUID? = nil
+
+    // — New: AI & rules
+    @State private var aiPrediction: CategoryPrediction? = nil
+    @State private var appliedRuleName: String? = nil
+
+    // — New: tag suggestions
+    @State private var tagSuggestions: [String] = []
+
+    // — New: category management sheet
+    @State private var showingCategoryManagement = false
 
     // — Duplicate / balance
     @State private var showingInsufficientFunds = false
@@ -148,6 +167,7 @@ struct AddTransactionView: View {
                         detailsCard
                         recurringCard
                         statusCard
+                        if type == .expense { taxSection }
                         notesReceiptCard
 
                         if !pendingDocuments.isEmpty { documentsPreviewCard }
@@ -205,6 +225,11 @@ struct AddTransactionView: View {
             }
             .onAppear(perform: loadEditingData)
             .dismissKeyboardOnTap()
+            .onChange(of: title)    { _, _ in runAutoCategorization() }
+            .onChange(of: merchant) { _, _ in runAutoCategorization(); updateTagSuggestions() }
+            .onChange(of: type)     { _, _ in runAutoCategorization() }
+            .onChange(of: tags)     { _, _ in updateTagSuggestions() }
+            .sheet(isPresented: $showingCategoryManagement) { CategoryManagementView() }
             .sheet(isPresented: $showingVoiceEntry) {
                 VoiceTransactionView { parsed in
                     applyVoiceResult(parsed)
@@ -327,23 +352,111 @@ struct AddTransactionView: View {
 
     private var categorySection: some View {
         VStack(alignment: .leading, spacing: FTSpacing.sm) {
-            Text("Category")
-                .font(.ftLabel).tracking(1.6)
-                .foregroundStyle(FTColor.textSecondary)
+            HStack {
+                Text("Category")
+                    .font(.ftLabel).tracking(1.6)
+                    .foregroundStyle(FTColor.textSecondary)
+                Spacer()
+                // AI / rule confidence badge
+                if let pred = aiPrediction, pred.confidence >= 0.3 {
+                    HStack(spacing: 4) {
+                        Image(systemName: pred.source == .rule ? "text.badge.checkmark" : "brain")
+                            .font(.system(size: 10, weight: .semibold))
+                        Text(pred.confidenceLabel)
+                            .font(.ftLabel)
+                    }
+                    .foregroundStyle(pred.isHighConfidence ? FTColor.income : FTColor.gold)
+                    .padding(.horizontal, 8).padding(.vertical, 3)
+                    .background(
+                        (pred.isHighConfidence ? FTColor.income : FTColor.gold).opacity(0.12),
+                        in: .capsule
+                    )
+                }
+            }
+
+            // Built-in categories
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: FTSpacing.sm) {
                     ForEach(relevantCategories, id: \.self) { cat in
                         Button {
-                            withAnimation(.snappy(duration: 0.2)) { category = cat }
+                            withAnimation(.snappy(duration: 0.2)) {
+                                category = cat
+                                customCategoryID = nil
+                            }
                         } label: {
-                            FTChip(symbol: cat.icon, title: cat.rawValue, selected: category == cat)
+                            FTChip(symbol: cat.icon, title: cat.rawValue,
+                                   selected: category == cat && customCategoryID == nil)
                         }
                         .buttonStyle(.plain)
                     }
                 }
                 .padding(.horizontal, 2)
             }
+
+            // Custom categories row
+            let customCats = relevantCustomCategories
+            if !customCats.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: FTSpacing.sm) {
+                        ForEach(customCats) { cat in
+                            Button {
+                                withAnimation(.snappy(duration: 0.2)) {
+                                    customCategoryID = cat.id
+                                }
+                            } label: {
+                                HStack(spacing: 6) {
+                                    Image(systemName: cat.icon)
+                                        .font(.system(size: 14, weight: .semibold))
+                                    Text(cat.name).font(.ftCallout)
+                                }
+                                .padding(.horizontal, 13).padding(.vertical, 9)
+                                .foregroundStyle(customCategoryID == cat.id ? .white : FTColor.textPrimary)
+                                .background(
+                                    customCategoryID == cat.id
+                                        ? AnyShapeStyle(cat.color)
+                                        : AnyShapeStyle(.regularMaterial),
+                                    in: .capsule
+                                )
+                                .overlay(Capsule().strokeBorder(.white.opacity(0.2), lineWidth: 0.5))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        manageButton
+                    }
+                    .padding(.horizontal, 2)
+                }
+            } else {
+                manageButton
+            }
+
+            // Rule applied banner
+            if let ruleName = appliedRuleName {
+                HStack(spacing: 5) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 11, weight: .semibold))
+                    Text("Categorized by rule: \(ruleName)")
+                        .font(.ftCaption)
+                }
+                .foregroundStyle(FTColor.income)
+            }
         }
+    }
+
+    private var manageButton: some View {
+        Button { showingCategoryManagement = true } label: {
+            HStack(spacing: 5) {
+                Image(systemName: "folder.badge.plus").font(.system(size: 12, weight: .semibold))
+                Text("Manage").font(.ftCallout)
+            }
+            .padding(.horizontal, 13).padding(.vertical, 9)
+            .foregroundStyle(FTColor.accent)
+            .background(FTColor.accent.opacity(0.1), in: .capsule)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var relevantCustomCategories: [CustomCategory] {
+        customCategories.filter { $0.isRoot && $0.matchesType(type) }
     }
 
     // MARK: - Split section
@@ -642,6 +755,46 @@ struct AddTransactionView: View {
         .ftGlass(FTRadius.md)
     }
 
+    // MARK: - Tax section (expense only)
+
+    private var taxSection: some View {
+        VStack(spacing: 0) {
+            Toggle(isOn: $isTaxDeductible) {
+                HStack(spacing: FTSpacing.sm) {
+                    FTIconTile(symbol: "doc.text.magnifyingglass", tint: FTColor.catBlue, size: 32)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("Tax Deductible")
+                            .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                        Text("Flag this expense for tax reporting")
+                            .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                    }
+                }
+            }
+            .tint(FTColor.accent)
+            .padding(.vertical, 13)
+            .onChange(of: isTaxDeductible) { _, on in if !on { isVATReclaimable = false } }
+
+            if isTaxDeductible {
+                Divider().opacity(0.4)
+                Toggle(isOn: $isVATReclaimable) {
+                    HStack(spacing: FTSpacing.sm) {
+                        FTIconTile(symbol: "percent", tint: FTColor.catPurple, size: 32)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("VAT Reclaimable")
+                                .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                            Text("Include in VAT reclaim export")
+                                .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                        }
+                    }
+                }
+                .tint(FTColor.accent)
+                .padding(.vertical, 13)
+            }
+        }
+        .padding(.horizontal, FTSpacing.lg)
+        .ftGlass(FTRadius.md)
+    }
+
     // MARK: - Notes & Receipt card
 
     private var notesReceiptCard: some View {
@@ -672,6 +825,33 @@ struct AddTransactionView: View {
                     }
                 }
             }
+            // Smart tag suggestions
+            if !tagSuggestions.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: FTSpacing.xs) {
+                        Text("Suggested:")
+                            .font(.ftLabel)
+                            .foregroundStyle(FTColor.textMuted)
+                        ForEach(tagSuggestions, id: \.self) { suggestion in
+                            Button {
+                                if !tags.contains(suggestion) { tags.append(suggestion) }
+                                tagSuggestions.removeAll { $0 == suggestion }
+                            } label: {
+                                HStack(spacing: 3) {
+                                    Image(systemName: "plus")
+                                        .font(.system(size: 9, weight: .bold))
+                                    Text("#\(suggestion)").font(.ftCaption)
+                                }
+                                .foregroundStyle(FTColor.catPurple)
+                                .padding(.horizontal, 10).padding(.vertical, 5)
+                                .background(FTColor.catPurple.opacity(0.1), in: .capsule)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+            }
+
             HStack(spacing: FTSpacing.sm) {
                 Image(systemName: "tag").font(.ftCaption).foregroundStyle(FTColor.textMuted)
                 TextField("Add tag...", text: $tagInput)
@@ -894,6 +1074,38 @@ struct AddTransactionView: View {
 
     // MARK: - Helpers
 
+    private func runAutoCategorization() {
+        guard !title.isEmpty || !merchant.isEmpty else { aiPrediction = nil; appliedRuleName = nil; return }
+        let pred = AICategorizationService.shared.predictCategory(
+            for: title,
+            merchant: merchant.isEmpty ? nil : merchant,
+            amount: amountDouble ?? 0,
+            type: type,
+            rules: Array(categorizationRules)
+        )
+        aiPrediction = pred
+        // Auto-apply high-confidence predictions when adding (not editing)
+        if !isEditing && pred.confidence >= 0.5 && customCategoryID == nil {
+            category = pred.category
+            appliedRuleName = pred.source == .rule ? pred.ruleName : nil
+            // Apply rule auto-tags
+            if pred.source == .rule,
+               let matchedRule = categorizationRules.first(where: { $0.name == pred.ruleName }) {
+                for tag in matchedRule.autoTags where !tags.contains(tag) {
+                    tags.append(tag)
+                }
+            }
+        }
+    }
+
+    private func updateTagSuggestions() {
+        tagSuggestions = TagSuggestionService.shared.suggestTags(
+            for: merchant,
+            amount: amountDouble ?? 0,
+            existing: tags
+        )
+    }
+
     private var availableSubtypes: [TransactionSubtype] {
         switch type {
         case .income:   return TransactionSubtype.incomeSubtypes
@@ -1046,6 +1258,9 @@ struct AddTransactionView: View {
             locationLabel = String(format: "%.4f, %.4f", la, lo)
         }
         if let data = tx.receiptImageData { receiptImage = UIImage(data: data) }
+        isTaxDeductible = tx.isTaxDeductible
+        isVATReclaimable = tx.isVATReclaimable
+        customCategoryID = tx.customCategoryID
     }
 
     // MARK: - Save
@@ -1109,6 +1324,9 @@ struct AddTransactionView: View {
             tx.splitItems = effectiveSplitItems
             tx.incomeSource = incomeSource.isEmpty ? nil : incomeSource
             tx.latitude = latitude; tx.longitude = longitude
+            tx.isTaxDeductible = isTaxDeductible
+            tx.isVATReclaimable = isVATReclaimable
+            tx.customCategoryID = customCategoryID
             if let img = receiptImage { tx.receiptImageData = img.jpegData(compressionQuality: 0.7) }
 
             // Attach pending documents
@@ -1152,7 +1370,10 @@ struct AddTransactionView: View {
                 splitItems: effectiveSplitItems,
                 incomeSource: incomeSource.isEmpty ? nil : incomeSource,
                 latitude: latitude,
-                longitude: longitude
+                longitude: longitude,
+                isTaxDeductible: isTaxDeductible,
+                isVATReclaimable: isVATReclaimable,
+                customCategoryID: customCategoryID
             )
             if let img = receiptImage { tx.receiptImageData = img.jpegData(compressionQuality: 0.7) }
             tx.account  = selectedAccount
@@ -1191,6 +1412,15 @@ struct AddTransactionView: View {
         }
 
         try? context.save()
+
+        // Record category & tag learning
+        let effectiveMerchant = merchant.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !effectiveMerchant.isEmpty {
+            CategoryLearningService.shared.recordCorrection(merchant: effectiveMerchant, category: category)
+            for tag in tags {
+                TagSuggestionService.shared.recordTagUsed(tag, for: effectiveMerchant)
+            }
+        }
 
         // Budget alert
         if type == .expense && !isPending && !isScheduled {

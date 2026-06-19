@@ -50,6 +50,10 @@ struct TransactionDTO: Codable {
     var longitude: Double?
     var chequeNumber: String?
     var chequeDate: Date?
+    // v5 additions
+    var isTaxDeductible: Bool?
+    var isVATReclaimable: Bool?
+    var customCategoryID: UUID?
 }
 
 struct BudgetDTO: Codable {
@@ -335,7 +339,10 @@ extension Transaction {
                        scheduledDate: scheduledDate, subtype: subtype?.rawValue,
                        splitItems: splitItems.isEmpty ? nil : splitItems,
                        incomeSource: incomeSource, latitude: latitude, longitude: longitude,
-                       chequeNumber: chequeNumber, chequeDate: chequeDate)
+                       chequeNumber: chequeNumber, chequeDate: chequeDate,
+                       isTaxDeductible: isTaxDeductible,
+                       isVATReclaimable: isVATReclaimable,
+                       customCategoryID: customCategoryID)
     }
 }
 
@@ -478,7 +485,10 @@ extension TransactionDTO {
                             subtype: subtype.flatMap { TransactionSubtype(rawValue: $0) },
                             splitItems: splitItems ?? [],
                             incomeSource: incomeSource,
-                            latitude: latitude, longitude: longitude)
+                            latitude: latitude, longitude: longitude,
+                            isTaxDeductible: isTaxDeductible ?? false,
+                            isVATReclaimable: isVATReclaimable ?? false,
+                            customCategoryID: customCategoryID)
         t.createdAt = createdAt; t.updatedAt = updatedAt
         return t
     }

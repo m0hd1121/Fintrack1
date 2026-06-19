@@ -28,6 +28,8 @@ struct SettingsView: View {
     @State private var showingCurrencyPicker = false
     @State private var showingPINSetup = false
     @State private var showingAbout = false
+    @State private var showingCategoryManagement = false
+    @State private var showingRuleManagement = false
 
     // Backup import/export
     @State private var showingImporter = false
@@ -89,6 +91,18 @@ struct SettingsView: View {
             ScrollView {
                 VStack(spacing: FTSpacing.xl) {
                     profileCard
+
+                    sectionCard("Organization") {
+                        Button { showingCategoryManagement = true } label: {
+                            settingRow(symbol: "folder.badge.gear", tint: FTColor.catTeal,
+                                       title: "Custom Categories", chevron: true)
+                        }
+                        rowDivider
+                        Button { showingRuleManagement = true } label: {
+                            settingRow(symbol: "text.badge.checkmark", tint: FTColor.catPurple,
+                                       title: "Categorization Rules", chevron: true)
+                        }
+                    }
 
                     sectionCard("Security") {
                         FTToggleRow(symbol: BiometricService.shared.biometricIcon, tint: FTColor.accent,
@@ -207,6 +221,12 @@ struct SettingsView: View {
             }
             .sheet(isPresented: $showingAbout) {
                 AboutView()
+            }
+            .sheet(isPresented: $showingCategoryManagement) {
+                CategoryManagementView()
+            }
+            .sheet(isPresented: $showingRuleManagement) {
+                RuleManagementView()
             }
             .fileImporter(
                 isPresented: $showingImporter,

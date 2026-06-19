@@ -1,6 +1,32 @@
 import Foundation
 import NaturalLanguage
 
+// MARK: - Category Prediction
+
+struct CategoryPrediction {
+    let category: TransactionCategory
+    let confidence: Double  // 0...1
+    let source: Source
+    let ruleName: String?
+
+    enum Source {
+        case rule, learned, keyword, fallback
+    }
+
+    var confidenceLabel: String {
+        switch source {
+        case .rule:     return ruleName.map { "Rule: \($0)" } ?? "Rule"
+        case .learned:  return "Learned · \(Int(confidence * 100))%"
+        case .keyword:  return "AI · \(Int(confidence * 100))%"
+        case .fallback: return "AI · \(Int(confidence * 100))%"
+        }
+    }
+
+    var isHighConfidence: Bool { confidence >= 0.7 }
+}
+
+// MARK: - Service
+
 final class AICategorizationService {
     static let shared = AICategorizationService()
     private init() {}
@@ -44,19 +70,48 @@ final class AICategorizationService {
     ]
 
     func suggestCategory(for title: String, amount: Double, type: TransactionType) -> TransactionCategory {
-        let lowerTitle = title.lowercased()
+        predictCategory(for: title, merchant: nil, amount: amount, type: type).category
+    }
 
-        // Check keywords
-        for (category, keywords) in categoryKeywords {
-            for keyword in keywords {
-                if lowerTitle.contains(keyword) {
-                    return category
-                }
+    // Returns a structured prediction with confidence score.
+    // Checks rules first, then user-learned history, then keyword matching.
+    func predictCategory(
+        for title: String,
+        merchant: String?,
+        amount: Double,
+        type: TransactionType,
+        rules: [CategorizationRule] = []
+    ) -> CategoryPrediction {
+        // 1. Apply categorization rules (highest priority)
+        let enabledRules = rules.filter { $0.isEnabled }.sorted { $0.priority < $1.priority }
+        for rule in enabledRules {
+            if rule.matches(title: title, merchant: merchant, amount: amount, currency: "") {
+                return CategoryPrediction(
+                    category: rule.targetCategory,
+                    confidence: 1.0,
+                    source: .rule,
+                    ruleName: rule.name
+                )
             }
         }
 
-        // Default by type
-        return type == .income ? .other : .other
+        // 2. User-learned merchant history
+        let m = merchant?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !m.isEmpty, let learned = CategoryLearningService.shared.learnedCategory(for: m) {
+            return CategoryPrediction(category: learned, confidence: 0.92, source: .learned, ruleName: nil)
+        }
+
+        // 3. Keyword matching on combined title + merchant
+        let combined = "\(title.lowercased()) \(m.lowercased())"
+        for (category, keywords) in categoryKeywords {
+            for keyword in keywords where combined.contains(keyword) {
+                return CategoryPrediction(category: category, confidence: 0.75, source: .keyword, ruleName: nil)
+            }
+        }
+
+        // 4. Fallback
+        let fallback: TransactionCategory = type == .income ? .salary : .other
+        return CategoryPrediction(category: fallback, confidence: 0.1, source: .fallback, ruleName: nil)
     }
 
     func detectRecurring(transactions: [Transaction]) -> [Transaction] {

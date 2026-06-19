@@ -144,7 +144,8 @@ final class CSVImportService {
     func mapRows(
         _ rows: [[String: String]],
         mapping: CSVColumnMapping,
-        existingTransactions: [Transaction] = []
+        existingTransactions: [Transaction] = [],
+        rules: [CategorizationRule] = []
     ) -> [CSVImportRow] {
         let dateFormatter = DateFormatter()
         dateFormatter.locale = Locale(identifier: "en_US_POSIX")
@@ -185,9 +186,10 @@ final class CSVImportService {
             let merchant = mapping.merchantColumn.flatMap { row[$0] }?.trimmingCharacters(in: .whitespacesAndNewlines)
             let notes    = mapping.notesColumn.flatMap { row[$0] }?.trimmingCharacters(in: .whitespacesAndNewlines)
 
-            let category = AICategorizationService.shared.suggestCategory(
-                for: merchant ?? title, amount: finalAmount, type: txType
-            )
+            let category = AICategorizationService.shared.predictCategory(
+                for: merchant ?? title, merchant: merchant,
+                amount: finalAmount, type: txType, rules: rules
+            ).category
 
             let tagsStr = mapping.tagsColumn.flatMap { row[$0] } ?? ""
             let tags = tagsStr.components(separatedBy: CharacterSet(charactersIn: ";,|"))
