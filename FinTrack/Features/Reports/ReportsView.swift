@@ -336,27 +336,73 @@ struct IncomeReport: View {
     let transactions: [Transaction]
     let currency: String
 
-    private var incomeByCategory: [(category: TransactionCategory, amount: Double)] {
-        let income = transactions.filter { $0.type == .income }
+    private var incomeByCategory: [(category: TransactionCategory, amount: Double, count: Int)] {
+        let income = transactions.filter { $0.type == .income && !$0.isPending && !$0.isScheduled }
         return Dictionary(grouping: income) { $0.category }
-            .map { ($0.key, $0.value.reduce(0) { $0 + $1.amountInBaseCurrency }) }
-            .sorted { $0.1 > $1.1 }
+            .map { (category: $0.key, amount: $0.value.reduce(0) { $0 + $1.amountInBaseCurrency }, count: $0.value.count) }
+            .sorted { $0.amount > $1.amount }
+    }
+
+    private var monthlyTrend: [(month: String, amount: Double)] {
+        var result: [(String, Double)] = []
+        for i in (0..<6).reversed() {
+            let date = Calendar.current.date(byAdding: .month, value: -i, to: Date()) ?? Date()
+            let amount = transactions
+                .filter { $0.type == .income && !$0.isPending && !$0.isScheduled && $0.date.isSameMonth(as: date) }
+                .reduce(0) { $0 + $1.amountInBaseCurrency }
+            result.append((date.shortMonthName, amount))
+        }
+        return result
+    }
+
+    private var incomeBySource: [(source: String, amount: Double)] {
+        let income = transactions.filter { $0.type == .income && !$0.isPending && !$0.isScheduled }
+        let grouped = Dictionary(grouping: income) { tx -> String in
+            tx.incomeSource ?? tx.category.rawValue
+        }
+        return grouped.map { (source: $0.key, amount: $0.value.reduce(0) { $0 + $1.amountInBaseCurrency }) }
+            .sorted { $0.amount > $1.amount }
+            .prefix(8).map { $0 }
     }
 
     var body: some View {
         let incomeByCategory = self.incomeByCategory
-        let total = incomeByCategory.reduce(0) { $0 + $1.1 }
+        let total = incomeByCategory.reduce(0) { $0 + $1.amount }
+        let trend = self.monthlyTrend
+        let bySource = self.incomeBySource
+        let avgMonthly = trend.isEmpty ? 0 : trend.reduce(0) { $0 + $1.amount } / Double(trend.count)
+
         return VStack(spacing: 16) {
-            ReportSummaryCard(title: "Total Income", amount: total, currency: currency, color: .green, icon: "arrow.down.circle.fill")
+            HStack(spacing: 12) {
+                ReportSummaryCard(title: "Total Income", amount: total, currency: currency, color: .green, icon: "arrow.down.circle.fill")
+                ReportSummaryCard(title: "Avg Monthly", amount: avgMonthly, currency: currency, color: FTColor.accent, icon: "calendar.circle.fill")
+            }
+
+            if !trend.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("6-Month Income Trend").font(.ftHeadline).foregroundStyle(FTColor.textPrimary)
+                    Chart {
+                        ForEach(trend, id: \.month) { data in
+                            BarMark(x: .value("Month", data.month), y: .value("Income", data.amount))
+                                .foregroundStyle(AnyShapeStyle(FTColor.accentGradient))
+                                .cornerRadius(4)
+                        }
+                    }
+                    .frame(height: 160)
+                    .ftChartAxes()
+                }
+                .padding()
+                .ftGlass(FTRadius.md)
+            }
 
             if !incomeByCategory.isEmpty {
                 VStack(alignment: .leading, spacing: 0) {
-                    Text("Income by Source")
+                    Text("Income by Category")
                         .font(.ftHeadline).foregroundStyle(FTColor.textPrimary)
                         .padding()
 
                     Chart {
-                        ForEach(Array(incomeByCategory.enumerated()), id: \.element.category) { idx, item in
+                        ForEach(Array(incomeByCategory.prefix(8).enumerated()), id: \.element.category) { idx, item in
                             BarMark(
                                 x: .value("Amount", item.amount),
                                 y: .value("Category", item.category.rawValue)
@@ -365,11 +411,68 @@ struct IncomeReport: View {
                             .cornerRadius(4)
                         }
                     }
-                    .frame(height: 200)
+                    .frame(height: max(160, CGFloat(min(incomeByCategory.count, 8)) * 36))
                     .ftChartAxes()
-                    .padding()
+                    .padding(.horizontal)
+                    .padding(.bottom)
                 }
                 .ftGlass(FTRadius.md)
+
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("Category Breakdown")
+                        .font(.ftHeadline).foregroundStyle(FTColor.textPrimary)
+                        .padding()
+                    ForEach(Array(incomeByCategory.prefix(10).enumerated()), id: \.element.category) { idx, item in
+                        HStack(spacing: 12) {
+                            let tint = ftChartPalette[idx % ftChartPalette.count]
+                            ZStack {
+                                Circle().fill(tint.opacity(0.15)).frame(width: 40, height: 40)
+                                Image(systemName: item.category.icon).foregroundStyle(tint).font(.ftBody)
+                            }
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(item.category.rawValue).font(.subheadline).fontWeight(.medium)
+                                Text("\(item.count) transaction\(item.count == 1 ? "" : "s")")
+                                    .font(.caption).foregroundStyle(FTColor.textSecondary)
+                            }
+                            Spacer()
+                            VStack(alignment: .trailing, spacing: 2) {
+                                Text(item.amount.formatted(as: currency)).font(.subheadline).fontWeight(.semibold)
+                                Text(total > 0 ? (item.amount / total * 100).asPercentage() : "0%")
+                                    .font(.caption).foregroundStyle(FTColor.textSecondary)
+                            }
+                        }
+                        .padding(.horizontal)
+                        .padding(.vertical, 10)
+                        if idx < incomeByCategory.prefix(10).count - 1 {
+                            Divider().padding(.leading, 60)
+                        }
+                    }
+                }
+                .ftGlass(FTRadius.md)
+
+                if !bySource.isEmpty {
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text("Income by Source")
+                            .font(.ftHeadline).foregroundStyle(FTColor.textPrimary)
+                            .padding()
+                        ForEach(Array(bySource.enumerated()), id: \.offset) { idx, item in
+                            HStack(spacing: 12) {
+                                let tint = ftChartPalette[idx % ftChartPalette.count]
+                                Circle().fill(tint).frame(width: 10, height: 10)
+                                    .padding(.leading, 8)
+                                Text(item.source).font(.ftBody).foregroundStyle(FTColor.textPrimary)
+                                Spacer()
+                                Text(item.amount.formatted(as: currency))
+                                    .font(.ftBodySemibold).foregroundStyle(FTColor.income)
+                                    .padding(.trailing, 8)
+                            }
+                            .padding(.vertical, 10)
+                            if idx < bySource.count - 1 { Divider().padding(.leading, 28) }
+                        }
+                        .padding(.bottom, 4)
+                    }
+                    .ftGlass(FTRadius.md)
+                }
             } else {
                 EmptyStateView(icon: "arrow.down.circle", title: "No Income", message: "No income recorded for this period.")
             }

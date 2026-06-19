@@ -133,6 +133,13 @@ final class Dividend {
     var currency: String
     var date: Date
     var notes: String?
+    var securityName: String? = nil
+    var exDividendDate: Date? = nil
+    var taxWithholding: Double = 0
+
+    var grossAmount: Double { amount }
+    var netAmount: Double { amount - taxWithholding }
+    var withholdingRate: Double { amount > 0 ? (taxWithholding / amount) * 100 : 0 }
 
     init(
         id: UUID = UUID(),
@@ -140,7 +147,10 @@ final class Dividend {
         amount: Double,
         currency: String = "USD",
         date: Date = Date(),
-        notes: String? = nil
+        notes: String? = nil,
+        securityName: String? = nil,
+        exDividendDate: Date? = nil,
+        taxWithholding: Double = 0
     ) {
         self.id = id
         self.investmentId = investmentId
@@ -148,5 +158,8 @@ final class Dividend {
         self.currency = currency
         self.date = date
         self.notes = notes
+        self.securityName = securityName
+        self.exDividendDate = exDividendDate
+        self.taxWithholding = taxWithholding
     }
 }

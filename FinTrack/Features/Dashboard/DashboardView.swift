@@ -18,11 +18,15 @@ struct DashboardView: View {
     @Query private var goldHoldings: [GoldHolding]
     @Query private var giftCards: [GiftCard]
     @Query(filter: #Predicate<Bill> { $0.isActive }) private var bills: [Bill]
+    @Query(filter: #Predicate<SalaryRecord> { $0.isActive }) private var salaryRecords: [SalaryRecord]
+    @Query(filter: #Predicate<FreelanceProject> { !$0.isArchived }) private var freelanceProjects: [FreelanceProject]
+    @Query(filter: #Predicate<RentalProperty> { $0.isActive }) private var rentalProperties: [RentalProperty]
 
     @State private var showingProfile = false
     @State private var showingReports = false
     @State private var showingAI = false
     @State private var showingBills = false
+    @State private var showingIncome = false
 
     private var baseCurrency: String { appState.baseCurrency }
 
@@ -62,7 +66,8 @@ struct DashboardView: View {
         let a = transactions.count &* 31 &+ accounts.count &* 7 &+ loans.count &* 13 &+ creditCards.count &* 17
         let b = investments.count &* 19 &+ cryptoHoldings.count &* 23 &+ bnplPlans.count &* 29
         let c = goldHoldings.count &* 37 &+ giftCards.count &* 41 &+ bills.count &* 43
-        return a &+ b &+ c
+        let d = salaryRecords.count &* 47 &+ freelanceProjects.count &* 53 &+ rentalProperties.count &* 59
+        return a &+ b &+ c &+ d
     }
 
     private func computeMetrics() -> DashboardMetrics {
@@ -182,6 +187,8 @@ struct DashboardView: View {
                                 billsAlertCard
                             }
 
+                            incomeOverviewCard
+
                             if !metrics.upcomingPayments.isEmpty {
                                 upcomingPaymentsSection
                             }
@@ -210,6 +217,9 @@ struct DashboardView: View {
             }
             .sheet(isPresented: $showingBills) {
                 BillsView()
+            }
+            .sheet(isPresented: $showingIncome) {
+                IncomeManagementView()
             }
             .task(id: dataStamp) { refreshDashboard() }
             .onAppear { refreshDashboard() }
@@ -459,6 +469,57 @@ struct DashboardView: View {
                             .font(.ftCaption).foregroundStyle(.orange)
                     } else {
                         Text("\(bills.count) active · \(totalMonthly.formatted(as: baseCurrency))/mo")
+                            .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                    }
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(FTColor.textMuted)
+            }
+            .padding(FTSpacing.lg)
+            .ftGlassInteractive(FTRadius.lg)
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Income Overview Card
+
+    private var incomeOverviewCard: some View {
+        let activeStreams = (salaryRecords.isEmpty ? 0 : 1)
+            + (freelanceProjects.isEmpty ? 0 : 1)
+            + (rentalProperties.isEmpty ? 0 : 1)
+
+        let monthlyIncome = transactions
+            .filter { $0.type == .income && !$0.isPending && !$0.isScheduled && $0.date.isSameMonth(as: Date()) }
+            .reduce(0) { $0 + $1.amountInBaseCurrency }
+
+        let overdueInvoices = freelanceProjects.flatMap { $0.overdueInvoices }
+        let overdueRent = rentalProperties.flatMap { $0.overduePayments }
+
+        return Button { showingIncome = true } label: {
+            HStack(spacing: FTSpacing.md) {
+                FTIconTile(
+                    symbol: overdueInvoices.isEmpty && overdueRent.isEmpty
+                        ? "banknote.fill"
+                        : "exclamationmark.triangle.fill",
+                    tint: overdueInvoices.isEmpty && overdueRent.isEmpty
+                        ? FTColor.income
+                        : FTColor.expense,
+                    size: 44
+                )
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Income Management")
+                        .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                    if !overdueInvoices.isEmpty || !overdueRent.isEmpty {
+                        let count = overdueInvoices.count + overdueRent.count
+                        Text("\(count) overdue · \(monthlyIncome.asCompact(currency: baseCurrency))/mo")
+                            .font(.ftCaption).foregroundStyle(FTColor.expense)
+                    } else if activeStreams > 0 {
+                        Text("\(activeStreams) active stream\(activeStreams == 1 ? "" : "s") · \(monthlyIncome.asCompact(currency: baseCurrency))/mo")
+                            .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                    } else {
+                        Text("Track salary, freelance & rental income")
                             .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
                     }
                 }

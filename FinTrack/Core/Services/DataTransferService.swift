@@ -18,9 +18,12 @@ struct FinTrackBackup: Codable {
     let bnplPlans: [BNPLPlanDTO]
     let userProfile: UserProfileDTO?
     let appSettings: AppSettingsDTO?
-    var bills: [BillDTO]?       // v7+ addition (optional for backward-compatible decoding)
+    var bills: [BillDTO]?                   // v7+ (optional for backward-compatible decoding)
+    var salaryRecords: [SalaryRecordDTO]?   // v8+
+    var freelanceProjects: [FreelanceProjectDTO]?  // v8+
+    var rentalProperties: [RentalPropertyDTO]?     // v8+
 
-    static let currentVersion = 2
+    static let currentVersion = 3
 }
 
 struct AccountDTO: Codable {
@@ -104,7 +107,8 @@ struct CryptoHoldingDTO: Codable {
 
 struct DividendDTO: Codable {
     var id: UUID; var investmentId: UUID; var amount: Double
-    var currency: String; var date: Date
+    var currency: String; var date: Date; var notes: String?
+    var securityName: String?; var exDividendDate: Date?; var taxWithholding: Double?
 }
 
 struct BNPLPlanDTO: Codable {
@@ -140,6 +144,29 @@ struct BillDTO: Codable {
     var lastPaidDate: Date?; var lastPaidAmount: Double?; var createdAt: Date
 }
 
+struct SalaryRecordDTO: Codable {
+    var id: UUID; var employerName: String; var jobTitle: String; var currency: String
+    var expectedAmount: Double; var expectedPaymentDay: Int; var paymentFrequencyRaw: String
+    var isActive: Bool; var colorName: String; var notes: String?
+    var paymentsData: Data; var createdAt: Date; var updatedAt: Date
+}
+
+struct FreelanceProjectDTO: Codable {
+    var id: UUID; var projectName: String; var clientName: String
+    var projectDescription: String?; var currency: String; var totalValue: Double
+    var statusRaw: String; var startDate: Date; var endDate: Date?
+    var invoicesData: Data; var notes: String?; var colorName: String
+    var isArchived: Bool; var createdAt: Date; var updatedAt: Date
+}
+
+struct RentalPropertyDTO: Codable {
+    var id: UUID; var propertyName: String; var propertyTypeRaw: String
+    var address: String?; var currency: String; var monthlyRentExpected: Double
+    var isOccupied: Bool; var occupancyPeriodsData: Data; var paymentHistoryData: Data
+    var notes: String?; var colorName: String; var isActive: Bool
+    var createdAt: Date; var updatedAt: Date
+}
+
 // MARK: - Service
 
 @MainActor
@@ -162,7 +189,10 @@ final class DataTransferService {
         let bnpl         = try context.fetch(FetchDescriptor<BNPLPlan>())
         let profiles     = try context.fetch(FetchDescriptor<UserProfile>())
         let settings     = try context.fetch(FetchDescriptor<AppSettings>())
-        let bills        = try context.fetch(FetchDescriptor<Bill>())
+        let bills           = try context.fetch(FetchDescriptor<Bill>())
+        let salaryRecs      = try context.fetch(FetchDescriptor<SalaryRecord>())
+        let freelanceProjs  = try context.fetch(FetchDescriptor<FreelanceProject>())
+        let rentalProps     = try context.fetch(FetchDescriptor<RentalProperty>())
 
         var backup = FinTrackBackup(
             version: FinTrackBackup.currentVersion,
@@ -181,6 +211,9 @@ final class DataTransferService {
             appSettings: settings.first?.dto
         )
         backup.bills = bills.map(\.dto)
+        backup.salaryRecords = salaryRecs.map(\.dto)
+        backup.freelanceProjects = freelanceProjs.map(\.dto)
+        backup.rentalProperties = rentalProps.map(\.dto)
 
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
@@ -224,7 +257,10 @@ final class DataTransferService {
         let existingInvestmentIds = mode == .merge ? Set((try? context.fetch(FetchDescriptor<Investment>()))?.map(\.id) ?? []) : []
         let existingCryptoIds     = mode == .merge ? Set((try? context.fetch(FetchDescriptor<CryptoHolding>()))?.map(\.id) ?? []) : []
         let existingBNPLIds       = mode == .merge ? Set((try? context.fetch(FetchDescriptor<BNPLPlan>()))?.map(\.id) ?? []) : []
-        let existingBillIds       = mode == .merge ? Set((try? context.fetch(FetchDescriptor<Bill>()))?.map(\.id) ?? []) : []
+        let existingBillIds          = mode == .merge ? Set((try? context.fetch(FetchDescriptor<Bill>()))?.map(\.id) ?? []) : []
+        let existingSalaryIds        = mode == .merge ? Set((try? context.fetch(FetchDescriptor<SalaryRecord>()))?.map(\.id) ?? []) : []
+        let existingFreelanceIds     = mode == .merge ? Set((try? context.fetch(FetchDescriptor<FreelanceProject>()))?.map(\.id) ?? []) : []
+        let existingRentalIds        = mode == .merge ? Set((try? context.fetch(FetchDescriptor<RentalProperty>()))?.map(\.id) ?? []) : []
 
         // Insert accounts first, build id→object map for relationship linking
         var accountMap: [UUID: Account] = [:]
@@ -277,6 +313,15 @@ final class DataTransferService {
         for dto in (backup.bills ?? []) where !existingBillIds.contains(dto.id) {
             context.insert(dto.toModel()); summary.bills += 1
         }
+        for dto in (backup.salaryRecords ?? []) where !existingSalaryIds.contains(dto.id) {
+            context.insert(dto.toModel()); summary.salaryRecords += 1
+        }
+        for dto in (backup.freelanceProjects ?? []) where !existingFreelanceIds.contains(dto.id) {
+            context.insert(dto.toModel()); summary.freelanceProjects += 1
+        }
+        for dto in (backup.rentalProperties ?? []) where !existingRentalIds.contains(dto.id) {
+            context.insert(dto.toModel()); summary.rentalProperties += 1
+        }
 
         if mode == .replace {
             if let dto = backup.userProfile  { context.insert(dto.toModel()) }
@@ -301,6 +346,9 @@ final class DataTransferService {
         try context.delete(model: Dividend.self)
         try context.delete(model: BNPLPlan.self)
         try context.delete(model: Bill.self)
+        try context.delete(model: SalaryRecord.self)
+        try context.delete(model: FreelanceProject.self)
+        try context.delete(model: RentalProperty.self)
         try context.delete(model: UserProfile.self)
         try context.delete(model: AppSettings.self)
         try context.save()
@@ -311,21 +359,29 @@ struct ImportSummary {
     var accounts = 0; var transactions = 0; var budgets = 0; var goals = 0
     var loans = 0; var creditCards = 0; var investments = 0; var crypto = 0
     var dividends = 0; var bnpl = 0; var bills = 0
+    var salaryRecords = 0; var freelanceProjects = 0; var rentalProperties = 0
 
-    var total: Int { accounts + transactions + budgets + goals + loans + creditCards + investments + crypto + dividends + bnpl + bills }
+    var total: Int {
+        accounts + transactions + budgets + goals + loans + creditCards
+        + investments + crypto + dividends + bnpl + bills
+        + salaryRecords + freelanceProjects + rentalProperties
+    }
 
     var description: String {
         var parts: [String] = []
-        if accounts > 0     { parts.append("\(accounts) accounts") }
-        if transactions > 0 { parts.append("\(transactions) transactions") }
-        if budgets > 0      { parts.append("\(budgets) budgets") }
-        if goals > 0        { parts.append("\(goals) goals") }
-        if loans > 0        { parts.append("\(loans) loans") }
-        if creditCards > 0  { parts.append("\(creditCards) credit cards") }
-        if investments > 0  { parts.append("\(investments) investments") }
-        if crypto > 0       { parts.append("\(crypto) crypto") }
-        if bnpl > 0         { parts.append("\(bnpl) BNPL plans") }
-        if bills > 0        { parts.append("\(bills) bills") }
+        if accounts > 0          { parts.append("\(accounts) accounts") }
+        if transactions > 0      { parts.append("\(transactions) transactions") }
+        if budgets > 0           { parts.append("\(budgets) budgets") }
+        if goals > 0             { parts.append("\(goals) goals") }
+        if loans > 0             { parts.append("\(loans) loans") }
+        if creditCards > 0       { parts.append("\(creditCards) credit cards") }
+        if investments > 0       { parts.append("\(investments) investments") }
+        if crypto > 0            { parts.append("\(crypto) crypto") }
+        if bnpl > 0              { parts.append("\(bnpl) BNPL plans") }
+        if bills > 0             { parts.append("\(bills) bills") }
+        if salaryRecords > 0     { parts.append("\(salaryRecords) salary records") }
+        if freelanceProjects > 0 { parts.append("\(freelanceProjects) freelance projects") }
+        if rentalProperties > 0  { parts.append("\(rentalProperties) rental properties") }
         return parts.isEmpty ? "Nothing imported" : parts.joined(separator: ", ")
     }
 }
@@ -429,7 +485,9 @@ extension CryptoHolding {
 extension Dividend {
     var dto: DividendDTO {
         DividendDTO(id: id, investmentId: investmentId, amount: amount,
-                    currency: currency, date: date)
+                    currency: currency, date: date, notes: notes,
+                    securityName: securityName, exDividendDate: exDividendDate,
+                    taxWithholding: taxWithholding)
     }
 }
 
@@ -605,7 +663,9 @@ extension CryptoHoldingDTO {
 extension DividendDTO {
     func toModel() -> Dividend {
         Dividend(id: id, investmentId: investmentId, amount: amount,
-                 currency: currency, date: date)
+                 currency: currency, date: date, notes: notes,
+                 securityName: securityName, exDividendDate: exDividendDate,
+                 taxWithholding: taxWithholding ?? 0)
     }
 }
 
@@ -672,5 +732,85 @@ extension AppSettingsDTO {
                             theme: AppTheme(rawValue: theme) ?? .system,
                             accentColor: accentColor)
         return s
+    }
+}
+
+// MARK: - Income Model DTO extensions
+
+extension SalaryRecord {
+    var dto: SalaryRecordDTO {
+        SalaryRecordDTO(id: id, employerName: employerName, jobTitle: jobTitle,
+                        currency: currency, expectedAmount: expectedAmount,
+                        expectedPaymentDay: expectedPaymentDay,
+                        paymentFrequencyRaw: paymentFrequencyRaw,
+                        isActive: isActive, colorName: colorName, notes: notes,
+                        paymentsData: paymentsData,
+                        createdAt: createdAt, updatedAt: updatedAt)
+    }
+}
+
+extension SalaryRecordDTO {
+    func toModel() -> SalaryRecord {
+        let r = SalaryRecord(id: id, employerName: employerName, jobTitle: jobTitle,
+                             currency: currency, expectedAmount: expectedAmount,
+                             expectedPaymentDay: expectedPaymentDay,
+                             paymentFrequencyRaw: paymentFrequencyRaw,
+                             isActive: isActive, colorName: colorName, notes: notes)
+        r.paymentsData = paymentsData
+        r.createdAt = createdAt; r.updatedAt = updatedAt
+        return r
+    }
+}
+
+extension FreelanceProject {
+    var dto: FreelanceProjectDTO {
+        FreelanceProjectDTO(id: id, projectName: projectName, clientName: clientName,
+                            projectDescription: projectDescription, currency: currency,
+                            totalValue: totalValue, statusRaw: statusRaw,
+                            startDate: startDate, endDate: endDate,
+                            invoicesData: invoicesData, notes: notes,
+                            colorName: colorName, isArchived: isArchived,
+                            createdAt: createdAt, updatedAt: updatedAt)
+    }
+}
+
+extension FreelanceProjectDTO {
+    func toModel() -> FreelanceProject {
+        let p = FreelanceProject(id: id, projectName: projectName, clientName: clientName,
+                                 projectDescription: projectDescription, currency: currency,
+                                 totalValue: totalValue, statusRaw: statusRaw,
+                                 startDate: startDate, endDate: endDate,
+                                 notes: notes, colorName: colorName)
+        p.invoicesData = invoicesData
+        p.isArchived = isArchived
+        p.createdAt = createdAt; p.updatedAt = updatedAt
+        return p
+    }
+}
+
+extension RentalProperty {
+    var dto: RentalPropertyDTO {
+        RentalPropertyDTO(id: id, propertyName: propertyName, propertyTypeRaw: propertyTypeRaw,
+                          address: address, currency: currency,
+                          monthlyRentExpected: monthlyRentExpected, isOccupied: isOccupied,
+                          occupancyPeriodsData: occupancyPeriodsData,
+                          paymentHistoryData: paymentHistoryData,
+                          notes: notes, colorName: colorName, isActive: isActive,
+                          createdAt: createdAt, updatedAt: updatedAt)
+    }
+}
+
+extension RentalPropertyDTO {
+    func toModel() -> RentalProperty {
+        let p = RentalProperty(id: id, propertyName: propertyName, propertyTypeRaw: propertyTypeRaw,
+                               address: address, currency: currency,
+                               monthlyRentExpected: monthlyRentExpected, notes: notes,
+                               colorName: colorName)
+        p.isOccupied = isOccupied
+        p.occupancyPeriodsData = occupancyPeriodsData
+        p.paymentHistoryData = paymentHistoryData
+        p.isActive = isActive
+        p.createdAt = createdAt; p.updatedAt = updatedAt
+        return p
     }
 }

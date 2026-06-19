@@ -111,6 +111,57 @@ final class NotificationService {
         UNUserNotificationCenter.current().add(request)
     }
 
+    // MARK: – Salary reminder
+    func scheduleSalaryReminder(recordId: String, employerName: String, expectedAmount: Double,
+                                currency: String, paymentDate: Date) {
+        let content = UNMutableNotificationContent()
+        content.title = "Salary Expected Tomorrow"
+        content.body = "\(employerName) salary of \(expectedAmount.formatted(as: currency)) expected tomorrow."
+        content.sound = .default
+        guard let triggerDate = Calendar.current.date(byAdding: .day, value: -1, to: paymentDate),
+              triggerDate > Date() else { return }
+        let components = Calendar.current.dateComponents([.year, .month, .day, .hour], from: triggerDate)
+        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+        let request = UNNotificationRequest(identifier: "salary_\(recordId)", content: content, trigger: trigger)
+        UNUserNotificationCenter.current().add(request)
+    }
+
+    // MARK: – Salary not received alert
+    func sendSalaryNotReceivedAlert(employerName: String, expectedAmount: Double, currency: String, daysLate: Int) {
+        let content = UNMutableNotificationContent()
+        content.title = "Salary Not Received ⚠️"
+        content.body = "\(employerName) salary of \(expectedAmount.formatted(as: currency)) is \(daysLate) day\(daysLate == 1 ? "" : "s") late. Check with your employer."
+        content.sound = .default
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
+        let id = "salary_late_\(employerName.lowercased().replacingOccurrences(of: " ", with: "_"))"
+        let request = UNNotificationRequest(identifier: id, content: content, trigger: trigger)
+        UNUserNotificationCenter.current().add(request)
+    }
+
+    // MARK: – Freelance invoice overdue
+    func sendInvoiceOverdueAlert(clientName: String, invoiceNumber: String, amount: Double, currency: String) {
+        let content = UNMutableNotificationContent()
+        content.title = "Invoice Overdue"
+        content.body = "Invoice #\(invoiceNumber) from \(clientName) for \(amount.formatted(as: currency)) is overdue."
+        content.sound = .default
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
+        let id = "invoice_overdue_\(invoiceNumber.replacingOccurrences(of: "#", with: ""))"
+        let request = UNNotificationRequest(identifier: id, content: content, trigger: trigger)
+        UNUserNotificationCenter.current().add(request)
+    }
+
+    // MARK: – Rent late alert
+    func sendRentLateAlert(propertyName: String, tenantName: String, amount: Double, currency: String) {
+        let content = UNMutableNotificationContent()
+        content.title = "Rent Payment Overdue"
+        content.body = "\(propertyName): Rent of \(amount.formatted(as: currency)) from \(tenantName) is overdue."
+        content.sound = .default
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
+        let id = "rent_late_\(propertyName.lowercased().replacingOccurrences(of: " ", with: "_"))"
+        let request = UNNotificationRequest(identifier: id, content: content, trigger: trigger)
+        UNUserNotificationCenter.current().add(request)
+    }
+
     // MARK: – Helpers
     func cancelNotification(id: String) {
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [id])

@@ -9,6 +9,9 @@ struct RootView: View {
     @Query(filter: #Predicate<Transaction> { $0.isScheduled }) private var scheduledTxs: [Transaction]
     @Query private var bills: [Bill]
     @Query private var allTransactions: [Transaction]
+    @Query(filter: #Predicate<SalaryRecord> { $0.isActive }) private var salaryRecords: [SalaryRecord]
+    @Query(filter: #Predicate<FreelanceProject> { !$0.isArchived }) private var freelanceProjects: [FreelanceProject]
+    @Query(filter: #Predicate<RentalProperty> { $0.isActive }) private var rentalProperties: [RentalProperty]
     @Environment(\.modelContext) private var context
     @Environment(\.scenePhase) private var scenePhase
     @Environment(CurrencyService.self) private var currencyService
@@ -43,6 +46,7 @@ struct RootView: View {
             processRecurringTransactions()
             processScheduledTransactions()
             processBillAlerts()
+            processIncomeAlerts()
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .background,
@@ -55,6 +59,7 @@ struct RootView: View {
                 processRecurringTransactions()
                 processScheduledTransactions()
                 processBillAlerts()
+                processIncomeAlerts()
             }
         }
     }
@@ -79,6 +84,16 @@ struct RootView: View {
             didChange = true
         }
         if didChange { try? context.save() }
+    }
+
+    private func processIncomeAlerts() {
+        IncomeService.shared.checkSalaryAlerts(records: salaryRecords)
+        IncomeService.shared.checkLateRentAlerts(properties: rentalProperties)
+        let overdueInvoices = IncomeService.shared.checkOverdueInvoices(projects: Array(freelanceProjects))
+        for (project, invoice) in overdueInvoices {
+            IncomeService.shared.sendOverdueInvoiceAlert(project: project, invoice: invoice)
+        }
+        if context.hasChanges { try? context.save() }
     }
 
     private func processBillAlerts() {
