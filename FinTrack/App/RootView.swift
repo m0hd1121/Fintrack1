@@ -6,6 +6,7 @@ struct RootView: View {
     @Query private var profiles: [UserProfile]
     @Query private var settings: [AppSettings]
     @Query(filter: #Predicate<Transaction> { $0.isRecurring }) private var recurringTxs: [Transaction]
+    @Query(filter: #Predicate<Transaction> { $0.isScheduled }) private var scheduledTxs: [Transaction]
     @Environment(\.modelContext) private var context
     @Environment(\.scenePhase) private var scenePhase
     @Environment(CurrencyService.self) private var currencyService
@@ -38,6 +39,7 @@ struct RootView: View {
                 appState.lock()
             }
             processRecurringTransactions()
+            processScheduledTransactions()
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .background,
@@ -48,8 +50,31 @@ struct RootView: View {
             }
             if phase == .active {
                 processRecurringTransactions()
+                processScheduledTransactions()
             }
         }
+    }
+
+    /// Posts overdue scheduled transactions and updates account balances.
+    private func processScheduledTransactions() {
+        let now = Date()
+        var didChange = false
+        for tx in scheduledTxs {
+            guard let due = tx.scheduledDate, due <= now else { continue }
+            tx.isScheduled = false
+            tx.scheduledDate = nil
+            // Now update account balance (was withheld until posting)
+            if let account = tx.account {
+                let delta = currencyService.convert(tx.amount, from: tx.currency, to: account.currency)
+                switch tx.type {
+                case .income:   account.balance += delta
+                case .expense:  account.balance -= delta
+                case .transfer: account.balance += delta
+                }
+            }
+            didChange = true
+        }
+        if didChange { try? context.save() }
     }
 
     private func ensureDefaults() {

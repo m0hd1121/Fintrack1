@@ -67,17 +67,16 @@ struct DashboardView: View {
         var m = DashboardMetrics()
         let now = Date()
 
-        // Single pass over transactions: monthly income/expenses + category spending.
+        // Single pass: monthly income/expenses + category spending.
+        // spendingPairs handles splits, excludes pending/scheduled automatically.
         var spendingTotals: [TransactionCategory: Double] = [:]
         for tx in transactions where tx.date.isSameMonth(as: now) {
-            switch tx.type {
-            case .income:
+            if tx.type == .income && !tx.isPending && !tx.isScheduled {
                 m.monthlyIncome += tx.amountInBaseCurrency
-            case .expense:
-                m.monthlyExpenses += tx.amountInBaseCurrency
-                spendingTotals[tx.category, default: 0] += tx.amountInBaseCurrency
-            default:
-                break
+            }
+            for (cat, amount) in tx.spendingPairs {
+                m.monthlyExpenses += amount
+                spendingTotals[cat, default: 0] += amount
             }
         }
         m.monthlyNet = m.monthlyIncome - m.monthlyExpenses
@@ -624,8 +623,25 @@ struct TransactionRowView: View {
 
     var body: some View {
         HStack(spacing: FTSpacing.md) {
-            FTIconTile(symbol: transaction.category.icon,
-                       tint: Color.fromString(transaction.category.color))
+            ZStack(alignment: .bottomTrailing) {
+                FTIconTile(symbol: transaction.category.icon,
+                           tint: Color.fromString(transaction.category.color))
+                if transaction.isPending {
+                    Image(systemName: "clock.fill")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(.white)
+                        .padding(2)
+                        .background(FTColor.gold, in: Circle())
+                        .offset(x: 4, y: 4)
+                } else if transaction.isScheduled {
+                    Image(systemName: "calendar")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(.white)
+                        .padding(2)
+                        .background(FTColor.accent, in: Circle())
+                        .offset(x: 4, y: 4)
+                }
+            }
 
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 4) {
@@ -645,12 +661,17 @@ struct TransactionRowView: View {
                             .font(.system(size: 10))
                             .foregroundStyle(FTColor.income)
                     }
+                    if transaction.isSplit {
+                        Image(systemName: "arrow.triangle.branch")
+                            .font(.system(size: 10))
+                            .foregroundStyle(FTColor.textMuted)
+                    }
                 }
-                if transaction.tags.isEmpty {
-                    Text(transaction.category.rawValue)
-                        .font(.ftCaption)
-                        .foregroundStyle(FTColor.textSecondary)
-                } else {
+                Text(transaction.displaySubtitle)
+                    .font(.ftCaption)
+                    .foregroundStyle(FTColor.textSecondary)
+                    .lineLimit(1)
+                if !transaction.tags.isEmpty {
                     Text(transaction.tags.prefix(2).map { "#\($0)" }.joined(separator: " "))
                         .font(.ftCaption)
                         .foregroundStyle(FTColor.accent.opacity(0.8))
@@ -662,12 +683,17 @@ struct TransactionRowView: View {
             VStack(alignment: .trailing, spacing: 2) {
                 Text((transaction.type == .expense ? "-" : "+") + transaction.amount.formatted(as: transaction.currency))
                     .font(.ftBodySemibold)
-                    .foregroundStyle(transaction.type == .expense ? FTColor.expense : FTColor.income)
+                    .foregroundStyle(
+                        transaction.isPending || transaction.isScheduled
+                            ? FTColor.textMuted
+                            : transaction.type == .expense ? FTColor.expense : FTColor.income
+                    )
                 Text(transaction.date.formatted)
                     .font(.ftCaption)
                     .foregroundStyle(FTColor.textSecondary)
             }
         }
         .padding(.vertical, 13)
+        .opacity(transaction.isPending || transaction.isScheduled ? 0.75 : 1)
     }
 }

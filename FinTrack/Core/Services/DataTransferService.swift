@@ -39,6 +39,17 @@ struct TransactionDTO: Codable {
     var paymentMethod: String; var tags: [String]; var isVerified: Bool
     var isDuplicate: Bool; var createdAt: Date; var updatedAt: Date
     var accountId: UUID?; var linkedLoanId: UUID?
+    // v4 additions (optional for backwards-compatible decoding of older backups)
+    var isPending: Bool?
+    var isScheduled: Bool?
+    var scheduledDate: Date?
+    var subtype: String?
+    var splitItems: [SplitItem]?
+    var incomeSource: String?
+    var latitude: Double?
+    var longitude: Double?
+    var chequeNumber: String?
+    var chequeDate: Date?
 }
 
 struct BudgetDTO: Codable {
@@ -319,7 +330,12 @@ extension Transaction {
                        paymentMethod: paymentMethod.rawValue, tags: tags,
                        isVerified: isVerified, isDuplicate: isDuplicate,
                        createdAt: createdAt, updatedAt: updatedAt,
-                       accountId: account?.id, linkedLoanId: linkedLoan?.id)
+                       accountId: account?.id, linkedLoanId: linkedLoan?.id,
+                       isPending: isPending, isScheduled: isScheduled,
+                       scheduledDate: scheduledDate, subtype: subtype?.rawValue,
+                       splitItems: splitItems.isEmpty ? nil : splitItems,
+                       incomeSource: incomeSource, latitude: latitude, longitude: longitude,
+                       chequeNumber: chequeNumber, chequeDate: chequeDate)
     }
 }
 
@@ -454,7 +470,15 @@ extension TransactionDTO {
                             receiptImageData: receiptImageData, isRecurring: isRecurring,
                             merchant: merchant,
                             paymentMethod: PaymentMethod(rawValue: paymentMethod) ?? .cash,
-                            tags: tags, isVerified: isVerified, isDuplicate: isDuplicate)
+                            chequeNumber: chequeNumber, chequeDate: chequeDate,
+                            tags: tags, isVerified: isVerified, isDuplicate: isDuplicate,
+                            isPending: isPending ?? false,
+                            isScheduled: isScheduled ?? false,
+                            scheduledDate: scheduledDate,
+                            subtype: subtype.flatMap { TransactionSubtype(rawValue: $0) },
+                            splitItems: splitItems ?? [],
+                            incomeSource: incomeSource,
+                            latitude: latitude, longitude: longitude)
         t.createdAt = createdAt; t.updatedAt = updatedAt
         return t
     }

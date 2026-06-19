@@ -28,6 +28,7 @@ struct FinTrackApp: App {
         let schema = Schema([
             Account.self,
             Transaction.self,
+            DocumentAttachment.self,
             Budget.self,
             SavingsGoal.self,
             Loan.self,

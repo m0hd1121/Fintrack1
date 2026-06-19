@@ -15,11 +15,15 @@ struct BudgetView: View {
 
     private var baseCurrency: String { appState.baseCurrency }
 
-    /// Single O(n) pass over current-month expenses, keyed by category.
+    /// Single O(n) pass over current-month expenses using spendingPairs so split
+    /// transactions are bucketed into their individual categories correctly,
+    /// and pending/scheduled transactions are excluded until they post.
     private var spentByCategory: [TransactionCategory: Double] {
         var result: [TransactionCategory: Double] = [:]
-        for tx in transactions where tx.type == .expense && tx.date.isSameMonth(as: selectedMonth) {
-            result[tx.category, default: 0] += tx.amountInBaseCurrency
+        for tx in transactions where tx.date.isSameMonth(as: selectedMonth) {
+            for (cat, amount) in tx.spendingPairs {
+                result[cat, default: 0] += amount
+            }
         }
         return result
     }

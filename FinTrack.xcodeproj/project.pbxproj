@@ -261,7 +261,10 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.finance";
 				INFOPLIST_KEY_NSCameraUsageDescription = "FinTrack needs camera access to scan receipts.";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "FinTrack uses Face ID to protect your financial data.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "FinTrack can tag your location to transactions for better spending insights.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "FinTrack uses the microphone to let you add transactions by voice.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "FinTrack needs access to your photos to attach receipts to transactions.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "FinTrack uses speech recognition to convert your voice into transaction details.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -299,7 +302,10 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.finance";
 				INFOPLIST_KEY_NSCameraUsageDescription = "FinTrack needs camera access to scan receipts.";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "FinTrack uses Face ID to protect your financial data.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "FinTrack can tag your location to transactions for better spending insights.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "FinTrack uses the microphone to let you add transactions by voice.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "FinTrack needs access to your photos to attach receipts to transactions.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "FinTrack uses speech recognition to convert your voice into transaction details.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
