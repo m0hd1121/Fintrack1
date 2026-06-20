@@ -92,6 +92,20 @@ struct SettingsView: View {
                 VStack(spacing: FTSpacing.xl) {
                     profileCard
 
+                    sectionCard("Tax Management") {
+                        NavigationLink(destination: TaxManagementView()) {
+                            settingRow(symbol: "doc.text.fill", tint: FTColor.catPurple,
+                                       title: "Tax Management", chevron: true)
+                        }
+                    }
+
+                    sectionCard("Family Finance") {
+                        NavigationLink(destination: FamilyFinanceView()) {
+                            settingRow(symbol: "person.3.fill", tint: FTColor.catTeal,
+                                       title: "Family & Shared Finance", chevron: true)
+                        }
+                    }
+
                     sectionCard("Organization") {
                         Button { showingCategoryManagement = true } label: {
                             settingRow(symbol: "folder.badge.gear", tint: FTColor.catTeal,
