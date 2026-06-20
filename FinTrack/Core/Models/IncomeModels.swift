@@ -303,6 +303,7 @@ final class SalaryRecord {
     var isActive: Bool = true
     var colorName: String = "green"
     var notes: String? = nil
+    var lastSalaryAlertDate: Date? = nil
     @Attribute(.externalStorage) var paymentsData: Data = Data()
     var createdAt: Date = Date()
     var updatedAt: Date = Date()
@@ -502,6 +503,8 @@ final class RentalProperty {
     var currency: String = "AED"
     var monthlyRentExpected: Double
     var isOccupied: Bool = false
+    var rentDueDay: Int = 1
+    var lastRentAlertDate: Date? = nil
     @Attribute(.externalStorage) var occupancyPeriodsData: Data = Data()
     @Attribute(.externalStorage) var paymentHistoryData: Data = Data()
     var notes: String? = nil

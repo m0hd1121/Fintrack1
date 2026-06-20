@@ -143,9 +143,7 @@ final class IncomeService {
         let isPartial  = amount < expectedAmount * 0.95
 
         let status: SalaryPaymentStatus
-        if isLate && isPartial {
-            status = .partialLate
-        } else if isLate {
+        if isLate {
             status = .late
         } else if isPartial {
             status = .partial
@@ -153,16 +151,12 @@ final class IncomeService {
             status = .received
         }
 
-        let variance = amount - expectedAmount
-
         let payment = SalaryPayment(
             expectedDate:   expectedDate,
             expectedAmount: expectedAmount,
             receivedDate:   date,
             receivedAmount: amount,
-            status:         status,
-            isLate:         isLate,
-            variance:       variance,
+            statusRaw:      status.rawValue,
             notes:          notes
         )
 
@@ -310,8 +304,6 @@ final class IncomeService {
         if let idx = property.paymentHistory.firstIndex(where: { !$0.isPaid && $0.expectedDate <= date }) {
             property.paymentHistory[idx].receivedDate   = date
             property.paymentHistory[idx].receivedAmount = amount
-            property.paymentHistory[idx].isPaid         = true
-            property.paymentHistory[idx].isLate         = date > property.paymentHistory[idx].expectedDate
             property.paymentHistory[idx].notes          = notes
         } else if unpaid.isEmpty {
             // No unpaid record found — create a new one for the current month
@@ -327,8 +319,6 @@ final class IncomeService {
             )
             newRecord.receivedDate   = date
             newRecord.receivedAmount = amount
-            newRecord.isPaid         = true
-            newRecord.isLate         = date > expectedDate
             newRecord.notes          = notes
             property.paymentHistory.append(newRecord)
         } else {
@@ -337,8 +327,6 @@ final class IncomeService {
                let idx = property.paymentHistory.firstIndex(where: { $0.id == first.id }) {
                 property.paymentHistory[idx].receivedDate   = date
                 property.paymentHistory[idx].receivedAmount = amount
-                property.paymentHistory[idx].isPaid         = true
-                property.paymentHistory[idx].isLate         = date > property.paymentHistory[idx].expectedDate
                 property.paymentHistory[idx].notes          = notes
             }
         }

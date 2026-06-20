@@ -18,11 +18,11 @@ final class SpotlightService {
             attr.title = tx.title
             attr.contentDescription = [
                 "\(tx.currency) \(String(format: "%.2f", tx.amount))",
-                tx.category.displayName,
+                tx.category.rawValue,
                 tx.merchant ?? "",
                 tx.notes ?? ""
             ].filter { !$0.isEmpty }.joined(separator: " · ")
-            attr.keywords = [tx.title, tx.category.displayName, tx.merchant ?? "", tx.type.rawValue].filter { !$0.isEmpty }
+            attr.keywords = [tx.title, tx.category.rawValue, tx.merchant ?? "", tx.type.rawValue].filter { !$0.isEmpty }
             attr.timestamp = tx.date
             attr.displayName = tx.title
             attr.identifier = tx.id.uuidString
@@ -42,7 +42,7 @@ final class SpotlightService {
             let attr = CSSearchableItemAttributeSet(contentType: .text)
             attr.title = account.name
             attr.contentDescription = "\(account.type.rawValue) · \(account.currency) \(String(format: "%.2f", account.balance))"
-            attr.keywords = [account.name, account.type.rawValue, account.currency, account.bankName ?? ""].filter { !$0.isEmpty }
+            attr.keywords = [account.name, account.type.rawValue, account.currency, account.bankName].filter { !$0.isEmpty }
             attr.displayName = account.name
             attr.identifier = account.id.uuidString
 
