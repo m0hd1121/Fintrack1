@@ -106,6 +106,20 @@ struct SettingsView: View {
                         }
                     }
 
+                    sectionCard("Business & Freelancer") {
+                        NavigationLink(destination: BusinessFreelancerView()) {
+                            settingRow(symbol: "briefcase.fill", tint: FTColor.catBlue,
+                                       title: "Business & Freelancer", chevron: true)
+                        }
+                    }
+
+                    sectionCard("Import & Integration") {
+                        NavigationLink(destination: ImportIntegrationView()) {
+                            settingRow(symbol: "arrow.down.circle.fill", tint: FTColor.catCoral,
+                                       title: "Import & Sync", chevron: true)
+                        }
+                    }
+
                     sectionCard("Organization") {
                         Button { showingCategoryManagement = true } label: {
                             settingRow(symbol: "folder.badge.gear", tint: FTColor.catTeal,
