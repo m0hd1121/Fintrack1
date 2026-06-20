@@ -22,7 +22,7 @@ struct EstatePlanningView: View {
         let cash = accounts.reduce(0) { $0 + $1.balance }
         let reEstate = realEstateProps.reduce(0) { $0 + $1.currentValue }
         let veh = vehicles.reduce(0) { $0 + $1.currentValue }
-        let personal = personalAssets.reduce(0) { $0 + $1.currentValue }
+        let personal = personalAssets.reduce(0) { $0 + $1.estimatedMarketValue }
         let inv = investments.reduce(0) { $0 + $1.currentValue }
         let crypto = cryptoHoldings.reduce(0) { $0 + $1.currentValue }
         let gold = goldHoldings.reduce(0) { $0 + $1.currentValue }
@@ -105,21 +105,21 @@ struct EstatePlanningView: View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
             Text("Asset Breakdown").font(.ftHeadline).foregroundStyle(FTColor.textPrimary)
 
+            let cashTotal: Double = accounts.reduce(0) { $0 + $1.balance }
+            let realEstateTotal: Double = realEstateProps.reduce(0) { $0 + $1.currentValue }
+            let vehicleTotal: Double = vehicles.reduce(0) { $0 + $1.currentValue }
+            let investTotal: Double = investments.reduce(0) { $0 + $1.currentValue }
+            let cryptoTotal: Double = cryptoHoldings.reduce(0) { $0 + $1.currentValue }
+            let goldTotal: Double = goldHoldings.reduce(0) { $0 + $1.currentValue }
+            let personalTotal: Double = personalAssets.reduce(0) { $0 + $1.estimatedMarketValue }
             let items: [(String, String, Double, Color)] = [
-                ("Cash & Accounts", "dollarsign.circle.fill",
-                 accounts.reduce(0) { $0 + $1.balance }, FTColor.accent),
-                ("Real Estate", "house.fill",
-                 realEstateProps.reduce(0) { $0 + $1.currentValue }, FTColor.catTeal),
-                ("Vehicles", "car.fill",
-                 vehicles.reduce(0) { $0 + $1.currentValue }, FTColor.catBlue),
-                ("Investments", "chart.line.uptrend.xyaxis",
-                 investments.reduce(0) { $0 + $1.currentValue }, FTColor.income),
-                ("Crypto", "bitcoinsign.circle.fill",
-                 cryptoHoldings.reduce(0) { $0 + $1.currentValue }, FTColor.catCoral),
-                ("Gold", "circle.fill",
-                 goldHoldings.reduce(0) { $0 + $1.currentValue }, FTColor.gold),
-                ("Personal Assets", "bag.fill",
-                 personalAssets.reduce(0) { $0 + $1.currentValue }, FTColor.catPurple),
+                ("Cash & Accounts", "dollarsign.circle.fill", cashTotal, FTColor.accent),
+                ("Real Estate", "house.fill", realEstateTotal, FTColor.catTeal),
+                ("Vehicles", "car.fill", vehicleTotal, FTColor.catBlue),
+                ("Investments", "chart.line.uptrend.xyaxis", investTotal, FTColor.income),
+                ("Crypto", "bitcoinsign.circle.fill", cryptoTotal, FTColor.catCoral),
+                ("Gold", "circle.fill", goldTotal, FTColor.gold),
+                ("Personal Assets", "bag.fill", personalTotal, FTColor.catPurple),
             ].filter { $0.2 > 0 }
 
             ForEach(items, id: \.0) { name, icon, amount, color in
@@ -165,7 +165,7 @@ struct EstatePlanningView: View {
                         FTIconTile(symbol: "creditcard.fill", tint: FTColor.catCoral, size: 34)
                         Text(card.name).font(.ftBody).foregroundStyle(FTColor.textPrimary)
                         Spacer()
-                        Text(card.currentBalance.formatted(as: card.currency))
+                        Text(card.outstandingBalance.formatted(as: card.currency))
                             .font(.ftBodySemibold).foregroundStyle(FTColor.expense)
                     }
                 }
