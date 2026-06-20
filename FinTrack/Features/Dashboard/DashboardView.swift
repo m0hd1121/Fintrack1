@@ -30,6 +30,8 @@ struct DashboardView: View {
     @Query private var netWorthMilestones: [NetWorthMilestone]
     @Query(filter: #Predicate<SavingsGoal> { !$0.isArchived && !$0.isCompleted }) private var activeGoals: [SavingsGoal]
 
+    @Query private var dashSettings: [AppSettings]
+
     @State private var showingProfile = false
     @State private var showingReports = false
     @State private var showingAI = false
@@ -42,6 +44,11 @@ struct DashboardView: View {
     @State private var showingGoals = false
 
     private var baseCurrency: String { appState.baseCurrency }
+
+    private func isWidgetVisible(_ widget: DashboardWidget) -> Bool {
+        let hidden = dashSettings.first?.dashboardHiddenWidgets ?? ""
+        return !hidden.split(separator: ",").map(String.init).contains(widget.rawValue)
+    }
 
     private var greeting: String {
         switch Calendar.current.component(.hour, from: Date()) {
@@ -249,29 +256,37 @@ struct DashboardView: View {
                         }
 
                         VStack(spacing: FTSpacing.lg) {
-                            if !metrics.spendingByCategory.isEmpty {
+                            if isWidgetVisible(.metrics) && !metrics.spendingByCategory.isEmpty {
                                 spendingChartSection
                             }
 
-                            if !bills.isEmpty {
+                            if isWidgetVisible(.bills) && !bills.isEmpty {
                                 billsAlertCard
                             }
 
-                            incomeOverviewCard
+                            if isWidgetVisible(.income) {
+                                incomeOverviewCard
+                            }
 
-                            portfolioOverviewCard
+                            if isWidgetVisible(.investments) {
+                                portfolioOverviewCard
+                            }
 
-                            savingsGoalsCard
+                            if isWidgetVisible(.goals) {
+                                savingsGoalsCard
+                            }
 
                             assetsOverviewCard
 
-                            debtOverviewCard
+                            if isWidgetVisible(.debt) {
+                                debtOverviewCard
+                            }
 
-                            if !metrics.upcomingPayments.isEmpty {
+                            if isWidgetVisible(.bills) && !metrics.upcomingPayments.isEmpty {
                                 upcomingPaymentsSection
                             }
 
-                            if !cachedInsights.isEmpty {
+                            if isWidgetVisible(.aiInsights) && !cachedInsights.isEmpty {
                                 insightsSection
                             }
 
@@ -414,6 +429,10 @@ struct DashboardView: View {
         .padding(FTSpacing.xxl)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(FTColor.heroGradient, in: .rect(cornerRadius: FTRadius.xl))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(appState.hideBalances
+            ? "Total Net Worth, hidden"
+            : "Total Net Worth, \(metrics.netWorth.formatted(as: baseCurrency)), savings rate \(metrics.savingsRate.asPercentage())")
     }
 
     // MARK: - Accounts Row
@@ -449,6 +468,8 @@ struct DashboardView: View {
                         .background(Color(UIColor.secondarySystemBackground), in: .rect(cornerRadius: FTRadius.lg))
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("\(account.name), \(appState.hideBalances ? "balance hidden" : account.balance.formatted(as: account.currency))")
+                    .accessibilityHint("Open Accounts")
                 }
             }
             .padding(.leading, FTSpacing.screen)

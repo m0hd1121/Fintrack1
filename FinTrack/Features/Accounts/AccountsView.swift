@@ -486,6 +486,14 @@ struct AccountRow: View {
             }
         }
         .padding(.vertical, 4)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel({
+            var label = "\(account.name), \(account.type.rawValue), balance \(account.balance.formatted(as: account.currency))"
+            if account.minimumBalanceEnabled && account.balance < account.minimumBalance {
+                label += ", low balance warning"
+            }
+            return label
+        }())
     }
 }
 
@@ -511,6 +519,8 @@ struct CreditCardRow: View {
             }
         }
         .padding(.vertical, 4)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(card.name), credit card, outstanding \(card.outstandingBalance.formatted(as: card.currency)), \(Int(card.utilizationRate * 100)) percent utilized\(card.isPaymentDueSoon ? ", payment due soon" : "")")
     }
 }
 

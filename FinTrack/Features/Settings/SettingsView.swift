@@ -65,10 +65,6 @@ struct SettingsView: View {
         Binding(get: { setting?.billRemindersEnabled ?? true },
                 set: { setting?.billRemindersEnabled = $0; try? context.save() })
     }
-    private var themeBinding: Binding<AppTheme> {
-        Binding(get: { setting?.theme ?? .system },
-                set: { setting?.theme = $0; try? context.save() })
-    }
     private var cloudSyncBinding: Binding<Bool> {
         Binding(get: { setting?.cloudSyncEnabled ?? false },
                 set: { setting?.cloudSyncEnabled = $0; try? context.save() })
@@ -209,17 +205,20 @@ struct SettingsView: View {
                             settingRow(symbol: "globe", tint: FTColor.accent, title: "Base Currency",
                                        value: appState.baseCurrency, chevron: true)
                         }
+                        .accessibilityLabel("Base Currency: \(appState.baseCurrency)")
                         rowDivider
-                        Menu {
-                            Picker("Appearance", selection: themeBinding) {
-                                ForEach(AppTheme.allCases, id: \.self) { t in
-                                    Text(t.rawValue).tag(t)
-                                }
-                            }
-                        } label: {
-                            settingRow(symbol: "moon.stars", tint: FTColor.catPurple, title: "Appearance",
+                        NavigationLink(destination: AppearanceView()) {
+                            settingRow(symbol: "paintbrush.fill", tint: FTColor.catPurple,
+                                       title: "Appearance & Accessibility",
                                        value: (setting?.theme ?? .system).rawValue, chevron: true)
                         }
+                        .accessibilityLabel("Appearance and Accessibility settings")
+                        rowDivider
+                        NavigationLink(destination: DashboardCustomizerView()) {
+                            settingRow(symbol: "square.grid.2x2.fill", tint: FTColor.catTeal,
+                                       title: "Dashboard Layout", chevron: true)
+                        }
+                        .accessibilityLabel("Customize Dashboard Layout")
                         rowDivider
                         NavigationLink(destination: NotificationSettingsView()) {
                             settingRow(symbol: "bell.badge.fill", tint: FTColor.gold,

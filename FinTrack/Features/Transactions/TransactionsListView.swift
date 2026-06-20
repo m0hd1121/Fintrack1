@@ -330,6 +330,14 @@ struct TransactionsListView: View {
                 .tint(FTColor.accent)
             }
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel({
+            let typeLabel = tx.type == .income ? "Income" : "Expense"
+            let amountStr = tx.amount.formatted(as: tx.currency)
+            let dateStr = tx.date.relativeFormatted
+            return "\(tx.title), \(typeLabel), \(amountStr), \(tx.category.rawValue), \(dateStr)"
+        }())
+        .accessibilityHint(isEditing ? "Double-tap to \(selectedIDs.contains(tx.id) ? "deselect" : "select")" : "Double-tap to view details")
     }
 
     // MARK: - Duplicate Banner

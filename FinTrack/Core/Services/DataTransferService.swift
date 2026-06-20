@@ -220,7 +220,7 @@ struct AppSettingsDTO: Codable {
     var budgetAlertAt75: Bool?; var budgetAlertAt90: Bool?; var budgetAlertAt100: Bool?
     var weeklyDigestEnabled: Bool?; var monthlyDigestEnabled: Bool?
     var digestDayOfWeek: Int?; var digestDayOfMonth: Int?; var digestHour: Int?
-    var cloudSyncEnabled: Bool; var theme: String; var accentColor: String
+    var cloudSyncEnabled: Bool; var theme: String; var accentColor: String?; var accentColorName: String?
 }
 
 struct BillDTO: Codable {
@@ -763,7 +763,8 @@ extension AppSettings {
             weeklyDigestEnabled: weeklyDigestEnabled, monthlyDigestEnabled: monthlyDigestEnabled,
             digestDayOfWeek: digestDayOfWeek, digestDayOfMonth: digestDayOfMonth,
             digestHour: digestHour,
-            cloudSyncEnabled: cloudSyncEnabled, theme: theme.rawValue, accentColor: accentColor
+            cloudSyncEnabled: cloudSyncEnabled, theme: theme.rawValue,
+            accentColor: accentColorName, accentColorName: accentColorName
         )
     }
 }
@@ -1015,7 +1016,7 @@ extension AppSettingsDTO {
             digestHour: digestHour ?? 9,
             cloudSyncEnabled: cloudSyncEnabled,
             theme: AppTheme(rawValue: theme) ?? .system,
-            accentColor: accentColor
+            accentColorName: accentColorName ?? accentColor ?? "teal"
         )
     }
 }

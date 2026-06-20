@@ -951,6 +951,11 @@ struct EnhancedBudgetRow: View {
         }
         .padding(FTSpacing.md)
         .ftGlassInteractive(FTRadius.md)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel({
+            let statusLabel = isOverBudget ? "over budget" : isNearLimit ? "near limit" : "on track"
+            return "\(budget.name) budget, spent \(spent.formatted(as: currency)) of \(effectiveBudget.formatted(as: currency)), \(Int(progress * 100)) percent, \(statusLabel)"
+        }())
     }
 
     @ViewBuilder
@@ -1136,6 +1141,8 @@ struct SavingsGoalRow: View {
             }
         }
         .padding(FTSpacing.md)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(goal.name) savings goal, \(Int(goal.progress * 100)) percent complete, \(goal.currentAmount.formatted(as: goal.currency)) of \(goal.targetAmount.formatted(as: goal.currency))")
     }
 }
 

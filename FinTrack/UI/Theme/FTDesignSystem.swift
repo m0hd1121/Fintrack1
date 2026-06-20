@@ -241,6 +241,7 @@ struct FTSegmentedControl: View {
     let options: [String]
     @Binding var selection: Int
     @Namespace private var ns
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 4) {
@@ -259,11 +260,17 @@ struct FTSegmentedControl: View {
                         }
                     }
                     .contentShape(.rect)
-                    .onTapGesture { withAnimation(.snappy(duration: 0.25)) { selection = i } }
+                    .onTapGesture {
+                        if reduceMotion { selection = i }
+                        else { withAnimation(.snappy(duration: 0.25)) { selection = i } }
+                    }
+                    .accessibilityLabel(options[i])
+                    .accessibilityAddTraits(selection == i ? [.isSelected] : [])
             }
         }
         .padding(4)
         .ftGlass(FTRadius.md)
+        .accessibilityElement(children: .contain)
     }
 }
 
@@ -359,19 +366,57 @@ struct FTGlassTabBar: View {
     }
 }
 
+// MARK: - Environment keys for personalization
+
+private struct OLEDModeKey: EnvironmentKey { static let defaultValue = false }
+private struct HighContrastKey: EnvironmentKey { static let defaultValue = false }
+
+extension EnvironmentValues {
+    var isOLEDMode: Bool {
+        get { self[OLEDModeKey.self] }
+        set { self[OLEDModeKey.self] = newValue }
+    }
+    var isHighContrast: Bool {
+        get { self[HighContrastKey.self] }
+        set { self[HighContrastKey.self] = newValue }
+    }
+}
+
+// MARK: - Accent color presets
+
+extension Color {
+    /// Resolve a named accent color to a SwiftUI Color.
+    static func ftAccent(named name: String) -> Color {
+        switch name {
+        case "blue":   return Color(light: 0x1A6FD0, dark: 0x4A9EFF)
+        case "purple": return Color(light: 0x7C5BD0, dark: 0xA07EE8)
+        case "coral":  return Color(light: 0xE5736B, dark: 0xFF9590)
+        case "gold":   return Color(light: 0xC8902B, dark: 0xE8B64B)
+        case "rose":   return Color(light: 0xD04B7C, dark: 0xFF70A6)
+        default:       return FTColor.accent  // teal
+        }
+    }
+}
+
 // MARK: - Soft blurred-blob backdrop (the iOS 26 "colorful frost" base)
 
 struct FTBackdrop: View {
+    @Environment(\.isOLEDMode) private var isOLEDMode
+
     var body: some View {
-        ZStack {
-            FTColor.bgBase.ignoresSafeArea()
-            GeometryReader { geo in
-                blob(Color(hex: 0x13B8A6), 180).position(x: 40, y: 60)
-                blob(Color(hex: 0x5B86E5), 160).position(x: geo.size.width - 30, y: 150)
-                blob(Color(hex: 0xE8B64B), 180).position(x: geo.size.width * 0.5, y: geo.size.height * 0.7)
+        if isOLEDMode {
+            Color.black.ignoresSafeArea()
+        } else {
+            ZStack {
+                FTColor.bgBase.ignoresSafeArea()
+                GeometryReader { geo in
+                    blob(Color(hex: 0x13B8A6), 180).position(x: 40, y: 60)
+                    blob(Color(hex: 0x5B86E5), 160).position(x: geo.size.width - 30, y: 150)
+                    blob(Color(hex: 0xE8B64B), 180).position(x: geo.size.width * 0.5, y: geo.size.height * 0.7)
+                }
+                .drawingGroup()
+                .ignoresSafeArea()
             }
-            .drawingGroup()
-            .ignoresSafeArea()
         }
     }
     private func blob(_ color: Color, _ size: CGFloat) -> some View {

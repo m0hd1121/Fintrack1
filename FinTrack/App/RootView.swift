@@ -23,10 +23,14 @@ struct RootView: View {
 
     private var preferredScheme: ColorScheme? {
         switch settings.first?.theme {
-        case .light:  return .light
-        case .dark:   return .dark
-        default:      return nil
+        case .light:             return .light
+        case .dark, .oled:       return .dark
+        default:                 return nil
         }
+    }
+
+    private var resolvedAccentColor: Color {
+        Color.ftAccent(named: settings.first?.accentColorName ?? "teal")
     }
 
     var body: some View {
@@ -42,6 +46,9 @@ struct RootView: View {
             }
         }
         .preferredColorScheme(preferredScheme)
+        .environment(\.isOLEDMode, settings.first?.oledMode ?? false)
+        .environment(\.isHighContrast, settings.first?.highContrastMode ?? false)
+        .tint(resolvedAccentColor)
         .dismissKeyboardOnTap()
         .onAppear {
             ensureDefaults()

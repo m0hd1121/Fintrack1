@@ -271,6 +271,8 @@ struct AddTransactionView: View {
                 .font(.ftDisplay)
                 .foregroundStyle(FTColor.textPrimary)
                 .focused($amountFocused)
+                .accessibilityLabel("Amount")
+                .accessibilityHint("Enter the transaction amount")
                 .onChange(of: amount) { _, newValue in
                     let formatted = AmountTextField.format(newValue)
                     if formatted != newValue { amount = formatted }

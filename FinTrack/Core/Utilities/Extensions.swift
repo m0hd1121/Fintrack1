@@ -73,6 +73,22 @@ extension Date {
         Calendar.current.dateInterval(of: .weekOfYear, for: self)?.start ?? self
     }
 
+    /// Start of the fiscal year. `startMonth` is 1-based (1 = January).
+    func startOfFiscalYear(startMonth: Int) -> Date {
+        let cal = Calendar.current
+        let year = cal.component(.year, from: self)
+        let month = cal.component(.month, from: self)
+        let fiscalYear = month >= startMonth ? year : year - 1
+        return cal.date(from: DateComponents(year: fiscalYear, month: startMonth, day: 1)) ?? self
+    }
+
+    /// Calendar adjusted for a custom first weekday (1=Sunday, 2=Monday, 7=Saturday).
+    static func calendar(firstWeekday: Int) -> Calendar {
+        var cal = Calendar.current
+        cal.firstWeekday = firstWeekday
+        return cal
+    }
+
     var monthName: String {
         CachedFormatters.monthName.string(from: self)
     }

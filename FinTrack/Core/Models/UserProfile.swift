@@ -93,7 +93,13 @@ final class AppSettings {
     // Appearance / sync
     var cloudSyncEnabled: Bool
     var theme: AppTheme
-    var accentColor: String
+    var accentColorName: String
+    // Personalization
+    var oledMode: Bool
+    var highContrastMode: Bool
+    var fiscalYearStartMonth: Int   // 1–12
+    var firstDayOfWeek: Int         // 1=Sunday, 2=Monday
+    var dashboardHiddenWidgets: String  // comma-separated widget IDs
 
     init(
         id: UUID = UUID(),
@@ -129,7 +135,12 @@ final class AppSettings {
         digestHour: Int = 9,
         cloudSyncEnabled: Bool = false,
         theme: AppTheme = .system,
-        accentColor: String = "blue"
+        accentColorName: String = "teal",
+        oledMode: Bool = false,
+        highContrastMode: Bool = false,
+        fiscalYearStartMonth: Int = 1,
+        firstDayOfWeek: Int = 1,
+        dashboardHiddenWidgets: String = ""
     ) {
         self.id = id
         self.useBiometrics = useBiometrics
@@ -164,12 +175,18 @@ final class AppSettings {
         self.digestHour = digestHour
         self.cloudSyncEnabled = cloudSyncEnabled
         self.theme = theme
-        self.accentColor = accentColor
+        self.accentColorName = accentColorName
+        self.oledMode = oledMode
+        self.highContrastMode = highContrastMode
+        self.fiscalYearStartMonth = fiscalYearStartMonth
+        self.firstDayOfWeek = firstDayOfWeek
+        self.dashboardHiddenWidgets = dashboardHiddenWidgets
     }
 }
 
 enum AppTheme: String, Codable, CaseIterable {
-    case light = "Light"
-    case dark = "Dark"
+    case light  = "Light"
+    case dark   = "Dark"
     case system = "System"
+    case oled   = "OLED Black"
 }
