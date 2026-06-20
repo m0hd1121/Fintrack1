@@ -392,7 +392,7 @@ final class DebtService {
             totalMonths = month
 
             // Extra available this month = user extra + freed minimums from previous payoffs
-            var snowballPool = extraMonthlyPayment + freedMinimums
+            let snowballPool = extraMonthlyPayment + freedMinimums
 
             for idx in states.indices {
                 guard states[idx].balance > 0.005 else { continue }

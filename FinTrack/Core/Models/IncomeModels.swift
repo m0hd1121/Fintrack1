@@ -345,13 +345,10 @@ final class SalaryRecord {
     var nextExpectedDate: Date {
         let calendar = Calendar.current
         let now = Date()
-        var components = calendar.dateComponents([.year, .month], from: now)
 
         // Clamp expectedPaymentDay to valid day for each month
         func nextOccurrence(from referenceDate: Date) -> Date {
             var comps = calendar.dateComponents([.year, .month], from: referenceDate)
-            let year = comps.year ?? 0
-            let month = comps.month ?? 1
             let range = calendar.range(of: .day, in: .month, for: referenceDate)
             let maxDay = range?.count ?? 28
             let day = min(expectedPaymentDay, maxDay)

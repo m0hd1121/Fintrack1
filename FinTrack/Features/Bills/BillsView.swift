@@ -513,7 +513,7 @@ private struct SubscriptionsTabContent: View {
             // AI Insights
             if !wasteAnalyses.isEmpty {
                 VStack(alignment: .leading, spacing: FTSpacing.sm) {
-                    SectionHeader(title: "AI Insights", symbol: "sparkles", tint: FTColor.gold)
+                    BillSectionHeader(title: "AI Insights", symbol: "sparkles", tint: FTColor.gold)
                         .padding(.horizontal, FTSpacing.screen)
 
                     VStack(spacing: FTSpacing.sm) {
@@ -532,7 +532,7 @@ private struct SubscriptionsTabContent: View {
             // Auto-Pay Missed alerts
             if !autoPayMissedBills.isEmpty {
                 VStack(alignment: .leading, spacing: FTSpacing.sm) {
-                    SectionHeader(title: "Auto-Pay Alerts", symbol: "exclamationmark.triangle.fill", tint: .orange)
+                    BillSectionHeader(title: "Auto-Pay Alerts", symbol: "exclamationmark.triangle.fill", tint: .orange)
                         .padding(.horizontal, FTSpacing.screen)
 
                     VStack(spacing: FTSpacing.sm) {
@@ -547,7 +547,7 @@ private struct SubscriptionsTabContent: View {
             // Price Changes
             if !priceChangedBills.isEmpty {
                 VStack(alignment: .leading, spacing: FTSpacing.sm) {
-                    SectionHeader(title: "Price Changes", symbol: "arrow.up.right.circle.fill", tint: FTColor.expense)
+                    BillSectionHeader(title: "Price Changes", symbol: "arrow.up.right.circle.fill", tint: FTColor.expense)
                         .padding(.horizontal, FTSpacing.screen)
 
                     VStack(spacing: FTSpacing.sm) {
@@ -680,7 +680,7 @@ private struct MetricCell: View {
 
 // MARK: - Section Header
 
-private struct SectionHeader: View {
+private struct BillSectionHeader: View {
     let title: String
     let symbol: String
     let tint: Color

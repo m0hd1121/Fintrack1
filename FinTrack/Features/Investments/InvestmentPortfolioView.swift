@@ -472,7 +472,7 @@ struct InvestmentPortfolioView: View {
                 VStack(spacing: FTSpacing.sm) {
                     ForEach(cryptoHoldings.sorted { $0.currentValue > $1.currentValue }, id: \.id) { crypto in
                         Button { selectedCrypto = crypto } label: {
-                            CryptoRow(holding: crypto, baseCurrency: baseCurrency, currencyService: currencyService)
+                            PortfolioCryptoRow(holding: crypto, baseCurrency: baseCurrency, currencyService: currencyService)
                         }
                         .buttonStyle(.plain)
                         .padding(.horizontal, FTSpacing.screen)
@@ -1289,7 +1289,7 @@ private struct HoldingRow: View {
 
 // MARK: - CryptoRow
 
-private struct CryptoRow: View {
+private struct PortfolioCryptoRow: View {
     let holding: CryptoHolding
     let baseCurrency: String
     let currencyService: CurrencyService

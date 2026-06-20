@@ -1556,7 +1556,6 @@ private struct SplitItemRow: View {
 
 // MARK: - Location helper (thin CoreLocation wrapper)
 
-@MainActor
 final class LocationHelper: NSObject, ObservableObject, CLLocationManagerDelegate {
     private let manager = CLLocationManager()
     private var completion: ((CLLocationCoordinate2D?) -> Void)?
