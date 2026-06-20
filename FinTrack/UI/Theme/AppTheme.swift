@@ -20,15 +20,15 @@ struct AppColors {
         startPoint: .topLeading, endPoint: .bottomTrailing
     )
     static let goldGradient = LinearGradient(
-        colors: [Color(hex: "#f7971e"), Color(hex: "#ffd200")],
+        colors: [FTColor.gold, Color(light: 0xFFD200, dark: 0xFFE44D)],
         startPoint: .leading, endPoint: .trailing
     )
     static let purpleGradient = LinearGradient(
-        colors: [Color(hex: "#8360c3"), Color(hex: "#2ebf91")],
+        colors: [FTColor.catPurple, FTColor.accentBright],
         startPoint: .topLeading, endPoint: .bottomTrailing
     )
     static let blueGradient = LinearGradient(
-        colors: [Color(hex: "#4facfe"), Color(hex: "#00f2fe")],
+        colors: [FTColor.catBlue, FTColor.accent],
         startPoint: .leading, endPoint: .trailing
     )
 
@@ -163,11 +163,11 @@ struct AmountDisplayView: View {
 
     enum AmountStyle {
         case large, medium, small
-        var fontSize: CGFloat {
+        var font: Font {
             switch self {
-            case .large: return 38
-            case .medium: return 24
-            case .small: return 16
+            case .large: return .ftDisplay
+            case .medium: return .ftTitle
+            case .small: return .ftBody
             }
         }
     }
@@ -175,10 +175,10 @@ struct AmountDisplayView: View {
     var body: some View {
         if isHidden {
             Text("••••••")
-                .font(.system(size: style.fontSize, weight: .bold, design: .rounded))
+                .font(style.font)
         } else {
             Text(amount.formatted(as: currency))
-                .font(.system(size: style.fontSize, weight: .bold, design: .rounded))
+                .font(style.font)
         }
     }
 }
@@ -218,19 +218,20 @@ struct EmptyStateView: View {
         VStack(spacing: AppSpacing.md) {
             ZStack {
                 Circle()
-                    .fill(Color.accentColor.opacity(0.1))
+                    .fill(FTColor.accent.opacity(0.1))
                     .frame(width: 80, height: 80)
                 Image(systemName: icon)
                     .font(.system(size: 34))
-                    .foregroundStyle(Color.accentColor.opacity(0.7))
+                    .foregroundStyle(FTColor.accent.opacity(0.7))
             }
 
             VStack(spacing: 6) {
                 Text(title)
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.ftBodySemibold)
+                    .foregroundStyle(FTColor.textPrimary)
                 Text(message)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .font(.ftBody)
+                    .foregroundStyle(FTColor.textSecondary)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -238,12 +239,11 @@ struct EmptyStateView: View {
             if let actionTitle, let action {
                 Button(action: action) {
                     Text(actionTitle)
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
+                        .font(.ftBodySemibold)
                         .padding(.horizontal, 20)
                         .padding(.vertical, 10)
-                        .background(Color.accentColor)
-                        .foregroundColor(.white)
+                        .background(FTColor.accent)
+                        .foregroundStyle(.white)
                         .clipShape(Capsule())
                 }
                 .padding(.top, 4)
@@ -261,11 +261,11 @@ struct BadgeView: View {
 
     var body: some View {
         Text(text)
-            .font(.system(size: 10, weight: .semibold))
+            .font(.ftCaption)
             .padding(.horizontal, 7)
             .padding(.vertical, 3)
             .background(color.opacity(0.15))
-            .foregroundColor(color)
+            .foregroundStyle(color)
             .clipShape(Capsule())
     }
 }

@@ -102,8 +102,7 @@ struct AccountsView: View {
                         AccountRow(account: account, baseCurrency: baseCurrency)
                             .contentShape(Rectangle())
                             .onTapGesture { selectedAccount = account }
-                            .listRowBackground(RoundedRectangle(cornerRadius: FTRadius.md).fill(.regularMaterial).overlay(RoundedRectangle(cornerRadius: FTRadius.md).strokeBorder(.white.opacity(0.3), lineWidth: 0.5)).padding(.vertical, FTSpacing.xs))
-                            .listRowSeparator(.hidden)
+                            .accountRowStyle()
                             .swipeActions(edge: .trailing) {
                                 Button(role: .destructive) {
                                     context.delete(account); try? context.save()
@@ -117,8 +116,7 @@ struct AccountsView: View {
                     }
                     ForEach(creditCards.filter { $0.isActive }) { card in
                         CreditCardRow(card: card, baseCurrency: baseCurrency)
-                            .listRowBackground(RoundedRectangle(cornerRadius: FTRadius.md).fill(.regularMaterial).overlay(RoundedRectangle(cornerRadius: FTRadius.md).strokeBorder(.white.opacity(0.3), lineWidth: 0.5)).padding(.vertical, FTSpacing.xs))
-                            .listRowSeparator(.hidden)
+                            .accountRowStyle()
                             .swipeActions(edge: .trailing) {
                                 Button(role: .destructive) {
                                     context.delete(card); try? context.save()
@@ -175,8 +173,7 @@ struct AccountsView: View {
                 Section {
                     ForEach(bnplPlans.filter { !$0.isCompleted }) { plan in
                         BNPLRow(plan: plan, baseCurrency: baseCurrency)
-                            .listRowBackground(RoundedRectangle(cornerRadius: FTRadius.md).fill(.regularMaterial).overlay(RoundedRectangle(cornerRadius: FTRadius.md).strokeBorder(.white.opacity(0.3), lineWidth: 0.5)).padding(.vertical, FTSpacing.xs))
-                            .listRowSeparator(.hidden)
+                            .accountRowStyle()
                             .swipeActions(edge: .trailing) {
                                 Button(role: .destructive) {
                                     context.delete(plan); try? context.save()
@@ -199,8 +196,7 @@ struct AccountsView: View {
                 Section {
                     ForEach(investments) { inv in
                         InvestmentRow(investment: inv, baseCurrency: baseCurrency)
-                            .listRowBackground(RoundedRectangle(cornerRadius: FTRadius.md).fill(.regularMaterial).overlay(RoundedRectangle(cornerRadius: FTRadius.md).strokeBorder(.white.opacity(0.3), lineWidth: 0.5)).padding(.vertical, FTSpacing.xs))
-                            .listRowSeparator(.hidden)
+                            .accountRowStyle()
                             .swipeActions(edge: .trailing) {
                                 Button(role: .destructive) {
                                     context.delete(inv); try? context.save()
@@ -225,8 +221,7 @@ struct AccountsView: View {
                 Section {
                     ForEach(cryptoHoldings) { holding in
                         CryptoRow(holding: holding, baseCurrency: baseCurrency)
-                            .listRowBackground(RoundedRectangle(cornerRadius: FTRadius.md).fill(.regularMaterial).overlay(RoundedRectangle(cornerRadius: FTRadius.md).strokeBorder(.white.opacity(0.3), lineWidth: 0.5)).padding(.vertical, FTSpacing.xs))
-                            .listRowSeparator(.hidden)
+                            .accountRowStyle()
                             .swipeActions(edge: .trailing) {
                                 Button(role: .destructive) {
                                     context.delete(holding); try? context.save()
@@ -251,8 +246,7 @@ struct AccountsView: View {
                 Section {
                     ForEach(goldHoldings.filter { !$0.isArchived }) { holding in
                         GoldHoldingRow(holding: holding, baseCurrency: baseCurrency)
-                            .listRowBackground(RoundedRectangle(cornerRadius: FTRadius.md).fill(.regularMaterial).overlay(RoundedRectangle(cornerRadius: FTRadius.md).strokeBorder(.white.opacity(0.3), lineWidth: 0.5)).padding(.vertical, FTSpacing.xs))
-                            .listRowSeparator(.hidden)
+                            .accountRowStyle()
                             .swipeActions(edge: .trailing) {
                                 Button(role: .destructive) {
                                     context.delete(holding); try? context.save()
@@ -281,8 +275,7 @@ struct AccountsView: View {
                 Section {
                     ForEach(giftCards.filter { !$0.isUsedUp }) { card in
                         GiftCardRow(card: card, baseCurrency: baseCurrency)
-                            .listRowBackground(RoundedRectangle(cornerRadius: FTRadius.md).fill(.regularMaterial).overlay(RoundedRectangle(cornerRadius: FTRadius.md).strokeBorder(.white.opacity(0.3), lineWidth: 0.5)).padding(.vertical, FTSpacing.xs))
-                            .listRowSeparator(.hidden)
+                            .accountRowStyle()
                             .swipeActions(edge: .trailing) {
                                 Button(role: .destructive) {
                                     context.delete(card); try? context.save()
@@ -311,8 +304,7 @@ struct AccountsView: View {
                 Section {
                     ForEach(loyaltyPrograms.filter { !$0.isExpired }) { program in
                         LoyaltyProgramRow(program: program, baseCurrency: baseCurrency)
-                            .listRowBackground(RoundedRectangle(cornerRadius: FTRadius.md).fill(.regularMaterial).overlay(RoundedRectangle(cornerRadius: FTRadius.md).strokeBorder(.white.opacity(0.3), lineWidth: 0.5)).padding(.vertical, FTSpacing.xs))
-                            .listRowSeparator(.hidden)
+                            .accountRowStyle()
                             .swipeActions(edge: .trailing) {
                                 Button(role: .destructive) {
                                     context.delete(program); try? context.save()
@@ -431,6 +423,22 @@ struct AccountsView: View {
         }
         .listRowBackground(Color.clear)
         .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: FTSpacing.sm, trailing: 0))
+    }
+}
+
+// MARK: – Helpers
+
+private extension View {
+    func accountRowStyle() -> some View {
+        self
+            .listRowBackground(
+                RoundedRectangle(cornerRadius: FTRadius.md)
+                    .fill(.regularMaterial)
+                    .overlay(RoundedRectangle(cornerRadius: FTRadius.md)
+                        .strokeBorder(.white.opacity(0.3), lineWidth: 0.5))
+                    .padding(.vertical, FTSpacing.xs)
+            )
+            .listRowSeparator(.hidden)
     }
 }
 
