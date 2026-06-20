@@ -262,12 +262,12 @@ struct SettingsView: View {
                                        value: "v1.0.0", chevron: true)
                         }
                         rowDivider
-                        Link(destination: URL(string: "https://apple.com")!) {
+                        NavigationLink(destination: PrivacyPolicyView()) {
                             settingRow(symbol: "checkmark.shield.fill", tint: FTColor.income,
                                        title: "Privacy Policy", chevron: true)
                         }
                         rowDivider
-                        Link(destination: URL(string: "https://apple.com")!) {
+                        NavigationLink(destination: TermsOfServiceView()) {
                             settingRow(symbol: "doc.text", tint: FTColor.catPurple,
                                        title: "Terms of Service", chevron: true)
                         }

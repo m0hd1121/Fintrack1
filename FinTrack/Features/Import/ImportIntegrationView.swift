@@ -29,13 +29,26 @@ struct ImportIntegrationView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("DATA SYNC STATUS").font(.ftLabel).tracking(1.4).foregroundStyle(FTColor.textMuted)
-                    Text("Connected").font(.ftHeadline).foregroundStyle(FTColor.income)
-                    Text("iCloud sync · Last synced just now").font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                    if let last = lastImport {
+                        Text("Last Import: \(last.importedAt.relativeFormatted)")
+                            .font(.ftHeadline).foregroundStyle(FTColor.income)
+                        Text("\(last.importedCount) transactions from \(last.fileName)")
+                            .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                    } else {
+                        Text("Ready to Import")
+                            .font(.ftHeadline).foregroundStyle(FTColor.textSecondary)
+                        Text("Import bank statements, OFX files, or connect via Open Banking")
+                            .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                    }
                 }
                 Spacer()
                 ZStack {
-                    Circle().fill(FTColor.income.opacity(0.1)).frame(width: 52, height: 52)
-                    Image(systemName: "icloud.fill").font(.ftTitle).foregroundStyle(FTColor.income)
+                    Circle()
+                        .fill((lastImport != nil ? FTColor.income : FTColor.textMuted).opacity(0.1))
+                        .frame(width: 52, height: 52)
+                    Image(systemName: lastImport != nil ? "checkmark.icloud.fill" : "icloud.fill")
+                        .font(.ftTitle)
+                        .foregroundStyle(lastImport != nil ? FTColor.income : FTColor.textMuted)
                 }
             }
             HStack(spacing: FTSpacing.sm) {

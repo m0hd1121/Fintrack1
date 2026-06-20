@@ -42,6 +42,7 @@ struct DashboardView: View {
     @State private var showingAssets = false
     @State private var showingNetWorth = false
     @State private var showingGoals = false
+    @State private var showingUpcomingPayments = false
 
     private var baseCurrency: String { appState.baseCurrency }
 
@@ -328,6 +329,9 @@ struct DashboardView: View {
             }
             .sheet(isPresented: $showingNetWorth) {
                 NetWorthDashboardView()
+            }
+            .sheet(isPresented: $showingUpcomingPayments) {
+                UpcomingPaymentsView()
             }
             .task(id: dataStamp) { refreshDashboard() }
             .onAppear { refreshDashboard() }
@@ -884,8 +888,15 @@ struct DashboardView: View {
 
     private var upcomingPaymentsSection: some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
-            Text("Upcoming Payments")
-                .font(.ftHeadline).foregroundStyle(FTColor.textPrimary)
+            HStack {
+                Text("Upcoming Payments")
+                    .font(.ftHeadline).foregroundStyle(FTColor.textPrimary)
+                Spacer()
+                Button("See All") { showingUpcomingPayments = true }
+                    .font(.ftCallout)
+                    .foregroundStyle(FTColor.accent)
+                    .accessibilityLabel("See all upcoming payments")
+            }
 
             VStack(spacing: 0) {
                 ForEach(metrics.upcomingPayments.indices, id: \.self) { index in

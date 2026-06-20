@@ -1,7 +1,10 @@
 import SwiftUI
+import SwiftData
 
 struct OnboardingView: View {
     @Environment(AppState.self) private var appState
+    @Environment(\.modelContext) private var context
+    @Query private var profiles: [UserProfile]
     @State private var currentPage = 0
     @State private var selectedCurrency = "AED"
     @State private var userName = ""
@@ -85,6 +88,10 @@ struct OnboardingView: View {
                 if currentPage < pages.count {
                     withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) { currentPage += 1 }
                 } else {
+                    if !userName.isEmpty, let profile = profiles.first {
+                        profile.name = userName
+                        try? context.save()
+                    }
                     appState.completeOnboarding(currency: selectedCurrency)
                 }
             } label: {
@@ -95,6 +102,10 @@ struct OnboardingView: View {
 
             if currentPage > 0 {
                 Button("Skip Setup") {
+                    if !userName.isEmpty, let profile = profiles.first {
+                        profile.name = userName
+                        try? context.save()
+                    }
                     appState.completeOnboarding(currency: selectedCurrency)
                 }
                 .foregroundStyle(.white.opacity(0.65))

@@ -118,15 +118,37 @@ extension Font {
 
 // MARK: - Liquid Glass surfaces
 
+/// Applies `.glassEffect` and, when High Contrast Mode is enabled, adds a
+/// 1.5 pt border so glass surfaces remain legible at all contrast levels.
+private struct FTGlassModifier: ViewModifier {
+    let radius: CGFloat
+    var interactive: Bool = false
+    @Environment(\.isHighContrast) private var isHighContrast
+
+    func body(content: Content) -> some View {
+        content
+            .glassEffect(interactive ? .regular.interactive() : .regular,
+                         in: .rect(cornerRadius: radius))
+            .overlay(
+                RoundedRectangle(cornerRadius: radius)
+                    .strokeBorder(
+                        isHighContrast ? FTColor.textPrimary.opacity(0.45) : Color.clear,
+                        lineWidth: 1.5
+                    )
+                    .allowsHitTesting(false)
+            )
+    }
+}
+
 extension View {
     /// A frosted Liquid Glass surface clipped to a rounded rect.
     func ftGlass(_ radius: CGFloat = FTRadius.lg) -> some View {
-        glassEffect(.regular, in: .rect(cornerRadius: radius))
+        modifier(FTGlassModifier(radius: radius))
     }
 
     /// Glass surface that reacts to touch (use for tappable cards/rows).
     func ftGlassInteractive(_ radius: CGFloat = FTRadius.lg) -> some View {
-        glassEffect(.regular.interactive(), in: .rect(cornerRadius: radius))
+        modifier(FTGlassModifier(radius: radius, interactive: true))
     }
 }
 

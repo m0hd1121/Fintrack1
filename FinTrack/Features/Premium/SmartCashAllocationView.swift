@@ -7,14 +7,20 @@ struct SmartCashAllocationView: View {
     @Query private var goals: [SavingsGoal]
     @Query(filter: #Predicate<Loan> { $0.outstandingBalance > 0 }) private var loans: [Loan]
     @Query private var investments: [Investment]
+    @Query(sort: \Transaction.date, order: .reverse) private var allTransactions: [Transaction]
 
     private var currency: String { appState.baseCurrency }
 
     private var totalCash: Double { accounts.reduce(0) { $0 + $1.balance } }
 
     private var monthlyExpensesEstimate: Double {
-        // Assume 6-month emergency fund target based on account activity
-        totalCash * 0.1 // placeholder: 10% of cash as rough monthly estimate
+        let threeMonthsAgo = Calendar.current.date(byAdding: .month, value: -3, to: Date()) ?? Date()
+        let recent = allTransactions.filter { $0.type == .expense && $0.date >= threeMonthsAgo }
+        guard !recent.isEmpty else {
+            return max(totalCash * 0.05, 1000)
+        }
+        let total = recent.reduce(0) { $0 + $1.amountInBaseCurrency }
+        return total / 3.0
     }
 
     private var emergencyFund: Double { monthlyExpensesEstimate * 6 }
