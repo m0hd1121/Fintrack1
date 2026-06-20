@@ -93,9 +93,13 @@ struct RootView: View {
     @ViewBuilder
     private func iPadMainView() -> some View {
         @Bindable var appState = appState
+        let sidebarSelection = Binding<AppTab?>(
+            get: { appState.selectedTab },
+            set: { if let v = $0 { appState.selectedTab = v } }
+        )
 
         NavigationSplitView {
-            List(selection: $appState.selectedTab) {
+            List(selection: sidebarSelection) {
                 Section("Main") {
                     iPadSidebarRow(tab: .dashboard, label: "Dashboard", icon: "square.grid.2x2.fill")
                     iPadSidebarRow(tab: .transactions, label: "Transactions", icon: "arrow.left.arrow.right.circle.fill")
