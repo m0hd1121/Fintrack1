@@ -92,6 +92,53 @@ struct SettingsView: View {
                 VStack(spacing: FTSpacing.xl) {
                     profileCard
 
+                    sectionCard("Premium Features") {
+                        NavigationLink(destination: AICFOModeView()) {
+                            settingRow(symbol: "brain.head.profile", tint: FTColor.accent,
+                                       title: "AI CFO Mode", chevron: true)
+                        }
+                        rowDivider
+                        NavigationLink(destination: RetirementSimulationView()) {
+                            settingRow(symbol: "sun.max.fill", tint: FTColor.gold,
+                                       title: "Retirement Simulation", chevron: true)
+                        }
+                        rowDivider
+                        NavigationLink(destination: LifeEventPlanningView()) {
+                            settingRow(symbol: "star.fill", tint: FTColor.catPurple,
+                                       title: "Life Event Planning", chevron: true)
+                        }
+                        rowDivider
+                        NavigationLink(destination: EstatePlanningView()) {
+                            settingRow(symbol: "scroll.fill", tint: FTColor.catCoral,
+                                       title: "Estate Planning", chevron: true)
+                        }
+                        rowDivider
+                        NavigationLink(destination: InsuranceOptimizerView()) {
+                            settingRow(symbol: "shield.fill", tint: FTColor.catTeal,
+                                       title: "Insurance Optimizer", chevron: true)
+                        }
+                        rowDivider
+                        NavigationLink(destination: SmartCashAllocationView()) {
+                            settingRow(symbol: "lightbulb.fill", tint: FTColor.income,
+                                       title: "Smart Cash Allocation", chevron: true)
+                        }
+                        rowDivider
+                        NavigationLink(destination: CollaborativePlannerView()) {
+                            settingRow(symbol: "person.3.fill", tint: FTColor.catBlue,
+                                       title: "Collaborative Planner", chevron: true)
+                        }
+                        rowDivider
+                        NavigationLink(destination: FinancialEducationView()) {
+                            settingRow(symbol: "book.fill", tint: FTColor.catPurple,
+                                       title: "Financial Education", chevron: true)
+                        }
+                        rowDivider
+                        NavigationLink(destination: RemittanceTrackerView()) {
+                            settingRow(symbol: "arrow.up.right.circle.fill", tint: FTColor.accent,
+                                       title: "Remittance Tracker", chevron: true)
+                        }
+                    }
+
                     sectionCard("Tax Management") {
                         NavigationLink(destination: TaxManagementView()) {
                             settingRow(symbol: "doc.text.fill", tint: FTColor.catPurple,
@@ -184,8 +231,10 @@ struct SettingsView: View {
                     }
 
                     sectionCard("Data & Privacy") {
-                        FTToggleRow(symbol: "icloud", tint: FTColor.catBlue,
-                                    title: "iCloud Sync", isOn: cloudSyncBinding)
+                        NavigationLink(destination: iCloudSyncView()) {
+                            settingRow(symbol: "icloud.fill", tint: FTColor.catBlue,
+                                       title: "iCloud Backup", chevron: true)
+                        }
                         rowDivider
                         Button { exportBackup() } label: {
                             settingRow(symbol: "arrow.up.doc.fill", tint: FTColor.accent,

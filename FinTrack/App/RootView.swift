@@ -56,6 +56,9 @@ struct RootView: View {
             processIncomeAlerts()
             processDebtAlerts()
             drainPendingIntentQueue()
+            if settings.first?.cloudSyncEnabled == true {
+                iCloudBackupService.shared.scheduleAutomaticBackupIfNeeded(context: context)
+            }
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .background,

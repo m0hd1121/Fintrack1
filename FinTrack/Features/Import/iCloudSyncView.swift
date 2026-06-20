@@ -8,21 +8,21 @@ struct iCloudSyncView: View {
 
     private var settings: AppSettings? { allSettings.first }
 
-    @State private var isSyncing = false
-    @State private var lastSyncDate: Date = Date()
     @State private var syncEnabled: Bool = true
-    @State private var deviceCount: Int = 3
-    @State private var pendingChanges: Int = 0
-    @State private var totalSyncedRecords: Int = 847
     @State private var encryptionEnabled = true
     @State private var wifiOnlyEnabled = false
-    @State private var showingConflictResolution = false
-    @State private var showingDevices = false
+    @State private var showingRestoreConfirm = false
+    @State private var resultMessage = ""
+    @State private var showingResult = false
+
+    private let backup = iCloudBackupService.shared
+    private let network = NetworkMonitor.shared
 
     private var syncStatus: SyncPhase {
-        if isSyncing { return .syncing }
-        if !syncEnabled { return .disabled }
-        return pendingChanges > 0 ? .pending : .synced
+        if backup.isBackingUp { return .syncing }
+        if !syncEnabled || !backup.iCloudAvailable { return .disabled }
+        if backup.lastError != nil { return .error }
+        return backup.backupExists ? .synced : .pending
     }
 
     enum SyncPhase {
@@ -50,11 +50,11 @@ struct iCloudSyncView: View {
 
         var label: String {
             switch self {
-            case .synced:   return "Synced"
-            case .pending:  return "Pending Sync"
-            case .syncing:  return "Syncing…"
-            case .disabled: return "Sync Disabled"
-            case .error:    return "Sync Error"
+            case .synced:   return "Backed Up to iCloud"
+            case .pending:  return "No Backup Yet"
+            case .syncing:  return "Backing Up…"
+            case .disabled: return backup.iCloudAvailable ? "Backup Disabled" : "iCloud Not Available"
+            case .error:    return "Backup Error"
             }
         }
     }
@@ -72,9 +72,37 @@ struct iCloudSyncView: View {
             .padding(FTSpacing.screen)
             .padding(.bottom, 40)
         }
-        .navigationTitle("iCloud Sync")
+        .navigationTitle("iCloud Backup")
         .navigationBarTitleDisplayMode(.inline)
         .background { FTBackdrop() }
+        .scrollContentBackground(.hidden)
+        .confirmationDialog("Restore from iCloud?", isPresented: $showingRestoreConfirm, titleVisibility: .visible) {
+            Button("Merge with current data") {
+                Task {
+                    let msg = await backup.restoreFromCloud(context: context, mode: .merge)
+                    resultMessage = msg
+                    showingResult = true
+                }
+            }
+            Button("Replace all data", role: .destructive) {
+                Task {
+                    let msg = await backup.restoreFromCloud(context: context, mode: .replace)
+                    resultMessage = msg
+                    showingResult = true
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Choose how to restore: merge adds new items without removing existing ones, replace deletes everything first.")
+        }
+        .alert("iCloud Backup", isPresented: $showingResult) {
+            Button("OK") {}
+        } message: {
+            Text(resultMessage)
+        }
+        .onAppear {
+            syncEnabled = settings?.cloudSyncEnabled ?? false
+        }
     }
 
     // MARK: - Status Card
@@ -83,16 +111,20 @@ struct iCloudSyncView: View {
         VStack(spacing: FTSpacing.lg) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("CLOUDKIT STATUS").font(.ftLabel).tracking(1.4).foregroundStyle(FTColor.textMuted)
-                    if isSyncing {
+                    Text("ICLOUD BACKUP").font(.ftLabel).tracking(1.4).foregroundStyle(FTColor.textMuted)
+                    if backup.isBackingUp {
                         HStack(spacing: FTSpacing.sm) {
                             ProgressView().scaleEffect(0.7).tint(FTColor.catBlue)
-                            Text("Syncing…").font(.ftHeadline).foregroundStyle(FTColor.catBlue)
+                            Text("Backing up…").font(.ftHeadline).foregroundStyle(FTColor.catBlue)
                         }
                     } else {
                         Text(syncStatus.label).font(.ftHeadline).foregroundStyle(syncStatus.color)
                     }
-                    Text("Last synced \(lastSyncDate.relativeFormatted)").font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                    if let last = backup.lastBackupDate {
+                        Text("Last backup: \(last.relativeFormatted)").font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                    } else {
+                        Text("No backup found").font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                    }
                 }
                 Spacer()
                 ZStack {
@@ -101,25 +133,52 @@ struct iCloudSyncView: View {
                 }
             }
 
-            FTToggleRow(symbol: "icloud", tint: FTColor.catBlue, title: "Enable iCloud Sync", isOn: $syncEnabled)
+            FTToggleRow(symbol: "icloud", tint: FTColor.catBlue, title: "Enable Automatic Backup", isOn: $syncEnabled)
                 .onChange(of: syncEnabled) { _, new in
                     settings?.cloudSyncEnabled = new
                     try? context.save()
                 }
 
-            if syncEnabled {
+            if !backup.iCloudAvailable {
+                HStack(spacing: FTSpacing.sm) {
+                    Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(FTColor.gold)
+                    Text("Sign in to iCloud in Settings to enable backup.")
+                        .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                }
+            }
+
+            HStack(spacing: FTSpacing.md) {
                 Button {
-                    performSync()
+                    Task {
+                        let ok = await backup.performBackup(context: context)
+                        if !ok {
+                            resultMessage = backup.lastError ?? "Backup failed."
+                            showingResult = true
+                        }
+                    }
                 } label: {
-                    Label(isSyncing ? "Syncing…" : "Sync Now", systemImage: isSyncing ? "arrow.clockwise" : "icloud.and.arrow.up")
+                    Label(backup.isBackingUp ? "Backing Up…" : "Back Up Now",
+                          systemImage: backup.isBackingUp ? "arrow.clockwise" : "icloud.and.arrow.up")
                         .font(.ftBodySemibold)
-                        .foregroundStyle(isSyncing ? FTColor.textMuted : .white)
+                        .foregroundStyle(backup.isBackingUp ? FTColor.textMuted : .white)
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(isSyncing ? FTColor.catBlue.opacity(0.1) : FTColor.catBlue,
+                        .background(backup.isBackingUp ? FTColor.catBlue.opacity(0.1) : FTColor.catBlue,
                                     in: RoundedRectangle(cornerRadius: FTRadius.md))
                 }
-                .disabled(isSyncing)
+                .disabled(backup.isBackingUp || !backup.iCloudAvailable)
+
+                Button {
+                    showingRestoreConfirm = true
+                } label: {
+                    Label("Restore", systemImage: "icloud.and.arrow.down")
+                        .font(.ftBodySemibold)
+                        .foregroundStyle(FTColor.catBlue)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(FTColor.catBlue.opacity(0.1), in: RoundedRectangle(cornerRadius: FTRadius.md))
+                }
+                .disabled(backup.isRestoring || !backup.backupExists)
             }
         }
         .padding()
@@ -130,9 +189,9 @@ struct iCloudSyncView: View {
 
     private var statsStrip: some View {
         HStack(spacing: FTSpacing.sm) {
-            statTile("Records", value: "\(totalSyncedRecords)", icon: "doc.fill", color: FTColor.catBlue)
-            statTile("Devices", value: "\(deviceCount)", icon: "devices.fill", color: FTColor.catPurple)
-            statTile("Pending", value: "\(pendingChanges)", icon: "clock.fill", color: pendingChanges > 0 ? FTColor.gold : FTColor.textMuted)
+            statTile("File Size", value: backup.backupFileSize, icon: "doc.fill", color: FTColor.catBlue)
+            statTile("Connection", value: network.connectionType.rawValue, icon: network.connectionType.icon, color: network.isConnected ? FTColor.income : FTColor.expense)
+            statTile("Status", value: network.isConnected ? "Online" : "Offline", icon: "wifi", color: network.isConnected ? FTColor.income : FTColor.expense)
         }
         .padding()
         .ftGlass(FTRadius.xl)
@@ -149,36 +208,32 @@ struct iCloudSyncView: View {
         .background(color.opacity(0.07), in: RoundedRectangle(cornerRadius: FTRadius.sm))
     }
 
-    // MARK: - Devices Card
+    // MARK: - Backup Info Card
 
     private var devicesCard: some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
-            HStack {
-                Text("SYNCED DEVICES").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("BACKUP LOCATION").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+
+            HStack(spacing: FTSpacing.md) {
+                ZStack {
+                    Circle().fill(FTColor.catBlue.opacity(0.1)).frame(width: 40, height: 40)
+                    Image(systemName: "icloud.fill").font(.ftCallout).foregroundStyle(FTColor.catBlue)
+                }
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("iCloud Drive / FinTrack").font(.ftBody).foregroundStyle(FTColor.textPrimary)
+                    Text("FinTrack_Backup.fintrack").font(.ftCaption).foregroundStyle(FTColor.textMuted).monospaced()
+                }
                 Spacer()
-                Text("\(deviceCount) devices").font(.ftCaption).foregroundStyle(FTColor.textSecondary)
-            }
-
-            let devices = [
-                (name: "iPhone (This device)", icon: "iphone", time: "Just now"),
-                (name: "iPad Pro", icon: "ipad", time: "2 hours ago"),
-                (name: "MacBook Pro", icon: "laptopcomputer", time: "Yesterday"),
-            ]
-
-            ForEach(devices.prefix(deviceCount), id: \.name) { device in
-                HStack(spacing: FTSpacing.md) {
-                    ZStack {
-                        Circle().fill(FTColor.catBlue.opacity(0.1)).frame(width: 40, height: 40)
-                        Image(systemName: device.icon).font(.ftCallout).foregroundStyle(FTColor.catBlue)
-                    }
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(device.name).font(.ftBody).foregroundStyle(FTColor.textPrimary)
-                        Text("Last active \(device.time)").font(.ftCaption).foregroundStyle(FTColor.textMuted)
-                    }
-                    Spacer()
+                if backup.backupExists {
                     Image(systemName: "checkmark.circle.fill").foregroundStyle(FTColor.income)
+                } else {
+                    Image(systemName: "circle").foregroundStyle(FTColor.textMuted)
                 }
             }
+
+            Text("Backup is stored in your personal iCloud Drive and is only accessible by you. It can be restored on any device signed into the same Apple ID.")
+                .font(.ftCaption)
+                .foregroundStyle(FTColor.textMuted)
         }
         .padding()
         .ftGlass(FTRadius.xl)
@@ -236,15 +291,4 @@ struct iCloudSyncView: View {
         .ftGlass(FTRadius.xl)
     }
 
-    // MARK: - Logic
-
-    private func performSync() {
-        isSyncing = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
-            isSyncing = false
-            lastSyncDate = Date()
-            pendingChanges = 0
-            totalSyncedRecords += Int.random(in: 0...5)
-        }
-    }
 }
