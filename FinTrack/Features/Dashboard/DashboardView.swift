@@ -169,6 +169,62 @@ struct DashboardView: View {
             previousMonthTransactions: prevTransactions,
             baseCurrency: baseCurrency
         )
+
+        pushWidgetData()
+        SpotlightService.shared.indexTransactions(Array(transactions.prefix(200)))
+        SpotlightService.shared.indexAccounts(accounts)
+    }
+
+    private func pushWidgetData() {
+        let txSnapshots = transactions.prefix(10).map { tx in
+            WidgetTxSnapshot(
+                id: tx.id,
+                title: tx.title,
+                amount: tx.amount,
+                currency: tx.currency,
+                type: tx.type.rawValue,
+                date: tx.date,
+                categoryIcon: tx.category.icon
+            )
+        }
+
+        let now = Date()
+        let budgetSnapshots = budgets.map { b -> WidgetBudgetSnapshot in
+            let spent = transactions
+                .filter { $0.date.isSameMonth(as: now) }
+                .flatMap { $0.spendingPairs }
+                .filter { $0.0 == b.category }
+                .reduce(0) { $0 + $1.1 }
+            return WidgetBudgetSnapshot(
+                id: b.id,
+                name: b.name.isEmpty ? b.category.rawValue : b.name,
+                spent: spent,
+                total: b.amount,
+                currency: baseCurrency,
+                color: "#0E9C8A",
+                icon: b.category.icon
+            )
+        }
+
+        let billSnapshots = bills.map { bill in
+            WidgetBillSnapshot(
+                id: bill.id,
+                name: bill.name,
+                amount: bill.amount,
+                currency: bill.currency,
+                dueDate: bill.nextDueDate,
+                icon: bill.icon,
+                isPaid: false
+            )
+        }
+
+        WidgetDataService.shared.updateAll(
+            netWorth: metrics.netWorth,
+            currency: baseCurrency,
+            transactions: Array(txSnapshots),
+            budgets: budgetSnapshots,
+            bills: billSnapshots
+        )
     }
 
     private let chartPalette: [Color] = [

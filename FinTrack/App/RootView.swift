@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import CoreSpotlight
 
 struct RootView: View {
     @Environment(AppState.self) private var appState
@@ -18,6 +19,7 @@ struct RootView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.scenePhase) private var scenePhase
     @Environment(CurrencyService.self) private var currencyService
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     private var preferredScheme: ColorScheme? {
         switch settings.first?.theme {
@@ -33,6 +35,8 @@ struct RootView: View {
                 OnboardingView()
             } else if appState.isLocked {
                 LockScreenView()
+            } else if horizontalSizeClass == .regular {
+                iPadMainView()
             } else {
                 MainTabView()
             }
@@ -51,6 +55,7 @@ struct RootView: View {
             processBillAlerts()
             processIncomeAlerts()
             processDebtAlerts()
+            drainPendingIntentQueue()
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .background,
@@ -65,7 +70,99 @@ struct RootView: View {
                 processBillAlerts()
                 processIncomeAlerts()
                 processDebtAlerts()
+                drainPendingIntentQueue()
             }
+        }
+        .onContinueUserActivity(CSSearchableItemActionType) { activity in
+            handleSpotlightActivity(activity)
+        }
+    }
+
+    // MARK: – iPad layout
+
+    @ViewBuilder
+    private func iPadMainView() -> some View {
+        @Bindable var appState = appState
+
+        NavigationSplitView {
+            List(selection: $appState.selectedTab) {
+                Section("Main") {
+                    iPadSidebarRow(tab: .dashboard, label: "Dashboard", icon: "square.grid.2x2.fill")
+                    iPadSidebarRow(tab: .transactions, label: "Transactions", icon: "arrow.left.arrow.right.circle.fill")
+                    iPadSidebarRow(tab: .budget, label: "Budget", icon: "chart.pie.fill")
+                    iPadSidebarRow(tab: .accounts, label: "Accounts", icon: "building.columns.fill")
+                }
+            }
+            .listStyle(.sidebar)
+            .navigationTitle("FinTrack")
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        appState.showingAddTransaction = true
+                    } label: {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.title3)
+                            .foregroundStyle(FTColor.accent)
+                    }
+                }
+            }
+        } detail: {
+            switch appState.selectedTab {
+            case .dashboard:    DashboardView()
+            case .transactions: TransactionsListView()
+            case .budget:       BudgetView()
+            case .accounts:     AccountsView()
+            default:            DashboardView()
+            }
+        }
+        .sheet(isPresented: $appState.showingAddTransaction) {
+            AddTransactionView()
+        }
+    }
+
+    @ViewBuilder
+    private func iPadSidebarRow(tab: AppTab, label: String, icon: String) -> some View {
+        Label(label, systemImage: icon)
+            .tag(tab)
+    }
+
+    // MARK: – Pending intent queue (Siri / Apple Watch)
+
+    private func drainPendingIntentQueue() {
+        let pending = WidgetDataService.shared.dequeuePendingTransactions()
+        guard !pending.isEmpty else { return }
+
+        for pending in pending {
+            let type = TransactionType(rawValue: pending.type.capitalized) ?? .expense
+            let category = TransactionCategory.allCases
+                .first { $0.rawValue.lowercased().contains(pending.categoryName.lowercased()) }
+                ?? (type == .income ? .salary : .other)
+            let tx = Transaction(
+                title: pending.title,
+                amount: pending.amount,
+                currency: pending.currency,
+                amountInBaseCurrency: currencyService.convert(pending.amount, from: pending.currency, to: appState.baseCurrency),
+                type: type,
+                category: category,
+                date: pending.date,
+                notes: "Added via Siri / Apple Watch"
+            )
+            context.insert(tx)
+        }
+        try? context.save()
+    }
+
+    // MARK: – Spotlight deep linking
+
+    private func handleSpotlightActivity(_ activity: NSUserActivity) {
+        guard let link = SpotlightService.shared.handleUserActivity(activity) else { return }
+        switch link {
+        case .transaction:
+            appState.selectedTab = .transactions
+        case .account:
+            appState.selectedTab = .accounts
+        case .unknown:
+            break
         }
     }
 
