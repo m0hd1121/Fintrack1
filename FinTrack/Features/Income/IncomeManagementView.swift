@@ -559,12 +559,12 @@ struct IncomeManagementView: View {
                     stabilityScore = nil
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                         stabilityScore = IncomeService.shared.computeStabilityScore(
-                            salaryRecords: salaryRecords,
-                            projects: projects,
-                            properties: properties,
-                            dividends: dividends,
                             transactions: transactions,
-                            currency: baseCurrency
+                            salaryRecords: salaryRecords,
+                            freelanceProjects: projects,
+                            rentalProperties: properties,
+                            dividends: dividends,
+                            baseCurrency: baseCurrency
                         )
                     }
                 } label: {
