@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import Charts
+import UIKit
 
 // MARK: - Chart palette (Phase 5)
 
@@ -53,6 +54,7 @@ struct ReportsView: View {
     @State private var showingCustomRange = false
     @State private var customStart: Date = Calendar.current.date(byAdding: .month, value: -1, to: Date()) ?? Date()
     @State private var customEnd: Date = Date()
+    @State private var showingExportMenu = false
 
     private var baseCurrency: String { appState.baseCurrency }
 
@@ -81,6 +83,45 @@ struct ReportsView: View {
         case .custom:  cutoff = customStart
         }
         return transactions.filter { $0.date >= cutoff }
+    }
+
+    private var previousFilteredTransactions: [Transaction] {
+        switch selectedPeriod {
+        case .week:
+            let end = Date().startOfWeek
+            let start = Calendar.current.date(byAdding: .weekOfYear, value: -1, to: end) ?? end
+            return transactions.filter { $0.date >= start && $0.date < end }
+        case .month:
+            let end = Date().startOfMonth
+            let start = Calendar.current.date(byAdding: .month, value: -1, to: end) ?? end
+            return transactions.filter { $0.date >= start && $0.date < end }
+        case .quarter:
+            let end = Calendar.current.date(byAdding: .month, value: -3, to: Date()) ?? Date()
+            let start = Calendar.current.date(byAdding: .month, value: -3, to: end) ?? end
+            return transactions.filter { $0.date >= start && $0.date < end }
+        case .year:
+            let end = Date().startOfYear
+            let start = Calendar.current.date(byAdding: .year, value: -1, to: end) ?? end
+            return transactions.filter { $0.date >= start && $0.date < end }
+        case .custom:
+            let duration = customEnd.timeIntervalSince(customStart)
+            let prevEnd = customStart
+            let prevStart = prevEnd.addingTimeInterval(-duration)
+            return transactions.filter { $0.date >= prevStart && $0.date < prevEnd }
+        }
+    }
+
+    private var periodLabel: String {
+        switch selectedPeriod {
+        case .week:    return "This Week"
+        case .month:   return "This Month"
+        case .quarter: return "Last 3 Months"
+        case .year:    return "This Year"
+        case .custom:
+            let fmt = DateFormatter()
+            fmt.dateStyle = .short
+            return "\(fmt.string(from: customStart)) – \(fmt.string(from: customEnd))"
+        }
     }
 
     var body: some View {
@@ -129,11 +170,23 @@ struct ReportsView: View {
                         VStack(spacing: FTSpacing.lg) {
                             switch selectedReport {
                             case .cashFlow:
-                                CashFlowReport(transactions: filteredTransactions, currency: baseCurrency)
+                                CashFlowReport(
+                                    transactions: filteredTransactions,
+                                    previousTransactions: previousFilteredTransactions,
+                                    currency: baseCurrency
+                                )
                             case .spending:
-                                SpendingReport(transactions: filteredTransactions, currency: baseCurrency)
+                                SpendingReport(
+                                    transactions: filteredTransactions,
+                                    previousTransactions: previousFilteredTransactions,
+                                    currency: baseCurrency
+                                )
                             case .income:
-                                IncomeReport(transactions: filteredTransactions, currency: baseCurrency)
+                                IncomeReport(
+                                    transactions: filteredTransactions,
+                                    previousTransactions: previousFilteredTransactions,
+                                    currency: baseCurrency
+                                )
                             case .investments:
                                 InvestmentReport(
                                     investments: investments,
@@ -168,6 +221,18 @@ struct ReportsView: View {
                                 TrendsReport(transactions: transactions, currency: baseCurrency)
                             case .savingsGoals:
                                 SavingsGoalsReport(goals: savingsGoals, transactions: transactions, currency: baseCurrency)
+                            case .taxSummary:
+                                TaxSummaryReport(transactions: filteredTransactions, currency: baseCurrency)
+                            case .vatReport:
+                                VATReport(transactions: filteredTransactions, currency: baseCurrency)
+                            case .annualSummary:
+                                AnnualSummaryReport(transactions: transactions, currency: baseCurrency)
+                            case .merchantSpend:
+                                MerchantSpendReport(
+                                    transactions: filteredTransactions,
+                                    previousTransactions: previousFilteredTransactions,
+                                    currency: baseCurrency
+                                )
                             }
                         }
                         .padding(.horizontal, FTSpacing.screen)
@@ -178,6 +243,244 @@ struct ReportsView: View {
             }
             .navigationTitle("Reports")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { showingExportMenu = true } label: {
+                        Image(systemName: "square.and.arrow.up")
+                            .font(.system(size: 16, weight: .medium))
+                    }
+                }
+            }
+            .confirmationDialog("Export \(selectedReport.rawValue) Report", isPresented: $showingExportMenu, titleVisibility: .visible) {
+                Button("Export as PDF") { exportReport(asPDF: true) }
+                Button("Export as CSV") { exportReport(asPDF: false) }
+                Button("Cancel", role: .cancel) {}
+            }
+    }
+
+    // MARK: – Export
+
+    @MainActor
+    private func exportReport(asPDF: Bool) {
+        let svc = ReportExportService.shared
+        let safeLabel = periodLabel.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: " ", with: "_")
+        let url: URL?
+
+        if asPDF {
+            url = svc.generatePDF(title: selectedReport.rawValue + " Report",
+                                  periodLabel: periodLabel,
+                                  sections: buildPDFSections())
+        } else {
+            url = buildCSV(label: safeLabel)
+        }
+        guard let url else { return }
+        svc.share(url: url)
+    }
+
+    private func buildPDFSections() -> [PDFSection] {
+        let txs = filteredTransactions
+        let cur = baseCurrency
+        switch selectedReport {
+        case .spending:
+            let expenses = txs.filter { $0.type == .expense }
+            let cats = Dictionary(grouping: expenses) { $0.category }
+                .map { (label: $0.key.rawValue, amount: $0.value.reduce(0) { $0 + $1.amountInBaseCurrency }, count: $0.value.count) }
+                .sorted { $0.amount > $1.amount }
+            let total = cats.reduce(0) { $0 + $1.amount }
+            return [
+                PDFSection(title: "Summary", rows: [
+                    PDFRow("Total Spending", total.formatted(as: cur), highlight: true, color: UIColor(FTColor.expense)),
+                    PDFRow("Transactions", "\(expenses.count)")
+                ]),
+                PDFSection(title: "By Category", rows: cats.map { PDFRow($0.label, $0.amount.formatted(as: cur)) })
+            ]
+        case .cashFlow:
+            let income = txs.filter { $0.type == .income }.reduce(0) { $0 + $1.amountInBaseCurrency }
+            let expenses = txs.filter { $0.type == .expense }.reduce(0) { $0 + $1.amountInBaseCurrency }
+            let net = income - expenses
+            return [PDFSection(title: "Cash Flow Summary", rows: [
+                PDFRow("Total Income", income.formatted(as: cur), color: UIColor(FTColor.income)),
+                PDFRow("Total Expenses", expenses.formatted(as: cur), color: UIColor(FTColor.expense)),
+                PDFRow("Net Cash Flow", net.formatted(as: cur), highlight: true,
+                       color: net >= 0 ? UIColor(FTColor.income) : UIColor(FTColor.expense))
+            ])]
+        case .income:
+            let incTxs = txs.filter { $0.type == .income }
+            let cats = Dictionary(grouping: incTxs) { $0.category }
+                .map { (label: $0.key.rawValue, amount: $0.value.reduce(0) { $0 + $1.amountInBaseCurrency }) }
+                .sorted { $0.amount > $1.amount }
+            let total = cats.reduce(0) { $0 + $1.amount }
+            let expTotal = txs.filter { $0.type == .expense }.reduce(0) { $0 + $1.amountInBaseCurrency }
+            return [
+                PDFSection(title: "Income Statement", rows: [
+                    PDFRow("Total Revenue", total.formatted(as: cur), color: UIColor(FTColor.income)),
+                    PDFRow("Total Expenses", expTotal.formatted(as: cur), color: UIColor(FTColor.expense)),
+                    PDFRow("Net Income", (total - expTotal).formatted(as: cur), highlight: true,
+                           color: total >= expTotal ? UIColor(FTColor.income) : UIColor(FTColor.expense))
+                ]),
+                PDFSection(title: "Revenue by Category",
+                           rows: cats.map { PDFRow($0.label, $0.amount.formatted(as: cur)) })
+            ]
+        case .taxSummary:
+            let ded = txs.filter { $0.isTaxDeductible && $0.type == .expense }
+            let cats = Dictionary(grouping: ded) { $0.category.rawValue }
+                .map { (label: $0.key, amount: $0.value.reduce(0) { $0 + $1.amountInBaseCurrency }) }
+                .sorted { $0.amount > $1.amount }
+            let total = cats.reduce(0) { $0 + $1.amount }
+            return [
+                PDFSection(title: "Tax Deduction Summary", rows: [
+                    PDFRow("Total Deductible Expenses", total.formatted(as: cur), highlight: true),
+                    PDFRow("Transactions", "\(ded.count)"),
+                    PDFRow("Est. Corporate Tax Saving (9%)", (total * 0.09).formatted(as: cur))
+                ]),
+                PDFSection(title: "By Category", rows: cats.map { PDFRow($0.label, $0.amount.formatted(as: cur)) })
+            ]
+        case .vatReport:
+            let vatRate = 0.05
+            let vatPaid = txs.filter { $0.isVATReclaimable && $0.type == .expense }
+                .reduce(0) { $0 + $1.amountInBaseCurrency * vatRate }
+            let vatCollected = txs.filter { $0.type == .income }.reduce(0) { $0 + $1.amountInBaseCurrency * vatRate }
+            let net = vatCollected - vatPaid
+            return [PDFSection(title: "UAE VAT Summary (5%)", rows: [
+                PDFRow("VAT Rate", "5%"),
+                PDFRow("Input VAT (Reclaimable)", vatPaid.formatted(as: cur), color: UIColor(FTColor.expense)),
+                PDFRow("Output VAT (Collected)", vatCollected.formatted(as: cur), color: UIColor(FTColor.income)),
+                PDFRow("Net VAT Position", net.formatted(as: cur), highlight: true,
+                       color: net >= 0 ? UIColor(FTColor.income) : UIColor(FTColor.expense))
+            ])]
+        case .annualSummary:
+            let year = Calendar.current.component(.year, from: Date())
+            let yearTxs = transactions.filter { Calendar.current.component(.year, from: $0.date) == year }
+            let income = yearTxs.filter { $0.type == .income }.reduce(0) { $0 + $1.amountInBaseCurrency }
+            let expenses = yearTxs.filter { $0.type == .expense }.reduce(0) { $0 + $1.amountInBaseCurrency }
+            let net = income - expenses
+            let rate = income > 0 ? (net / income * 100) : 0
+            return [PDFSection(title: "\(year) Annual Summary", rows: [
+                PDFRow("Total Income", income.formatted(as: cur), color: UIColor(FTColor.income)),
+                PDFRow("Total Expenses", expenses.formatted(as: cur), color: UIColor(FTColor.expense)),
+                PDFRow("Net Savings", net.formatted(as: cur), highlight: true,
+                       color: net >= 0 ? UIColor(FTColor.income) : UIColor(FTColor.expense)),
+                PDFRow("Savings Rate", "\(String(format: "%.1f", rate))%")
+            ])]
+        case .merchantSpend:
+            let merchants = Dictionary(grouping: txs.filter { $0.type == .expense && $0.merchant != nil }) { $0.merchant! }
+                .map { (name: $0.key, amount: $0.value.reduce(0) { $0 + $1.amountInBaseCurrency }, count: $0.value.count) }
+                .sorted { $0.amount > $1.amount }
+            return [
+                PDFSection(title: "Merchant Spend Summary", rows: [
+                    PDFRow("Unique Merchants", "\(merchants.count)"),
+                    PDFRow("Total Spend", merchants.reduce(0) { $0 + $1.amount }.formatted(as: cur))
+                ]),
+                PDFSection(title: "Top Merchants", rows: Array(merchants.prefix(20).map {
+                    PDFRow($0.name, $0.amount.formatted(as: cur))
+                }))
+            ]
+        default:
+            return [PDFSection(title: "Report", rows: [
+                PDFRow("Period", periodLabel),
+                PDFRow("Transactions", "\(txs.count)")
+            ])]
+        }
+    }
+
+    private func buildCSV(label: String) -> URL? {
+        let svc = ReportExportService.shared
+        let cur = baseCurrency
+        let txs = filteredTransactions
+        let fmt = ISO8601DateFormatter()
+        fmt.formatOptions = [.withFullDate]
+
+        switch selectedReport {
+        case .spending:
+            let expenses = txs.filter { $0.type == .expense }
+            let cats = Dictionary(grouping: expenses) { $0.category }
+                .map { (cat: $0.key.rawValue, amount: $0.value.reduce(0.0) { $0 + $1.amountInBaseCurrency }, count: $0.value.count) }
+                .sorted { $0.amount > $1.amount }
+            let total = cats.reduce(0.0) { $0 + $1.amount }
+            var lines = ["Category,Amount (\(cur)),Transactions,Percentage"]
+            for c in cats {
+                let pct = total > 0 ? c.amount / total * 100 : 0
+                lines.append("\(c.cat.csvEscaped),\(String(format: "%.2f", c.amount)),\(c.count),\(String(format: "%.1f", pct))%")
+            }
+            lines.append("\nTOTAL,\(String(format: "%.2f", total)),\(expenses.count),100%")
+            return svc.writeCSV(lines.joined(separator: "\n"), filename: "spending_\(label)")
+
+        case .taxSummary:
+            let ded = txs.filter { $0.isTaxDeductible && $0.type == .expense }
+            let cats = Dictionary(grouping: ded) { $0.category.rawValue }
+                .map { (cat: $0.key, amount: $0.value.reduce(0.0) { $0 + $1.amountInBaseCurrency }, count: $0.value.count) }
+                .sorted { $0.amount > $1.amount }
+            let total = cats.reduce(0.0) { $0 + $1.amount }
+            var lines = ["TAX SUMMARY - \(periodLabel)", "",
+                         "Total Deductible,\(String(format: "%.2f", total))",
+                         "Est. Tax Saving (9%),\(String(format: "%.2f", total * 0.09))", "",
+                         "Category,Amount (\(cur)),Transactions"]
+            for c in cats { lines.append("\(c.cat.csvEscaped),\(String(format: "%.2f", c.amount)),\(c.count)") }
+            lines.append("")
+            lines.append("Date,Merchant,Category,Amount (\(cur)),Notes")
+            for tx in ded.sorted(by: { $0.date > $1.date }) {
+                lines.append("\(fmt.string(from: tx.date)),\(tx.merchant?.csvEscaped ?? ""),\(tx.category.rawValue.csvEscaped),\(String(format: "%.2f", tx.amountInBaseCurrency)),\(tx.notes?.csvEscaped ?? "")")
+            }
+            return svc.writeCSV(lines.joined(separator: "\n"), filename: "tax_summary_\(label)")
+
+        case .vatReport:
+            let vatRate = 0.05
+            let reclaimable = txs.filter { $0.isVATReclaimable && $0.type == .expense }
+            let vatPaid = reclaimable.reduce(0.0) { $0 + $1.amountInBaseCurrency * vatRate }
+            let incTxs = txs.filter { $0.type == .income }
+            let vatCollected = incTxs.reduce(0.0) { $0 + $1.amountInBaseCurrency * vatRate }
+            let net = vatCollected - vatPaid
+            var lines = ["UAE VAT REPORT - \(periodLabel)", "",
+                         "VAT Rate,5%",
+                         "Input VAT (Paid),\(String(format: "%.2f", vatPaid))",
+                         "Output VAT (Collected),\(String(format: "%.2f", vatCollected))",
+                         "Net VAT Position,\(String(format: "%.2f", net))", "",
+                         "Date,Merchant,Category,Amount (\(cur)),VAT Amount (\(cur)),Type"]
+            for tx in reclaimable.sorted(by: { $0.date > $1.date }) {
+                let vat = tx.amountInBaseCurrency * vatRate
+                lines.append("\(fmt.string(from: tx.date)),\(tx.merchant?.csvEscaped ?? ""),\(tx.category.rawValue.csvEscaped),\(String(format: "%.2f", tx.amountInBaseCurrency)),\(String(format: "%.2f", vat)),Input")
+            }
+            for tx in incTxs.sorted(by: { $0.date > $1.date }) {
+                let vat = tx.amountInBaseCurrency * vatRate
+                lines.append("\(fmt.string(from: tx.date)),,\(tx.category.rawValue.csvEscaped),\(String(format: "%.2f", tx.amountInBaseCurrency)),\(String(format: "%.2f", vat)),Output")
+            }
+            return svc.writeCSV(lines.joined(separator: "\n"), filename: "vat_report_\(label)")
+
+        case .merchantSpend:
+            let expTxs = txs.filter { $0.type == .expense && $0.merchant != nil }
+            let merchants = Dictionary(grouping: expTxs) { $0.merchant! }
+                .map { m, mTxs -> (name: String, total: Double, count: Int, avg: Double, topCat: String) in
+                    let total = mTxs.reduce(0.0) { $0 + $1.amountInBaseCurrency }
+                    let topCat = (Dictionary(grouping: mTxs) { $0.category.rawValue }.max(by: { $0.value.count < $1.value.count })?.key) ?? ""
+                    return (m, total, mTxs.count, total / Double(mTxs.count), topCat)
+                }.sorted { $0.total > $1.total }
+            var lines = ["Merchant,Total (\(cur)),Visits,Avg Per Visit (\(cur)),Top Category"]
+            for m in merchants {
+                lines.append("\(m.name.csvEscaped),\(String(format: "%.2f", m.total)),\(m.count),\(String(format: "%.2f", m.avg)),\(m.topCat.csvEscaped)")
+            }
+            return svc.writeCSV(lines.joined(separator: "\n"), filename: "merchant_spend_\(label)")
+
+        case .annualSummary:
+            let year = Calendar.current.component(.year, from: Date())
+            let yearTxs = transactions.filter { Calendar.current.component(.year, from: $0.date) == year }
+            var lines = ["\(year) ANNUAL SUMMARY", ""]
+            lines.append("Month,Income (\(cur)),Expenses (\(cur)),Net (\(cur))")
+            for m in 0..<12 {
+                guard let monthDate = Calendar.current.date(from: DateComponents(year: year, month: m + 1)) else { continue }
+                let mTxs = yearTxs.filter { $0.date.isSameMonth(as: monthDate) }
+                let income = mTxs.filter { $0.type == .income }.reduce(0.0) { $0 + $1.amountInBaseCurrency }
+                let expense = mTxs.filter { $0.type == .expense }.reduce(0.0) { $0 + $1.amountInBaseCurrency }
+                lines.append("\(monthDate.monthName),\(String(format: "%.2f", income)),\(String(format: "%.2f", expense)),\(String(format: "%.2f", income - expense))")
+            }
+            return svc.writeCSV(lines.joined(separator: "\n"), filename: "annual_summary_\(year)")
+
+        default:
+            var lines = ["Date,Title,Category,Amount (\(cur)),Type,Merchant,Notes"]
+            for tx in txs.sorted(by: { $0.date > $1.date }) {
+                lines.append("\(fmt.string(from: tx.date)),\(tx.title.csvEscaped),\(tx.category.rawValue.csvEscaped),\(String(format: "%.2f", tx.amountInBaseCurrency)),\(tx.type.rawValue),\(tx.merchant?.csvEscaped ?? ""),\(tx.notes?.csvEscaped ?? "")")
+            }
+            return svc.writeCSV(lines.joined(separator: "\n"), filename: "\(selectedReport.rawValue.lowercased())_\(label)")
+        }
     }
 }
 
@@ -190,20 +493,25 @@ enum ReportPeriod: String, CaseIterable {
 }
 
 enum ReportType: String, CaseIterable {
-    case cashFlow    = "Cash Flow"
-    case spending    = "Spending"
-    case income      = "Income"
-    case investments = "Investments"
-    case debt        = "Debt"
-    case netWorth    = "Net Worth"
-    case trends      = "Trends"
-    case savingsGoals = "Goals"
+    case cashFlow      = "Cash Flow"
+    case spending      = "Spending"
+    case income        = "Income"
+    case investments   = "Investments"
+    case debt          = "Debt"
+    case netWorth      = "Net Worth"
+    case trends        = "Trends"
+    case savingsGoals  = "Goals"
+    case taxSummary    = "Tax"
+    case vatReport     = "VAT"
+    case annualSummary = "Annual"
+    case merchantSpend = "Merchants"
 }
 
 // MARK: - Cash Flow Report
 
 struct CashFlowReport: View {
     let transactions: [Transaction]
+    var previousTransactions: [Transaction] = []
     let currency: String
 
     /// Single pass over all transactions for both totals.
@@ -214,6 +522,14 @@ struct CashFlowReport: View {
             else if tx.type == .expense { expenses += tx.amountInBaseCurrency }
         }
         return (income, expenses)
+    }
+
+    private var previousNet: Double {
+        previousTransactions.reduce(0) { result, tx in
+            if tx.type == .income { return result + tx.amountInBaseCurrency }
+            if tx.type == .expense { return result - tx.amountInBaseCurrency }
+            return result
+        }
     }
 
     private var dailyData: [(day: String, income: Double, expense: Double)] {
@@ -232,6 +548,7 @@ struct CashFlowReport: View {
     var body: some View {
         let (totalIncome, totalExpenses) = totals
         let netCashFlow = totalIncome - totalExpenses
+        let prevNet = previousNet
         let dailyData = self.dailyData
         return VStack(spacing: 16) {
             // Summary cards
@@ -248,6 +565,29 @@ struct CashFlowReport: View {
                 icon: "arrow.left.arrow.right.circle.fill"
             )
             .frame(maxWidth: .infinity)
+
+            // Period comparison
+            if !previousTransactions.isEmpty {
+                let diff = netCashFlow - prevNet
+                let pct = prevNet != 0 ? abs(diff / prevNet * 100) : 0
+                HStack(spacing: FTSpacing.md) {
+                    Image(systemName: diff >= 0 ? "arrow.up.right.circle.fill" : "arrow.down.right.circle.fill")
+                        .foregroundStyle(diff >= 0 ? FTColor.income : FTColor.expense)
+                        .font(.title2)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("vs Previous Period").font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                        Text("\(diff >= 0 ? "+" : "")\(diff.formatted(as: currency))")
+                            .font(.ftBodySemibold)
+                            .foregroundStyle(diff >= 0 ? FTColor.income : FTColor.expense)
+                    }
+                    Spacer()
+                    Text("\(diff >= 0 ? "+" : "-")\(pct.asPercentage())")
+                        .font(.ftHeadline)
+                        .foregroundStyle(diff >= 0 ? FTColor.income : FTColor.expense)
+                }
+                .padding(FTSpacing.md)
+                .ftGlass(FTRadius.md)
+            }
 
             // Chart
             if !dailyData.isEmpty {
@@ -285,6 +625,7 @@ struct CashFlowReport: View {
 
 struct SpendingReport: View {
     let transactions: [Transaction]
+    var previousTransactions: [Transaction] = []
     let currency: String
 
     private var expensesByCategory: [(category: TransactionCategory, amount: Double, count: Int)] {
@@ -295,10 +636,45 @@ struct SpendingReport: View {
         }.sorted { $0.amount > $1.amount }
     }
 
+    private var previousTotal: Double {
+        previousTransactions.filter { $0.type == .expense }.reduce(0) { $0 + $1.amountInBaseCurrency }
+    }
+
+    private var previousByCategory: [TransactionCategory: Double] {
+        Dictionary(grouping: previousTransactions.filter { $0.type == .expense }) { $0.category }
+            .mapValues { $0.reduce(0) { $0 + $1.amountInBaseCurrency } }
+    }
+
     var body: some View {
         let expensesByCategory = self.expensesByCategory
         let total = expensesByCategory.reduce(0) { $0 + $1.amount }
+        let prevTotal = self.previousTotal
+        let prevCats = self.previousByCategory
         return VStack(spacing: 16) {
+            // Period comparison banner
+            if !previousTransactions.isEmpty && (total > 0 || prevTotal > 0) {
+                let diff = total - prevTotal
+                let pct = prevTotal > 0 ? abs(diff / prevTotal * 100) : 0
+                let isLess = diff < 0
+                HStack(spacing: FTSpacing.md) {
+                    Image(systemName: isLess ? "arrow.down.circle.fill" : "arrow.up.circle.fill")
+                        .foregroundStyle(isLess ? FTColor.income : FTColor.expense)
+                        .font(.title2)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("vs Previous Period").font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                        Text(isLess ? "Spent \(abs(diff).formatted(as: currency)) less" : "Spent \(abs(diff).formatted(as: currency)) more")
+                            .font(.ftBodySemibold)
+                            .foregroundStyle(isLess ? FTColor.income : FTColor.expense)
+                    }
+                    Spacer()
+                    Text("\(isLess ? "-" : "+")\(pct.asPercentage())")
+                        .font(.ftHeadline)
+                        .foregroundStyle(isLess ? FTColor.income : FTColor.expense)
+                }
+                .padding(FTSpacing.md)
+                .ftGlass(FTRadius.md)
+            }
+
             if expensesByCategory.isEmpty {
                 EmptyStateView(icon: "chart.pie", title: "No Expenses", message: "No expenses recorded for this period.")
             } else {
@@ -331,6 +707,17 @@ struct SpendingReport: View {
 
                     ForEach(Array(expensesByCategory.prefix(10).enumerated()), id: \.element.category) { idx, item in
                         let tint = ftChartPalette[idx % ftChartPalette.count]
+                        let prevAmt = prevCats[item.category] ?? 0
+                        let trend: String = {
+                            guard !previousTransactions.isEmpty else { return "" }
+                            let delta = item.amount - prevAmt
+                            if abs(delta) < 0.01 { return "→" }
+                            return delta > 0 ? "↑" : "↓"
+                        }()
+                        let trendColor: Color = {
+                            guard !trend.isEmpty else { return .clear }
+                            return trend == "↑" ? FTColor.expense : (trend == "↓" ? FTColor.income : FTColor.textMuted)
+                        }()
                         HStack(spacing: 12) {
                             ZStack {
                                 Circle()
@@ -342,8 +729,13 @@ struct SpendingReport: View {
                             }
 
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(item.category.rawValue).font(.subheadline).fontWeight(.medium)
-                                Text("\(item.count) transactions").font(.caption).foregroundStyle(FTColor.textSecondary)
+                                HStack(spacing: 4) {
+                                    Text(item.category.rawValue).font(.subheadline).fontWeight(.medium)
+                                    if !trend.isEmpty {
+                                        Text(trend).font(.caption).foregroundStyle(trendColor)
+                                    }
+                                }
+                                Text("\(item.count) transaction\(item.count == 1 ? "" : "s")").font(.caption).foregroundStyle(FTColor.textSecondary)
                             }
 
                             Spacer()
@@ -369,7 +761,12 @@ struct SpendingReport: View {
 
 struct IncomeReport: View {
     let transactions: [Transaction]
+    var previousTransactions: [Transaction] = []
     let currency: String
+
+    private var previousIncome: Double {
+        previousTransactions.filter { $0.type == .income }.reduce(0) { $0 + $1.amountInBaseCurrency }
+    }
 
     private var incomeByCategory: [(category: TransactionCategory, amount: Double, count: Int)] {
         let income = transactions.filter { $0.type == .income && !$0.isPending && !$0.isScheduled }
@@ -403,13 +800,54 @@ struct IncomeReport: View {
     var body: some View {
         let incomeByCategory = self.incomeByCategory
         let total = incomeByCategory.reduce(0) { $0 + $1.amount }
+        let totalExpenses = transactions.filter { $0.type == .expense }.reduce(0) { $0 + $1.amountInBaseCurrency }
+        let netIncome = total - totalExpenses
         let trend = self.monthlyTrend
         let bySource = self.incomeBySource
         let avgMonthly = trend.isEmpty ? 0 : trend.reduce(0) { $0 + $1.amount } / Double(trend.count)
+        let prevInc = previousIncome
 
         return VStack(spacing: 16) {
+            // P&L income statement summary
+            VStack(spacing: 0) {
+                HStack {
+                    Text("INCOME STATEMENT").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+                    Spacer()
+                }
+                .padding(.horizontal, FTSpacing.lg).padding(.top, FTSpacing.md)
+                incomeStatRow(label: "Revenue", value: total, color: FTColor.income)
+                Divider().padding(.leading, FTSpacing.lg)
+                incomeStatRow(label: "Expenses", value: totalExpenses, color: FTColor.expense)
+                Divider().padding(.leading, FTSpacing.lg)
+                incomeStatRow(label: "Net Income", value: netIncome, color: netIncome >= 0 ? FTColor.income : FTColor.expense, isTotal: true)
+            }
+            .ftGlass(FTRadius.md)
+
+            // Previous period comparison
+            if !previousTransactions.isEmpty && (total > 0 || prevInc > 0) {
+                let diff = total - prevInc
+                let pct = prevInc > 0 ? abs(diff / prevInc * 100) : 0
+                HStack(spacing: FTSpacing.md) {
+                    Image(systemName: diff >= 0 ? "arrow.up.circle.fill" : "arrow.down.circle.fill")
+                        .foregroundStyle(diff >= 0 ? FTColor.income : FTColor.expense)
+                        .font(.title2)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("vs Previous Period").font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                        Text("\(diff >= 0 ? "+" : "")\(abs(diff).formatted(as: currency)) income")
+                            .font(.ftBodySemibold)
+                            .foregroundStyle(diff >= 0 ? FTColor.income : FTColor.expense)
+                    }
+                    Spacer()
+                    Text("\(diff >= 0 ? "+" : "-")\(pct.asPercentage())")
+                        .font(.ftHeadline)
+                        .foregroundStyle(diff >= 0 ? FTColor.income : FTColor.expense)
+                }
+                .padding(FTSpacing.md)
+                .ftGlass(FTRadius.md)
+            }
+
             HStack(spacing: 12) {
-                ReportSummaryCard(title: "Total Income", amount: total, currency: currency, color: .green, icon: "arrow.down.circle.fill")
+                ReportSummaryCard(title: "Total Revenue", amount: total, currency: currency, color: .green, icon: "arrow.down.circle.fill")
                 ReportSummaryCard(title: "Avg Monthly", amount: avgMonthly, currency: currency, color: FTColor.accent, icon: "calendar.circle.fill")
             }
 
@@ -512,6 +950,21 @@ struct IncomeReport: View {
                 EmptyStateView(icon: "arrow.down.circle", title: "No Income", message: "No income recorded for this period.")
             }
         }
+    }
+
+    private func incomeStatRow(label: String, value: Double, color: Color, isTotal: Bool = false) -> some View {
+        HStack {
+            Text(label)
+                .font(isTotal ? .ftBodySemibold : .ftBody)
+                .foregroundStyle(isTotal ? FTColor.textPrimary : FTColor.textSecondary)
+            Spacer()
+            Text(value.formatted(as: currency))
+                .font(isTotal ? .ftHeadline : .ftBodySemibold)
+                .foregroundStyle(color)
+        }
+        .padding(.horizontal, FTSpacing.lg)
+        .padding(.vertical, FTSpacing.md)
+        .background(isTotal ? color.opacity(0.07) : Color.clear)
     }
 }
 
@@ -1268,5 +1721,766 @@ struct SavingsGoalsReport: View {
         }
         .padding(FTSpacing.md)
         .ftGlass(FTRadius.md)
+    }
+}
+
+// MARK: - Tax Summary Report
+
+struct TaxSummaryReport: View {
+    let transactions: [Transaction]
+    let currency: String
+
+    private var deductible: [Transaction] {
+        transactions.filter { $0.isTaxDeductible && $0.type == .expense }
+    }
+
+    private var byCategory: [(category: String, amount: Double, count: Int)] {
+        Dictionary(grouping: deductible) { $0.category.rawValue }
+            .map { (category: $0.key, amount: $0.value.reduce(0) { $0 + $1.amountInBaseCurrency }, count: $0.value.count) }
+            .sorted { $0.amount > $1.amount }
+    }
+
+    private var totalDeductible: Double { byCategory.reduce(0) { $0 + $1.amount } }
+    private var estimatedSaving: Double { totalDeductible * 0.09 }
+    private var deductibleRatio: Double {
+        let allExpenses = transactions.filter { $0.type == .expense }.reduce(0) { $0 + $1.amountInBaseCurrency }
+        return allExpenses > 0 ? totalDeductible / allExpenses : 0
+    }
+
+    @State private var showingAllTransactions = false
+
+    var body: some View {
+        let cats = byCategory
+        return VStack(spacing: FTSpacing.lg) {
+            // Hero
+            VStack(spacing: FTSpacing.sm) {
+                HStack {
+                    FTIconTile(symbol: "doc.text.magnifyingglass", tint: FTColor.catBlue, size: 44)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Tax Deduction Summary").font(.ftHeadline).foregroundStyle(FTColor.textPrimary)
+                        Text("UAE Corporate Tax · 9% rate").font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                    }
+                    Spacer()
+                }
+                HStack(spacing: FTSpacing.lg) {
+                    VStack(spacing: 3) {
+                        Text(totalDeductible.asCompact(currency: currency))
+                            .font(.ftTitle).foregroundStyle(FTColor.catBlue)
+                        Text("Total Deductible").font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                    }
+                    Spacer()
+                    VStack(spacing: 3) {
+                        Text(estimatedSaving.asCompact(currency: currency))
+                            .font(.ftTitle).foregroundStyle(FTColor.income)
+                        Text("Est. Tax Saving").font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                    }
+                    Spacer()
+                    VStack(spacing: 3) {
+                        Text("\(deductible.count)").font(.ftTitle).foregroundStyle(FTColor.textPrimary)
+                        Text("Transactions").font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                    }
+                }
+            }
+            .padding(FTSpacing.lg)
+            .ftGlass(FTRadius.lg)
+
+            // UAE Context note
+            HStack(spacing: FTSpacing.sm) {
+                Image(systemName: "info.circle.fill").foregroundStyle(FTColor.catBlue).font(.footnote)
+                Text("UAE has no personal income tax. Corporate tax of 9% applies to business profits above AED 375,000 (from June 2023).")
+                    .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+            }
+            .padding(FTSpacing.md)
+            .ftGlass(FTRadius.sm)
+
+            if deductible.isEmpty {
+                EmptyStateView(
+                    icon: "doc.text.magnifyingglass",
+                    title: "No Deductible Expenses",
+                    message: "Mark expenses as tax-deductible when adding transactions to track them here."
+                )
+                .padding(.vertical, 40)
+            } else {
+                // Deductible ratio
+                VStack(alignment: .leading, spacing: FTSpacing.sm) {
+                    Text("DEDUCTIBLE RATIO").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+                    VStack(spacing: FTSpacing.xs) {
+                        HStack {
+                            Text("Deductible Expenses").font(.ftBody).foregroundStyle(FTColor.textPrimary)
+                            Spacer()
+                            Text(deductibleRatio.asPercentage()).font(.ftBodySemibold).foregroundStyle(FTColor.catBlue)
+                        }
+                        FTProgressBar(value: deductibleRatio, color: FTColor.catBlue)
+                        Text("of total period spending").font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                    }
+                    .padding(FTSpacing.lg)
+                    .ftGlass(FTRadius.md)
+                }
+
+                // Category breakdown
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("BY CATEGORY").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+                        .padding(.bottom, FTSpacing.sm)
+                    VStack(spacing: 0) {
+                        ForEach(Array(cats.enumerated()), id: \.offset) { idx, cat in
+                            let tint = ftChartPalette[idx % ftChartPalette.count]
+                            HStack(spacing: FTSpacing.md) {
+                                ZStack {
+                                    Circle().fill(tint.opacity(0.15)).frame(width: 40, height: 40)
+                                    Image(systemName: "doc.badge.checkmark").foregroundStyle(tint).font(.ftBody)
+                                }
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(cat.category).font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                                    Text("\(cat.count) transaction\(cat.count == 1 ? "" : "s")")
+                                        .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                                }
+                                Spacer()
+                                VStack(alignment: .trailing, spacing: 2) {
+                                    Text(cat.amount.formatted(as: currency))
+                                        .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                                    Text((totalDeductible > 0 ? cat.amount / totalDeductible * 100 : 0).asPercentage())
+                                        .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                                }
+                            }
+                            .padding(.horizontal, FTSpacing.lg)
+                            .padding(.vertical, FTSpacing.md)
+                            if idx < cats.count - 1 { Divider().padding(.leading, 68) }
+                        }
+                    }
+                    .ftGlass(FTRadius.md)
+                }
+
+                // Transactions list
+                VStack(alignment: .leading, spacing: FTSpacing.sm) {
+                    Button {
+                        withAnimation { showingAllTransactions.toggle() }
+                    } label: {
+                        HStack {
+                            Text("DEDUCTIBLE TRANSACTIONS").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+                            Spacer()
+                            Image(systemName: showingAllTransactions ? "chevron.up" : "chevron.down")
+                                .font(.ftCaption).foregroundStyle(FTColor.textMuted)
+                        }
+                    }
+                    .buttonStyle(.plain)
+
+                    if showingAllTransactions {
+                        VStack(spacing: 0) {
+                            ForEach(Array(deductible.sorted(by: { $0.date > $1.date }).enumerated()), id: \.element.id) { idx, tx in
+                                HStack(spacing: FTSpacing.md) {
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text(tx.title).font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                                        Text(tx.date.formatted).font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                                    }
+                                    Spacer()
+                                    VStack(alignment: .trailing, spacing: 3) {
+                                        Text(tx.amountInBaseCurrency.formatted(as: currency))
+                                            .font(.ftBodySemibold).foregroundStyle(FTColor.expense)
+                                        if let m = tx.merchant { Text(m).font(.ftCaption).foregroundStyle(FTColor.textMuted) }
+                                    }
+                                }
+                                .padding(.horizontal, FTSpacing.lg)
+                                .padding(.vertical, FTSpacing.md)
+                                if idx < deductible.count - 1 { Divider().padding(.leading, FTSpacing.lg) }
+                            }
+                        }
+                        .ftGlass(FTRadius.md)
+                    }
+                }
+            }
+        }
+        .padding(.top, FTSpacing.sm)
+    }
+}
+
+// MARK: - VAT Report
+
+struct VATReport: View {
+    let transactions: [Transaction]
+    let currency: String
+
+    private let vatRate = 0.05
+
+    private var inputTxs: [Transaction] {
+        transactions.filter { $0.isVATReclaimable && $0.type == .expense }
+    }
+    private var outputTxs: [Transaction] {
+        transactions.filter { $0.type == .income }
+    }
+
+    private var vatPaid: Double { inputTxs.reduce(0) { $0 + $1.amountInBaseCurrency * vatRate } }
+    private var vatCollected: Double { outputTxs.reduce(0) { $0 + $1.amountInBaseCurrency * vatRate } }
+    private var netVAT: Double { vatCollected - vatPaid }
+
+    private var inputByCategory: [(category: String, amount: Double, vat: Double)] {
+        Dictionary(grouping: inputTxs) { $0.category.rawValue }
+            .map { (category: $0.key, amount: $0.value.reduce(0) { $0 + $1.amountInBaseCurrency }, vat: $0.value.reduce(0) { $0 + $1.amountInBaseCurrency * vatRate }) }
+            .sorted { $0.vat > $1.vat }
+    }
+
+    var body: some View {
+        VStack(spacing: FTSpacing.lg) {
+            // Hero card
+            VStack(spacing: FTSpacing.md) {
+                HStack {
+                    FTIconTile(symbol: "percent", tint: FTColor.catTeal, size: 44)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("UAE VAT Report").font(.ftHeadline).foregroundStyle(FTColor.textPrimary)
+                        Text("Federal Tax Authority · 5% Standard Rate").font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                    }
+                    Spacer()
+                }
+
+                // Net position indicator
+                let isRefund = netVAT < 0
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(isRefund ? "VAT Refund Due" : "VAT Payable").font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                        Text(abs(netVAT).formatted(as: currency))
+                            .font(.ftTitle)
+                            .foregroundStyle(isRefund ? FTColor.income : FTColor.expense)
+                    }
+                    Spacer()
+                    BadgeView(text: isRefund ? "Refund" : "Payable",
+                             color: isRefund ? FTColor.income : FTColor.expense)
+                }
+            }
+            .padding(FTSpacing.lg)
+            .ftGlass(FTRadius.lg)
+
+            // FTA context note
+            HStack(spacing: FTSpacing.sm) {
+                Image(systemName: "info.circle.fill").foregroundStyle(FTColor.catTeal).font(.footnote)
+                Text("VAT registration required when taxable supplies exceed AED 375,000/year. File quarterly on the FTA portal (tax.gov.ae).")
+                    .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+            }
+            .padding(FTSpacing.md)
+            .ftGlass(FTRadius.sm)
+
+            // Three-column summary
+            HStack(spacing: FTSpacing.sm) {
+                vatSummaryCard(title: "Input VAT", subtitle: "Reclaimable", amount: vatPaid, color: FTColor.expense, icon: "arrow.up.circle.fill")
+                vatSummaryCard(title: "Output VAT", subtitle: "Collected", amount: vatCollected, color: FTColor.income, icon: "arrow.down.circle.fill")
+                vatSummaryCard(title: "Net Position", subtitle: netVAT >= 0 ? "Payable" : "Refund", amount: abs(netVAT),
+                              color: netVAT >= 0 ? FTColor.expense : FTColor.income, icon: "scalemass.fill")
+            }
+
+            // Input VAT by category
+            if !inputTxs.isEmpty {
+                VStack(alignment: .leading, spacing: FTSpacing.sm) {
+                    Text("INPUT VAT BY CATEGORY").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+                    VStack(spacing: 0) {
+                        ForEach(Array(inputByCategory.enumerated()), id: \.offset) { idx, cat in
+                            let tint = ftChartPalette[idx % ftChartPalette.count]
+                            HStack(spacing: FTSpacing.md) {
+                                Circle().fill(tint).frame(width: 10, height: 10).padding(.leading, FTSpacing.xs)
+                                Text(cat.category).font(.ftBody).foregroundStyle(FTColor.textPrimary)
+                                Spacer()
+                                VStack(alignment: .trailing, spacing: 2) {
+                                    Text(cat.vat.formatted(as: currency)).font(.ftBodySemibold).foregroundStyle(FTColor.expense)
+                                    Text("on \(cat.amount.asCompact(currency: currency))").font(.ftCaption).foregroundStyle(FTColor.textMuted)
+                                }
+                            }
+                            .padding(.horizontal, FTSpacing.lg)
+                            .padding(.vertical, FTSpacing.sm)
+                            if idx < inputByCategory.count - 1 { Divider().padding(.leading, 36) }
+                        }
+                    }
+                    .ftGlass(FTRadius.md)
+                }
+
+                // VAT return summary table (FTA-style)
+                VStack(alignment: .leading, spacing: FTSpacing.sm) {
+                    Text("VAT RETURN SUMMARY").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+                    VStack(spacing: 0) {
+                        vatReturnRow(label: "Standard-rated supplies (5%)",
+                                     amount: outputTxs.reduce(0) { $0 + $1.amountInBaseCurrency },
+                                     vat: vatCollected)
+                        Divider().padding(.leading, FTSpacing.lg)
+                        vatReturnRow(label: "Standard-rated purchases (reclaimable)",
+                                     amount: inputTxs.reduce(0) { $0 + $1.amountInBaseCurrency },
+                                     vat: vatPaid)
+                        Divider().padding(.leading, FTSpacing.lg)
+                        HStack {
+                            Text("Net VAT Due / (Refundable)")
+                                .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                            Spacer()
+                            Text(netVAT.formatted(as: currency))
+                                .font(.ftHeadline)
+                                .foregroundStyle(netVAT >= 0 ? FTColor.expense : FTColor.income)
+                        }
+                        .padding(.horizontal, FTSpacing.lg)
+                        .padding(.vertical, FTSpacing.md)
+                        .background(netVAT >= 0 ? FTColor.expense.opacity(0.07) : FTColor.income.opacity(0.07))
+                    }
+                    .ftGlass(FTRadius.md)
+                }
+            } else if outputTxs.isEmpty {
+                EmptyStateView(
+                    icon: "percent",
+                    title: "No VAT Transactions",
+                    message: "Mark expenses as VAT reclaimable when adding transactions to track input VAT here."
+                )
+                .padding(.vertical, 40)
+            }
+        }
+        .padding(.top, FTSpacing.sm)
+    }
+
+    private func vatSummaryCard(title: String, subtitle: String, amount: Double, color: Color, icon: String) -> some View {
+        VStack(spacing: FTSpacing.xs) {
+            Image(systemName: icon).foregroundStyle(color).font(.title3)
+            Text(amount.asCompact(currency: currency)).font(.ftBodySemibold).foregroundStyle(color).lineLimit(1).minimumScaleFactor(0.7)
+            Text(title).font(.ftCaption).foregroundStyle(FTColor.textPrimary)
+            Text(subtitle).font(Font.system(size: 10)).foregroundStyle(FTColor.textMuted)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(FTSpacing.md)
+        .ftGlass(FTRadius.md)
+    }
+
+    private func vatReturnRow(label: String, amount: Double, vat: Double) -> some View {
+        HStack {
+            Text(label).font(.ftBody).foregroundStyle(FTColor.textSecondary)
+            Spacer()
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(vat.formatted(as: currency)).font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                Text("base: \(amount.asCompact(currency: currency))").font(.ftCaption).foregroundStyle(FTColor.textMuted)
+            }
+        }
+        .padding(.horizontal, FTSpacing.lg)
+        .padding(.vertical, FTSpacing.md)
+    }
+}
+
+// MARK: - Annual Financial Summary
+
+struct AnnualSummaryReport: View {
+    let transactions: [Transaction]
+    let currency: String
+
+    @State private var selectedYear: Int = Calendar.current.component(.year, from: Date())
+
+    private var availableYears: [Int] {
+        let years = transactions.map { Calendar.current.component(.year, from: $0.date) }
+        return Array(Set(years)).sorted().reversed().map { $0 }
+    }
+
+    private var yearTransactions: [Transaction] {
+        transactions.filter { Calendar.current.component(.year, from: $0.date) == selectedYear }
+    }
+
+    private var previousYearTransactions: [Transaction] {
+        transactions.filter { Calendar.current.component(.year, from: $0.date) == selectedYear - 1 }
+    }
+
+    private var totalIncome: Double { yearTransactions.filter { $0.type == .income }.reduce(0) { $0 + $1.amountInBaseCurrency } }
+    private var totalExpenses: Double { yearTransactions.filter { $0.type == .expense }.reduce(0) { $0 + $1.amountInBaseCurrency } }
+    private var netSavings: Double { totalIncome - totalExpenses }
+    private var savingsRate: Double { totalIncome > 0 ? netSavings / totalIncome * 100 : 0 }
+
+    private var previousIncome: Double { previousYearTransactions.filter { $0.type == .income }.reduce(0) { $0 + $1.amountInBaseCurrency } }
+    private var previousExpenses: Double { previousYearTransactions.filter { $0.type == .expense }.reduce(0) { $0 + $1.amountInBaseCurrency } }
+
+    private var monthlyData: [(month: String, income: Double, expenses: Double)] {
+        (1...12).compactMap { m in
+            guard let date = Calendar.current.date(from: DateComponents(year: selectedYear, month: m)) else { return nil }
+            let mTxs = yearTransactions.filter { $0.date.isSameMonth(as: date) }
+            return (
+                month: date.shortMonthName,
+                income: mTxs.filter { $0.type == .income }.reduce(0) { $0 + $1.amountInBaseCurrency },
+                expenses: mTxs.filter { $0.type == .expense }.reduce(0) { $0 + $1.amountInBaseCurrency }
+            )
+        }
+    }
+
+    private var bestMonth: (month: String, net: Double)? {
+        monthlyData.map { ($0.month, $0.income - $0.expenses) }.max(by: { $0.1 < $1.1 })
+    }
+
+    private var largestExpenseCategory: (category: String, amount: Double)? {
+        Dictionary(grouping: yearTransactions.filter { $0.type == .expense }) { $0.category.rawValue }
+            .map { (category: $0.key, amount: $0.value.reduce(0) { $0 + $1.amountInBaseCurrency }) }
+            .max(by: { $0.amount < $1.amount })
+    }
+
+    private var topMerchant: (name: String, total: Double, count: Int)? {
+        let merch = yearTransactions.compactMap(\.merchant)
+        guard !merch.isEmpty else { return nil }
+        let groups = Dictionary(grouping: yearTransactions.filter { $0.type == .expense && $0.merchant != nil }) { $0.merchant! }
+        return groups.map { (name: $0.key, total: $0.value.reduce(0) { $0 + $1.amountInBaseCurrency }, count: $0.value.count) }
+            .max(by: { $0.total < $1.total })
+    }
+
+    var body: some View {
+        VStack(spacing: FTSpacing.lg) {
+            // Year selector
+            if availableYears.count > 1 {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: FTSpacing.sm) {
+                        ForEach(availableYears, id: \.self) { yr in
+                            FilterChip(title: "\(yr)", isSelected: yr == selectedYear) {
+                                selectedYear = yr
+                            }
+                        }
+                    }
+                    .padding(.horizontal, FTSpacing.xs)
+                }
+            }
+
+            // Year hero
+            VStack(spacing: FTSpacing.md) {
+                HStack {
+                    Text("\(selectedYear) YEAR IN REVIEW").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+                    Spacer()
+                    if totalIncome > 0 || totalExpenses > 0 {
+                        BadgeView(text: savingsRate >= 20 ? "On Track" : savingsRate >= 10 ? "Fair" : "Below Target",
+                                 color: savingsRate >= 20 ? FTColor.income : savingsRate >= 10 ? .orange : FTColor.expense)
+                    }
+                }
+                HStack(spacing: FTSpacing.lg) {
+                    annualMetric(label: "Income", value: totalIncome, color: FTColor.income)
+                    Rectangle().fill(FTColor.textMuted.opacity(0.3)).frame(width: 1, height: 40)
+                    annualMetric(label: "Expenses", value: totalExpenses, color: FTColor.expense)
+                    Rectangle().fill(FTColor.textMuted.opacity(0.3)).frame(width: 1, height: 40)
+                    annualMetric(label: "Saved", value: netSavings, color: netSavings >= 0 ? FTColor.accent : FTColor.expense)
+                }
+                .frame(maxWidth: .infinity)
+                Divider()
+                HStack {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Savings Rate").font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                        Text(savingsRate.asPercentage()).font(.ftBodySemibold)
+                            .foregroundStyle(savingsRate >= 20 ? FTColor.income : savingsRate >= 10 ? .orange : FTColor.expense)
+                    }
+                    Spacer()
+                    // YoY change
+                    if previousIncome > 0 {
+                        VStack(alignment: .trailing, spacing: 3) {
+                            Text("vs \(selectedYear - 1)").font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                            let yoyChange = previousIncome > 0 ? (totalIncome - previousIncome) / previousIncome * 100 : 0
+                            Text("\(yoyChange >= 0 ? "+" : "")\(yoyChange.asPercentage()) income")
+                                .font(.ftBodySemibold)
+                                .foregroundStyle(yoyChange >= 0 ? FTColor.income : FTColor.expense)
+                        }
+                    }
+                }
+            }
+            .padding(FTSpacing.lg)
+            .ftGlass(FTRadius.lg)
+
+            // 12-month chart
+            VStack(alignment: .leading, spacing: FTSpacing.sm) {
+                Text("MONTHLY BREAKDOWN").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+                let data = monthlyData
+                if !data.allSatisfy({ $0.income == 0 && $0.expenses == 0 }) {
+                    Chart {
+                        ForEach(data, id: \.month) { d in
+                            BarMark(x: .value("Month", d.month), y: .value("Income", d.income))
+                                .foregroundStyle(FTColor.income.opacity(0.85))
+                                .cornerRadius(3)
+                            BarMark(x: .value("Month", d.month), y: .value("Expenses", -d.expenses))
+                                .foregroundStyle(FTColor.expense.opacity(0.85))
+                                .cornerRadius(3)
+                        }
+                        RuleMark(y: .value("Zero", 0)).foregroundStyle(FTColor.textMuted.opacity(0.4))
+                    }
+                    .frame(height: 200)
+                    .ftChartAxes()
+                    .padding()
+                    .ftGlass(FTRadius.md)
+
+                    HStack(spacing: FTSpacing.lg) {
+                        HStack(spacing: 6) { Circle().fill(FTColor.income).frame(width: 8, height: 8); Text("Income").font(.ftCaption).foregroundStyle(FTColor.textMuted) }
+                        HStack(spacing: 6) { Circle().fill(FTColor.expense).frame(width: 8, height: 8); Text("Expenses").font(.ftCaption).foregroundStyle(FTColor.textMuted) }
+                    }
+                } else {
+                    Text("No transactions recorded for \(selectedYear).")
+                        .font(.ftBody).foregroundStyle(FTColor.textSecondary)
+                        .padding(FTSpacing.lg)
+                        .frame(maxWidth: .infinity)
+                        .ftGlass(FTRadius.md)
+                }
+            }
+
+            // Key metrics
+            VStack(alignment: .leading, spacing: FTSpacing.sm) {
+                Text("KEY METRICS").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+                VStack(spacing: 0) {
+                    if let best = bestMonth {
+                        keyMetricRow(icon: "star.fill", tint: FTColor.gold,
+                                     label: "Best Month", value: "\(best.month) (\(best.net.asCompact(currency: currency)))")
+                        Divider().padding(.leading, 56)
+                    }
+                    if let cat = largestExpenseCategory {
+                        keyMetricRow(icon: "arrow.up.circle.fill", tint: FTColor.expense,
+                                     label: "Largest Category", value: "\(cat.category) (\(cat.amount.asCompact(currency: currency)))")
+                        Divider().padding(.leading, 56)
+                    }
+                    if let m = topMerchant {
+                        keyMetricRow(icon: "storefront.fill", tint: FTColor.catCoral,
+                                     label: "Top Merchant", value: "\(m.name) · \(m.count) visits")
+                        Divider().padding(.leading, 56)
+                    }
+                    keyMetricRow(icon: "chart.line.uptrend.xyaxis", tint: FTColor.accent,
+                                 label: "Savings Rate", value: savingsRate.asPercentage())
+                    Divider().padding(.leading, 56)
+                    keyMetricRow(icon: "calendar.circle.fill", tint: FTColor.catBlue,
+                                 label: "Avg Monthly Income", value: (totalIncome / 12).asCompact(currency: currency))
+                    Divider().padding(.leading, 56)
+                    keyMetricRow(icon: "creditcard.fill", tint: FTColor.catPurple,
+                                 label: "Avg Monthly Spend", value: (totalExpenses / 12).asCompact(currency: currency))
+                }
+                .ftGlass(FTRadius.lg)
+            }
+
+            // YoY Comparison
+            if previousIncome > 0 || previousExpenses > 0 {
+                VStack(alignment: .leading, spacing: FTSpacing.sm) {
+                    Text("YEAR-OVER-YEAR").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+                    VStack(spacing: 0) {
+                        yoyRow(label: "Total Income", current: totalIncome, previous: previousIncome)
+                        Divider().padding(.leading, FTSpacing.lg)
+                        yoyRow(label: "Total Expenses", current: totalExpenses, previous: previousExpenses, inverseGood: true)
+                        Divider().padding(.leading, FTSpacing.lg)
+                        yoyRow(label: "Net Savings", current: netSavings, previous: previousIncome - previousExpenses)
+                    }
+                    .ftGlass(FTRadius.lg)
+                }
+            }
+        }
+        .padding(.top, FTSpacing.sm)
+    }
+
+    private func annualMetric(label: String, value: Double, color: Color) -> some View {
+        VStack(spacing: 3) {
+            Text(value.asCompact(currency: currency)).font(.ftBodySemibold).foregroundStyle(color).lineLimit(1).minimumScaleFactor(0.7)
+            Text(label).font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func keyMetricRow(icon: String, tint: Color, label: String, value: String) -> some View {
+        HStack(spacing: FTSpacing.md) {
+            FTIconTile(symbol: icon, tint: tint, size: 36)
+            Text(label).font(.ftBody).foregroundStyle(FTColor.textSecondary)
+            Spacer()
+            Text(value).font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+        }
+        .padding(.horizontal, FTSpacing.lg)
+        .padding(.vertical, FTSpacing.md)
+    }
+
+    private func yoyRow(label: String, current: Double, previous: Double, inverseGood: Bool = false) -> some View {
+        let change = previous > 0 ? (current - previous) / previous * 100 : 0
+        let isPositive = inverseGood ? change < 0 : change > 0
+        return HStack {
+            Text(label).font(.ftBody).foregroundStyle(FTColor.textSecondary)
+            Spacer()
+            VStack(alignment: .trailing, spacing: 3) {
+                Text(current.asCompact(currency: currency)).font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                if previous > 0 {
+                    Text("\(change >= 0 ? "+" : "")\(change.asPercentage()) YoY")
+                        .font(.ftCaption).foregroundStyle(isPositive ? FTColor.income : FTColor.expense)
+                }
+            }
+        }
+        .padding(.horizontal, FTSpacing.lg)
+        .padding(.vertical, FTSpacing.md)
+    }
+}
+
+// MARK: - Merchant Spend Report
+
+struct MerchantSpendReport: View {
+    let transactions: [Transaction]
+    var previousTransactions: [Transaction] = []
+    let currency: String
+
+    enum SortOrder: String, CaseIterable {
+        case total = "Total"
+        case visits = "Visits"
+        case average = "Avg/Visit"
+    }
+
+    @State private var searchText = ""
+    @State private var sortOrder: SortOrder = .total
+
+    private struct MerchantData: Identifiable {
+        let id = UUID()
+        let name: String
+        let total: Double
+        let count: Int
+        let avg: Double
+        let topCategory: String
+        let prevTotal: Double
+        var trend: Double { prevTotal > 0 ? (total - prevTotal) / prevTotal * 100 : 0 }
+    }
+
+    private var merchants: [MerchantData] {
+        let expTxs = transactions.filter { $0.type == .expense && $0.merchant != nil }
+        let prevExpTxs = previousTransactions.filter { $0.type == .expense && $0.merchant != nil }
+        let prevMap = Dictionary(grouping: prevExpTxs) { $0.merchant! }.mapValues {
+            $0.reduce(0) { $0 + $1.amountInBaseCurrency }
+        }
+        let grouped = Dictionary(grouping: expTxs) { $0.merchant! }
+        return grouped.map { name, txs in
+            let total = txs.reduce(0) { $0 + $1.amountInBaseCurrency }
+            let topCat = (Dictionary(grouping: txs) { $0.category.rawValue }.max(by: { $0.value.count < $1.value.count })?.key) ?? ""
+            return MerchantData(name: name, total: total, count: txs.count, avg: total / Double(txs.count),
+                                topCategory: topCat, prevTotal: prevMap[name] ?? 0)
+        }
+    }
+
+    private var filteredMerchants: [MerchantData] {
+        let base = searchText.isEmpty ? merchants : merchants.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+        switch sortOrder {
+        case .total:   return base.sorted { $0.total > $1.total }
+        case .visits:  return base.sorted { $0.count > $1.count }
+        case .average: return base.sorted { $0.avg > $1.avg }
+        }
+    }
+
+    private var grandTotal: Double { merchants.reduce(0) { $0 + $1.total } }
+    private var unattributed: Double {
+        transactions.filter { $0.type == .expense && $0.merchant == nil }.reduce(0) { $0 + $1.amountInBaseCurrency }
+    }
+
+    var body: some View {
+        VStack(spacing: FTSpacing.lg) {
+            // Summary
+            HStack(spacing: FTSpacing.sm) {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Image(systemName: "storefront.fill").foregroundStyle(FTColor.accent).font(.caption)
+                        Text("Merchants").font(.caption).foregroundStyle(FTColor.textSecondary)
+                    }
+                    Text("\(merchants.count)").font(.ftHeadline).lineLimit(1)
+                }
+                .padding()
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(FTColor.accent.opacity(0.08))
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+
+                ReportSummaryCard(title: "Total Spend", amount: grandTotal,
+                                 currency: currency, color: FTColor.expense, icon: "creditcard.fill")
+            }
+
+            // Top 5 bar chart
+            if !merchants.isEmpty {
+                VStack(alignment: .leading, spacing: FTSpacing.sm) {
+                    Text("TOP MERCHANTS").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+                    let top5 = merchants.sorted { $0.total > $1.total }.prefix(5).map { $0 }
+                    Chart {
+                        ForEach(Array(top5.enumerated()), id: \.offset) { idx, m in
+                            BarMark(
+                                x: .value("Amount", m.total),
+                                y: .value("Merchant", m.name)
+                            )
+                            .foregroundStyle(ftChartPalette[idx % ftChartPalette.count])
+                            .cornerRadius(4)
+                        }
+                    }
+                    .frame(height: max(140, CGFloat(min(top5.count, 5)) * 38))
+                    .ftChartAxes()
+                    .padding()
+                    .ftGlass(FTRadius.md)
+                }
+            }
+
+            // Sort + search
+            VStack(spacing: FTSpacing.sm) {
+                HStack(spacing: FTSpacing.sm) {
+                    Image(systemName: "magnifyingglass").foregroundStyle(FTColor.textMuted)
+                    TextField("Search merchants", text: $searchText)
+                        .font(.ftBody)
+                }
+                .padding(FTSpacing.md)
+                .ftGlass(FTRadius.md)
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: FTSpacing.sm) {
+                        ForEach(SortOrder.allCases, id: \.self) { order in
+                            FilterChip(title: "Sort: \(order.rawValue)", isSelected: sortOrder == order) {
+                                sortOrder = order
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Merchant list
+            if filteredMerchants.isEmpty {
+                EmptyStateView(
+                    icon: "storefront",
+                    title: searchText.isEmpty ? "No Merchant Data" : "No Results",
+                    message: searchText.isEmpty
+                        ? "Add a merchant name when creating transactions to see analytics here."
+                        : "No merchants match '\(searchText)'."
+                )
+                .padding(.vertical, 32)
+            } else {
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(Array(filteredMerchants.enumerated()), id: \.element.id) { idx, m in
+                        VStack(spacing: FTSpacing.xs) {
+                            HStack(spacing: FTSpacing.md) {
+                                ZStack {
+                                    Circle().fill(ftChartPalette[idx % ftChartPalette.count].opacity(0.15)).frame(width: 42, height: 42)
+                                    Text(String(m.name.prefix(1)).uppercased())
+                                        .font(.ftBodySemibold)
+                                        .foregroundStyle(ftChartPalette[idx % ftChartPalette.count])
+                                }
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(m.name).font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                                    HStack(spacing: FTSpacing.xs) {
+                                        Text(m.topCategory).font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                                        Text("·").foregroundStyle(FTColor.textMuted)
+                                        Text("\(m.count) visit\(m.count == 1 ? "" : "s")").font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                                    }
+                                }
+                                Spacer()
+                                VStack(alignment: .trailing, spacing: 3) {
+                                    Text(m.total.formatted(as: currency)).font(.ftBodySemibold).foregroundStyle(FTColor.expense)
+                                    HStack(spacing: FTSpacing.xs) {
+                                        Text("avg \(m.avg.asCompact(currency: currency))").font(.ftCaption).foregroundStyle(FTColor.textMuted)
+                                        if !previousTransactions.isEmpty && m.prevTotal > 0 {
+                                            let trendUp = m.trend > 0
+                                            Image(systemName: trendUp ? "arrow.up.right" : "arrow.down.right")
+                                                .font(.system(size: 9, weight: .bold))
+                                                .foregroundStyle(trendUp ? FTColor.expense : FTColor.income)
+                                        }
+                                    }
+                                }
+                            }
+                            // Spend bar
+                            if grandTotal > 0 {
+                                FTProgressBar(value: m.total / grandTotal, color: ftChartPalette[idx % ftChartPalette.count])
+                                    .padding(.leading, 58)
+                            }
+                        }
+                        .padding(.horizontal, FTSpacing.lg)
+                        .padding(.vertical, FTSpacing.md)
+                        if idx < filteredMerchants.count - 1 { Divider().padding(.leading, 68) }
+                    }
+                }
+                .ftGlass(FTRadius.lg)
+
+                // Unattributed
+                if unattributed > 0 {
+                    HStack(spacing: FTSpacing.md) {
+                        FTIconTile(symbol: "questionmark.circle", tint: FTColor.textMuted, size: 36)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Unattributed Spend").font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                            Text("Transactions without a merchant name").font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                        }
+                        Spacer()
+                        Text(unattributed.formatted(as: currency)).font(.ftBodySemibold).foregroundStyle(FTColor.textMuted)
+                    }
+                    .padding(FTSpacing.md)
+                    .ftGlass(FTRadius.md)
+                }
+            }
+        }
+        .padding(.top, FTSpacing.sm)
     }
 }
