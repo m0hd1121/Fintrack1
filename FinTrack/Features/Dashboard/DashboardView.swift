@@ -23,6 +23,11 @@ struct DashboardView: View {
     @Query(filter: #Predicate<RentalProperty> { $0.isActive }) private var rentalProperties: [RentalProperty]
     @Query private var moneyLent: [MoneyLent]
     @Query private var moneyBorrowed: [MoneyBorrowed]
+    @Query(filter: #Predicate<RealEstateProperty> { !$0.isArchived }) private var realEstateProperties: [RealEstateProperty]
+    @Query(filter: #Predicate<Vehicle> { !$0.isArchived }) private var vehicles: [Vehicle]
+    @Query(filter: #Predicate<PersonalAsset> { !$0.isArchived }) private var personalAssets: [PersonalAsset]
+    @Query(filter: #Predicate<DigitalAsset> { !$0.isArchived }) private var digitalAssets: [DigitalAsset]
+    @Query private var netWorthMilestones: [NetWorthMilestone]
 
     @State private var showingProfile = false
     @State private var showingReports = false
@@ -31,6 +36,8 @@ struct DashboardView: View {
     @State private var showingIncome = false
     @State private var showingDebt = false
     @State private var showingPortfolio = false
+    @State private var showingAssets = false
+    @State private var showingNetWorth = false
 
     private var baseCurrency: String { appState.baseCurrency }
 
@@ -196,6 +203,8 @@ struct DashboardView: View {
 
                             portfolioOverviewCard
 
+                            assetsOverviewCard
+
                             debtOverviewCard
 
                             if !metrics.upcomingPayments.isEmpty {
@@ -235,6 +244,12 @@ struct DashboardView: View {
             }
             .sheet(isPresented: $showingPortfolio) {
                 InvestmentPortfolioView()
+            }
+            .sheet(isPresented: $showingAssets) {
+                AssetsLiabilitiesView()
+            }
+            .sheet(isPresented: $showingNetWorth) {
+                NetWorthDashboardView()
             }
             .task(id: dataStamp) { refreshDashboard() }
             .onAppear { refreshDashboard() }
@@ -637,6 +652,78 @@ struct DashboardView: View {
             .ftGlassInteractive(FTRadius.lg)
         }
         .buttonStyle(.plain)
+    }
+
+    // MARK: - Assets Overview Card
+
+    private var assetsOverviewCard: some View {
+        let svc = NetWorthService.shared
+        let reTotal = svc.realEstateTotal(realEstate: realEstateProperties, currencyService: currencyService, base: baseCurrency)
+        let vhTotal = svc.vehicleTotal(vehicles: vehicles, currencyService: currencyService, base: baseCurrency)
+        let paTotal = svc.personalAssetTotal(assets: personalAssets, currencyService: currencyService, base: baseCurrency)
+        let daTotal = svc.digitalAssetTotal(assets: digitalAssets, currencyService: currencyService, base: baseCurrency)
+        let totalHard = reTotal + vhTotal + paTotal + daTotal
+        let assetCount = realEstateProperties.count + vehicles.count + personalAssets.count + digitalAssets.count
+
+        let unacknowledged = netWorthMilestones.filter { !$0.isAcknowledged }
+
+        return VStack(spacing: FTSpacing.sm) {
+            Button { showingAssets = true } label: {
+                HStack(spacing: FTSpacing.md) {
+                    FTIconTile(symbol: "building.columns.fill", tint: FTColor.catTeal, size: 44)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Assets & Liabilities")
+                            .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                        if assetCount > 0 {
+                            Text("\(assetCount) asset\(assetCount == 1 ? "" : "s") · \(totalHard.asCompact(currency: baseCurrency)) total value")
+                                .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                        } else {
+                            Text("Track real estate, vehicles & valuables")
+                                .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                        }
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(FTColor.textMuted)
+                }
+                .padding(FTSpacing.lg)
+                .ftGlassInteractive(FTRadius.lg)
+            }
+            .buttonStyle(.plain)
+
+            Button { showingNetWorth = true } label: {
+                HStack(spacing: FTSpacing.md) {
+                    ZStack(alignment: .topTrailing) {
+                        FTIconTile(symbol: "chart.line.uptrend.xyaxis", tint: FTColor.gold, size: 44)
+                        if !unacknowledged.isEmpty {
+                            Circle()
+                                .fill(FTColor.income)
+                                .frame(width: 10, height: 10)
+                                .offset(x: 4, y: -4)
+                        }
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Net Worth")
+                            .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                        if !unacknowledged.isEmpty {
+                            Text("🎉 \(unacknowledged.count) milestone\(unacknowledged.count == 1 ? "" : "s") reached!")
+                                .font(.ftCaption).foregroundStyle(FTColor.income)
+                        } else {
+                            Text("Track, forecast & benchmark your wealth")
+                                .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                        }
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(FTColor.textMuted)
+                }
+                .padding(FTSpacing.lg)
+                .ftGlassInteractive(FTRadius.lg)
+            }
+            .buttonStyle(.plain)
+        }
     }
 
     // MARK: - Upcoming Payments

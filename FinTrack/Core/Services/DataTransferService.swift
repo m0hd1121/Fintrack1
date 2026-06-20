@@ -24,9 +24,14 @@ struct FinTrackBackup: Codable {
     var rentalProperties: [RentalPropertyDTO]?     // v8+
     var moneyLent: [MoneyLentDTO]?          // v9+
     var moneyBorrowed: [MoneyBorrowedDTO]?  // v9+
-    var goldHoldings: [GoldHoldingDTO]?     // v10+
+    var goldHoldings: [GoldHoldingDTO]?          // v10+
+    var realEstateProperties: [RealEstatePropertyDTO]?  // v11+
+    var vehicles: [VehicleDTO]?                  // v11+
+    var personalAssets: [PersonalAssetDTO]?      // v11+
+    var digitalAssets: [DigitalAssetDTO]?        // v11+
+    var netWorthSnapshots: [NetWorthSnapshotDTO]? // v11+
 
-    static let currentVersion = 5
+    static let currentVersion = 6
 }
 
 struct AccountDTO: Codable {
@@ -120,6 +125,46 @@ struct GoldHoldingDTO: Codable {
     var currency: String; var storageLocation: String?; var locationPurchased: String?
     var isDubaiGoldSoukPurchase: Bool; var purchaseDate: Date
     var notes: String?; var isArchived: Bool; var createdAt: Date; var updatedAt: Date
+}
+
+struct RealEstatePropertyDTO: Codable {
+    var id: UUID; var name: String; var propertyTypeRaw: String; var address: String?
+    var purchasePrice: Double; var purchaseDate: Date; var currentValue: Double
+    var mortgageBalance: Double; var ownershipPercentage: Double; var currency: String
+    var area: Double?; var areaUnit: String?; var notes: String?
+    var isArchived: Bool; var createdAt: Date; var updatedAt: Date
+}
+
+struct VehicleDTO: Codable {
+    var id: UUID; var make: String; var model: String; var year: Int
+    var purchasePrice: Double; var purchaseDate: Date; var currency: String
+    var registrationNumber: String?; var registrationExpiry: Date?
+    var insuranceProvider: String?; var insuranceExpiry: Date?
+    var depreciationRate: Double; var depreciationMethodRaw: String
+    var manualCurrentValue: Double?; var color: String?; var notes: String?
+    var isArchived: Bool; var createdAt: Date; var updatedAt: Date
+}
+
+struct PersonalAssetDTO: Codable {
+    var id: UUID; var name: String; var categoryRaw: String
+    var purchasePrice: Double; var purchaseDate: Date
+    var insuranceValue: Double; var estimatedMarketValue: Double; var currency: String
+    var serialNumber: String?; var brand: String?; var notes: String?
+    var isArchived: Bool; var createdAt: Date; var updatedAt: Date
+}
+
+struct DigitalAssetDTO: Codable {
+    var id: UUID; var name: String; var typeRaw: String
+    var acquisitionValue: Double; var acquisitionDate: Date; var currentValue: Double
+    var currency: String; var platform: String?; var identifier: String?
+    var expiryDate: Date?; var notes: String?; var isArchived: Bool
+    var createdAt: Date; var updatedAt: Date
+}
+
+struct NetWorthSnapshotDTO: Codable {
+    var id: UUID; var date: Date; var totalAssets: Double
+    var totalLiabilities: Double; var netWorth: Double; var currency: String
+    var breakdownData: Data
 }
 
 struct DividendDTO: Codable {
@@ -229,6 +274,11 @@ final class DataTransferService {
         let lentItems       = try context.fetch(FetchDescriptor<MoneyLent>())
         let borrowedItems   = try context.fetch(FetchDescriptor<MoneyBorrowed>())
         let goldItems       = try context.fetch(FetchDescriptor<GoldHolding>())
+        let realEstateItems = try context.fetch(FetchDescriptor<RealEstateProperty>())
+        let vehicleItems    = try context.fetch(FetchDescriptor<Vehicle>())
+        let personalItems   = try context.fetch(FetchDescriptor<PersonalAsset>())
+        let digitalItems    = try context.fetch(FetchDescriptor<DigitalAsset>())
+        let snapshots       = try context.fetch(FetchDescriptor<NetWorthSnapshot>())
 
         var backup = FinTrackBackup(
             version: FinTrackBackup.currentVersion,
@@ -252,7 +302,12 @@ final class DataTransferService {
         backup.rentalProperties = rentalProps.map(\.dto)
         backup.moneyLent = lentItems.map(\.dto)
         backup.moneyBorrowed = borrowedItems.map(\.dto)
-        backup.goldHoldings = goldItems.map(\.dto)
+        backup.goldHoldings         = goldItems.map(\.dto)
+        backup.realEstateProperties = realEstateItems.map(\.dto)
+        backup.vehicles             = vehicleItems.map(\.dto)
+        backup.personalAssets       = personalItems.map(\.dto)
+        backup.digitalAssets        = digitalItems.map(\.dto)
+        backup.netWorthSnapshots    = snapshots.map(\.dto)
 
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
@@ -374,6 +429,28 @@ final class DataTransferService {
             context.insert(dto.toModel()); summary.goldHoldings += 1
         }
 
+        let existingREIds = Set((try? context.fetch(FetchDescriptor<RealEstateProperty>()))?.map(\.id) ?? [])
+        let existingVehIds = Set((try? context.fetch(FetchDescriptor<Vehicle>()))?.map(\.id) ?? [])
+        let existingPAIds = Set((try? context.fetch(FetchDescriptor<PersonalAsset>()))?.map(\.id) ?? [])
+        let existingDAIds = Set((try? context.fetch(FetchDescriptor<DigitalAsset>()))?.map(\.id) ?? [])
+        let existingSnapIds = Set((try? context.fetch(FetchDescriptor<NetWorthSnapshot>()))?.map(\.id) ?? [])
+
+        for dto in (backup.realEstateProperties ?? []) where !existingREIds.contains(dto.id) {
+            context.insert(dto.toModel()); summary.realEstateProperties += 1
+        }
+        for dto in (backup.vehicles ?? []) where !existingVehIds.contains(dto.id) {
+            context.insert(dto.toModel()); summary.vehicles += 1
+        }
+        for dto in (backup.personalAssets ?? []) where !existingPAIds.contains(dto.id) {
+            context.insert(dto.toModel()); summary.personalAssets += 1
+        }
+        for dto in (backup.digitalAssets ?? []) where !existingDAIds.contains(dto.id) {
+            context.insert(dto.toModel()); summary.digitalAssets += 1
+        }
+        for dto in (backup.netWorthSnapshots ?? []) where !existingSnapIds.contains(dto.id) {
+            context.insert(dto.toModel()); summary.netWorthSnapshots += 1
+        }
+
         if mode == .replace {
             if let dto = backup.userProfile  { context.insert(dto.toModel()) }
             if let dto = backup.appSettings  { context.insert(dto.toModel()) }
@@ -403,6 +480,12 @@ final class DataTransferService {
         try context.delete(model: MoneyLent.self)
         try context.delete(model: MoneyBorrowed.self)
         try context.delete(model: GoldHolding.self)
+        try context.delete(model: RealEstateProperty.self)
+        try context.delete(model: Vehicle.self)
+        try context.delete(model: PersonalAsset.self)
+        try context.delete(model: DigitalAsset.self)
+        try context.delete(model: NetWorthSnapshot.self)
+        try context.delete(model: NetWorthMilestone.self)
         try context.delete(model: UserProfile.self)
         try context.delete(model: AppSettings.self)
         try context.save()
@@ -415,12 +498,15 @@ struct ImportSummary {
     var dividends = 0; var bnpl = 0; var bills = 0
     var salaryRecords = 0; var freelanceProjects = 0; var rentalProperties = 0
     var moneyLent = 0; var moneyBorrowed = 0; var goldHoldings = 0
+    var realEstateProperties = 0; var vehicles = 0; var personalAssets = 0
+    var digitalAssets = 0; var netWorthSnapshots = 0
 
     var total: Int {
         accounts + transactions + budgets + goals + loans + creditCards
         + investments + crypto + dividends + bnpl + bills
         + salaryRecords + freelanceProjects + rentalProperties
         + moneyLent + moneyBorrowed + goldHoldings
+        + realEstateProperties + vehicles + personalAssets + digitalAssets + netWorthSnapshots
     }
 
     var description: String {
@@ -966,5 +1052,125 @@ extension MoneyBorrowedDTO {
         m.repaymentsData = repaymentsData
         m.createdAt = createdAt; m.updatedAt = updatedAt
         return m
+    }
+}
+
+// MARK: - Asset DTO Extensions
+
+extension RealEstateProperty {
+    var dto: RealEstatePropertyDTO {
+        RealEstatePropertyDTO(id: id, name: name, propertyTypeRaw: propertyTypeRaw,
+                              address: address, purchasePrice: purchasePrice,
+                              purchaseDate: purchaseDate, currentValue: currentValue,
+                              mortgageBalance: mortgageBalance,
+                              ownershipPercentage: ownershipPercentage, currency: currency,
+                              area: area, areaUnit: areaUnit, notes: notes,
+                              isArchived: isArchived, createdAt: createdAt, updatedAt: updatedAt)
+    }
+}
+
+extension RealEstatePropertyDTO {
+    func toModel() -> RealEstateProperty {
+        let p = RealEstateProperty(id: id, name: name,
+                                   propertyType: RealEstateType(rawValue: propertyTypeRaw) ?? .apartment,
+                                   address: address, purchasePrice: purchasePrice,
+                                   purchaseDate: purchaseDate, currentValue: currentValue,
+                                   mortgageBalance: mortgageBalance,
+                                   ownershipPercentage: ownershipPercentage, currency: currency,
+                                   area: area, areaUnit: areaUnit, notes: notes,
+                                   isArchived: isArchived)
+        p.createdAt = createdAt; p.updatedAt = updatedAt
+        return p
+    }
+}
+
+extension Vehicle {
+    var dto: VehicleDTO {
+        VehicleDTO(id: id, make: make, model: model, year: year,
+                   purchasePrice: purchasePrice, purchaseDate: purchaseDate, currency: currency,
+                   registrationNumber: registrationNumber, registrationExpiry: registrationExpiry,
+                   insuranceProvider: insuranceProvider, insuranceExpiry: insuranceExpiry,
+                   depreciationRate: depreciationRate, depreciationMethodRaw: depreciationMethodRaw,
+                   manualCurrentValue: manualCurrentValue, color: color, notes: notes,
+                   isArchived: isArchived, createdAt: createdAt, updatedAt: updatedAt)
+    }
+}
+
+extension VehicleDTO {
+    func toModel() -> Vehicle {
+        let v = Vehicle(id: id, make: make, model: model, year: year,
+                        purchasePrice: purchasePrice, purchaseDate: purchaseDate, currency: currency,
+                        registrationNumber: registrationNumber, registrationExpiry: registrationExpiry,
+                        insuranceProvider: insuranceProvider, insuranceExpiry: insuranceExpiry,
+                        depreciationRate: depreciationRate,
+                        depreciationMethod: VehicleDepreciationMethod(rawValue: depreciationMethodRaw) ?? .decliningBalance,
+                        manualCurrentValue: manualCurrentValue, color: color, notes: notes,
+                        isArchived: isArchived)
+        v.createdAt = createdAt; v.updatedAt = updatedAt
+        return v
+    }
+}
+
+extension PersonalAsset {
+    var dto: PersonalAssetDTO {
+        PersonalAssetDTO(id: id, name: name, categoryRaw: categoryRaw,
+                         purchasePrice: purchasePrice, purchaseDate: purchaseDate,
+                         insuranceValue: insuranceValue, estimatedMarketValue: estimatedMarketValue,
+                         currency: currency, serialNumber: serialNumber, brand: brand, notes: notes,
+                         isArchived: isArchived, createdAt: createdAt, updatedAt: updatedAt)
+    }
+}
+
+extension PersonalAssetDTO {
+    func toModel() -> PersonalAsset {
+        let a = PersonalAsset(id: id, name: name,
+                              category: PersonalAssetCategory(rawValue: categoryRaw) ?? .other,
+                              purchasePrice: purchasePrice, purchaseDate: purchaseDate,
+                              insuranceValue: insuranceValue, estimatedMarketValue: estimatedMarketValue,
+                              currency: currency, serialNumber: serialNumber, brand: brand, notes: notes,
+                              isArchived: isArchived)
+        a.createdAt = createdAt; a.updatedAt = updatedAt
+        return a
+    }
+}
+
+extension DigitalAsset {
+    var dto: DigitalAssetDTO {
+        DigitalAssetDTO(id: id, name: name, typeRaw: typeRaw,
+                        acquisitionValue: acquisitionValue, acquisitionDate: acquisitionDate,
+                        currentValue: currentValue, currency: currency, platform: platform,
+                        identifier: identifier, expiryDate: expiryDate, notes: notes,
+                        isArchived: isArchived, createdAt: createdAt, updatedAt: updatedAt)
+    }
+}
+
+extension DigitalAssetDTO {
+    func toModel() -> DigitalAsset {
+        let d = DigitalAsset(id: id, name: name,
+                             type: DigitalAssetType(rawValue: typeRaw) ?? .other,
+                             acquisitionValue: acquisitionValue, acquisitionDate: acquisitionDate,
+                             currentValue: currentValue, currency: currency, platform: platform,
+                             identifier: identifier, expiryDate: expiryDate, notes: notes,
+                             isArchived: isArchived)
+        d.createdAt = createdAt; d.updatedAt = updatedAt
+        return d
+    }
+}
+
+extension NetWorthSnapshot {
+    var dto: NetWorthSnapshotDTO {
+        NetWorthSnapshotDTO(id: id, date: date, totalAssets: totalAssets,
+                            totalLiabilities: totalLiabilities, netWorth: netWorth,
+                            currency: currency, breakdownData: breakdownData)
+    }
+}
+
+extension NetWorthSnapshotDTO {
+    func toModel() -> NetWorthSnapshot {
+        let s = NetWorthSnapshot(date: date, totalAssets: totalAssets,
+                                 totalLiabilities: totalLiabilities, currency: currency)
+        s.id = id
+        s.breakdownData = breakdownData
+        return s
     }
 }

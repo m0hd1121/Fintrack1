@@ -38,6 +38,10 @@ struct ReportsView: View {
     @Query private var goldHoldings: [GoldHolding]
     @Query private var dividends: [Dividend]
     @Query private var loans: [Loan]
+    @Query private var realEstateProperties: [RealEstateProperty]
+    @Query private var vehicles: [Vehicle]
+    @Query private var personalAssets: [PersonalAsset]
+    @Query private var digitalAssets: [DigitalAsset]
     @Query private var creditCards: [CreditCard]
     @Query private var moneyLent: [MoneyLent]
     @Query private var moneyBorrowed: [MoneyBorrowed]
@@ -150,6 +154,11 @@ struct ReportsView: View {
                                     accounts: accounts,
                                     investments: investments,
                                     cryptos: cryptoHoldings,
+                                    golds: goldHoldings,
+                                    realEstate: realEstateProperties,
+                                    vehicles: vehicles,
+                                    personalAssets: personalAssets,
+                                    digitalAssets: digitalAssets,
                                     loans: loans,
                                     creditCards: creditCards,
                                     currency: baseCurrency
@@ -508,76 +517,86 @@ struct NetWorthReport: View {
     let accounts: [Account]
     let investments: [Investment]
     let cryptos: [CryptoHolding]
+    let golds: [GoldHolding]
+    let realEstate: [RealEstateProperty]
+    let vehicles: [Vehicle]
+    let personalAssets: [PersonalAsset]
+    let digitalAssets: [DigitalAsset]
     let loans: [Loan]
     let creditCards: [CreditCard]
     let currency: String
     @Environment(CurrencyService.self) private var currencyService
 
-    private var cashAssets: Double {
-        accounts.filter { !$0.isArchived }
-            .reduce(0) { $0 + currencyService.convert($1.balance, from: $1.currency, to: currency) }
-    }
-    private var investmentAssets: Double {
-        investments.reduce(0) { $0 + currencyService.convert($1.currentValue, from: $1.currency, to: currency) }
-    }
-    private var cryptoAssets: Double {
-        cryptos.reduce(0) { $0 + currencyService.convert($1.currentValue, from: $1.currency, to: currency) }
-    }
-    private var loanDebt: Double {
-        loans.filter { $0.isActive }.reduce(0) { $0 + currencyService.convert($1.outstandingBalance, from: $1.currency, to: currency) }
-    }
-    private var ccDebt: Double {
-        creditCards.filter { $0.isActive }.reduce(0) { $0 + currencyService.convert($1.outstandingBalance, from: $1.currency, to: currency) }
-    }
+    private var svc: NetWorthService { .shared }
+
+    private var cashTotal: Double { accounts.filter { !$0.isArchived && !$0.isHidden }.reduce(0) { $0 + currencyService.convert($1.balance, from: $1.currency, to: currency) } }
+    private var investTotal: Double { investments.reduce(0) { $0 + currencyService.convert($1.currentValue, from: $1.currency, to: currency) } }
+    private var cryptoTotal: Double { cryptos.reduce(0) { $0 + currencyService.convert($1.currentValue, from: $1.currency, to: currency) } }
+    private var goldTotal: Double { golds.filter { !$0.isArchived }.reduce(0) { $0 + currencyService.convert($1.currentValue, from: $1.currency, to: currency) } }
+    private var reTotal: Double { svc.realEstateTotal(realEstate: realEstate, currencyService: currencyService, base: currency) }
+    private var vehTotal: Double { svc.vehicleTotal(vehicles: vehicles, currencyService: currencyService, base: currency) }
+    private var paTotal: Double { svc.personalAssetTotal(assets: personalAssets, currencyService: currencyService, base: currency) }
+    private var daTotal: Double { svc.digitalAssetTotal(assets: digitalAssets, currencyService: currencyService, base: currency) }
+    private var loanDebt: Double { loans.filter { $0.isActive }.reduce(0) { $0 + currencyService.convert($1.outstandingBalance, from: $1.currency, to: currency) } }
+    private var ccDebt: Double { creditCards.filter { $0.isActive }.reduce(0) { $0 + currencyService.convert($1.outstandingBalance, from: $1.currency, to: currency) } }
+
     var body: some View {
-        let cashAssets = self.cashAssets
-        let investmentAssets = self.investmentAssets
-        let cryptoAssets = self.cryptoAssets
-        let loanDebt = self.loanDebt
-        let ccDebt = self.ccDebt
-        let totalAssets = cashAssets + investmentAssets + cryptoAssets
+        let totalAssets = cashTotal + investTotal + cryptoTotal + goldTotal + reTotal + vehTotal + paTotal + daTotal
         let totalLiabilities = loanDebt + ccDebt
         let netWorth = totalAssets - totalLiabilities
-        return VStack(spacing: 16) {
-            // Net Worth banner
-            VStack(spacing: 8) {
-                Text("Net Worth")
-                    .font(.subheadline).foregroundStyle(FTColor.textSecondary)
-                Text(netWorth.formatted(as: currency))
-                    .font(.ftAmount)
-                    .foregroundColor(netWorth >= 0 ? .white : FTColor.expense)
+        return VStack(spacing: FTSpacing.lg) {
+            // Net Worth hero
+            VStack(spacing: FTSpacing.sm) {
+                Text("Net Worth").font(.ftCaption).foregroundStyle(.white.opacity(0.7))
+                Text(netWorth.formatted(as: currency)).font(.ftAmount)
+                    .foregroundStyle(netWorth >= 0 ? Color.white : FTColor.expense)
+                HStack(spacing: FTSpacing.lg) {
+                    VStack(spacing: 2) {
+                        Text("Assets").font(.ftLabel).foregroundStyle(.white.opacity(0.7))
+                        Text(totalAssets.asCompact(currency: currency)).font(.ftCallout).foregroundStyle(.white)
+                    }
+                    Text("|").foregroundStyle(.white.opacity(0.3))
+                    VStack(spacing: 2) {
+                        Text("Liabilities").font(.ftLabel).foregroundStyle(.white.opacity(0.7))
+                        Text(totalLiabilities.asCompact(currency: currency)).font(.ftCallout).foregroundStyle(FTColor.expense)
+                    }
+                }
             }
-            .frame(maxWidth: .infinity)
-            .padding()
-            .background(FTColor.portfolioGradient)
-            .foregroundColor(.white)
-            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .frame(maxWidth: .infinity).padding(FTSpacing.xl)
+            .background(FTColor.portfolioGradient).clipShape(RoundedRectangle(cornerRadius: FTRadius.lg))
 
-            // Assets vs Liabilities
-            HStack(spacing: 12) {
-                ReportSummaryCard(title: "Total Assets", amount: totalAssets, currency: currency, color: .green, icon: "plus.circle.fill")
-                ReportSummaryCard(title: "Total Debt", amount: totalLiabilities, currency: currency, color: FTColor.expense, icon: "minus.circle.fill")
-            }
-
-            // Breakdown
+            // Asset breakdown
             VStack(alignment: .leading, spacing: 0) {
-                Text("Asset Breakdown").font(.ftHeadline).foregroundStyle(FTColor.textPrimary).padding()
-
-                NetWorthRow(label: "Cash & Bank Accounts", amount: cashAssets, currency: currency, color: .blue, icon: "building.columns.fill")
-                Divider().padding(.leading, 56)
-                NetWorthRow(label: "Investments (Stocks/ETFs)", amount: investmentAssets, currency: currency, color: .green, icon: "chart.line.uptrend.xyaxis")
-                Divider().padding(.leading, 56)
-                NetWorthRow(label: "Crypto Holdings", amount: cryptoAssets, currency: currency, color: .orange, icon: "bitcoinsign.circle.fill")
-
-                Divider().padding(.vertical, 4)
-
-                Text("Liabilities").font(.ftHeadline).foregroundStyle(FTColor.textPrimary).padding()
-
-                NetWorthRow(label: "Bank Loans", amount: loanDebt, currency: currency, color: FTColor.expense, icon: "creditcard.fill", isLiability: true)
-                Divider().padding(.leading, 56)
-                NetWorthRow(label: "Credit Cards", amount: ccDebt, currency: currency, color: FTColor.catCoral, icon: "creditcard.fill", isLiability: true)
+                Text("Assets").font(.ftHeadline).foregroundStyle(FTColor.textPrimary)
+                    .padding(.horizontal, FTSpacing.lg).padding(.vertical, FTSpacing.md)
+                let assetRows: [(label: String, amount: Double, icon: String, color: Color)] = [
+                    ("Cash & Accounts", cashTotal, "banknote.fill", FTColor.accent),
+                    ("Investments", investTotal, "chart.line.uptrend.xyaxis", FTColor.catBlue),
+                    ("Crypto", cryptoTotal, "bitcoinsign.circle.fill", FTColor.catPurple),
+                    ("Gold & Metals", goldTotal, "star.circle.fill", FTColor.gold),
+                    ("Real Estate", reTotal, "house.fill", FTColor.catCoral),
+                    ("Vehicles", vehTotal, "car.fill", .blue),
+                    ("Personal Assets", paTotal, "sparkles", .orange),
+                    ("Digital Assets", daTotal, "globe", .teal)
+                ].filter { $0.amount > 0 }
+                ForEach(Array(assetRows.enumerated()), id: \.offset) { idx, row in
+                    NetWorthRow(label: row.label, amount: row.amount, currency: currency, color: row.color, icon: row.icon)
+                    if idx < assetRows.count - 1 { Divider().padding(.leading, 56) }
+                }
             }
-            .ftGlass(FTRadius.md)
+            .ftGlass(FTRadius.lg)
+
+            // Liabilities breakdown
+            VStack(alignment: .leading, spacing: 0) {
+                Text("Liabilities").font(.ftHeadline).foregroundStyle(FTColor.textPrimary)
+                    .padding(.horizontal, FTSpacing.lg).padding(.vertical, FTSpacing.md)
+                NetWorthRow(label: "Bank Loans", amount: loanDebt, currency: currency, color: FTColor.expense, icon: "doc.text.fill", isLiability: true)
+                if ccDebt > 0 {
+                    Divider().padding(.leading, 56)
+                    NetWorthRow(label: "Credit Cards", amount: ccDebt, currency: currency, color: FTColor.catCoral, icon: "creditcard.fill", isLiability: true)
+                }
+            }
+            .ftGlass(FTRadius.lg)
         }
     }
 }
