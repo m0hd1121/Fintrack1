@@ -45,6 +45,7 @@ struct ReportsView: View {
     @Query private var creditCards: [CreditCard]
     @Query private var moneyLent: [MoneyLent]
     @Query private var moneyBorrowed: [MoneyBorrowed]
+    @Query private var savingsGoals: [SavingsGoal]
 
     @State private var selectedPeriod: ReportPeriod = .month
     @State private var selectedReport: ReportType = .cashFlow
@@ -165,6 +166,8 @@ struct ReportsView: View {
                                 )
                             case .trends:
                                 TrendsReport(transactions: transactions, currency: baseCurrency)
+                            case .savingsGoals:
+                                SavingsGoalsReport(goals: savingsGoals, transactions: transactions, currency: baseCurrency)
                             }
                         }
                         .padding(.horizontal, FTSpacing.screen)
@@ -194,6 +197,7 @@ enum ReportType: String, CaseIterable {
     case debt        = "Debt"
     case netWorth    = "Net Worth"
     case trends      = "Trends"
+    case savingsGoals = "Goals"
 }
 
 // MARK: - Cash Flow Report
@@ -1135,5 +1139,134 @@ struct InvestmentReport: View {
             .padding(FTSpacing.lg)
             .ftGlass(FTRadius.lg)
         }
+    }
+}
+
+// MARK: - Savings Goals Report
+
+struct SavingsGoalsReport: View {
+    let goals: [SavingsGoal]
+    let transactions: [Transaction]
+    let currency: String
+
+    private var activeGoals: [SavingsGoal] { goals.filter { !$0.isArchived && !$0.isCompleted } }
+    private var completedGoals: [SavingsGoal] { goals.filter { $0.isCompleted } }
+    private var archivedGoals: [SavingsGoal] { goals.filter { $0.isArchived && !$0.isCompleted } }
+
+    private var totalSaved: Double { activeGoals.reduce(0) { $0 + $1.currentAmount } }
+    private var totalTarget: Double { activeGoals.reduce(0) { $0 + $1.targetAmount } }
+    private var overallProgress: Double { totalTarget > 0 ? min(totalSaved / totalTarget, 1.0) : 0 }
+    private var svc = SavingsGoalService.shared
+
+    var body: some View {
+        VStack(spacing: FTSpacing.lg) {
+            summaryCard
+            if !activeGoals.isEmpty { activeGoalsSection }
+            if !completedGoals.isEmpty { completedSection }
+            if !archivedGoals.isEmpty { archivedSection }
+            if goals.isEmpty { emptyState }
+        }
+    }
+
+    private var summaryCard: some View {
+        VStack(alignment: .leading, spacing: FTSpacing.md) {
+            Text("SAVINGS SUMMARY").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+            VStack(spacing: FTSpacing.sm) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Active Goals").font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                        Text("\(activeGoals.count)").font(.ftTitle).foregroundStyle(FTColor.textPrimary)
+                    }
+                    Spacer()
+                    VStack(alignment: .trailing, spacing: 4) {
+                        Text("Total Saved").font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                        Text(totalSaved.asCompact(currency: currency)).font(.ftTitle).foregroundStyle(FTColor.income)
+                    }
+                }
+                FTProgressBar(value: overallProgress, color: FTColor.income)
+                HStack {
+                    Text("\(Int(overallProgress * 100))% of \(totalTarget.asCompact(currency: currency)) total target")
+                        .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                    Spacer()
+                    Text("\(completedGoals.count) completed")
+                        .font(.ftCaption).foregroundStyle(FTColor.income)
+                }
+            }
+            .padding(FTSpacing.lg)
+            .ftGlass(FTRadius.lg)
+        }
+    }
+
+    private var activeGoalsSection: some View {
+        VStack(alignment: .leading, spacing: FTSpacing.sm) {
+            Text("ACTIVE GOALS").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+            VStack(spacing: FTSpacing.sm) {
+                ForEach(activeGoals.sorted { $0.progress > $1.progress }) { goal in
+                    goalReportRow(goal)
+                }
+            }
+        }
+    }
+
+    private var completedSection: some View {
+        VStack(alignment: .leading, spacing: FTSpacing.sm) {
+            Text("COMPLETED").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+            VStack(spacing: FTSpacing.sm) {
+                ForEach(completedGoals) { goal in goalReportRow(goal) }
+            }
+        }
+    }
+
+    private var archivedSection: some View {
+        VStack(alignment: .leading, spacing: FTSpacing.sm) {
+            Text("ARCHIVED").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+            VStack(spacing: FTSpacing.sm) {
+                ForEach(archivedGoals) { goal in goalReportRow(goal) }
+            }
+        }
+    }
+
+    private var emptyState: some View {
+        EmptyStateView(
+            icon: "star.fill",
+            title: "No Savings Goals",
+            message: "Create savings goals to see your progress here."
+        )
+        .ftGlass(FTRadius.lg)
+    }
+
+    private func goalReportRow(_ goal: SavingsGoal) -> some View {
+        let tint = Color.fromString(goal.effectiveColor)
+        let status = svc.goalStatus(for: goal)
+        return VStack(alignment: .leading, spacing: FTSpacing.sm) {
+            HStack(spacing: FTSpacing.md) {
+                FTIconTile(symbol: goal.effectiveIcon, tint: tint, size: 38)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(goal.name).font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                    Text(goal.goalType.rawValue).font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                }
+                Spacer()
+                VStack(alignment: .trailing, spacing: 3) {
+                    Text(goal.currentAmount.asCompact(currency: goal.currency))
+                        .font(.ftBodySemibold).foregroundStyle(tint)
+                    Text("/ \(goal.targetAmount.asCompact(currency: goal.currency))")
+                        .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                }
+            }
+            FTProgressBar(value: goal.progress, color: tint)
+            HStack {
+                BadgeView(text: svc.statusLabel(for: status), color: svc.statusColor(for: status))
+                Spacer()
+                if let months = goal.monthsRemaining {
+                    Text("\(months) months left").font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                }
+                if goal.autoContributionEnabled {
+                    Image(systemName: "repeat.circle.fill")
+                        .font(.system(size: 12)).foregroundStyle(FTColor.accent)
+                }
+            }
+        }
+        .padding(FTSpacing.md)
+        .ftGlass(FTRadius.md)
     }
 }

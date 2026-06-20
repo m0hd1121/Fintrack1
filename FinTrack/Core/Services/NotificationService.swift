@@ -198,6 +198,62 @@ final class NotificationService {
         UNUserNotificationCenter.current().add(request)
     }
 
+    // MARK: – Savings Goal Milestone
+
+    func scheduleSavingsGoalMilestone(goal: SavingsGoal, milestone: Double) {
+        let content = UNMutableNotificationContent()
+        content.title = "Savings Milestone!"
+        content.body = "'\(goal.name)' is now \(Int(milestone * 100))% funded. Keep going!"
+        content.sound = .default
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
+        let id = "goal_milestone_\(goal.id.uuidString)_\(Int(milestone * 100))"
+        let request = UNNotificationRequest(identifier: id, content: content, trigger: trigger)
+        UNUserNotificationCenter.current().add(request)
+    }
+
+    // MARK: – Savings Goal Completed
+
+    func sendGoalCompletedAlert(goalName: String, amount: Double, currency: String) {
+        let content = UNMutableNotificationContent()
+        content.title = "Goal Reached! \u{1F389}"
+        content.body = "Congratulations! You've reached your '\(goalName)' goal of \(amount.formatted(as: currency))."
+        content.sound = .default
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
+        let id = "goal_completed_\(goalName.lowercased().replacingOccurrences(of: " ", with: "_"))"
+        let request = UNNotificationRequest(identifier: id, content: content, trigger: trigger)
+        UNUserNotificationCenter.current().add(request)
+    }
+
+    // MARK: – Auto-Contribution Reminder
+
+    func scheduleSavingsGoalContributionReminder(
+        goal: SavingsGoal,
+        frequency: GoalContributionFrequency,
+        dayOfMonth: Int
+    ) {
+        let content = UNMutableNotificationContent()
+        content.title = "Savings Contribution Due"
+        content.body = "Time to contribute \(goal.autoContributionAmount.formatted(as: goal.currency)) to '\(goal.name)'."
+        content.sound = .default
+
+        var components = DateComponents()
+        switch frequency {
+        case .monthly:
+            components.day = dayOfMonth
+            components.hour = 9
+        case .weekly:
+            components.weekday = 2  // Monday
+            components.hour = 9
+        case .biWeekly:
+            components.weekday = 2
+            components.hour = 9
+        }
+        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: true)
+        let id = "goal_contribution_\(goal.id.uuidString)"
+        let request = UNNotificationRequest(identifier: id, content: content, trigger: trigger)
+        UNUserNotificationCenter.current().add(request)
+    }
+
     // MARK: – Helpers
     func cancelNotification(id: String) {
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [id])

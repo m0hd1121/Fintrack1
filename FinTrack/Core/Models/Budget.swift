@@ -138,10 +138,109 @@ final class Budget {
     }
 }
 
+// MARK: - Savings Goal Type
+
+enum SavingsGoalType: String, Codable, CaseIterable {
+    case custom        = "Custom"
+    case emergencyFund = "Emergency Fund"
+    case downPayment   = "Down Payment"
+    case education     = "Education Fund"
+    case hajj          = "Hajj / Umrah"
+    case vehicle       = "Vehicle"
+    case vacation      = "Vacation"
+    case wedding       = "Wedding"
+
+    var icon: String {
+        switch self {
+        case .custom:        return "star.fill"
+        case .emergencyFund: return "shield.fill"
+        case .downPayment:   return "house.fill"
+        case .education:     return "graduationcap.fill"
+        case .hajj:          return "moon.stars.fill"
+        case .vehicle:       return "car.fill"
+        case .vacation:      return "airplane"
+        case .wedding:       return "heart.fill"
+        }
+    }
+
+    var color: String {
+        switch self {
+        case .custom:        return "blue"
+        case .emergencyFund: return "orange"
+        case .downPayment:   return "teal"
+        case .education:     return "purple"
+        case .hajj:          return "green"
+        case .vehicle:       return "indigo"
+        case .vacation:      return "cyan"
+        case .wedding:       return "pink"
+        }
+    }
+
+    var shortDescription: String {
+        switch self {
+        case .custom:        return "Any savings goal"
+        case .emergencyFund: return "3–6 months of expenses"
+        case .downPayment:   return "Home purchase fund"
+        case .education:     return "University tuition fund"
+        case .hajj:          return "Hajj or Umrah trip"
+        case .vehicle:       return "Car or vehicle purchase"
+        case .vacation:      return "Dream vacation or travel"
+        case .wedding:       return "Wedding & celebrations"
+        }
+    }
+}
+
+// MARK: - Goal Contribution Frequency
+
+enum GoalContributionFrequency: String, Codable, CaseIterable {
+    case weekly   = "Weekly"
+    case biWeekly = "Bi-Weekly"
+    case monthly  = "Monthly"
+
+    var periodsPerMonth: Double {
+        switch self {
+        case .weekly:   return 4.33
+        case .biWeekly: return 2.17
+        case .monthly:  return 1.0
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .weekly:   return "calendar.circle"
+        case .biWeekly: return "calendar.badge.plus"
+        case .monthly:  return "calendar"
+        }
+    }
+
+    var calendarComponent: Calendar.Component {
+        switch self {
+        case .weekly, .biWeekly: return .weekOfYear
+        case .monthly:           return .month
+        }
+    }
+
+    func nextContributionDate(from date: Date, dayOfMonth: Int) -> Date {
+        let cal = Calendar.current
+        switch self {
+        case .weekly:
+            return cal.date(byAdding: .weekOfYear, value: 1, to: date) ?? date
+        case .biWeekly:
+            return cal.date(byAdding: .weekOfYear, value: 2, to: date) ?? date
+        case .monthly:
+            var comps = cal.dateComponents([.year, .month], from: date)
+            comps.month! += 1
+            comps.day = min(dayOfMonth, 28)
+            return cal.date(from: comps) ?? date
+        }
+    }
+}
+
 // MARK: - Savings Goal
 
 @Model
 final class SavingsGoal {
+    // MARK: Core fields (original)
     var id: UUID
     var name: String
     var targetAmount: Double
@@ -154,8 +253,68 @@ final class SavingsGoal {
     var isCompleted: Bool
     var createdAt: Date
 
+    // MARK: Enhanced fields (v12)
+    var goalTypeRaw: String                   // SavingsGoalType.rawValue
+    var linkedAccountId: UUID?                // Optional funding account
+    var autoContributionEnabled: Bool
+    var autoContributionAmount: Double
+    var autoContributionFrequencyRaw: String  // GoalContributionFrequency.rawValue
+    var autoContributionDay: Int              // Day of month (1-28) for monthly
+    var roundUpEnabled: Bool
+    var salaryPercentage: Double              // % of salary; 0 = disabled
+    var conflictPriority: Int                 // 1 = highest, 0 = unset
+    var isArchived: Bool
+    var updatedAt: Date
+    var notifiedMilestones: [Double]          // Milestones already notified, e.g. [0.5, 0.75]
+
+    // Template-specific optional fields
+    var propertyTargetPrice: Double           // Down payment: full property value
+    var downPaymentPercent: Double            // Down payment: desired % (default 20%)
+    var educationInstitution: String?         // Education: university/institution name
+    var hajjTravelYear: Int                   // Hajj: target travel year (0 = not set)
+    var emergencyMonthsTarget: Int            // Emergency fund: 3 or 6 months
+
+    // MARK: Computed Properties
+
+    var goalType: SavingsGoalType {
+        get { SavingsGoalType(rawValue: goalTypeRaw) ?? .custom }
+        set { goalTypeRaw = newValue.rawValue }
+    }
+
+    var autoContributionFrequency: GoalContributionFrequency {
+        get { GoalContributionFrequency(rawValue: autoContributionFrequencyRaw) ?? .monthly }
+        set { autoContributionFrequencyRaw = newValue.rawValue }
+    }
+
     var progress: Double { min(currentAmount / max(targetAmount, 1), 1.0) }
     var remaining: Double { max(targetAmount - currentAmount, 0) }
+    var isFullyFunded: Bool { currentAmount >= targetAmount }
+
+    var daysRemaining: Int? {
+        guard let date = targetDate, date > Date() else { return nil }
+        return Calendar.current.dateComponents([.day], from: Date(), to: date).day
+    }
+
+    var monthsRemaining: Int? {
+        guard let date = targetDate, date > Date() else { return nil }
+        return max(0, Calendar.current.dateComponents([.month], from: Date(), to: date).month ?? 0)
+    }
+
+    var requiredMonthlyContribution: Double {
+        guard let m = monthsRemaining, m > 0 else { return remaining }
+        return remaining / Double(m)
+    }
+
+    var projectedCompletionDate: Date? {
+        guard autoContributionEnabled else { return nil }
+        let monthlyEquivalent = autoContributionAmount * autoContributionFrequency.periodsPerMonth
+        guard monthlyEquivalent > 0 && remaining > 0 else { return nil }
+        let monthsNeeded = Int(ceil(remaining / monthlyEquivalent))
+        return Calendar.current.date(byAdding: .month, value: monthsNeeded, to: Date())
+    }
+
+    var effectiveIcon: String { icon.isEmpty ? goalType.icon : icon }
+    var effectiveColor: String { color.isEmpty ? goalType.color : color }
 
     init(
         id: UUID = UUID(),
@@ -164,9 +323,24 @@ final class SavingsGoal {
         currentAmount: Double = 0,
         currency: String = "AED",
         targetDate: Date? = nil,
-        icon: String = "star",
-        color: String = "blue",
-        notes: String? = nil
+        icon: String = "",
+        color: String = "",
+        notes: String? = nil,
+        goalType: SavingsGoalType = .custom,
+        linkedAccountId: UUID? = nil,
+        autoContributionEnabled: Bool = false,
+        autoContributionAmount: Double = 0,
+        autoContributionFrequency: GoalContributionFrequency = .monthly,
+        autoContributionDay: Int = 1,
+        roundUpEnabled: Bool = false,
+        salaryPercentage: Double = 0,
+        conflictPriority: Int = 0,
+        isArchived: Bool = false,
+        propertyTargetPrice: Double = 0,
+        downPaymentPercent: Double = 20,
+        educationInstitution: String? = nil,
+        hajjTravelYear: Int = 0,
+        emergencyMonthsTarget: Int = 3
     ) {
         self.id = id
         self.name = name
@@ -179,6 +353,23 @@ final class SavingsGoal {
         self.notes = notes
         self.isCompleted = false
         self.createdAt = Date()
+        self.goalTypeRaw = goalType.rawValue
+        self.linkedAccountId = linkedAccountId
+        self.autoContributionEnabled = autoContributionEnabled
+        self.autoContributionAmount = autoContributionAmount
+        self.autoContributionFrequencyRaw = autoContributionFrequency.rawValue
+        self.autoContributionDay = autoContributionDay
+        self.roundUpEnabled = roundUpEnabled
+        self.salaryPercentage = salaryPercentage
+        self.conflictPriority = conflictPriority
+        self.isArchived = isArchived
+        self.updatedAt = Date()
+        self.notifiedMilestones = []
+        self.propertyTargetPrice = propertyTargetPrice
+        self.downPaymentPercent = downPaymentPercent
+        self.educationInstitution = educationInstitution
+        self.hajjTravelYear = hajjTravelYear
+        self.emergencyMonthsTarget = emergencyMonthsTarget
     }
 }
 

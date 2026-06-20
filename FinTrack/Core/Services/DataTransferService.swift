@@ -79,6 +79,24 @@ struct SavingsGoalDTO: Codable {
     var id: UUID; var name: String; var targetAmount: Double; var currentAmount: Double
     var currency: String; var targetDate: Date?; var icon: String; var color: String
     var notes: String?; var isCompleted: Bool; var createdAt: Date
+    // v12+ fields (optional for backward-compat decoding)
+    var goalTypeRaw: String?
+    var linkedAccountId: UUID?
+    var autoContributionEnabled: Bool?
+    var autoContributionAmount: Double?
+    var autoContributionFrequencyRaw: String?
+    var autoContributionDay: Int?
+    var roundUpEnabled: Bool?
+    var salaryPercentage: Double?
+    var conflictPriority: Int?
+    var isArchived: Bool?
+    var updatedAt: Date?
+    var notifiedMilestones: [Double]?
+    var propertyTargetPrice: Double?
+    var downPaymentPercent: Double?
+    var educationInstitution: String?
+    var hajjTravelYear: Int?
+    var emergencyMonthsTarget: Int?
 }
 
 struct LoanDTO: Codable {
@@ -578,10 +596,29 @@ extension Budget {
 
 extension SavingsGoal {
     var dto: SavingsGoalDTO {
-        SavingsGoalDTO(id: id, name: name, targetAmount: targetAmount,
-                       currentAmount: currentAmount, currency: currency,
-                       targetDate: targetDate, icon: icon, color: color,
-                       notes: notes, isCompleted: isCompleted, createdAt: createdAt)
+        SavingsGoalDTO(
+            id: id, name: name, targetAmount: targetAmount,
+            currentAmount: currentAmount, currency: currency,
+            targetDate: targetDate, icon: icon, color: color,
+            notes: notes, isCompleted: isCompleted, createdAt: createdAt,
+            goalTypeRaw: goalTypeRaw,
+            linkedAccountId: linkedAccountId,
+            autoContributionEnabled: autoContributionEnabled,
+            autoContributionAmount: autoContributionAmount,
+            autoContributionFrequencyRaw: autoContributionFrequencyRaw,
+            autoContributionDay: autoContributionDay,
+            roundUpEnabled: roundUpEnabled,
+            salaryPercentage: salaryPercentage,
+            conflictPriority: conflictPriority,
+            isArchived: isArchived,
+            updatedAt: updatedAt,
+            notifiedMilestones: notifiedMilestones,
+            propertyTargetPrice: propertyTargetPrice,
+            downPaymentPercent: downPaymentPercent,
+            educationInstitution: educationInstitution,
+            hajjTravelYear: hajjTravelYear,
+            emergencyMonthsTarget: emergencyMonthsTarget
+        )
     }
 }
 
@@ -766,10 +803,30 @@ extension BudgetDTO {
 
 extension SavingsGoalDTO {
     func toModel() -> SavingsGoal {
-        let g = SavingsGoal(id: id, name: name, targetAmount: targetAmount,
-                            currentAmount: currentAmount, currency: currency,
-                            targetDate: targetDate, icon: icon, color: color, notes: notes)
-        g.isCompleted = isCompleted; g.createdAt = createdAt
+        let g = SavingsGoal(
+            id: id, name: name, targetAmount: targetAmount,
+            currentAmount: currentAmount, currency: currency,
+            targetDate: targetDate, icon: icon, color: color, notes: notes,
+            goalType: SavingsGoalType(rawValue: goalTypeRaw ?? "") ?? .custom,
+            linkedAccountId: linkedAccountId,
+            autoContributionEnabled: autoContributionEnabled ?? false,
+            autoContributionAmount: autoContributionAmount ?? 0,
+            autoContributionFrequency: GoalContributionFrequency(rawValue: autoContributionFrequencyRaw ?? "") ?? .monthly,
+            autoContributionDay: autoContributionDay ?? 1,
+            roundUpEnabled: roundUpEnabled ?? false,
+            salaryPercentage: salaryPercentage ?? 0,
+            conflictPriority: conflictPriority ?? 0,
+            isArchived: isArchived ?? false,
+            propertyTargetPrice: propertyTargetPrice ?? 0,
+            downPaymentPercent: downPaymentPercent ?? 20,
+            educationInstitution: educationInstitution,
+            hajjTravelYear: hajjTravelYear ?? 0,
+            emergencyMonthsTarget: emergencyMonthsTarget ?? 3
+        )
+        g.isCompleted = isCompleted
+        g.createdAt = createdAt
+        if let updated = updatedAt { g.updatedAt = updated }
+        if let milestones = notifiedMilestones { g.notifiedMilestones = milestones }
         return g
     }
 }

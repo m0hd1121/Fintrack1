@@ -28,6 +28,7 @@ struct DashboardView: View {
     @Query(filter: #Predicate<PersonalAsset> { !$0.isArchived }) private var personalAssets: [PersonalAsset]
     @Query(filter: #Predicate<DigitalAsset> { !$0.isArchived }) private var digitalAssets: [DigitalAsset]
     @Query private var netWorthMilestones: [NetWorthMilestone]
+    @Query(filter: #Predicate<SavingsGoal> { !$0.isArchived && !$0.isCompleted }) private var activeGoals: [SavingsGoal]
 
     @State private var showingProfile = false
     @State private var showingReports = false
@@ -38,6 +39,7 @@ struct DashboardView: View {
     @State private var showingPortfolio = false
     @State private var showingAssets = false
     @State private var showingNetWorth = false
+    @State private var showingGoals = false
 
     private var baseCurrency: String { appState.baseCurrency }
 
@@ -203,6 +205,8 @@ struct DashboardView: View {
 
                             portfolioOverviewCard
 
+                            savingsGoalsCard
+
                             assetsOverviewCard
 
                             debtOverviewCard
@@ -244,6 +248,9 @@ struct DashboardView: View {
             }
             .sheet(isPresented: $showingPortfolio) {
                 InvestmentPortfolioView()
+            }
+            .sheet(isPresented: $showingGoals) {
+                SavingsGoalsView()
             }
             .sheet(isPresented: $showingAssets) {
                 AssetsLiabilitiesView()
@@ -647,6 +654,76 @@ struct DashboardView: View {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(FTColor.textMuted)
+            }
+            .padding(FTSpacing.lg)
+            .ftGlassInteractive(FTRadius.lg)
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Assets Overview Card
+
+    // MARK: - Savings Goals Card
+
+    private var savingsGoalsCard: some View {
+        let totalSaved = activeGoals.reduce(0) {
+            $0 + currencyService.convert($1.currentAmount, from: $1.currency, to: baseCurrency)
+        }
+        let totalTarget = activeGoals.reduce(0) {
+            $0 + currencyService.convert($1.targetAmount, from: $1.currency, to: baseCurrency)
+        }
+        let overallProgress = totalTarget > 0 ? min(totalSaved / totalTarget, 1.0) : 0
+        let goalCount = activeGoals.count
+        let conflict = SavingsGoalService.shared.analyzeConflicts(
+            goals: activeGoals,
+            transactions: transactions,
+            currencyService: currencyService,
+            base: baseCurrency
+        )
+
+        return Button { showingGoals = true } label: {
+            VStack(spacing: FTSpacing.sm) {
+                HStack(spacing: FTSpacing.md) {
+                    ZStack(alignment: .topTrailing) {
+                        FTIconTile(symbol: "star.fill", tint: FTColor.income, size: 44)
+                        if conflict.hasConflict {
+                            Circle()
+                                .fill(FTColor.gold)
+                                .frame(width: 10, height: 10)
+                                .offset(x: 4, y: -4)
+                        }
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Savings Goals")
+                            .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                        if goalCount > 0 {
+                            Text("\(goalCount) active goal\(goalCount == 1 ? "" : "s") · \(totalSaved.asCompact(currency: baseCurrency)) saved")
+                                .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                        } else {
+                            Text("Set savings goals to track your progress")
+                                .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                        }
+                    }
+                    Spacer()
+                    if goalCount > 0 {
+                        Text("\(Int(overallProgress * 100))%")
+                            .font(.ftBodySemibold).foregroundStyle(FTColor.income)
+                    }
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(FTColor.textMuted)
+                }
+                if goalCount > 0 {
+                    FTProgressBar(value: overallProgress, color: FTColor.income)
+                }
+                if conflict.hasConflict {
+                    HStack(spacing: FTSpacing.xs) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 11)).foregroundStyle(FTColor.gold)
+                        Text("Goal funding conflict — \(conflict.shortfall.asCompact(currency: baseCurrency))/mo shortfall")
+                            .font(.ftCaption).foregroundStyle(FTColor.gold)
+                    }
+                }
             }
             .padding(FTSpacing.lg)
             .ftGlassInteractive(FTRadius.lg)

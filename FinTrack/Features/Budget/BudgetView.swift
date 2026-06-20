@@ -23,6 +23,7 @@ struct BudgetView: View {
     @State private var recommendations: [BudgetRecommendation] = []
     @State private var detailBudget: Budget? = nil
     @State private var detailEnvelope: BudgetEnvelope? = nil
+    @State private var detailGoal: SavingsGoal? = nil
     @State private var showingBills = false
     @State private var showingIncome = false
     @State private var showingDebt = false
@@ -133,6 +134,7 @@ struct BudgetView: View {
             .sheet(isPresented: $showingAddBudget) { AddBudgetView() }
             .sheet(isPresented: $showingAddGoal) { AddSavingsGoalView() }
             .sheet(isPresented: $showingAddEnvelope) { AddEnvelopeView() }
+            .navigationDestination(item: $detailGoal) { goal in SavingsGoalDetailView(goal: goal) }
             .sheet(isPresented: $showingTemplates) {
                 BudgetTemplatesView(existingBudgets: budgets)
             }
@@ -288,11 +290,24 @@ struct BudgetView: View {
                     ForEach(savingsGoals) { goal in
                         SavingsGoalRow(goal: goal, currency: baseCurrency)
                             .ftGlassInteractive(FTRadius.md)
+                            .contentShape(RoundedRectangle(cornerRadius: FTRadius.md))
+                            .onTapGesture { detailGoal = goal }
+                            .swipeActions(edge: .leading) {
+                                Button { detailGoal = goal } label: {
+                                    Label("View", systemImage: "eye")
+                                }.tint(FTColor.accent)
+                            }
                             .swipeActions(edge: .trailing) {
                                 Button(role: .destructive) {
                                     context.delete(goal)
                                     try? context.save()
                                 } label: { Label("Delete", systemImage: "trash") }
+                                Button {
+                                    goal.isArchived = true
+                                    goal.updatedAt = Date()
+                                    try? context.save()
+                                } label: { Label("Archive", systemImage: "archivebox") }
+                                .tint(FTColor.gold)
                             }
                     }
                 }
@@ -1076,57 +1091,51 @@ struct ZeroBasedAllocationRow: View {
 struct SavingsGoalRow: View {
     @Bindable var goal: SavingsGoal
     let currency: String
-    @Environment(\.modelContext) private var context
-    @State private var showingAddFunds = false
-    @State private var addAmount = ""
 
     var body: some View {
+        let tint = Color.fromString(goal.effectiveColor)
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: FTSpacing.sm) {
-                FTIconTile(symbol: goal.icon, tint: Color.fromString(goal.color), size: 40)
+                FTIconTile(symbol: goal.effectiveIcon, tint: tint, size: 40)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(goal.name).font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
                     if let targetDate = goal.targetDate {
-                        Text("Target: \(targetDate.formatted)")
+                        let svc = SavingsGoalService.shared
+                        let status = svc.goalStatus(for: goal)
+                        Text(targetDate.formatted(date: .abbreviated, time: .omitted))
+                            .font(.ftCaption).foregroundStyle(svc.statusColor(for: status))
+                    } else {
+                        Text(goal.goalType.shortDescription)
                             .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
                     }
                 }
                 Spacer()
                 if goal.isCompleted {
                     BadgeView(text: "Complete", color: FTColor.income)
+                } else if goal.isArchived {
+                    BadgeView(text: "Archived", color: FTColor.textMuted)
                 }
                 VStack(alignment: .trailing, spacing: 2) {
-                    Text(goal.currentAmount.formatted(as: currency))
-                        .font(.ftBodySemibold)
-                        .foregroundStyle(Color.fromString(goal.color))
-                    Text("of \(goal.targetAmount.formatted(as: currency))")
+                    Text(goal.currentAmount.asCompact(currency: goal.currency))
+                        .font(.ftBodySemibold).foregroundStyle(tint)
+                    Text("of \(goal.targetAmount.asCompact(currency: goal.currency))")
                         .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
                 }
             }
-            FTProgressBar(value: goal.progress, color: Color.fromString(goal.color))
+            FTProgressBar(value: goal.progress, color: tint)
             HStack {
                 Text("\(Int(goal.progress * 100))% complete")
                     .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
                 Spacer()
-                Button("Add Funds") { showingAddFunds = true }
-                    .font(.ftCallout).foregroundStyle(FTColor.accent)
+                if goal.autoContributionEnabled {
+                    Image(systemName: "repeat.circle.fill")
+                        .font(.system(size: 12)).foregroundStyle(FTColor.accent)
+                }
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold)).foregroundStyle(FTColor.textMuted)
             }
         }
         .padding(FTSpacing.md)
-        .alert("Add Funds", isPresented: $showingAddFunds) {
-            TextField("Amount", text: $addAmount).keyboardType(.decimalPad)
-            Button("Add") {
-                if let a = Double(addAmount), a > 0 {
-                    goal.currentAmount += a
-                    if goal.currentAmount >= goal.targetAmount { goal.isCompleted = true }
-                    try? context.save()
-                }
-                addAmount = ""
-            }
-            Button("Cancel", role: .cancel) { addAmount = "" }
-        } message: {
-            Text("How much are you adding to \(goal.name)?")
-        }
     }
 }
 
@@ -1556,153 +1565,6 @@ struct AddBudgetView: View {
             )
             context.insert(budget)
         }
-        try? context.save()
-        dismiss()
-    }
-}
-
-// MARK: - Add Savings Goal View
-
-struct AddSavingsGoalView: View {
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.modelContext) private var context
-    @Environment(AppState.self) private var appState
-
-    @State private var name = ""
-    @State private var targetAmount = ""
-    @State private var currentAmount = ""
-    @State private var hasTargetDate = false
-    @State private var targetDate = Calendar.current.date(byAdding: .year, value: 1, to: Date()) ?? Date()
-    @State private var selectedIcon = "star"
-    @State private var selectedColor = "blue"
-
-    private let icons = ["star", "house", "car", "airplane", "graduationcap", "heart",
-                         "gift", "gamecontroller", "laptop", "bag", "💍", "umbrella"]
-        .filter { !$0.hasPrefix("💍") } // strip emoji - only SF symbols
-    private let sfIcons = ["star", "house", "car.fill", "airplane", "graduationcap", "heart.fill",
-                           "gift.fill", "gamecontroller.fill", "laptopcomputer", "bag.fill",
-                           "creditcard.fill", "umbrella.fill"]
-    private let colors = ["blue", "green", "purple", "orange", "red", "teal", "indigo", "pink"]
-
-    var body: some View {
-        NavigationStack {
-            ZStack(alignment: .bottom) {
-                FTBackdrop()
-                ScrollView {
-                    VStack(spacing: FTSpacing.lg) {
-                        VStack(spacing: 0) {
-                            rowField("Goal Name") {
-                                TextField("e.g. New Car", text: $name)
-                                    .multilineTextAlignment(.trailing)
-                                    .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
-                            }
-                            Divider().opacity(0.4)
-                            rowField("Target Amount") {
-                                Text(appState.baseCurrency).font(.ftBody).foregroundStyle(FTColor.textMuted)
-                                TextField("0.00", text: $targetAmount).keyboardType(.decimalPad)
-                                    .multilineTextAlignment(.trailing).font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
-                                    .frame(maxWidth: 120)
-                            }
-                            Divider().opacity(0.4)
-                            rowField("Current Savings") {
-                                Text(appState.baseCurrency).font(.ftBody).foregroundStyle(FTColor.textMuted)
-                                TextField("0.00", text: $currentAmount).keyboardType(.decimalPad)
-                                    .multilineTextAlignment(.trailing).font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
-                                    .frame(maxWidth: 120)
-                            }
-                        }
-                        .padding(.horizontal, FTSpacing.lg).ftGlass(FTRadius.md)
-
-                        VStack(spacing: 0) {
-                            Toggle(isOn: $hasTargetDate) {
-                                Text("Set Target Date").font(.ftBody).foregroundStyle(FTColor.textPrimary)
-                            }.tint(FTColor.accent).padding(.vertical, 13)
-                            if hasTargetDate {
-                                Divider().opacity(0.4)
-                                DatePicker("Target Date", selection: $targetDate, in: Date()..., displayedComponents: .date)
-                                    .font(.ftBody).foregroundStyle(FTColor.textSecondary)
-                                    .tint(FTColor.accent).padding(.vertical, 9)
-                            }
-                        }
-                        .padding(.horizontal, FTSpacing.lg).ftGlass(FTRadius.md)
-
-                        // Icon picker
-                        VStack(alignment: .leading, spacing: FTSpacing.sm) {
-                            Text("ICON").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 10) {
-                                    ForEach(sfIcons, id: \.self) { icon in
-                                        Button { selectedIcon = icon } label: {
-                                            Image(systemName: icon)
-                                                .font(.title2)
-                                                .foregroundStyle(selectedIcon == icon ? FTColor.accent : FTColor.textSecondary)
-                                                .frame(width: 44, height: 44)
-                                                .background(selectedIcon == icon ? FTColor.accent.opacity(0.15) : Color.clear)
-                                                .clipShape(RoundedRectangle(cornerRadius: FTRadius.sm))
-                                                .overlay(RoundedRectangle(cornerRadius: FTRadius.sm)
-                                                    .strokeBorder(selectedIcon == icon ? FTColor.accent : Color.clear, lineWidth: 1.5))
-                                        }.buttonStyle(.plain)
-                                    }
-                                }
-                            }
-                        }
-                        .padding(FTSpacing.lg).frame(maxWidth: .infinity, alignment: .leading).ftGlass(FTRadius.md)
-
-                        // Color picker
-                        VStack(alignment: .leading, spacing: FTSpacing.sm) {
-                            Text("COLOR").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
-                            HStack(spacing: 12) {
-                                ForEach(colors, id: \.self) { color in
-                                    Circle()
-                                        .fill(Color.fromString(color))
-                                        .frame(width: 36, height: 36)
-                                        .overlay(Image(systemName: "checkmark").font(.caption).fontWeight(.bold)
-                                            .foregroundColor(.white).opacity(selectedColor == color ? 1 : 0))
-                                        .overlay(Circle().strokeBorder(.white.opacity(selectedColor == color ? 0.6 : 0), lineWidth: 2))
-                                        .onTapGesture { selectedColor = color }
-                                }
-                            }
-                        }
-                        .padding(FTSpacing.lg).frame(maxWidth: .infinity, alignment: .leading).ftGlass(FTRadius.md)
-
-                        Color.clear.frame(height: 70)
-                    }
-                    .padding(.horizontal, FTSpacing.screen).padding(.top, FTSpacing.sm)
-                }
-                .scrollContentBackground(.hidden).scrollDismissesKeyboard(.interactively)
-
-                Button { saveGoal() } label: { Text("Add Goal") }
-                    .buttonStyle(.ftPrimary)
-                    .disabled(name.isEmpty || targetAmount.isEmpty)
-                    .opacity(name.isEmpty || targetAmount.isEmpty ? 0.55 : 1)
-                    .padding(.horizontal, FTSpacing.screen).padding(.bottom, FTSpacing.sm)
-            }
-            .navigationTitle("Add Savings Goal").navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .navigationBarLeading) { Button("Cancel") { dismiss() } } }
-            .dismissKeyboardOnTap()
-        }
-    }
-
-    @ViewBuilder
-    private func rowField<C: View>(_ label: String, @ViewBuilder content: () -> C) -> some View {
-        HStack(spacing: FTSpacing.md) {
-            Text(label).font(.ftBody).foregroundStyle(FTColor.textSecondary)
-            Spacer()
-            content()
-        }.padding(.vertical, 13)
-    }
-
-    private func saveGoal() {
-        let goal = SavingsGoal(
-            name: name,
-            targetAmount: Double(targetAmount) ?? 0,
-            currentAmount: Double(currentAmount) ?? 0,
-            currency: appState.baseCurrency,
-            targetDate: hasTargetDate ? targetDate : nil,
-            icon: selectedIcon,
-            color: selectedColor
-        )
-        context.insert(goal)
         try? context.save()
         dismiss()
     }
