@@ -24,8 +24,6 @@ struct IncomeManagementView: View {
     @State private var showingAddProject = false
     @State private var showingAddProperty = false
     @State private var showingAddDividend = false
-    @State private var selectedSalaryRecord: SalaryRecord? = nil
-
     private var baseCurrency: String { appState.baseCurrency }
     private let tabs = ["Overview", "Salary", "Freelance", "Rental", "Dividends", "Passive", "Stability"]
 
@@ -119,9 +117,6 @@ struct IncomeManagementView: View {
             .sheet(isPresented: $showingAddDividend) {
                 AddDividendView()
             }
-            .sheet(item: $selectedSalaryRecord) { record in
-                SalaryDetailSheet(record: record)
-            }
         }
         .onAppear {
             recomputeAll()
@@ -129,20 +124,20 @@ struct IncomeManagementView: View {
         .task(id: selectedTab) {
             if selectedTab == 5 && passiveMetrics == nil {
                 passiveMetrics = IncomeService.shared.computePassiveIncomeMetrics(
-                    properties: properties,
-                    dividends: dividends,
                     transactions: transactions,
-                    currency: baseCurrency
+                    dividends: dividends,
+                    rentalProperties: properties,
+                    baseCurrency: baseCurrency
                 )
             }
             if selectedTab == 6 && stabilityScore == nil {
                 stabilityScore = IncomeService.shared.computeStabilityScore(
-                    salaryRecords: salaryRecords,
-                    projects: projects,
-                    properties: properties,
-                    dividends: dividends,
                     transactions: transactions,
-                    currency: baseCurrency
+                    salaryRecords: salaryRecords,
+                    freelanceProjects: projects,
+                    rentalProperties: properties,
+                    dividends: dividends,
+                    baseCurrency: baseCurrency
                 )
             }
         }
@@ -206,26 +201,22 @@ struct IncomeManagementView: View {
 
     private func recomputeAll() {
         streamSummaries = IncomeService.shared.computeStreamSummaries(
-            salaryRecords: salaryRecords,
-            projects: projects,
-            properties: properties,
-            dividends: dividends,
             transactions: transactions,
-            currency: baseCurrency
+            baseCurrency: baseCurrency
         )
         passiveMetrics = IncomeService.shared.computePassiveIncomeMetrics(
-            properties: properties,
-            dividends: dividends,
             transactions: transactions,
-            currency: baseCurrency
+            dividends: dividends,
+            rentalProperties: properties,
+            baseCurrency: baseCurrency
         )
         stabilityScore = IncomeService.shared.computeStabilityScore(
-            salaryRecords: salaryRecords,
-            projects: projects,
-            properties: properties,
-            dividends: dividends,
             transactions: transactions,
-            currency: baseCurrency
+            salaryRecords: salaryRecords,
+            freelanceProjects: projects,
+            rentalProperties: properties,
+            dividends: dividends,
+            baseCurrency: baseCurrency
         )
     }
 
@@ -484,7 +475,7 @@ struct IncomeManagementView: View {
                     VStack(spacing: FTSpacing.xs) {
                         Text("Grade \(score.grade.rawValue)")
                             .font(.ftTitle)
-                            .foregroundStyle(score.grade.color)
+                            .foregroundStyle(Color.fromString(score.grade.color))
                         Text(score.grade.description)
                             .font(.ftBody)
                             .foregroundStyle(FTColor.textSecondary)

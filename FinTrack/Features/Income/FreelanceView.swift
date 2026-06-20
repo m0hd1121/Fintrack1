@@ -60,7 +60,7 @@ struct FreelanceView: View {
             .padding(.top, FTSpacing.lg)
         }
         .sheet(item: $selectedProject) { project in
-            ProjectDetailSheet(project: project)
+            FreelanceProjectDetailSheet(project: project)
         }
         .sheet(isPresented: $showAddProject) {
             AddFreelanceProjectView()
@@ -293,9 +293,9 @@ private struct ProjectCard: View {
     }
 }
 
-// MARK: - ProjectDetailSheet
+// MARK: - FreelanceProjectDetailSheet
 
-struct ProjectDetailSheet: View {
+struct FreelanceProjectDetailSheet: View {
 
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss

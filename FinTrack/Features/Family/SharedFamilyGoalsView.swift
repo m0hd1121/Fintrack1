@@ -70,7 +70,6 @@ struct SharedFamilyGoalsView: View {
 
     private var summaryStrip: some View {
         HStack(spacing: FTSpacing.sm) {
-            let totalTarget = activeGoals.reduce(0.0) { $0 + $1.targetAmount }
             let totalSaved = activeGoals.reduce(0.0) { $0 + $1.totalContributed }
             let nearComplete = activeGoals.filter { $0.progress > 0.9 }.count
 

@@ -53,7 +53,7 @@ struct iCloudSyncView: View {
             case .synced:   return "Backed Up to iCloud"
             case .pending:  return "No Backup Yet"
             case .syncing:  return "Backing Up…"
-            case .disabled: return backup.iCloudAvailable ? "Backup Disabled" : "iCloud Not Available"
+            case .disabled: return "Backup Disabled"
             case .error:    return "Backup Error"
             }
         }
