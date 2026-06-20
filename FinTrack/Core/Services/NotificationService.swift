@@ -254,6 +254,32 @@ final class NotificationService {
         UNUserNotificationCenter.current().add(request)
     }
 
+    // MARK: – Large Transaction Alert
+
+    func sendLargeTransactionAlert(title: String, amount: Double, currency: String, accountName: String) {
+        let content = UNMutableNotificationContent()
+        content.title = "Large Transaction Detected"
+        content.body = "\(title): \(amount.formatted(as: currency)) charged to \(accountName)"
+        content.sound = .default
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
+        let id = "large_tx_\(UUID().uuidString)"
+        let request = UNNotificationRequest(identifier: id, content: content, trigger: trigger)
+        UNUserNotificationCenter.current().add(request)
+    }
+
+    // MARK: – Low Balance Alert (threshold-based)
+
+    func sendLowBalanceAlert(accountName: String, balance: Double, threshold: Double, currency: String) {
+        let content = UNMutableNotificationContent()
+        content.title = "Low Balance: \(accountName)"
+        content.body = "Balance \(balance.formatted(as: currency)) has fallen below your alert threshold of \(threshold.formatted(as: currency))."
+        content.sound = .default
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
+        let id = "lowbal_threshold_\(accountName.lowercased().replacingOccurrences(of: " ", with: "_"))"
+        let request = UNNotificationRequest(identifier: id, content: content, trigger: trigger)
+        UNUserNotificationCenter.current().add(request)
+    }
+
     // MARK: – Helpers
     func cancelNotification(id: String) {
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [id])

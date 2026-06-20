@@ -56,17 +56,41 @@ enum AppLanguage: String, Codable, CaseIterable {
 @Model
 final class AppSettings {
     var id: UUID
+    // Existing security
     var useBiometrics: Bool
     var usePIN: Bool
     var pinHash: String?
     var autoLockMinutes: Int
     var showBalanceOnDashboard: Bool
     var defaultCurrency: String
+    // Advanced security
+    var decoyPINHash: String?
+    var hiddenModeEnabled: Bool
+    var twoFactorEnabled: Bool
+    var twoFactorSecret: String?
+    var auditLogEnabled: Bool
+    var encryptionEnabled: Bool
+    // Existing notifications
     var notificationsEnabled: Bool
     var budgetAlertsEnabled: Bool
     var billRemindersEnabled: Bool
     var salaryReminderEnabled: Bool
     var reminderDaysBefore: Int
+    // Extended notifications
+    var lowBalanceAlertEnabled: Bool
+    var lowBalanceThreshold: Double
+    var largeTransactionAlertEnabled: Bool
+    var largeTransactionThreshold: Double
+    var goalMilestoneAlertEnabled: Bool
+    var budgetAlertAt75: Bool
+    var budgetAlertAt90: Bool
+    var budgetAlertAt100: Bool
+    var weeklyDigestEnabled: Bool
+    var monthlyDigestEnabled: Bool
+    var digestDayOfWeek: Int
+    var digestDayOfMonth: Int
+    var digestHour: Int
+    // Appearance / sync
     var cloudSyncEnabled: Bool
     var theme: AppTheme
     var accentColor: String
@@ -79,11 +103,30 @@ final class AppSettings {
         autoLockMinutes: Int = 5,
         showBalanceOnDashboard: Bool = true,
         defaultCurrency: String = "AED",
+        decoyPINHash: String? = nil,
+        hiddenModeEnabled: Bool = false,
+        twoFactorEnabled: Bool = false,
+        twoFactorSecret: String? = nil,
+        auditLogEnabled: Bool = true,
+        encryptionEnabled: Bool = true,
         notificationsEnabled: Bool = true,
         budgetAlertsEnabled: Bool = true,
         billRemindersEnabled: Bool = true,
         salaryReminderEnabled: Bool = true,
         reminderDaysBefore: Int = 3,
+        lowBalanceAlertEnabled: Bool = true,
+        lowBalanceThreshold: Double = 100.0,
+        largeTransactionAlertEnabled: Bool = true,
+        largeTransactionThreshold: Double = 1000.0,
+        goalMilestoneAlertEnabled: Bool = true,
+        budgetAlertAt75: Bool = true,
+        budgetAlertAt90: Bool = true,
+        budgetAlertAt100: Bool = true,
+        weeklyDigestEnabled: Bool = false,
+        monthlyDigestEnabled: Bool = false,
+        digestDayOfWeek: Int = 2,
+        digestDayOfMonth: Int = 1,
+        digestHour: Int = 9,
         cloudSyncEnabled: Bool = false,
         theme: AppTheme = .system,
         accentColor: String = "blue"
@@ -95,11 +138,30 @@ final class AppSettings {
         self.autoLockMinutes = autoLockMinutes
         self.showBalanceOnDashboard = showBalanceOnDashboard
         self.defaultCurrency = defaultCurrency
+        self.decoyPINHash = decoyPINHash
+        self.hiddenModeEnabled = hiddenModeEnabled
+        self.twoFactorEnabled = twoFactorEnabled
+        self.twoFactorSecret = twoFactorSecret
+        self.auditLogEnabled = auditLogEnabled
+        self.encryptionEnabled = encryptionEnabled
         self.notificationsEnabled = notificationsEnabled
         self.budgetAlertsEnabled = budgetAlertsEnabled
         self.billRemindersEnabled = billRemindersEnabled
         self.salaryReminderEnabled = salaryReminderEnabled
         self.reminderDaysBefore = reminderDaysBefore
+        self.lowBalanceAlertEnabled = lowBalanceAlertEnabled
+        self.lowBalanceThreshold = lowBalanceThreshold
+        self.largeTransactionAlertEnabled = largeTransactionAlertEnabled
+        self.largeTransactionThreshold = largeTransactionThreshold
+        self.goalMilestoneAlertEnabled = goalMilestoneAlertEnabled
+        self.budgetAlertAt75 = budgetAlertAt75
+        self.budgetAlertAt90 = budgetAlertAt90
+        self.budgetAlertAt100 = budgetAlertAt100
+        self.weeklyDigestEnabled = weeklyDigestEnabled
+        self.monthlyDigestEnabled = monthlyDigestEnabled
+        self.digestDayOfWeek = digestDayOfWeek
+        self.digestDayOfMonth = digestDayOfMonth
+        self.digestHour = digestHour
         self.cloudSyncEnabled = cloudSyncEnabled
         self.theme = theme
         self.accentColor = accentColor

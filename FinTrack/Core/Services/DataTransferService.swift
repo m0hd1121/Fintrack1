@@ -208,9 +208,18 @@ struct UserProfileDTO: Codable {
 struct AppSettingsDTO: Codable {
     var id: UUID; var useBiometrics: Bool; var usePIN: Bool; var pinHash: String?
     var autoLockMinutes: Int; var showBalanceOnDashboard: Bool
-    var defaultCurrency: String; var notificationsEnabled: Bool
-    var budgetAlertsEnabled: Bool; var billRemindersEnabled: Bool
-    var salaryReminderEnabled: Bool; var reminderDaysBefore: Int
+    var defaultCurrency: String
+    var decoyPINHash: String?; var hiddenModeEnabled: Bool?
+    var twoFactorEnabled: Bool?; var twoFactorSecret: String?
+    var auditLogEnabled: Bool?; var encryptionEnabled: Bool?
+    var notificationsEnabled: Bool; var budgetAlertsEnabled: Bool
+    var billRemindersEnabled: Bool; var salaryReminderEnabled: Bool; var reminderDaysBefore: Int
+    var lowBalanceAlertEnabled: Bool?; var lowBalanceThreshold: Double?
+    var largeTransactionAlertEnabled: Bool?; var largeTransactionThreshold: Double?
+    var goalMilestoneAlertEnabled: Bool?
+    var budgetAlertAt75: Bool?; var budgetAlertAt90: Bool?; var budgetAlertAt100: Bool?
+    var weeklyDigestEnabled: Bool?; var monthlyDigestEnabled: Bool?
+    var digestDayOfWeek: Int?; var digestDayOfMonth: Int?; var digestHour: Int?
     var cloudSyncEnabled: Bool; var theme: String; var accentColor: String
 }
 
@@ -731,17 +740,31 @@ extension Bill {
 
 extension AppSettings {
     var dto: AppSettingsDTO {
-        AppSettingsDTO(id: id, useBiometrics: useBiometrics, usePIN: usePIN,
-                       pinHash: pinHash, autoLockMinutes: autoLockMinutes,
-                       showBalanceOnDashboard: showBalanceOnDashboard,
-                       defaultCurrency: defaultCurrency,
-                       notificationsEnabled: notificationsEnabled,
-                       budgetAlertsEnabled: budgetAlertsEnabled,
-                       billRemindersEnabled: billRemindersEnabled,
-                       salaryReminderEnabled: salaryReminderEnabled,
-                       reminderDaysBefore: reminderDaysBefore,
-                       cloudSyncEnabled: cloudSyncEnabled,
-                       theme: theme.rawValue, accentColor: accentColor)
+        AppSettingsDTO(
+            id: id, useBiometrics: useBiometrics, usePIN: usePIN,
+            pinHash: pinHash, autoLockMinutes: autoLockMinutes,
+            showBalanceOnDashboard: showBalanceOnDashboard,
+            defaultCurrency: defaultCurrency,
+            decoyPINHash: decoyPINHash, hiddenModeEnabled: hiddenModeEnabled,
+            twoFactorEnabled: twoFactorEnabled, twoFactorSecret: twoFactorSecret,
+            auditLogEnabled: auditLogEnabled, encryptionEnabled: encryptionEnabled,
+            notificationsEnabled: notificationsEnabled,
+            budgetAlertsEnabled: budgetAlertsEnabled,
+            billRemindersEnabled: billRemindersEnabled,
+            salaryReminderEnabled: salaryReminderEnabled,
+            reminderDaysBefore: reminderDaysBefore,
+            lowBalanceAlertEnabled: lowBalanceAlertEnabled,
+            lowBalanceThreshold: lowBalanceThreshold,
+            largeTransactionAlertEnabled: largeTransactionAlertEnabled,
+            largeTransactionThreshold: largeTransactionThreshold,
+            goalMilestoneAlertEnabled: goalMilestoneAlertEnabled,
+            budgetAlertAt75: budgetAlertAt75, budgetAlertAt90: budgetAlertAt90,
+            budgetAlertAt100: budgetAlertAt100,
+            weeklyDigestEnabled: weeklyDigestEnabled, monthlyDigestEnabled: monthlyDigestEnabled,
+            digestDayOfWeek: digestDayOfWeek, digestDayOfMonth: digestDayOfMonth,
+            digestHour: digestHour,
+            cloudSyncEnabled: cloudSyncEnabled, theme: theme.rawValue, accentColor: accentColor
+        )
     }
 }
 
@@ -966,19 +989,34 @@ extension BillDTO {
 
 extension AppSettingsDTO {
     func toModel() -> AppSettings {
-        let s = AppSettings(id: id, useBiometrics: useBiometrics, usePIN: usePIN,
-                            pinHash: pinHash, autoLockMinutes: autoLockMinutes,
-                            showBalanceOnDashboard: showBalanceOnDashboard,
-                            defaultCurrency: defaultCurrency,
-                            notificationsEnabled: notificationsEnabled,
-                            budgetAlertsEnabled: budgetAlertsEnabled,
-                            billRemindersEnabled: billRemindersEnabled,
-                            salaryReminderEnabled: salaryReminderEnabled,
-                            reminderDaysBefore: reminderDaysBefore,
-                            cloudSyncEnabled: cloudSyncEnabled,
-                            theme: AppTheme(rawValue: theme) ?? .system,
-                            accentColor: accentColor)
-        return s
+        AppSettings(
+            id: id, useBiometrics: useBiometrics, usePIN: usePIN,
+            pinHash: pinHash, autoLockMinutes: autoLockMinutes,
+            showBalanceOnDashboard: showBalanceOnDashboard,
+            defaultCurrency: defaultCurrency,
+            decoyPINHash: decoyPINHash, hiddenModeEnabled: hiddenModeEnabled ?? false,
+            twoFactorEnabled: twoFactorEnabled ?? false, twoFactorSecret: twoFactorSecret,
+            auditLogEnabled: auditLogEnabled ?? true, encryptionEnabled: encryptionEnabled ?? true,
+            notificationsEnabled: notificationsEnabled,
+            budgetAlertsEnabled: budgetAlertsEnabled,
+            billRemindersEnabled: billRemindersEnabled,
+            salaryReminderEnabled: salaryReminderEnabled,
+            reminderDaysBefore: reminderDaysBefore,
+            lowBalanceAlertEnabled: lowBalanceAlertEnabled ?? true,
+            lowBalanceThreshold: lowBalanceThreshold ?? 100,
+            largeTransactionAlertEnabled: largeTransactionAlertEnabled ?? true,
+            largeTransactionThreshold: largeTransactionThreshold ?? 1000,
+            goalMilestoneAlertEnabled: goalMilestoneAlertEnabled ?? true,
+            budgetAlertAt75: budgetAlertAt75 ?? true, budgetAlertAt90: budgetAlertAt90 ?? true,
+            budgetAlertAt100: budgetAlertAt100 ?? true,
+            weeklyDigestEnabled: weeklyDigestEnabled ?? false,
+            monthlyDigestEnabled: monthlyDigestEnabled ?? false,
+            digestDayOfWeek: digestDayOfWeek ?? 2, digestDayOfMonth: digestDayOfMonth ?? 1,
+            digestHour: digestHour ?? 9,
+            cloudSyncEnabled: cloudSyncEnabled,
+            theme: AppTheme(rawValue: theme) ?? .system,
+            accentColor: accentColor
+        )
     }
 }
 

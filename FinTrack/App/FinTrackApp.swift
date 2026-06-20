@@ -12,7 +12,7 @@ struct FinTrackApp: App {
         // without a versioned SchemaMigrationPlan. SwiftData's lightweight migrator
         // cannot fill non-optional columns on existing rows, so we wipe the dev store
         // and start fresh. In production you would write a proper MigrationPlan instead.
-        let currentSchemaVersion = "v14"
+        let currentSchemaVersion = "v15"
         let versionKey = "fintrack_schema_version"
 
         if UserDefaults.standard.string(forKey: versionKey) != currentSchemaVersion {
@@ -70,6 +70,7 @@ struct FinTrackApp: App {
             MileageTrip.self,
             BusinessProject.self,
             ImportedFile.self,
+            AuditLogEntry.self,
         ])
         let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
         do {
@@ -97,6 +98,7 @@ struct FinTrackApp: App {
 @MainActor
 final class AppState {
     var isLocked = false
+    var isHiddenMode = false
     var hasCompletedOnboarding = false
     var selectedTab: AppTab = .dashboard
     var showingAddTransaction = false

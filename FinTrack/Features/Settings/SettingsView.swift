@@ -132,7 +132,12 @@ struct SettingsView: View {
                         }
                     }
 
-                    sectionCard("Security") {
+                    sectionCard("Security & Privacy") {
+                        NavigationLink(destination: SecurityPrivacyView()) {
+                            settingRow(symbol: "lock.shield.fill", tint: FTColor.accent,
+                                       title: "Security & Privacy", chevron: true)
+                        }
+                        rowDivider
                         FTToggleRow(symbol: BiometricService.shared.biometricIcon, tint: FTColor.accent,
                                     title: BiometricService.shared.biometricTypeName, isOn: biometricsBinding)
                         rowDivider
@@ -169,14 +174,10 @@ struct SettingsView: View {
                                        value: (setting?.theme ?? .system).rawValue, chevron: true)
                         }
                         rowDivider
-                        FTToggleRow(symbol: "bell", tint: FTColor.gold,
-                                    title: "Notifications", isOn: notificationsBinding)
-                        rowDivider
-                        FTToggleRow(symbol: "chart.pie.fill", tint: FTColor.catBlue,
-                                    title: "Budget Alerts", isOn: budgetAlertsBinding)
-                        rowDivider
-                        FTToggleRow(symbol: "calendar.badge.clock", tint: FTColor.catCoral,
-                                    title: "Bill Reminders", isOn: billRemindersBinding)
+                        NavigationLink(destination: NotificationSettingsView()) {
+                            settingRow(symbol: "bell.badge.fill", tint: FTColor.gold,
+                                       title: "Notifications", chevron: true)
+                        }
                         rowDivider
                         FTToggleRow(symbol: "eye.slash", tint: FTColor.textMuted,
                                     title: "Hide Balances", isOn: $appState.hideBalances)
