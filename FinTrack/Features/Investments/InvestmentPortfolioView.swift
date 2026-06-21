@@ -1530,7 +1530,7 @@ private struct PerformanceBarChart: View {
             }
             .chartYAxis {
                 AxisMarks(values: .automatic(desiredCount: 5)) { _ in
-                    AxisValueLabel(format: .percent.scale(0.01)).foregroundStyle(FTColor.textMuted).font(.ftLabel)
+                    AxisValueLabel(format: FloatingPointFormatStyle<Double>.Percent().scale(0.01)).foregroundStyle(FTColor.textMuted).font(.ftLabel)
                     AxisGridLine().foregroundStyle(FTColor.textPrimary.opacity(0.05))
                 }
             }
