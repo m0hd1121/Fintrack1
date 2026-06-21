@@ -45,14 +45,16 @@ struct LogExpenseIntent: AppIntent {
     var currency: String
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        let tx = PendingWidgetTransaction(
-            title: title_,
-            amount: amount,
-            currency: currency,
-            type: "expense",
-            categoryName: category
-        )
-        WidgetDataService.shared.enqueuePendingTransaction(tx)
+        await MainActor.run {
+            let tx = PendingWidgetTransaction(
+                title: title_,
+                amount: amount,
+                currency: currency,
+                type: "expense",
+                categoryName: category
+            )
+            WidgetDataService.shared.enqueuePendingTransaction(tx)
+        }
         return .result(dialog: "Logged \(currency) \(String(format: "%.2f", amount)) for \(title_) in \(category).")
     }
 }
@@ -74,14 +76,16 @@ struct LogIncomeIntent: AppIntent {
     var currency: String
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        let tx = PendingWidgetTransaction(
-            title: source,
-            amount: amount,
-            currency: currency,
-            type: "income",
-            categoryName: "Income"
-        )
-        WidgetDataService.shared.enqueuePendingTransaction(tx)
+        await MainActor.run {
+            let tx = PendingWidgetTransaction(
+                title: source,
+                amount: amount,
+                currency: currency,
+                type: "income",
+                categoryName: "Income"
+            )
+            WidgetDataService.shared.enqueuePendingTransaction(tx)
+        }
         return .result(dialog: "Logged \(currency) \(String(format: "%.2f", amount)) income from \(source).")
     }
 }

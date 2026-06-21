@@ -157,7 +157,7 @@ final class InvestmentService {
             }.filter { $0.quantity > 0.0001 }
 
         case .fifo:
-            var ordered = lots.sorted { $0.purchaseDate < $1.purchaseDate }
+            let ordered = lots.sorted { $0.purchaseDate < $1.purchaseDate }
             var newLots: [PurchaseLot] = []
             for i in ordered.indices {
                 if remaining <= 0 { newLots.append(ordered[i]); continue }
@@ -173,7 +173,7 @@ final class InvestmentService {
             mutableLots = newLots
 
         case .lifo:
-            var ordered = lots.sorted { $0.purchaseDate > $1.purchaseDate }
+            let ordered = lots.sorted { $0.purchaseDate > $1.purchaseDate }
             var newLots: [PurchaseLot] = []
             for i in ordered.indices {
                 if remaining <= 0 { newLots.append(ordered[i]); continue }
