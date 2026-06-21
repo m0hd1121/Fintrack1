@@ -1611,6 +1611,12 @@ struct SavingsGoalsReport: View {
     private var overallProgress: Double { totalTarget > 0 ? min(totalSaved / totalTarget, 1.0) : 0 }
     private var svc = SavingsGoalService.shared
 
+    init(goals: [SavingsGoal], transactions: [Transaction], currency: String) {
+        self.goals = goals
+        self.transactions = transactions
+        self.currency = currency
+    }
+
     var body: some View {
         VStack(spacing: FTSpacing.lg) {
             summaryCard

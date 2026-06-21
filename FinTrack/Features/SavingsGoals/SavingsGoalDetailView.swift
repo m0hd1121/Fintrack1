@@ -37,7 +37,7 @@ struct SavingsGoalDetailView: View {
 
                 FTSegmentedControl(options: tabs, selection: .init(
                     get: { selectedTab },
-                    set: { withAnimation(.snappy(duration: 0.22)) { selectedTab = $0 } }
+                    set: { newValue in withAnimation(.snappy(duration: 0.22)) { selectedTab = newValue } }
                 ))
                 .padding(.horizontal, FTSpacing.screen)
                 .padding(.vertical, FTSpacing.md)
