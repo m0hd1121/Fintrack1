@@ -306,6 +306,7 @@ struct ZakatCalculatorView: View {
 
     // MARK: - Input Row
 
+    @ViewBuilder
     private func zakatInputRow(icon: String, color: Color, label: String, value: Binding<Double>) -> some View {
         HStack {
             Image(systemName: icon).foregroundStyle(color).font(.ftCallout).frame(width: 24)

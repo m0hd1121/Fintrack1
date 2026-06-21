@@ -55,7 +55,7 @@ struct TaxManagementView: View {
                             .foregroundStyle(selectedYear == y ? .white : FTColor.textSecondary)
                             .padding(.horizontal, FTSpacing.lg)
                             .padding(.vertical, FTSpacing.sm)
-                            .background(selectedYear == y ? FTColor.accentGradient : AnyShapeStyle(.ultraThinMaterial), in: .capsule)
+                            .background(selectedYear == y ? AnyShapeStyle(FTColor.accentGradient) : AnyShapeStyle(.ultraThinMaterial), in: .capsule)
                     }
                     .buttonStyle(.plain)
                 }

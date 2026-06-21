@@ -17,7 +17,7 @@ struct SecurityPrivacyView: View {
     private func settingsBind<T>(_ kp: WritableKeyPath<AppSettings, T>, default def: T) -> Binding<T> {
         Binding(
             get: { settings?[keyPath: kp] ?? def },
-            set: { v in settings?[keyPath: kp] = v; try? context.save() }
+            set: { v in allSettings.first?[keyPath: kp] = v; try? context.save() }
         )
     }
 

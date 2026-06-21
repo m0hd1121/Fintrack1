@@ -16,6 +16,10 @@ struct VATTrackerView: View {
 
     private var tabs = ["Overview", "Records", "FTA Report"]
 
+    init(taxYear: Int) {
+        self.taxYear = taxYear
+    }
+
     private var summary: VATSummary {
         TaxService.shared.vatSummary(records: taxRecords, taxYear: taxYear)
     }

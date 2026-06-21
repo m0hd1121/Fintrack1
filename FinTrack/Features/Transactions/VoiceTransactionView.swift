@@ -65,7 +65,7 @@ struct VoiceTransactionView: View {
                     } label: {
                         ZStack {
                             Circle()
-                                .fill(service.isListening ? FTColor.expense.opacity(0.9) : FTColor.accentGradient)
+                                .fill(service.isListening ? AnyShapeStyle(FTColor.expense.opacity(0.9)) : AnyShapeStyle(FTColor.accentGradient))
                                 .frame(width: 96, height: 96)
                                 .shadow(
                                     color: service.isListening
