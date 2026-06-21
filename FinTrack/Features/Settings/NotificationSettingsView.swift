@@ -14,10 +14,13 @@ struct NotificationSettingsView: View {
 
     private var settings: AppSettings? { allSettings.first }
 
-    private func bind<T>(_ kp: WritableKeyPath<AppSettings, T>, default def: T) -> Binding<T> {
+    private func bind<T>(_ kp: ReferenceWritableKeyPath<AppSettings, T>, default def: T) -> Binding<T> {
         Binding(
             get: { settings?[keyPath: kp] ?? def },
-            set: { v in allSettings.first?[keyPath: kp] = v; try? context.save() }
+            set: { v in
+                if let s = allSettings.first { s[keyPath: kp] = v }
+                try? context.save()
+            }
         )
     }
 
