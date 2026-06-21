@@ -75,19 +75,8 @@ struct DebtManagementView: View {
                         .padding(.top, FTSpacing.xs)
 
                     ScrollView {
-                        Group {
-                            switch selectedTab {
-                            case 0: overviewTab
-                            case 1: snowballTab
-                            case 2: avalancheTab
-                            case 3: calculatorTab
-                            case 4: lentTab
-                            case 5: borrowedTab
-                            case 6: utilizationTab
-                            default: overviewTab
-                            }
-                        }
-                        .padding(.bottom, FTSpacing.xxl + FTSpacing.lg)
+                        activeTabView()
+                            .padding(.bottom, FTSpacing.xxl + FTSpacing.lg)
                     }
                 }
             }
@@ -160,6 +149,20 @@ struct DebtManagementView: View {
         case 5: return "hand.point.down.fill"
         case 6: return "gauge.medium"
         default: return "circle"
+        }
+    }
+
+    // AnyView erases the complex 7-branch _ConditionalContent type that would
+    // otherwise create deeply nested generic stack frames and overflow on open.
+    private func activeTabView() -> AnyView {
+        switch selectedTab {
+        case 1: return AnyView(snowballTab)
+        case 2: return AnyView(avalancheTab)
+        case 3: return AnyView(calculatorTab)
+        case 4: return AnyView(lentTab)
+        case 5: return AnyView(borrowedTab)
+        case 6: return AnyView(utilizationTab)
+        default: return AnyView(overviewTab)
         }
     }
 

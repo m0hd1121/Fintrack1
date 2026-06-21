@@ -146,7 +146,7 @@ struct AccountsView: View {
                 // Loans / Debts
                 Section {
                     ForEach(loans.filter { $0.isActive }) { loan in
-                        NavigationLink(destination: LoanDetailView(loan: loan)) {
+                        NavigationLink(destination: LazyView { LoanDetailView(loan: loan) }) {
                             LoanRow(loan: loan, baseCurrency: baseCurrency)
                         }
                         .listRowBackground(RoundedRectangle(cornerRadius: FTRadius.md).fill(.regularMaterial).overlay(RoundedRectangle(cornerRadius: FTRadius.md).strokeBorder(.white.opacity(0.3), lineWidth: 0.5)).padding(.vertical, FTSpacing.xs))
@@ -756,4 +756,9 @@ struct LoyaltyProgramRow: View {
         }
         .padding(.vertical, 4)
     }
+}
+
+private struct LazyView<Content: View>: View {
+    let build: () -> Content
+    var body: some View { build() }
 }

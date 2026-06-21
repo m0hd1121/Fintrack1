@@ -82,7 +82,7 @@ struct AssetsLiabilitiesView: View {
 
                         // Asset Category Cards
                         VStack(spacing: FTSpacing.sm) {
-                            NavigationLink(destination: RealEstateListView()) {
+                            NavigationLink(destination: LazyView { RealEstateListView() }) {
                                 assetCard(
                                     symbol: "house.fill",
                                     tint: FTColor.catCoral,
@@ -93,7 +93,7 @@ struct AssetsLiabilitiesView: View {
                             }
                             .buttonStyle(.plain)
 
-                            NavigationLink(destination: VehicleListView()) {
+                            NavigationLink(destination: LazyView { VehicleListView() }) {
                                 assetCard(
                                     symbol: "car.fill",
                                     tint: FTColor.catBlue,
@@ -104,7 +104,7 @@ struct AssetsLiabilitiesView: View {
                             }
                             .buttonStyle(.plain)
 
-                            NavigationLink(destination: PersonalAssetsListView()) {
+                            NavigationLink(destination: LazyView { PersonalAssetsListView() }) {
                                 assetCard(
                                     symbol: "sparkles",
                                     tint: FTColor.gold,
@@ -115,7 +115,7 @@ struct AssetsLiabilitiesView: View {
                             }
                             .buttonStyle(.plain)
 
-                            NavigationLink(destination: DigitalAssetsListView()) {
+                            NavigationLink(destination: LazyView { DigitalAssetsListView() }) {
                                 assetCard(
                                     symbol: "globe",
                                     tint: FTColor.catPurple,
@@ -272,4 +272,9 @@ struct AssetsLiabilitiesView: View {
         ], inMemory: true)
         .environment(AppState())
         .environment(CurrencyService.shared)
+}
+
+private struct LazyView<Content: View>: View {
+    let build: () -> Content
+    var body: some View { build() }
 }

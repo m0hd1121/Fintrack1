@@ -253,7 +253,7 @@ struct BudgetView: View {
                         .contentShape(RoundedRectangle(cornerRadius: FTRadius.md))
                         .onTapGesture { detailBudget = budget }
                         .swipeActions(edge: .leading) {
-                            NavigationLink(destination: AddBudgetView(editingBudget: budget)) {
+                            NavigationLink(destination: LazyView { AddBudgetView(editingBudget: budget) }) {
                                 Label("Edit", systemImage: "pencil")
                             }.tint(FTColor.accent)
                         }
@@ -441,7 +441,7 @@ struct BudgetView: View {
                     ForEach(activeMonthlyBudgets, id: \.id) { budget in
                         ZeroBasedAllocationRow(budget: budget, currency: baseCurrency)
                             .swipeActions(edge: .leading) {
-                                NavigationLink(destination: AddBudgetView(editingBudget: budget)) {
+                                NavigationLink(destination: LazyView { AddBudgetView(editingBudget: budget) }) {
                                     Label("Edit", systemImage: "pencil")
                                 }.tint(FTColor.accent)
                             }
@@ -1310,7 +1310,7 @@ struct BudgetDetailView: View {
                     Button("Done") { dismiss() }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    NavigationLink(destination: AddBudgetView(editingBudget: budget)) {
+                    NavigationLink(destination: LazyView { AddBudgetView(editingBudget: budget) }) {
                         Image(systemName: "pencil")
                     }
                 }
@@ -2264,4 +2264,11 @@ struct BudgetRecommendationsView: View {
         .padding(FTSpacing.lg)
         .ftGlass(FTRadius.md)
     }
+}
+
+// Defers NavigationLink destination body evaluation until navigation occurs,
+// preventing eager stack exhaustion from ForEach/swipeActions patterns.
+private struct LazyView<Content: View>: View {
+    let build: () -> Content
+    var body: some View { build() }
 }
