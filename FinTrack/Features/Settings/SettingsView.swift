@@ -89,75 +89,75 @@ struct SettingsView: View {
                     profileCard
 
                     sectionCard("Premium Features") {
-                        NavigationLink(destination: AICFOModeView()) {
+                        NavigationLink(destination: LazyView { AICFOModeView() }) {
                             settingRow(symbol: "brain.head.profile", tint: FTColor.accent,
                                        title: "AI CFO Mode", chevron: true)
                         }
                         rowDivider
-                        NavigationLink(destination: RetirementSimulationView()) {
+                        NavigationLink(destination: LazyView { RetirementSimulationView() }) {
                             settingRow(symbol: "sun.max.fill", tint: FTColor.gold,
                                        title: "Retirement Simulation", chevron: true)
                         }
                         rowDivider
-                        NavigationLink(destination: LifeEventPlanningView()) {
+                        NavigationLink(destination: LazyView { LifeEventPlanningView() }) {
                             settingRow(symbol: "star.fill", tint: FTColor.catPurple,
                                        title: "Life Event Planning", chevron: true)
                         }
                         rowDivider
-                        NavigationLink(destination: EstatePlanningView()) {
+                        NavigationLink(destination: LazyView { EstatePlanningView() }) {
                             settingRow(symbol: "scroll.fill", tint: FTColor.catCoral,
                                        title: "Estate Planning", chevron: true)
                         }
                         rowDivider
-                        NavigationLink(destination: InsuranceOptimizerView()) {
+                        NavigationLink(destination: LazyView { InsuranceOptimizerView() }) {
                             settingRow(symbol: "shield.fill", tint: FTColor.catTeal,
                                        title: "Insurance Optimizer", chevron: true)
                         }
                         rowDivider
-                        NavigationLink(destination: SmartCashAllocationView()) {
+                        NavigationLink(destination: LazyView { SmartCashAllocationView() }) {
                             settingRow(symbol: "lightbulb.fill", tint: FTColor.income,
                                        title: "Smart Cash Allocation", chevron: true)
                         }
                         rowDivider
-                        NavigationLink(destination: CollaborativePlannerView()) {
+                        NavigationLink(destination: LazyView { CollaborativePlannerView() }) {
                             settingRow(symbol: "person.3.fill", tint: FTColor.catBlue,
                                        title: "Collaborative Planner", chevron: true)
                         }
                         rowDivider
-                        NavigationLink(destination: FinancialEducationView()) {
+                        NavigationLink(destination: LazyView { FinancialEducationView() }) {
                             settingRow(symbol: "book.fill", tint: FTColor.catPurple,
                                        title: "Financial Education", chevron: true)
                         }
                         rowDivider
-                        NavigationLink(destination: RemittanceTrackerView()) {
+                        NavigationLink(destination: LazyView { RemittanceTrackerView() }) {
                             settingRow(symbol: "arrow.up.right.circle.fill", tint: FTColor.accent,
                                        title: "Remittance Tracker", chevron: true)
                         }
                     }
 
                     sectionCard("Tax Management") {
-                        NavigationLink(destination: TaxManagementView()) {
+                        NavigationLink(destination: LazyView { TaxManagementView() }) {
                             settingRow(symbol: "doc.text.fill", tint: FTColor.catPurple,
                                        title: "Tax Management", chevron: true)
                         }
                     }
 
                     sectionCard("Family Finance") {
-                        NavigationLink(destination: FamilyFinanceView()) {
+                        NavigationLink(destination: LazyView { FamilyFinanceView() }) {
                             settingRow(symbol: "person.3.fill", tint: FTColor.catTeal,
                                        title: "Family & Shared Finance", chevron: true)
                         }
                     }
 
                     sectionCard("Business & Freelancer") {
-                        NavigationLink(destination: BusinessFreelancerView()) {
+                        NavigationLink(destination: LazyView { BusinessFreelancerView() }) {
                             settingRow(symbol: "briefcase.fill", tint: FTColor.catBlue,
                                        title: "Business & Freelancer", chevron: true)
                         }
                     }
 
                     sectionCard("Import & Integration") {
-                        NavigationLink(destination: ImportIntegrationView()) {
+                        NavigationLink(destination: LazyView { ImportIntegrationView() }) {
                             settingRow(symbol: "arrow.down.circle.fill", tint: FTColor.catCoral,
                                        title: "Import & Sync", chevron: true)
                         }
@@ -176,7 +176,7 @@ struct SettingsView: View {
                     }
 
                     sectionCard("Security & Privacy") {
-                        NavigationLink(destination: SecurityPrivacyView()) {
+                        NavigationLink(destination: LazyView { SecurityPrivacyView() }) {
                             settingRow(symbol: "lock.shield.fill", tint: FTColor.accent,
                                        title: "Security & Privacy", chevron: true)
                         }
@@ -207,20 +207,20 @@ struct SettingsView: View {
                         }
                         .accessibilityLabel("Base Currency: \(appState.baseCurrency)")
                         rowDivider
-                        NavigationLink(destination: AppearanceView()) {
+                        NavigationLink(destination: LazyView { AppearanceView() }) {
                             settingRow(symbol: "paintbrush.fill", tint: FTColor.catPurple,
                                        title: "Appearance & Accessibility",
                                        value: (setting?.theme ?? .system).rawValue, chevron: true)
                         }
                         .accessibilityLabel("Appearance and Accessibility settings")
                         rowDivider
-                        NavigationLink(destination: DashboardCustomizerView()) {
+                        NavigationLink(destination: LazyView { DashboardCustomizerView() }) {
                             settingRow(symbol: "square.grid.2x2.fill", tint: FTColor.catTeal,
                                        title: "Dashboard Layout", chevron: true)
                         }
                         .accessibilityLabel("Customize Dashboard Layout")
                         rowDivider
-                        NavigationLink(destination: NotificationSettingsView()) {
+                        NavigationLink(destination: LazyView { NotificationSettingsView() }) {
                             settingRow(symbol: "bell.badge.fill", tint: FTColor.gold,
                                        title: "Notifications", chevron: true)
                         }
@@ -230,7 +230,7 @@ struct SettingsView: View {
                     }
 
                     sectionCard("Data & Privacy") {
-                        NavigationLink(destination: iCloudSyncView()) {
+                        NavigationLink(destination: LazyView { iCloudSyncView() }) {
                             settingRow(symbol: "icloud.fill", tint: FTColor.catBlue,
                                        title: "iCloud Backup", chevron: true)
                         }
@@ -262,12 +262,12 @@ struct SettingsView: View {
                                        value: "v1.0.0", chevron: true)
                         }
                         rowDivider
-                        NavigationLink(destination: PrivacyPolicyView()) {
+                        NavigationLink(destination: LazyView { PrivacyPolicyView() }) {
                             settingRow(symbol: "checkmark.shield.fill", tint: FTColor.income,
                                        title: "Privacy Policy", chevron: true)
                         }
                         rowDivider
-                        NavigationLink(destination: TermsOfServiceView()) {
+                        NavigationLink(destination: LazyView { TermsOfServiceView() }) {
                             settingRow(symbol: "doc.text", tint: FTColor.catPurple,
                                        title: "Terms of Service", chevron: true)
                         }
@@ -684,4 +684,11 @@ struct FeatureBadge: View {
                 .foregroundStyle(FTColor.textSecondary)
         }
     }
+}
+
+// Defers destination view init until navigation occurs, preventing eager
+// instantiation of all NavigationLink destinations in the same render pass.
+private struct LazyView<Content: View>: View {
+    let build: () -> Content
+    var body: some View { build() }
 }
