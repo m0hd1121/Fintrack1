@@ -185,6 +185,7 @@ struct CategoryManagementView: View {
         }
     }
 
+    @ViewBuilder
     private func subcategoryRow(_ child: CustomCategory, isLast: Bool) -> some View {
         HStack(spacing: FTSpacing.md) {
             Color.clear.frame(width: 20)
