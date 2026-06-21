@@ -23,6 +23,10 @@ struct SavingsGoalDetailView: View {
     private var tint: Color { Color.fromString(goal.effectiveColor) }
     private var svc = SavingsGoalService.shared
 
+    init(goal: SavingsGoal) {
+        self._goal = Bindable(wrappedValue: goal)
+    }
+
     var body: some View {
         ZStack {
             FTBackdrop()
