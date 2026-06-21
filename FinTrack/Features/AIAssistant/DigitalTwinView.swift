@@ -265,7 +265,7 @@ struct DigitalTwinView: View {
                 }
             }
             .chartXAxis {
-                AxisMarks(values: .stride(by: max(12, proj.years * 12 / 5))) { value in
+                AxisMarks(values: Array(stride(from: 0, through: proj.years * 12, by: max(12, proj.years * 12 / 5)))) { value in
                     AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5)).foregroundStyle(FTColor.textMuted.opacity(0.2))
                     AxisValueLabel {
                         if let m = value.as(Int.self) {

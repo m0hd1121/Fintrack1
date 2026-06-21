@@ -142,7 +142,7 @@ struct SavingsOpportunityView: View {
                 }
                 Spacer()
                 Button {
-                    withAnimation(.spring) { dismissedIDs.insert(opp.id) }
+                    withAnimation(.spring) { _ = dismissedIDs.insert(opp.id) }
                 } label: {
                     Text("Dismiss")
                         .font(.ftCaption)

@@ -108,7 +108,7 @@ struct BudgetView: View {
                 VStack(spacing: 0) {
                     FTSegmentedControl(options: tabs, selection: .init(
                         get: { tab },
-                        set: { withAnimation(.snappy(duration: 0.25)) { tab = $0 } }
+                        set: { newValue in withAnimation(.snappy(duration: 0.25)) { tab = newValue } }
                     ))
                     .padding(.horizontal, FTSpacing.screen)
                     .padding(.top, FTSpacing.sm)
@@ -591,7 +591,7 @@ struct BudgetView: View {
                 )
                 .foregroundStyle(
                     item.month.isSameMonth(as: Date())
-                    ? FTColor.accentGradient : AnyShapeStyle(FTColor.accent.opacity(0.5))
+                    ? AnyShapeStyle(FTColor.accentGradient) : AnyShapeStyle(FTColor.accent.opacity(0.5))
                 )
                 .cornerRadius(5)
             }
