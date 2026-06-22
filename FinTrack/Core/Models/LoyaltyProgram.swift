@@ -17,6 +17,8 @@ final class LoyaltyProgram {
     var color: String
     var createdAt: Date
     var updatedAt: Date
+    var totalPointsEarned: Double
+    var totalPointsRedeemed: Double
 
     var estimatedValue: Double { points * pointsValuePerUnit }
 
@@ -43,7 +45,9 @@ final class LoyaltyProgram {
         tier: String? = nil,
         expiryDate: Date? = nil,
         notes: String? = nil,
-        color: String = "purple"
+        color: String = "purple",
+        totalPointsEarned: Double = 0,
+        totalPointsRedeemed: Double = 0
     ) {
         self.id = id
         self.name = name
@@ -57,6 +61,8 @@ final class LoyaltyProgram {
         self.expiryDate = expiryDate
         self.notes = notes
         self.color = color
+        self.totalPointsEarned = totalPointsEarned
+        self.totalPointsRedeemed = totalPointsRedeemed
         self.createdAt = Date()
         self.updatedAt = Date()
     }

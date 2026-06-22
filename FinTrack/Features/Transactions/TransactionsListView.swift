@@ -6,6 +6,7 @@ struct TransactionsListView: View {
     @Environment(CurrencyService.self) private var currencyService
     @Environment(\.modelContext) private var context
     @Query(sort: \Transaction.date, order: .reverse) private var transactions: [Transaction]
+    @Query private var loyaltyPrograms: [LoyaltyProgram]
 
     @State private var searchText = ""
     @State private var selectedType: TransactionType? = nil
@@ -425,6 +426,17 @@ struct TransactionsListView: View {
            tx.category == .personalLentRepayment || tx.category == .loanRepayment {
             loan.outstandingBalance += tx.amount
             if !loan.isActive { loan.isActive = true }
+        }
+        // Reverse loyalty points balance
+        if let programID = tx.linkedLoyaltyProgramID,
+           let program = loyaltyPrograms.first(where: { $0.id == programID }) {
+            if tx.category == .loyaltyEarned {
+                program.points -= tx.loyaltyPointsAmount
+                program.totalPointsEarned = max(0, program.totalPointsEarned - tx.loyaltyPointsAmount)
+            } else if tx.category == .loyaltyRedeemed {
+                program.points += tx.loyaltyPointsAmount
+                program.totalPointsRedeemed = max(0, program.totalPointsRedeemed - tx.loyaltyPointsAmount)
+            }
         }
         context.delete(tx)
         try? context.save()

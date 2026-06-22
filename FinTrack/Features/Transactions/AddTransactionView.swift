@@ -21,6 +21,7 @@ struct AddTransactionView: View {
     private var customCategories: [CustomCategory]
     @Query(sort: \CategorizationRule.priority)
     private var categorizationRules: [CategorizationRule]
+    @Query(sort: \LoyaltyProgram.name) private var loyaltyPrograms: [LoyaltyProgram]
 
     // — Core fields
     @State private var title = ""
@@ -79,6 +80,12 @@ struct AddTransactionView: View {
     @State private var isVATReclaimable = false
     @State private var customCategoryID: UUID? = nil
 
+    // — Loyalty points
+    @State private var selectedLoyaltyProgram: LoyaltyProgram? = nil
+    @State private var toLoyaltyProgram: LoyaltyProgram? = nil
+    @State private var loyaltyPoints = ""
+    @State private var isLoyaltyTransfer = false
+
     // — New: AI & rules
     @State private var aiPrediction: CategoryPrediction? = nil
     @State private var appliedRuleName: String? = nil
@@ -95,6 +102,8 @@ struct AddTransactionView: View {
     @State private var potentialDuplicate: Transaction? = nil
 
     private var isEditing: Bool { editingTransaction != nil }
+    private var isLoyaltyCategory: Bool { category == .loyaltyEarned || category == .loyaltyRedeemed }
+    private var loyaltyPointsDouble: Double { Double(loyaltyPoints) ?? 0 }
     private let typeOrder: [TransactionType] = [.expense, .income, .transfer]
 
     private var typeBinding: Binding<Int> {
@@ -143,6 +152,14 @@ struct AddTransactionView: View {
         if type == .transfer {
             guard let from = selectedAccount, let to = toAccount, from.id != to.id else { return false }
         }
+        if isLoyaltyCategory {
+            guard loyaltyPointsDouble > 0 else { return false }
+            if isLoyaltyTransfer {
+                guard let from = selectedLoyaltyProgram, let to = toLoyaltyProgram, from.id != to.id else { return false }
+            } else {
+                guard selectedLoyaltyProgram != nil else { return false }
+            }
+        }
         if isScheduled, let sDate = Optional(scheduledDate), sDate <= Date() { return false }
         return true
     }
@@ -162,7 +179,8 @@ struct AddTransactionView: View {
                             transferCard
                         } else {
                             categorySection
-                            if type == .expense { splitSection }
+                            if isLoyaltyCategory { loyaltyProgramCard }
+                            if type == .expense && !isLoyaltyCategory { splitSection }
                         }
 
                         detailsCard
@@ -385,6 +403,13 @@ struct AddTransactionView: View {
                             withAnimation(.snappy(duration: 0.2)) {
                                 category = cat
                                 customCategoryID = nil
+                                let isLoyalty = cat == .loyaltyEarned || cat == .loyaltyRedeemed
+                                if isLoyalty {
+                                    isSplitEnabled = false; splitItems = []
+                                } else {
+                                    selectedLoyaltyProgram = nil; toLoyaltyProgram = nil
+                                    loyaltyPoints = ""; isLoyaltyTransfer = false
+                                }
                             }
                         } label: {
                             FTChip(symbol: cat.icon, title: cat.rawValue,
@@ -1123,12 +1148,12 @@ struct AddTransactionView: View {
         switch type {
         case .income:
             return [.salary, .bonus, .freelance, .business, .investmentIncome, .rental, .dividends,
-                    .interestIncome, .cashbackIncome, .personalLentRepayment, .other]
+                    .interestIncome, .cashbackIncome, .personalLentRepayment, .loyaltyEarned, .other]
         case .expense:
             return [.food, .shopping, .transportation, .fuel, .utilities, .rent, .mortgage, .education,
                     .medical, .entertainment, .travel, .insurance, .investments, .subscriptions, .gifts,
                     .personalCare, .childcare, .pets, .charity, .bankFees, .interestExpense,
-                    .loanRepayment, .creditCard, .other]
+                    .loanRepayment, .creditCard, .loyaltyRedeemed, .other]
         case .transfer: return [.transfer]
         }
     }
@@ -1264,6 +1289,12 @@ struct AddTransactionView: View {
         isTaxDeductible = tx.isTaxDeductible
         isVATReclaimable = tx.isVATReclaimable
         customCategoryID = tx.customCategoryID
+        if let id = tx.linkedLoyaltyProgramID {
+            selectedLoyaltyProgram = loyaltyPrograms.first(where: { $0.id == id })
+        }
+        if tx.loyaltyPointsAmount > 0 {
+            loyaltyPoints = String(format: "%g", tx.loyaltyPointsAmount)
+        }
     }
 
     // MARK: - Save
@@ -1309,6 +1340,19 @@ struct AddTransactionView: View {
                 }
             }
 
+            // Reverse old loyalty points effect
+            if !tx.isPending && !tx.isScheduled,
+               let oldProgramID = tx.linkedLoyaltyProgramID,
+               let oldProgram = loyaltyPrograms.first(where: { $0.id == oldProgramID }) {
+                if tx.category == .loyaltyEarned {
+                    oldProgram.points -= tx.loyaltyPointsAmount
+                    oldProgram.totalPointsEarned = max(0, oldProgram.totalPointsEarned - tx.loyaltyPointsAmount)
+                } else if tx.category == .loyaltyRedeemed {
+                    oldProgram.points += tx.loyaltyPointsAmount
+                    oldProgram.totalPointsRedeemed = max(0, oldProgram.totalPointsRedeemed - tx.loyaltyPointsAmount)
+                }
+            }
+
             tx.title = title; tx.amount = amountValue; tx.currency = currency
             tx.amountInBaseCurrency = convertedAmount; tx.type = type; tx.category = effectiveSplitItems.isEmpty ? category : (effectiveSplitItems.first?.category ?? .other)
             tx.date = date; tx.notes = notes.isEmpty ? nil : notes
@@ -1330,6 +1374,8 @@ struct AddTransactionView: View {
             tx.isTaxDeductible = isTaxDeductible
             tx.isVATReclaimable = isVATReclaimable
             tx.customCategoryID = customCategoryID
+            tx.linkedLoyaltyProgramID = selectedLoyaltyProgram?.id
+            tx.loyaltyPointsAmount = loyaltyPointsDouble
             if let img = receiptImage { tx.receiptImageData = img.jpegData(compressionQuality: 0.7) }
 
             // Attach pending documents
@@ -1345,16 +1391,35 @@ struct AddTransactionView: View {
                 applyBalanceDelta(newDelta, to: newAccount, type: type, toAccount: toAccount)
             }
 
+            // Apply new loyalty points effect
+            if !isPending && !isScheduled && isLoyaltyCategory,
+               let program = selectedLoyaltyProgram {
+                if category == .loyaltyEarned {
+                    program.points += loyaltyPointsDouble
+                    program.totalPointsEarned += loyaltyPointsDouble
+                } else if category == .loyaltyRedeemed {
+                    program.points -= loyaltyPointsDouble
+                    program.totalPointsRedeemed += loyaltyPointsDouble
+                }
+            }
+
         } else {
+            // For loyalty categories the user's explicit choice always wins over AI
             let aiCategory = AICategorizationService.shared.suggestCategory(for: title, amount: amountValue, type: type)
-            let resolvedCategory = effectiveSplitItems.isEmpty
-                ? (aiCategory != .other ? aiCategory : category)
-                : (effectiveSplitItems.first?.category ?? .other)
+            let resolvedCategory: TransactionCategory
+            if isLoyaltyCategory || !effectiveSplitItems.isEmpty {
+                resolvedCategory = effectiveSplitItems.isEmpty ? category : (effectiveSplitItems.first?.category ?? .other)
+            } else {
+                resolvedCategory = aiCategory != .other ? aiCategory : category
+            }
+
+            // For a loyalty transfer the main tx earns into the destination program
+            let effectiveCategory = isLoyaltyTransfer ? .loyaltyEarned : resolvedCategory
 
             let tx = Transaction(
                 title: title, amount: amountValue, currency: currency,
                 amountInBaseCurrency: convertedAmount, type: type,
-                category: resolvedCategory,
+                category: effectiveCategory,
                 date: date, notes: notes.isEmpty ? nil : notes,
                 isRecurring: isRecurring,
                 recurringRule: isRecurring ? RecurringRule(
@@ -1381,6 +1446,10 @@ struct AddTransactionView: View {
             if let img = receiptImage { tx.receiptImageData = img.jpegData(compressionQuality: 0.7) }
             tx.account  = selectedAccount
             tx.toAccount = type == .transfer ? toAccount : nil
+
+            // Loyalty link: for transfer the main tx links to the destination (earn) program
+            tx.linkedLoyaltyProgramID = isLoyaltyTransfer ? toLoyaltyProgram?.id : selectedLoyaltyProgram?.id
+            tx.loyaltyPointsAmount = loyaltyPointsDouble
             context.insert(tx)
 
             // Attach pending documents
@@ -1410,6 +1479,34 @@ struct AddTransactionView: View {
                     case .transfer: break
                     }
                     checkMinBalance(account: account)
+                }
+
+                // Apply loyalty points changes
+                if isLoyaltyTransfer,
+                   let fromProg = selectedLoyaltyProgram, let toProg = toLoyaltyProgram {
+                    // Earn into destination
+                    toProg.points += loyaltyPointsDouble
+                    toProg.totalPointsEarned += loyaltyPointsDouble
+                    // Deduct from source — also create companion redeem transaction
+                    fromProg.points -= loyaltyPointsDouble
+                    fromProg.totalPointsRedeemed += loyaltyPointsDouble
+                    let redeemTx = Transaction(
+                        title: "Transfer to \(toProg.name)",
+                        amount: amountValue, currency: currency,
+                        amountInBaseCurrency: convertedAmount,
+                        type: .expense, category: .loyaltyRedeemed,
+                        date: date, notes: "Points transfer",
+                        tags: tags,
+                        loyaltyPointsAmount: loyaltyPointsDouble
+                    )
+                    redeemTx.linkedLoyaltyProgramID = fromProg.id
+                    context.insert(redeemTx)
+                } else if category == .loyaltyEarned, let prog = selectedLoyaltyProgram {
+                    prog.points += loyaltyPointsDouble
+                    prog.totalPointsEarned += loyaltyPointsDouble
+                } else if category == .loyaltyRedeemed, let prog = selectedLoyaltyProgram {
+                    prog.points -= loyaltyPointsDouble
+                    prog.totalPointsRedeemed += loyaltyPointsDouble
                 }
             }
         }
@@ -1478,6 +1575,149 @@ struct AddTransactionView: View {
                 categoryName: category.rawValue, spent: spent, budget: limit, currency: base
             )
         }
+    }
+
+    // MARK: - Loyalty Program Card
+
+    private var loyaltyProgramCard: some View {
+        VStack(spacing: 0) {
+            if loyaltyPrograms.isEmpty {
+                HStack(spacing: FTSpacing.md) {
+                    FTIconTile(symbol: "star.fill", tint: FTColor.catPurple, size: 36)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("No Loyalty Programs").font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                        Text("Add a program in Accounts first").font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                    }
+                }
+                .padding(.vertical, FTSpacing.md)
+            } else {
+                // Program picker
+                if isLoyaltyTransfer {
+                    // From program (source — will be redeemed)
+                    detailMenuRow(label: "From Program",
+                                  value: selectedLoyaltyProgram?.name ?? "Select Program") {
+                        Picker("From Program", selection: $selectedLoyaltyProgram) {
+                            Text("Select").tag(Optional<LoyaltyProgram>.none)
+                            ForEach(loyaltyPrograms) { p in
+                                Text(p.name).tag(Optional<LoyaltyProgram>.some(p))
+                            }
+                        }
+                    }
+                    .onChange(of: selectedLoyaltyProgram) { _, _ in autoFillCashValue() }
+
+                    if let p = selectedLoyaltyProgram {
+                        HStack { Spacer()
+                            Text("\(Int(p.points).formatted()) \(p.programType.pointsLabel) available")
+                                .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                        }.padding(.bottom, FTSpacing.sm)
+                    }
+
+                    Divider().opacity(0.4)
+                    HStack { Spacer()
+                        Image(systemName: "arrow.down.circle.fill")
+                            .font(.system(size: 20)).foregroundStyle(FTColor.accent)
+                        Spacer()
+                    }.padding(.vertical, FTSpacing.sm)
+                    Divider().opacity(0.4)
+
+                    // To program (destination — will be earned into)
+                    detailMenuRow(label: "To Program",
+                                  value: toLoyaltyProgram?.name ?? "Select Program") {
+                        Picker("To Program", selection: $toLoyaltyProgram) {
+                            Text("Select").tag(Optional<LoyaltyProgram>.none)
+                            ForEach(loyaltyPrograms.filter { $0.id != selectedLoyaltyProgram?.id }) { p in
+                                Text(p.name).tag(Optional<LoyaltyProgram>.some(p))
+                            }
+                        }
+                    }
+                    .onChange(of: toLoyaltyProgram) { _, _ in autoFillCashValue() }
+
+                } else {
+                    // Single program picker
+                    detailMenuRow(label: "Program",
+                                  value: selectedLoyaltyProgram?.name ?? "Select Program") {
+                        Picker("Loyalty Program", selection: $selectedLoyaltyProgram) {
+                            Text("Select").tag(Optional<LoyaltyProgram>.none)
+                            ForEach(loyaltyPrograms) { p in
+                                Label(p.name, systemImage: p.programType.icon)
+                                    .tag(Optional<LoyaltyProgram>.some(p))
+                            }
+                        }
+                    }
+                    .onChange(of: selectedLoyaltyProgram) { _, p in
+                        if let p { currency = p.currency }
+                        autoFillCashValue()
+                    }
+
+                    if let p = selectedLoyaltyProgram {
+                        HStack { Spacer()
+                            Text("\(Int(p.points).formatted()) \(p.programType.pointsLabel) currently")
+                                .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                        }.padding(.bottom, FTSpacing.sm)
+                    }
+                }
+
+                // Transfer toggle (earn only, not when editing)
+                if category == .loyaltyEarned && !isEditing {
+                    Divider().opacity(0.4)
+                    HStack(spacing: FTSpacing.md) {
+                        FTIconTile(symbol: "arrow.triangle.2.circlepath", tint: FTColor.catPurple, size: 36)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Transfer from another program")
+                                .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                            Text("Moves points between two programs")
+                                .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                        }
+                        Spacer()
+                        Toggle("", isOn: $isLoyaltyTransfer)
+                            .tint(FTColor.accent).labelsHidden()
+                            .onChange(of: isLoyaltyTransfer) { _, on in
+                                if !on { toLoyaltyProgram = nil }
+                            }
+                    }
+                    .padding(.vertical, 13)
+                }
+
+                // Points amount field
+                Divider().opacity(0.4)
+                HStack(spacing: FTSpacing.md) {
+                    let label = (isLoyaltyTransfer ? selectedLoyaltyProgram : selectedLoyaltyProgram)?
+                        .programType.pointsLabel ?? "Points"
+                    Text(label).font(.ftBody).foregroundStyle(FTColor.textSecondary)
+                    Spacer()
+                    TextField("0", text: $loyaltyPoints)
+                        .keyboardType(.decimalPad)
+                        .multilineTextAlignment(.trailing)
+                        .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                        .frame(maxWidth: 140)
+                        .onChange(of: loyaltyPoints) { _, _ in autoFillCashValue() }
+                }
+                .padding(.vertical, 13)
+
+                // Estimated cash value hint
+                let hintProgram = isLoyaltyTransfer ? (toLoyaltyProgram ?? selectedLoyaltyProgram) : selectedLoyaltyProgram
+                if let p = hintProgram, loyaltyPointsDouble > 0 {
+                    Divider().opacity(0.4)
+                    HStack(spacing: FTSpacing.md) {
+                        Text("Est. Value").font(.ftBody).foregroundStyle(FTColor.textSecondary)
+                        Spacer()
+                        Text("≈ \((loyaltyPointsDouble * p.pointsValuePerUnit).formatted(as: p.currency))")
+                            .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                    }
+                    .padding(.vertical, 13)
+                }
+            }
+        }
+        .padding(.horizontal, FTSpacing.lg)
+        .ftGlass(FTRadius.md)
+    }
+
+    private func autoFillCashValue() {
+        let prog = isLoyaltyTransfer ? (toLoyaltyProgram ?? selectedLoyaltyProgram) : selectedLoyaltyProgram
+        guard let p = prog, loyaltyPointsDouble > 0 else { return }
+        let cashValue = loyaltyPointsDouble * p.pointsValuePerUnit
+        let currentAmt = AmountTextField.double(from: amount)
+        if currentAmt == 0 { amount = AmountTextField.string(from: cashValue) }
     }
 
     private func detailMenuRow<P: View>(label: String, value: String, @ViewBuilder picker: () -> P) -> some View {

@@ -136,6 +136,10 @@ final class Transaction {
     // Custom category override (references CustomCategory.id)
     var customCategoryID: UUID?
 
+    // Loyalty points tracking
+    var linkedLoyaltyProgramID: UUID?
+    var loyaltyPointsAmount: Double
+
     init(
         id: UUID = UUID(),
         title: String,
@@ -167,7 +171,9 @@ final class Transaction {
         longitude: Double? = nil,
         isTaxDeductible: Bool = false,
         isVATReclaimable: Bool = false,
-        customCategoryID: UUID? = nil
+        customCategoryID: UUID? = nil,
+        linkedLoyaltyProgramID: UUID? = nil,
+        loyaltyPointsAmount: Double = 0
     ) {
         self.id = id
         self.title = title
@@ -200,6 +206,8 @@ final class Transaction {
         self.isTaxDeductible = isTaxDeductible
         self.isVATReclaimable = isVATReclaimable
         self.customCategoryID = customCategoryID
+        self.linkedLoyaltyProgramID = linkedLoyaltyProgramID
+        self.loyaltyPointsAmount = loyaltyPointsAmount
         self.documents = []
         self.createdAt = Date()
         self.updatedAt = Date()
@@ -286,6 +294,9 @@ enum TransactionCategory: String, Codable, CaseIterable {
     // Personal lending
     case personalLent            = "Personal Lent"
     case personalLentRepayment   = "Personal Lent Repayment"
+    // Loyalty & Rewards
+    case loyaltyEarned   = "Loyalty Points Earned"
+    case loyaltyRedeemed = "Loyalty Points Redeemed"
     // Shared
     case transfer       = "Transfer"
     case loanRepayment  = "Loan Repayment"
@@ -328,6 +339,8 @@ enum TransactionCategory: String, Codable, CaseIterable {
         case .loanRepayment:     return "creditcard"
         case .personalLent:             return "hand.raised.fill"
         case .personalLentRepayment:    return "hand.thumbsup.fill"
+        case .loyaltyEarned:            return "star.fill"
+        case .loyaltyRedeemed:          return "star.slash.fill"
         case .creditCard:        return "creditcard.fill"
         case .other:             return "ellipsis.circle"
         }
@@ -359,6 +372,8 @@ enum TransactionCategory: String, Codable, CaseIterable {
         case .cashbackIncome:    return "teal"
         case .personalLent:             return "orange"
         case .personalLentRepayment:    return "teal"
+        case .loyaltyEarned:            return "purple"
+        case .loyaltyRedeemed:          return "orange"
         default:                 return "gray"
         }
     }

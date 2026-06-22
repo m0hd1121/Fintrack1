@@ -665,6 +665,20 @@ struct LoyaltyProgramRow: View {
                         Text("· Expiring").font(.ftCaption).foregroundStyle(FTColor.expense)
                     }
                 }
+                if program.totalPointsEarned > 0 || program.totalPointsRedeemed > 0 {
+                    HStack(spacing: 6) {
+                        if program.totalPointsEarned > 0 {
+                            Label("\(Int(program.totalPointsEarned).formatted()) earned",
+                                  systemImage: "arrow.down.circle.fill")
+                                .font(.ftLabel).foregroundStyle(FTColor.income)
+                        }
+                        if program.totalPointsRedeemed > 0 {
+                            Label("\(Int(program.totalPointsRedeemed).formatted()) redeemed",
+                                  systemImage: "arrow.up.circle.fill")
+                                .font(.ftLabel).foregroundStyle(FTColor.expense)
+                        }
+                    }
+                }
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 2) {
