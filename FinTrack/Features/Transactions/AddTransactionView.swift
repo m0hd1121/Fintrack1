@@ -1128,7 +1128,7 @@ struct AddTransactionView: View {
             return [.food, .shopping, .transportation, .fuel, .utilities, .rent, .mortgage, .education,
                     .medical, .entertainment, .travel, .insurance, .investments, .subscriptions, .gifts,
                     .personalCare, .childcare, .pets, .charity, .bankFees, .interestExpense,
-                    .loanRepayment, .creditCard, .personalLent, .other]
+                    .loanRepayment, .creditCard, .other]
         case .transfer: return [.transfer]
         }
     }
