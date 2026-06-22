@@ -268,18 +268,17 @@ enum AIFeature: String, CaseIterable, Identifiable {
         }
     }
 
-    @ViewBuilder
-    var destination: some View {
+    var destination: AnyView {
         switch self {
-        case .healthScore:        FinancialHealthView()
-        case .anomalyDetection:   AnomalyDetectionView()
-        case .predictiveBalance:  PredictiveBalanceView()
-        case .spendingPatterns:   SpendingPatternsView()
-        case .savingsOpportunity: SavingsOpportunityView()
-        case .budgetingCoach:     BudgetingCoachView()
-        case .billNegotiation:    BillNegotiationView()
-        case .esgAnalysis:        ESGAnalysisView()
-        case .digitalTwin:        DigitalTwinView()
+        case .healthScore:        AnyView(FinancialHealthView())
+        case .anomalyDetection:   AnyView(AnomalyDetectionView())
+        case .predictiveBalance:  AnyView(PredictiveBalanceView())
+        case .spendingPatterns:   AnyView(SpendingPatternsView())
+        case .savingsOpportunity: AnyView(SavingsOpportunityView())
+        case .budgetingCoach:     AnyView(BudgetingCoachView())
+        case .billNegotiation:    AnyView(BillNegotiationView())
+        case .esgAnalysis:        AnyView(ESGAnalysisView())
+        case .digitalTwin:        AnyView(DigitalTwinView())
         }
     }
 }

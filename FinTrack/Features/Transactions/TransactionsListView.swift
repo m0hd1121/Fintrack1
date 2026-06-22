@@ -419,7 +419,12 @@ struct TransactionsListView: View {
             switch tx.type {
             case .income:   account.balance -= delta
             case .expense:  account.balance += delta
-            case .transfer: account.balance += delta
+            case .transfer:
+                account.balance += delta  // restore source
+                if let toAccount = tx.toAccount {
+                    let toDelta = currencyService.convert(tx.amount, from: tx.currency, to: toAccount.currency)
+                    toAccount.balance -= toDelta  // reverse destination credit
+                }
             }
         }
         if let loan = tx.linkedLoan,

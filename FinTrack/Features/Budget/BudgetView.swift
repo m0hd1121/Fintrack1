@@ -16,6 +16,7 @@ struct BudgetView: View {
     @State private var tab = 0          // 0=Monthly, 1=Annual, 2=Envelopes, 3=Zero-Based
     @State private var selectedMonth = Date()
     @State private var showingAddBudget = false
+    @State private var editingBudget: Budget? = nil
     @State private var showingAddGoal = false
     @State private var showingAddEnvelope = false
     @State private var showingTemplates = false
@@ -132,6 +133,7 @@ struct BudgetView: View {
             .navigationBarTitleDisplayMode(.large)
             .toolbar { toolbarContent }
             .sheet(isPresented: $showingAddBudget) { AddBudgetView() }
+            .sheet(item: $editingBudget) { AddBudgetView(editingBudget: $0) }
             .sheet(isPresented: $showingAddGoal) { AddSavingsGoalView() }
             .sheet(isPresented: $showingAddEnvelope) { AddEnvelopeView() }
             .navigationDestination(item: $detailGoal) { goal in SavingsGoalDetailView(goal: goal) }
@@ -253,7 +255,7 @@ struct BudgetView: View {
                         .contentShape(RoundedRectangle(cornerRadius: FTRadius.md))
                         .onTapGesture { detailBudget = budget }
                         .swipeActions(edge: .leading) {
-                            NavigationLink(destination: LazyView { AddBudgetView(editingBudget: budget) }) {
+                            Button { editingBudget = budget } label: {
                                 Label("Edit", systemImage: "pencil")
                             }.tint(FTColor.accent)
                         }
@@ -441,7 +443,7 @@ struct BudgetView: View {
                     ForEach(activeMonthlyBudgets, id: \.id) { budget in
                         ZeroBasedAllocationRow(budget: budget, currency: baseCurrency)
                             .swipeActions(edge: .leading) {
-                                NavigationLink(destination: LazyView { AddBudgetView(editingBudget: budget) }) {
+                                Button { editingBudget = budget } label: {
                                     Label("Edit", systemImage: "pencil")
                                 }.tint(FTColor.accent)
                             }

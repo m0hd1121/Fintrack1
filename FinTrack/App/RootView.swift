@@ -126,6 +126,7 @@ struct RootView: View {
             case .transactions: TransactionsListView()
             case .budget:       BudgetView()
             case .accounts:     AccountsView()
+            case .reports:      ReportsView()
             default:            DashboardView()
             }
         }
@@ -194,7 +195,12 @@ struct RootView: View {
                 switch tx.type {
                 case .income:   account.balance += delta
                 case .expense:  account.balance -= delta
-                case .transfer: account.balance += delta
+                case .transfer:
+                    account.balance -= delta   // debit source
+                    if let toAccount = tx.toAccount {
+                        let toDelta = currencyService.convert(tx.amount, from: tx.currency, to: toAccount.currency)
+                        toAccount.balance += toDelta  // credit destination
+                    }
                 }
             }
             didChange = true

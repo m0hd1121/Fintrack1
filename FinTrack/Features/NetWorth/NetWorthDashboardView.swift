@@ -16,7 +16,9 @@ struct NetWorthDashboardView: View {
     @Query private var investments: [Investment]
     @Query private var cryptoHoldings: [CryptoHolding]
     @Query(filter: #Predicate<GoldHolding> { !$0.isArchived }) private var goldHoldings: [GoldHolding]
-    @Query(filter: #Predicate<GiftCard> { !$0.isExpired && !$0.isUsedUp }) private var giftCards: [GiftCard]
+    // isExpired is a computed property — cannot be used in #Predicate (SwiftData SQL translation fails)
+    @Query private var allGiftCards: [GiftCard]
+    private var giftCards: [GiftCard] { allGiftCards.filter { !$0.isExpired && !$0.isUsedUp } }
     @Query(filter: #Predicate<RealEstateProperty> { !$0.isArchived }) private var realEstateProperties: [RealEstateProperty]
     @Query(filter: #Predicate<Vehicle> { !$0.isArchived }) private var vehicles: [Vehicle]
     @Query(filter: #Predicate<PersonalAsset> { !$0.isArchived }) private var personalAssets: [PersonalAsset]

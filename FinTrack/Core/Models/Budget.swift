@@ -229,7 +229,7 @@ enum GoalContributionFrequency: String, Codable, CaseIterable {
             return cal.date(byAdding: .weekOfYear, value: 2, to: date) ?? date
         case .monthly:
             var comps = cal.dateComponents([.year, .month], from: date)
-            comps.month! += 1
+            comps.month = (comps.month ?? 0) + 1
             comps.day = min(dayOfMonth, 28)
             return cal.date(from: comps) ?? date
         }

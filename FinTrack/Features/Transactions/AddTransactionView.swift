@@ -771,7 +771,7 @@ struct AddTransactionView: View {
                     Spacer()
                     DatePicker(
                         "", selection: $scheduledDate,
-                        in: Calendar.current.date(byAdding: .day, value: 1, to: Date())!...,
+                        in: (Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date())...,
                         displayedComponents: .date
                     )
                     .labelsHidden()
@@ -1336,7 +1336,12 @@ struct AddTransactionView: View {
                 switch tx.type {
                 case .income:   oldAccount.balance -= oldDelta
                 case .expense:  oldAccount.balance += oldDelta
-                case .transfer: break
+                case .transfer:
+                    oldAccount.balance += oldDelta  // restore source
+                    if let oldToAccount = tx.toAccount {
+                        let oldToDelta = currencyService.convert(tx.amount, from: tx.currency, to: oldToAccount.currency)
+                        oldToAccount.balance -= oldToDelta  // restore destination
+                    }
                 }
             }
 
@@ -1490,10 +1495,11 @@ struct AddTransactionView: View {
                     // Deduct from source — also create companion redeem transaction
                     fromProg.points -= loyaltyPointsDouble
                     fromProg.totalPointsRedeemed += loyaltyPointsDouble
+                    // amount=0 so this companion record doesn't inflate expense totals
                     let redeemTx = Transaction(
                         title: "Transfer to \(toProg.name)",
-                        amount: amountValue, currency: currency,
-                        amountInBaseCurrency: convertedAmount,
+                        amount: 0, currency: currency,
+                        amountInBaseCurrency: 0,
                         type: .expense, category: .loyaltyRedeemed,
                         date: date, notes: "Points transfer",
                         tags: tags,
@@ -1681,8 +1687,7 @@ struct AddTransactionView: View {
                 // Points amount field
                 Divider().opacity(0.4)
                 HStack(spacing: FTSpacing.md) {
-                    let label = (isLoyaltyTransfer ? selectedLoyaltyProgram : selectedLoyaltyProgram)?
-                        .programType.pointsLabel ?? "Points"
+                    let label = selectedLoyaltyProgram?.programType.pointsLabel ?? "Points"
                     Text(label).font(.ftBody).foregroundStyle(FTColor.textSecondary)
                     Spacer()
                     TextField("0", text: $loyaltyPoints)
