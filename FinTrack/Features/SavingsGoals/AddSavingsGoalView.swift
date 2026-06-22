@@ -73,7 +73,7 @@ struct AddSavingsGoalView: View {
                         Color.clear.frame(height: 80)
                     }
                     .padding(.horizontal, FTSpacing.screen)
-                    .padding(.top, FTSpacing.sm)
+                    .padding(.top, FTSpacing.lg)
                 }
                 .scrollContentBackground(.hidden)
                 .scrollDismissesKeyboard(.interactively)
@@ -218,7 +218,7 @@ struct AddSavingsGoalView: View {
                     }
                 }
             }
-            .padding(.horizontal, FTSpacing.lg)
+            .padding(FTSpacing.lg)
             .ftGlass(FTRadius.md)
 
             // Icon picker
@@ -318,7 +318,7 @@ struct AddSavingsGoalView: View {
                         .padding(.vertical, 10)
                 }
             }
-            .padding(.horizontal, FTSpacing.lg)
+            .padding(FTSpacing.lg)
             .ftGlass(FTRadius.md)
         }
         .onChange(of: emergencyMonths) { _, months in
@@ -380,7 +380,7 @@ struct AddSavingsGoalView: View {
                     .padding(.vertical, 12)
                 }
             }
-            .padding(.horizontal, FTSpacing.lg)
+            .padding(FTSpacing.lg)
             .ftGlass(FTRadius.md)
 
             VStack(alignment: .leading, spacing: FTSpacing.xs) {
@@ -444,7 +444,7 @@ struct AddSavingsGoalView: View {
                     }
                 }
             }
-            .padding(.horizontal, FTSpacing.lg)
+            .padding(FTSpacing.lg)
             .ftGlass(FTRadius.md)
         }
     }
@@ -499,7 +499,7 @@ struct AddSavingsGoalView: View {
                     .padding(.vertical, 12)
                 }
             }
-            .padding(.horizontal, FTSpacing.lg)
+            .padding(FTSpacing.lg)
             .ftGlass(FTRadius.md)
         }
     }
@@ -584,7 +584,7 @@ struct AddSavingsGoalView: View {
                     }
                 }
             }
-            .padding(.horizontal, FTSpacing.lg)
+            .padding(FTSpacing.lg)
             .ftGlass(FTRadius.md)
         }
     }
