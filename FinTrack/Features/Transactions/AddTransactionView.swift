@@ -96,6 +96,9 @@ struct AddTransactionView: View {
     // — New: category management sheet
     @State private var showingCategoryManagement = false
 
+    // — Category search
+    @State private var categorySearch = ""
+
     // — Lent / Borrowed mode (extends transaction type without touching the schema)
     @State private var modeIndex: Int = 0   // 0=Expense 1=Income 2=Transfer 3=Lent 4=Borrowed
     @State private var lentBorrowerName = ""
@@ -418,66 +421,78 @@ struct AddTransactionView: View {
                 }
             }
 
-            // Built-in categories
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: FTSpacing.sm) {
-                    ForEach(relevantCategories, id: \.self) { cat in
-                        Button {
-                            withAnimation(.snappy(duration: 0.2)) {
-                                category = cat
-                                customCategoryID = nil
-                                let isLoyalty = cat == .loyaltyEarned || cat == .loyaltyRedeemed
-                                if isLoyalty {
-                                    isSplitEnabled = false; splitItems = []
-                                } else {
-                                    selectedLoyaltyProgram = nil; toLoyaltyProgram = nil
-                                    loyaltyPoints = ""; isLoyaltyTransfer = false
-                                }
-                            }
-                        } label: {
-                            FTChip(symbol: cat.icon, title: cat.rawValue,
-                                   selected: category == cat && customCategoryID == nil)
-                        }
-                        .buttonStyle(.plain)
+            // Search field
+            HStack(spacing: FTSpacing.sm) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 13))
+                    .foregroundStyle(FTColor.textMuted)
+                TextField("Search categories…", text: $categorySearch)
+                    .font(.ftCallout)
+                    .foregroundStyle(FTColor.textPrimary)
+                    .autocorrectionDisabled()
+                if !categorySearch.isEmpty {
+                    Button { withAnimation(.snappy(duration: 0.15)) { categorySearch = "" } } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 14))
+                            .foregroundStyle(FTColor.textMuted)
                     }
+                    .buttonStyle(.plain)
                 }
-                .padding(.horizontal, 2)
             }
+            .padding(.horizontal, FTSpacing.md)
+            .padding(.vertical, 9)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: FTRadius.sm))
 
-            // Custom categories row
-            let customCats = relevantCustomCategories
-            if !customCats.isEmpty {
+            if categorySearch.isEmpty {
+                // Normal horizontal chip scroll — built-in categories
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: FTSpacing.sm) {
-                        ForEach(customCats) { cat in
-                            Button {
-                                withAnimation(.snappy(duration: 0.2)) {
-                                    customCategoryID = cat.id
-                                }
-                            } label: {
-                                HStack(spacing: 6) {
-                                    Image(systemName: cat.icon)
-                                        .font(.system(size: 14, weight: .semibold))
-                                    Text(cat.name).font(.ftCallout)
-                                }
-                                .padding(.horizontal, 13).padding(.vertical, 9)
-                                .foregroundStyle(customCategoryID == cat.id ? .white : FTColor.textPrimary)
-                                .background(
-                                    customCategoryID == cat.id
-                                        ? AnyShapeStyle(cat.color)
-                                        : AnyShapeStyle(.regularMaterial),
-                                    in: .capsule
-                                )
-                                .overlay(Capsule().strokeBorder(.white.opacity(0.2), lineWidth: 0.5))
-                            }
-                            .buttonStyle(.plain)
+                        ForEach(relevantCategories, id: \.self) { cat in
+                            categoryChipButton(cat)
                         }
-                        manageButton
                     }
                     .padding(.horizontal, 2)
                 }
+
+                // Custom categories row
+                let customCats = relevantCustomCategories
+                if !customCats.isEmpty {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: FTSpacing.sm) {
+                            ForEach(customCats) { cat in
+                                customCategoryChipButton(cat)
+                            }
+                            manageButton
+                        }
+                        .padding(.horizontal, 2)
+                    }
+                } else {
+                    manageButton
+                }
             } else {
-                manageButton
+                // Search results grid
+                let builtIn = filteredBuiltinCategories
+                let custom  = filteredCustomCategories
+                if builtIn.isEmpty && custom.isEmpty {
+                    HStack(spacing: FTSpacing.sm) {
+                        Image(systemName: "magnifyingglass").foregroundStyle(FTColor.textMuted)
+                        Text("No categories match "\(categorySearch)"")
+                            .font(.ftCaption).foregroundStyle(FTColor.textMuted)
+                    }
+                    .padding(.vertical, FTSpacing.sm)
+                } else {
+                    LazyVGrid(
+                        columns: [GridItem(.adaptive(minimum: 110, maximum: 180), spacing: FTSpacing.sm)],
+                        spacing: FTSpacing.sm
+                    ) {
+                        ForEach(builtIn, id: \.self) { cat in
+                            categoryChipButton(cat)
+                        }
+                        ForEach(custom) { cat in
+                            customCategoryChipButton(cat)
+                        }
+                    }
+                }
             }
 
             // Rule applied banner
@@ -491,6 +506,54 @@ struct AddTransactionView: View {
                 .foregroundStyle(FTColor.income)
             }
         }
+    }
+
+    @ViewBuilder
+    private func categoryChipButton(_ cat: TransactionCategory) -> some View {
+        Button {
+            withAnimation(.snappy(duration: 0.2)) {
+                category = cat
+                customCategoryID = nil
+                categorySearch = ""
+                let isLoyalty = cat == .loyaltyEarned || cat == .loyaltyRedeemed
+                if isLoyalty {
+                    isSplitEnabled = false; splitItems = []
+                } else {
+                    selectedLoyaltyProgram = nil; toLoyaltyProgram = nil
+                    loyaltyPoints = ""; isLoyaltyTransfer = false
+                }
+            }
+        } label: {
+            FTChip(symbol: cat.icon, title: cat.rawValue,
+                   selected: category == cat && customCategoryID == nil)
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private func customCategoryChipButton(_ cat: CustomCategory) -> some View {
+        Button {
+            withAnimation(.snappy(duration: 0.2)) {
+                customCategoryID = cat.id
+                categorySearch = ""
+            }
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: cat.icon)
+                    .font(.system(size: 14, weight: .semibold))
+                Text(cat.name).font(.ftCallout)
+            }
+            .padding(.horizontal, 13).padding(.vertical, 9)
+            .foregroundStyle(customCategoryID == cat.id ? .white : FTColor.textPrimary)
+            .background(
+                customCategoryID == cat.id
+                    ? AnyShapeStyle(cat.color)
+                    : AnyShapeStyle(.regularMaterial),
+                in: .capsule
+            )
+            .overlay(Capsule().strokeBorder(.white.opacity(0.2), lineWidth: 0.5))
+        }
+        .buttonStyle(.plain)
     }
 
     private var manageButton: some View {
@@ -508,6 +571,16 @@ struct AddTransactionView: View {
 
     private var relevantCustomCategories: [CustomCategory] {
         customCategories.filter { $0.isRoot && $0.matchesType(type) }
+    }
+
+    private var filteredBuiltinCategories: [TransactionCategory] {
+        guard !categorySearch.isEmpty else { return relevantCategories }
+        return relevantCategories.filter { $0.label.localizedCaseInsensitiveContains(categorySearch) }
+    }
+
+    private var filteredCustomCategories: [CustomCategory] {
+        guard !categorySearch.isEmpty else { return relevantCustomCategories }
+        return relevantCustomCategories.filter { $0.name.localizedCaseInsensitiveContains(categorySearch) }
     }
 
     // MARK: - Lent card
