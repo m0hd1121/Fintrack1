@@ -10,14 +10,14 @@ struct AddTransactionView: View {
     @Environment(\.modelContext) private var context
     @Environment(AppState.self) private var appState
     @Environment(CurrencyService.self) private var currencyService
-    @State private var scanner = ReceiptScannerService.shared
-    @State private var speech  = SpeechTransactionService.shared
+    private let scanner = ReceiptScannerService.shared
+    private let speech  = SpeechTransactionService.shared
 
     var editingTransaction: Transaction? = nil
 
     @Query private var accounts: [Account]
     @Query private var budgets: [Budget]
-    @Query(filter: #Predicate<CustomCategory> { !$0.isArchived }, sort: \CustomCategory.sortOrder)
+    @Query(filter: #Predicate<CustomCategory> { $0.isArchived == false }, sort: \CustomCategory.sortOrder)
     private var customCategories: [CustomCategory]
     @Query(sort: \CategorizationRule.priority)
     private var categorizationRules: [CategorizationRule]
