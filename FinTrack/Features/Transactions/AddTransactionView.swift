@@ -96,6 +96,15 @@ struct AddTransactionView: View {
     // — New: category management sheet
     @State private var showingCategoryManagement = false
 
+    // — Lent / Borrowed mode (extends transaction type without touching the schema)
+    @State private var modeIndex: Int = 0   // 0=Expense 1=Income 2=Transfer 3=Lent 4=Borrowed
+    @State private var lentBorrowerName = ""
+    @State private var lentHasDueDate = false
+    @State private var lentDueDate = Calendar.current.date(byAdding: .day, value: 30, to: Date()) ?? Date()
+    @State private var borrowedLenderName = ""
+    @State private var borrowedHasDueDate = false
+    @State private var borrowedDueDate = Calendar.current.date(byAdding: .day, value: 30, to: Date()) ?? Date()
+
     // — Duplicate / balance
     @State private var showingInsufficientFunds = false
     @State private var showingDuplicateWarning = false
@@ -104,17 +113,24 @@ struct AddTransactionView: View {
     private var isEditing: Bool { editingTransaction != nil }
     private var isLoyaltyCategory: Bool { category == .loyaltyEarned || category == .loyaltyRedeemed }
     private var loyaltyPointsDouble: Double { Double(loyaltyPoints) ?? 0 }
-    private let typeOrder: [TransactionType] = [.expense, .income, .transfer]
+    private var isLentMode: Bool { modeIndex == 3 }
+    private var isBorrowedMode: Bool { modeIndex == 4 }
 
-    private var typeBinding: Binding<Int> {
+    private var modeBinding: Binding<Int> {
         Binding(
-            get: { typeOrder.firstIndex(of: type) ?? 0 },
+            get: { modeIndex },
             set: { newIndex in
-                type = typeOrder[newIndex]
+                modeIndex = newIndex
                 selectedSubtype = nil
                 isSplitEnabled = false
                 splitItems = []
-                updateDefaultCategory(for: type)
+                switch newIndex {
+                case 1: type = .income;   updateDefaultCategory(for: .income)
+                case 2: type = .transfer; category = .transfer
+                case 3: type = .expense;  category = .personalLent
+                case 4: type = .income;   category = .other
+                default: type = .expense; updateDefaultCategory(for: .expense)
+                }
             }
         )
     }
@@ -148,7 +164,10 @@ struct AddTransactionView: View {
     }
 
     private var canSave: Bool {
-        guard !title.isEmpty, amountDouble != nil, !isBalanceInsufficient, splitIsValid else { return false }
+        guard amountDouble != nil, !isBalanceInsufficient, splitIsValid else { return false }
+        if isLentMode     { return !lentBorrowerName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        if isBorrowedMode { return !borrowedLenderName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        guard !title.isEmpty else { return false }
         if type == .transfer {
             guard let from = selectedAccount, let to = toAccount, from.id != to.id else { return false }
         }
@@ -171,11 +190,15 @@ struct AddTransactionView: View {
 
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
-                        FTSegmentedControl(options: ["Expense", "Income", "Transfer"], selection: typeBinding)
+                        FTSegmentedControl(options: ["Expense", "Income", "Transfer", "Lent", "Borrowed"], selection: modeBinding)
 
                         amountCard
 
-                        if type == .transfer {
+                        if isLentMode {
+                            lentDetailsCard
+                        } else if isBorrowedMode {
+                            borrowedDetailsCard
+                        } else if type == .transfer {
                             transferCard
                         } else {
                             categorySection
@@ -186,7 +209,7 @@ struct AddTransactionView: View {
                         detailsCard
                         recurringCard
                         statusCard
-                        if type == .expense { taxSection }
+                        if type == .expense && !isLentMode { taxSection }
                         notesReceiptCard
 
                         if !pendingDocuments.isEmpty { documentsPreviewCard }
@@ -205,7 +228,7 @@ struct AddTransactionView: View {
                 .scrollDismissesKeyboard(.interactively)
 
                 Button { saveTransaction() } label: {
-                    Text(isEditing ? "Update Transaction" : "Add Transaction")
+                    Text(isEditing ? "Update Transaction" : isLentMode ? "Record Lent" : isBorrowedMode ? "Record Borrowed" : "Add Transaction")
                 }
                 .buttonStyle(.ftPrimary)
                 .disabled(!canSave)
@@ -487,6 +510,96 @@ struct AddTransactionView: View {
         customCategories.filter { $0.isRoot && $0.matchesType(type) }
     }
 
+    // MARK: - Lent card
+
+    private var lentDetailsCard: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: FTSpacing.md) {
+                Text("Borrower").font(.ftBody).foregroundStyle(FTColor.textSecondary)
+                Spacer()
+                TextField("Full name", text: $lentBorrowerName)
+                    .multilineTextAlignment(.trailing)
+                    .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+            }
+            .padding(.vertical, 13)
+
+            Divider().opacity(0.4)
+
+            Toggle(isOn: $lentHasDueDate) {
+                Text("Set Repayment Due Date").font(.ftBody).foregroundStyle(FTColor.textPrimary)
+            }
+            .tint(FTColor.accent)
+            .padding(.vertical, 13)
+
+            if lentHasDueDate {
+                Divider().opacity(0.4)
+                HStack(spacing: FTSpacing.md) {
+                    Text("Due Date").font(.ftBody).foregroundStyle(FTColor.textSecondary)
+                    Spacer()
+                    DatePicker("", selection: $lentDueDate, in: Date()..., displayedComponents: .date)
+                        .labelsHidden()
+                }
+                .padding(.vertical, 9)
+            }
+
+            Divider().opacity(0.4)
+            HStack(spacing: FTSpacing.xs) {
+                Image(systemName: "info.circle").font(.system(size: 12))
+                Text("Creates a record in Debt Management and debits the selected account.")
+                    .font(.ftCaption)
+            }
+            .foregroundStyle(FTColor.textMuted)
+            .padding(.vertical, 10)
+        }
+        .padding(.horizontal, FTSpacing.lg)
+        .ftGlass(FTRadius.md)
+    }
+
+    // MARK: - Borrowed card
+
+    private var borrowedDetailsCard: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: FTSpacing.md) {
+                Text("Lender").font(.ftBody).foregroundStyle(FTColor.textSecondary)
+                Spacer()
+                TextField("Full name", text: $borrowedLenderName)
+                    .multilineTextAlignment(.trailing)
+                    .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+            }
+            .padding(.vertical, 13)
+
+            Divider().opacity(0.4)
+
+            Toggle(isOn: $borrowedHasDueDate) {
+                Text("Set Repayment Due Date").font(.ftBody).foregroundStyle(FTColor.textPrimary)
+            }
+            .tint(FTColor.expense)
+            .padding(.vertical, 13)
+
+            if borrowedHasDueDate {
+                Divider().opacity(0.4)
+                HStack(spacing: FTSpacing.md) {
+                    Text("Due Date").font(.ftBody).foregroundStyle(FTColor.textSecondary)
+                    Spacer()
+                    DatePicker("", selection: $borrowedDueDate, in: Date()..., displayedComponents: .date)
+                        .labelsHidden()
+                }
+                .padding(.vertical, 9)
+            }
+
+            Divider().opacity(0.4)
+            HStack(spacing: FTSpacing.xs) {
+                Image(systemName: "info.circle").font(.system(size: 12))
+                Text("Creates a record in Debt Management and credits the selected account.")
+                    .font(.ftCaption)
+            }
+            .foregroundStyle(FTColor.textMuted)
+            .padding(.vertical, 10)
+        }
+        .padding(.horizontal, FTSpacing.lg)
+        .ftGlass(FTRadius.md)
+    }
+
     // MARK: - Split section
 
     private var splitSection: some View {
@@ -596,8 +709,8 @@ struct AddTransactionView: View {
             }
             .padding(.vertical, 13)
 
-            // Income source (income only)
-            if type == .income {
+            // Income source (income only, not for borrowed)
+            if type == .income && !isBorrowedMode {
                 Divider().opacity(0.4)
                 HStack(spacing: FTSpacing.md) {
                     Text("Source").font(.ftBody).foregroundStyle(FTColor.textSecondary)
@@ -1300,8 +1413,17 @@ struct AddTransactionView: View {
     // MARK: - Save
 
     private func saveTransaction() {
-        guard canSave, let amountValue = amountDouble, !title.isEmpty else { return }
+        guard canSave, let amountValue = amountDouble else { return }
         if isBalanceInsufficient { showingInsufficientFunds = true; return }
+
+        // Auto-generate title for lent/borrowed if not filled
+        if isLentMode && title.isEmpty {
+            title = "Lent to \(lentBorrowerName.trimmingCharacters(in: .whitespacesAndNewlines))"
+        } else if isBorrowedMode && title.isEmpty {
+            title = "Borrowed from \(borrowedLenderName.trimmingCharacters(in: .whitespacesAndNewlines))"
+        }
+
+        guard !title.isEmpty else { return }
 
         // Duplicate detection (new transactions only)
         if !isEditing, let dup = findDuplicate(amount: amountValue, date: date, title: title) {
@@ -1514,6 +1636,33 @@ struct AddTransactionView: View {
                     prog.points -= loyaltyPointsDouble
                     prog.totalPointsRedeemed += loyaltyPointsDouble
                 }
+            }
+        }
+
+        // Create Debt Management records for lent/borrowed
+        if !isEditing {
+            if isLentMode {
+                let lent = MoneyLent(
+                    borrowerName: lentBorrowerName.trimmingCharacters(in: .whitespacesAndNewlines),
+                    amount: amountValue,
+                    currency: currency,
+                    lendingDate: date,
+                    dueDate: lentHasDueDate ? lentDueDate : nil,
+                    notes: notes.isEmpty ? nil : notes,
+                    color: "blue"
+                )
+                context.insert(lent)
+            } else if isBorrowedMode {
+                let borrowed = MoneyBorrowed(
+                    lenderName: borrowedLenderName.trimmingCharacters(in: .whitespacesAndNewlines),
+                    amount: amountValue,
+                    currency: currency,
+                    borrowDate: date,
+                    dueDate: borrowedHasDueDate ? borrowedDueDate : nil,
+                    notes: notes.isEmpty ? nil : notes,
+                    color: "red"
+                )
+                context.insert(borrowed)
             }
         }
 
