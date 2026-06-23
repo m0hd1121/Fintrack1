@@ -476,7 +476,7 @@ struct AddTransactionView: View {
                 if builtIn.isEmpty && custom.isEmpty {
                     HStack(spacing: FTSpacing.sm) {
                         Image(systemName: "magnifyingglass").foregroundStyle(FTColor.textMuted)
-                        Text("No categories match "\(categorySearch)"")
+                        Text("No categories match \"\(categorySearch)\"")
                             .font(.ftCaption).foregroundStyle(FTColor.textMuted)
                     }
                     .padding(.vertical, FTSpacing.sm)
