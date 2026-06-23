@@ -575,7 +575,7 @@ struct AddTransactionView: View {
 
     private var filteredBuiltinCategories: [TransactionCategory] {
         guard !categorySearch.isEmpty else { return relevantCategories }
-        return relevantCategories.filter { $0.label.localizedCaseInsensitiveContains(categorySearch) }
+        return relevantCategories.filter { $0.rawValue.localizedCaseInsensitiveContains(categorySearch) }
     }
 
     private var filteredCustomCategories: [CustomCategory] {
