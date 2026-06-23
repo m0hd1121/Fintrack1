@@ -8,15 +8,36 @@ struct iCloudSyncView: View {
 
     private var settings: AppSettings? { allSettings.first }
 
-    @State private var syncEnabled: Bool = true
-    @State private var encryptionEnabled = true
-    @State private var wifiOnlyEnabled = false
+    // Bindings backed directly by AppSettings so toggles persist immediately
+    private var syncEnabledBinding: Binding<Bool> {
+        Binding(
+            get: { settings?.cloudSyncEnabled ?? false },
+            set: { settings?.cloudSyncEnabled = $0; try? context.save() }
+        )
+    }
+
+    private var wifiOnlyBinding: Binding<Bool> {
+        Binding(
+            get: { settings?.backupWifiOnly ?? false },
+            set: { settings?.backupWifiOnly = $0; try? context.save() }
+        )
+    }
+
+    private var encryptionBinding: Binding<Bool> {
+        Binding(
+            get: { settings?.encryptionEnabled ?? true },
+            set: { settings?.encryptionEnabled = $0; try? context.save() }
+        )
+    }
+
     @State private var showingRestoreConfirm = false
     @State private var resultMessage = ""
     @State private var showingResult = false
 
     private let backup = iCloudBackupService.shared
     private let network = NetworkMonitor.shared
+
+    private var syncEnabled: Bool { settings?.cloudSyncEnabled ?? false }
 
     private var syncStatus: SyncPhase {
         if backup.isBackingUp { return .syncing }
@@ -100,9 +121,6 @@ struct iCloudSyncView: View {
         } message: {
             Text(resultMessage)
         }
-        .onAppear {
-            syncEnabled = settings?.cloudSyncEnabled ?? false
-        }
     }
 
     // MARK: - Status Card
@@ -133,11 +151,7 @@ struct iCloudSyncView: View {
                 }
             }
 
-            FTToggleRow(symbol: "icloud", tint: FTColor.catBlue, title: "Enable Automatic Backup", isOn: $syncEnabled)
-                .onChange(of: syncEnabled) { _, new in
-                    settings?.cloudSyncEnabled = new
-                    try? context.save()
-                }
+            FTToggleRow(symbol: "icloud", tint: FTColor.catBlue, title: "Enable Automatic Backup", isOn: syncEnabledBinding)
 
             if !backup.iCloudAvailable {
                 HStack(spacing: FTSpacing.sm) {
@@ -147,10 +161,18 @@ struct iCloudSyncView: View {
                 }
             }
 
+            if let err = backup.lastError {
+                HStack(spacing: FTSpacing.sm) {
+                    Image(systemName: "exclamationmark.circle.fill").foregroundStyle(FTColor.expense)
+                    Text(err).font(.ftCaption).foregroundStyle(FTColor.expense)
+                }
+            }
+
             HStack(spacing: FTSpacing.md) {
                 Button {
                     Task {
-                        let ok = await backup.performBackup(context: context)
+                        let wifiOnly = settings?.backupWifiOnly ?? false
+                        let ok = await backup.performBackup(context: context, wifiOnly: wifiOnly)
                         if !ok {
                             resultMessage = backup.lastError ?? "Backup failed."
                             showingResult = true
@@ -245,11 +267,11 @@ struct iCloudSyncView: View {
         VStack(spacing: FTSpacing.sm) {
             FTToggleRow(symbol: "wifi", tint: FTColor.catTeal,
                         title: "Sync on Wi-Fi only",
-                        isOn: $wifiOnlyEnabled)
+                        isOn: wifiOnlyBinding)
             Divider().background(FTColor.textMuted.opacity(0.3))
             FTToggleRow(symbol: "lock.fill", tint: FTColor.catPurple,
                         title: "End-to-end encryption",
-                        isOn: $encryptionEnabled)
+                        isOn: encryptionBinding)
         }
         .padding()
         .ftGlass(FTRadius.xl)
@@ -290,5 +312,4 @@ struct iCloudSyncView: View {
         .padding()
         .ftGlass(FTRadius.xl)
     }
-
 }

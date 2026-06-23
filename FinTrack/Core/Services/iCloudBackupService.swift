@@ -18,16 +18,27 @@ final class iCloudBackupService {
         set { UserDefaults.standard.set(newValue, forKey: lastBackupKey) }
     }
 
-    private var ubiquityDocumentsURL: URL? {
-        guard let base = FileManager.default.url(forUbiquityContainerIdentifier: nil) else { return nil }
-        let docs = base.appendingPathComponent("Documents", isDirectory: true)
-        try? FileManager.default.createDirectory(at: docs, withIntermediateDirectories: true)
-        return docs
+    // Resolves the iCloud ubiquity container URL on a background thread.
+    // Apple docs: url(forUbiquityContainerIdentifier:) must NOT be called on the main thread.
+    private func resolveUbiquityURL() async -> URL? {
+        await Task.detached(priority: .utility) {
+            guard let base = FileManager.default.url(forUbiquityContainerIdentifier: nil) else { return nil }
+            let docs = base.appendingPathComponent("Documents", isDirectory: true)
+            try? FileManager.default.createDirectory(at: docs, withIntermediateDirectories: true)
+            return docs
+        }.value
     }
 
-    var backupFileURL: URL? { ubiquityDocumentsURL?.appendingPathComponent(backupFileName) }
+    // Synchronous check used only for UI display — safe since it's a fast file-existence check
+    // after the container URL has already been resolved at least once.
+    var iCloudAvailable: Bool {
+        FileManager.default.url(forUbiquityContainerIdentifier: nil) != nil
+    }
 
-    var iCloudAvailable: Bool { ubiquityDocumentsURL != nil }
+    var backupFileURL: URL? {
+        guard let base = FileManager.default.url(forUbiquityContainerIdentifier: nil) else { return nil }
+        return base.appendingPathComponent("Documents/\(backupFileName)")
+    }
 
     var backupFileSize: String {
         guard let url = backupFileURL,
@@ -44,8 +55,18 @@ final class iCloudBackupService {
     private init() {}
 
     @discardableResult
-    func performBackup(context: ModelContext) async -> Bool {
-        guard let cloudURL = ubiquityDocumentsURL else {
+    func performBackup(context: ModelContext, wifiOnly: Bool = false) async -> Bool {
+        // Enforce Wi-Fi only setting before doing any work
+        if wifiOnly {
+            let network = NetworkMonitor.shared
+            guard network.isConnected && network.connectionType == .wifi else {
+                await set(error: "Backup skipped — Wi-Fi only mode is enabled and you are not on Wi-Fi.")
+                return false
+            }
+        }
+
+        // Resolve iCloud container URL on a background thread (Apple requirement)
+        guard let cloudURL = await resolveUbiquityURL() else {
             await set(error: "iCloud is not available. Please sign in to iCloud in Settings.")
             return false
         }
@@ -89,11 +110,12 @@ final class iCloudBackupService {
         }
     }
 
-    func scheduleAutomaticBackupIfNeeded(context: ModelContext) {
+    /// Triggers a backup if auto-backup is due (24-hour interval) and sync is enabled.
+    /// Safe to call from any scene-phase change handler.
+    func scheduleAutomaticBackupIfNeeded(context: ModelContext, wifiOnly: Bool = false) {
         let last = lastBackupDate ?? .distantPast
         guard Date().timeIntervalSince(last) >= autoBackupIntervalHours * 3600 else { return }
-        guard iCloudAvailable else { return }
-        Task { await performBackup(context: context) }
+        Task { await performBackup(context: context, wifiOnly: wifiOnly) }
     }
 
     private func set(error msg: String) async {

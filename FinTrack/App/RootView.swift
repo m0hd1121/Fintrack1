@@ -64,15 +64,22 @@ struct RootView: View {
             processDebtAlerts()
             drainPendingIntentQueue()
             if settings.first?.cloudSyncEnabled == true {
-                iCloudBackupService.shared.scheduleAutomaticBackupIfNeeded(context: context)
+                let wifiOnly = settings.first?.backupWifiOnly ?? false
+                iCloudBackupService.shared.scheduleAutomaticBackupIfNeeded(context: context, wifiOnly: wifiOnly)
             }
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .background,
-               let setting = settings.first,
-               setting.useBiometrics || setting.usePIN,
-               appState.hasCompletedOnboarding {
-                appState.lock()
+            if phase == .background {
+                if let setting = settings.first,
+                   setting.useBiometrics || setting.usePIN,
+                   appState.hasCompletedOnboarding {
+                    appState.lock()
+                }
+                // Backup before the OS might suspend/kill the app
+                if settings.first?.cloudSyncEnabled == true {
+                    let wifiOnly = settings.first?.backupWifiOnly ?? false
+                    iCloudBackupService.shared.scheduleAutomaticBackupIfNeeded(context: context, wifiOnly: wifiOnly)
+                }
             }
             if phase == .active {
                 processRecurringTransactions()
@@ -81,6 +88,11 @@ struct RootView: View {
                 processIncomeAlerts()
                 processDebtAlerts()
                 drainPendingIntentQueue()
+                // Periodic backup check on every resume from background
+                if settings.first?.cloudSyncEnabled == true {
+                    let wifiOnly = settings.first?.backupWifiOnly ?? false
+                    iCloudBackupService.shared.scheduleAutomaticBackupIfNeeded(context: context, wifiOnly: wifiOnly)
+                }
             }
         }
         .onContinueUserActivity(CSSearchableItemActionType) { activity in

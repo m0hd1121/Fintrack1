@@ -92,6 +92,7 @@ final class AppSettings {
     var digestHour: Int
     // Appearance / sync
     var cloudSyncEnabled: Bool
+    var backupWifiOnly: Bool
     var theme: AppTheme
     var accentColorName: String
     // Personalization
@@ -134,6 +135,7 @@ final class AppSettings {
         digestDayOfMonth: Int = 1,
         digestHour: Int = 9,
         cloudSyncEnabled: Bool = false,
+        backupWifiOnly: Bool = false,
         theme: AppTheme = .system,
         accentColorName: String = "teal",
         oledMode: Bool = false,
@@ -174,6 +176,7 @@ final class AppSettings {
         self.digestDayOfMonth = digestDayOfMonth
         self.digestHour = digestHour
         self.cloudSyncEnabled = cloudSyncEnabled
+        self.backupWifiOnly = backupWifiOnly
         self.theme = theme
         self.accentColorName = accentColorName
         self.oledMode = oledMode
