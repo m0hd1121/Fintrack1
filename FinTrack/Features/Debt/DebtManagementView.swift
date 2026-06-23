@@ -733,6 +733,20 @@ struct DebtManagementView: View {
                                     selectedLent = item
                                 }
                             }
+                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                Button(role: .destructive) {
+                                    context.delete(item)
+                                    try? context.save()
+                                } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
+                            }
+                            .swipeActions(edge: .leading) {
+                                Button { editingLent = item } label: {
+                                    Label("Edit", systemImage: "pencil")
+                                }
+                                .tint(FTColor.accent)
+                            }
                             .padding(.horizontal, FTSpacing.screen)
                         }
                     }
@@ -792,6 +806,20 @@ struct DebtManagementView: View {
                                 withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
                                     selectedBorrowed = item
                                 }
+                            }
+                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                Button(role: .destructive) {
+                                    context.delete(item)
+                                    try? context.save()
+                                } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
+                            }
+                            .swipeActions(edge: .leading) {
+                                Button { editingBorrowed = item } label: {
+                                    Label("Edit", systemImage: "pencil")
+                                }
+                                .tint(FTColor.accent)
                             }
                             .padding(.horizontal, FTSpacing.screen)
                         }
@@ -1516,6 +1544,8 @@ struct MoneyLentDetailSheet: View {
 
     let item: MoneyLent
     @State private var showingRepaymentSheet = false
+    @State private var showingEdit = false
+    @State private var showingDeleteConfirm = false
 
     private var baseCurrency: String { appState.baseCurrency }
 
@@ -1651,14 +1681,36 @@ struct MoneyLentDetailSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button { showingDeleteConfirm = true } label: {
+                        Image(systemName: "trash")
+                            .foregroundStyle(FTColor.expense)
+                    }
+                }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") { dismiss() }
-                        .font(.ftBodySemibold)
-                        .foregroundStyle(FTColor.accent)
+                    HStack(spacing: FTSpacing.md) {
+                        Button("Edit") { showingEdit = true }
+                            .font(.ftBodySemibold)
+                            .foregroundStyle(FTColor.accent)
+                        Button("Done") { dismiss() }
+                            .font(.ftBodySemibold)
+                            .foregroundStyle(FTColor.accent)
+                    }
                 }
             }
             .sheet(isPresented: $showingRepaymentSheet) {
                 RecordLentRepaymentSheet(item: item)
+            }
+            .sheet(isPresented: $showingEdit) {
+                AddMoneyLentSheet(editing: item)
+            }
+            .confirmationDialog("Delete this record?", isPresented: $showingDeleteConfirm, titleVisibility: .visible) {
+                Button("Delete", role: .destructive) {
+                    context.delete(item)
+                    try? context.save()
+                    dismiss()
+                }
+                Button("Cancel", role: .cancel) {}
             }
         }
     }
@@ -1815,6 +1867,8 @@ struct MoneyBorrowedDetailSheet: View {
 
     let item: MoneyBorrowed
     @State private var showingRepaymentSheet = false
+    @State private var showingEdit = false
+    @State private var showingDeleteConfirm = false
 
     private var baseCurrency: String { appState.baseCurrency }
 
@@ -1949,14 +2003,36 @@ struct MoneyBorrowedDetailSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button { showingDeleteConfirm = true } label: {
+                        Image(systemName: "trash")
+                            .foregroundStyle(FTColor.expense)
+                    }
+                }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") { dismiss() }
-                        .font(.ftBodySemibold)
-                        .foregroundStyle(FTColor.accent)
+                    HStack(spacing: FTSpacing.md) {
+                        Button("Edit") { showingEdit = true }
+                            .font(.ftBodySemibold)
+                            .foregroundStyle(FTColor.accent)
+                        Button("Done") { dismiss() }
+                            .font(.ftBodySemibold)
+                            .foregroundStyle(FTColor.accent)
+                    }
                 }
             }
             .sheet(isPresented: $showingRepaymentSheet) {
                 RecordBorrowedRepaymentSheet(item: item)
+            }
+            .sheet(isPresented: $showingEdit) {
+                AddMoneyBorrowedSheet(editing: item)
+            }
+            .confirmationDialog("Delete this record?", isPresented: $showingDeleteConfirm, titleVisibility: .visible) {
+                Button("Delete", role: .destructive) {
+                    context.delete(item)
+                    try? context.save()
+                    dismiss()
+                }
+                Button("Cancel", role: .cancel) {}
             }
         }
     }
