@@ -331,7 +331,7 @@ struct SettingsView: View {
                 Button("Delete Everything", role: .destructive) { clearAllData() }
                 Button("Cancel", role: .cancel) { }
             } message: {
-                Text("This will permanently delete all transactions, accounts, budgets, loans, and investments. This action cannot be undone.")
+                Text("This will permanently delete all financial data — transactions, accounts, budgets, investments, debts, tax records, bills, assets, and more. Your app settings and preferences will be kept. This action cannot be undone.")
             }
             .alert("Backup", isPresented: $showingResult) {
                 Button("OK") { }
@@ -526,18 +526,65 @@ struct SettingsView: View {
     }
 
     private func clearAllData() {
-        for item in transactions   { context.delete(item) }
-        for item in exportAccounts { context.delete(item) }
-        for item in budgets        { context.delete(item) }
-        for item in savingsGoals   { context.delete(item) }
-        for item in creditCards    { context.delete(item) }
-        for item in loans          { context.delete(item) }
-        for item in bnplPlans      { context.delete(item) }
-        for item in investments    { context.delete(item) }
-        for item in cryptoHoldings { context.delete(item) }
-        for item in goldHoldings   { context.delete(item) }
-        for item in giftCards      { context.delete(item) }
-        for item in loyaltyPrograms { context.delete(item) }
+        // Financial records
+        try? context.delete(model: Transaction.self)
+        try? context.delete(model: Account.self)
+        try? context.delete(model: Budget.self)
+        try? context.delete(model: SavingsGoal.self)
+        try? context.delete(model: BudgetEnvelope.self)
+        try? context.delete(model: BudgetTemplate.self)
+        try? context.delete(model: Loan.self)
+        try? context.delete(model: CreditCard.self)
+        try? context.delete(model: BNPLPlan.self)
+        try? context.delete(model: GiftCard.self)
+        try? context.delete(model: LoyaltyProgram.self)
+        // Investments
+        try? context.delete(model: Investment.self)
+        try? context.delete(model: CryptoHolding.self)
+        try? context.delete(model: Dividend.self)
+        try? context.delete(model: GoldHolding.self)
+        // Bills & income
+        try? context.delete(model: Bill.self)
+        try? context.delete(model: SalaryRecord.self)
+        try? context.delete(model: FreelanceProject.self)
+        try? context.delete(model: RentalProperty.self)
+        // Debt tracking
+        try? context.delete(model: MoneyLent.self)
+        try? context.delete(model: MoneyBorrowed.self)
+        // Assets & net worth
+        try? context.delete(model: RealEstateProperty.self)
+        try? context.delete(model: Vehicle.self)
+        try? context.delete(model: PersonalAsset.self)
+        try? context.delete(model: DigitalAsset.self)
+        try? context.delete(model: NetWorthSnapshot.self)
+        try? context.delete(model: NetWorthMilestone.self)
+        // Tax
+        try? context.delete(model: TaxRecord.self)
+        try? context.delete(model: TaxDocument.self)
+        try? context.delete(model: ZakatRecord.self)
+        try? context.delete(model: TaxConfiguration.self)
+        // Business
+        try? context.delete(model: ClientProfile.self)
+        try? context.delete(model: BusinessInvoice.self)
+        try? context.delete(model: MileageTrip.self)
+        try? context.delete(model: BusinessProject.self)
+        // Family
+        try? context.delete(model: FamilyGroup.self)
+        try? context.delete(model: ChildProfile.self)
+        try? context.delete(model: SharedFamilyGoal.self)
+        // Premium
+        try? context.delete(model: RetirementPlan.self)
+        try? context.delete(model: LifeEventPlan.self)
+        try? context.delete(model: AdvisorAccess.self)
+        // Misc
+        try? context.delete(model: RemittanceRecord.self)
+        try? context.delete(model: InsurancePolicy.self)
+        try? context.delete(model: ImportedFile.self)
+        try? context.delete(model: DocumentAttachment.self)
+        try? context.delete(model: AuditLogEntry.self)
+        // User-configured rules/categories (clear alongside data)
+        try? context.delete(model: CategorizationRule.self)
+        try? context.delete(model: CustomCategory.self)
         try? context.save()
     }
 }

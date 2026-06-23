@@ -490,29 +490,65 @@ final class DataTransferService {
     // MARK: Delete all
 
     private func deleteAll(context: ModelContext) throws {
+        // Financial records
         try context.delete(model: Transaction.self)
         try context.delete(model: Account.self)
         try context.delete(model: Budget.self)
         try context.delete(model: SavingsGoal.self)
+        try context.delete(model: BudgetEnvelope.self)
+        try context.delete(model: BudgetTemplate.self)
         try context.delete(model: Loan.self)
         try context.delete(model: CreditCard.self)
+        try context.delete(model: BNPLPlan.self)
+        try context.delete(model: GiftCard.self)
+        try context.delete(model: LoyaltyProgram.self)
+        // Investments
         try context.delete(model: Investment.self)
         try context.delete(model: CryptoHolding.self)
         try context.delete(model: Dividend.self)
-        try context.delete(model: BNPLPlan.self)
+        try context.delete(model: GoldHolding.self)
+        // Bills & income
         try context.delete(model: Bill.self)
         try context.delete(model: SalaryRecord.self)
         try context.delete(model: FreelanceProject.self)
         try context.delete(model: RentalProperty.self)
+        // Debt tracking
         try context.delete(model: MoneyLent.self)
         try context.delete(model: MoneyBorrowed.self)
-        try context.delete(model: GoldHolding.self)
+        // Assets & net worth
         try context.delete(model: RealEstateProperty.self)
         try context.delete(model: Vehicle.self)
         try context.delete(model: PersonalAsset.self)
         try context.delete(model: DigitalAsset.self)
         try context.delete(model: NetWorthSnapshot.self)
         try context.delete(model: NetWorthMilestone.self)
+        // Tax
+        try context.delete(model: TaxRecord.self)
+        try context.delete(model: TaxDocument.self)
+        try context.delete(model: ZakatRecord.self)
+        try context.delete(model: TaxConfiguration.self)
+        // Business
+        try context.delete(model: ClientProfile.self)
+        try context.delete(model: BusinessInvoice.self)
+        try context.delete(model: MileageTrip.self)
+        try context.delete(model: BusinessProject.self)
+        // Family
+        try context.delete(model: FamilyGroup.self)
+        try context.delete(model: ChildProfile.self)
+        try context.delete(model: SharedFamilyGoal.self)
+        // Premium
+        try context.delete(model: RetirementPlan.self)
+        try context.delete(model: LifeEventPlan.self)
+        try context.delete(model: AdvisorAccess.self)
+        // Misc
+        try context.delete(model: RemittanceRecord.self)
+        try context.delete(model: InsurancePolicy.self)
+        try context.delete(model: ImportedFile.self)
+        try context.delete(model: DocumentAttachment.self)
+        try context.delete(model: AuditLogEntry.self)
+        try context.delete(model: CategorizationRule.self)
+        try context.delete(model: CustomCategory.self)
+        // Profile / settings (restore from backup after this)
         try context.delete(model: UserProfile.self)
         try context.delete(model: AppSettings.self)
         try context.save()
