@@ -1750,12 +1750,17 @@ struct MoneyLentDetailSheet: View {
 private struct RecordLentRepaymentSheet: View {
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
+    @Query(sort: \Account.name) private var accounts: [Account]
 
     let item: MoneyLent
 
     @State private var amount: String = ""
     @State private var date = Date()
     @State private var notes = ""
+    @State private var selectedAccountId: UUID? = nil
+
+    private var activeAccounts: [Account] { accounts.filter { !$0.isArchived } }
+    private var selectedAccount: Account? { activeAccounts.first { $0.id == selectedAccountId } }
 
     var body: some View {
         NavigationStack {
@@ -1764,7 +1769,7 @@ private struct RecordLentRepaymentSheet: View {
 
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
-                        VStack(spacing: FTSpacing.md) {
+                        VStack(spacing: 0) {
                             formRow(label: "Amount (\(item.currency))") {
                                 TextField("0.00", text: $amount)
                                     .keyboardType(.decimalPad)
@@ -1779,6 +1784,17 @@ private struct RecordLentRepaymentSheet: View {
                                     .tint(FTColor.accent)
                             }
                             Divider().padding(.leading, FTSpacing.screen)
+                            formRow(label: "Received Into") {
+                                Picker("", selection: $selectedAccountId) {
+                                    Text("None").tag(Optional<UUID>(nil))
+                                    ForEach(activeAccounts) { acc in
+                                        Text(acc.name).tag(Optional(acc.id))
+                                    }
+                                }
+                                .pickerStyle(.menu)
+                                .accentColor(FTColor.accent)
+                            }
+                            Divider().padding(.leading, FTSpacing.screen)
                             formRow(label: "Notes") {
                                 TextField("Optional notes", text: $notes)
                                     .font(.ftBody)
@@ -1788,6 +1804,19 @@ private struct RecordLentRepaymentSheet: View {
                         }
                         .ftGlass(FTRadius.lg)
                         .padding(.horizontal, FTSpacing.screen)
+
+                        if let acc = selectedAccount {
+                            HStack(spacing: FTSpacing.xs) {
+                                Image(systemName: "info.circle")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(FTColor.accent)
+                                Text("Balance of \(acc.name) will increase by \(amount) \(item.currency)")
+                                    .font(.ftCaption)
+                                    .foregroundStyle(FTColor.textSecondary)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, FTSpacing.screen)
+                        }
 
                         Text("Remaining: \(item.remainingBalance.formatted(as: item.currency))")
                             .font(.ftCaption)
@@ -1814,6 +1843,8 @@ private struct RecordLentRepaymentSheet: View {
             }
             .onAppear {
                 amount = String(format: "%.2f", item.remainingBalance)
+                selectedAccountId = activeAccounts.first(where: { $0.isDefault })?.id
+                    ?? activeAccounts.first?.id
             }
         }
     }
@@ -1851,6 +1882,11 @@ private struct RecordLentRepaymentSheet: View {
             date: date,
             notes: notes.isEmpty ? nil : notes
         )
+        if let account = selectedAccount {
+            tx.account = account
+            let delta = CurrencyService.shared.convert(amountValue, from: item.currency, to: account.currency)
+            account.balance += delta
+        }
         context.insert(tx)
         try? context.save()
         dismiss()
@@ -2072,12 +2108,17 @@ struct MoneyBorrowedDetailSheet: View {
 private struct RecordBorrowedRepaymentSheet: View {
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
+    @Query(sort: \Account.name) private var accounts: [Account]
 
     let item: MoneyBorrowed
 
     @State private var amount: String = ""
     @State private var date = Date()
     @State private var notes = ""
+    @State private var selectedAccountId: UUID? = nil
+
+    private var activeAccounts: [Account] { accounts.filter { !$0.isArchived } }
+    private var selectedAccount: Account? { activeAccounts.first { $0.id == selectedAccountId } }
 
     var body: some View {
         NavigationStack {
@@ -2086,7 +2127,7 @@ private struct RecordBorrowedRepaymentSheet: View {
 
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
-                        VStack(spacing: FTSpacing.md) {
+                        VStack(spacing: 0) {
                             formRow(label: "Amount (\(item.currency))") {
                                 TextField("0.00", text: $amount)
                                     .keyboardType(.decimalPad)
@@ -2101,6 +2142,17 @@ private struct RecordBorrowedRepaymentSheet: View {
                                     .tint(FTColor.accent)
                             }
                             Divider().padding(.leading, FTSpacing.screen)
+                            formRow(label: "Paid From") {
+                                Picker("", selection: $selectedAccountId) {
+                                    Text("None").tag(Optional<UUID>(nil))
+                                    ForEach(activeAccounts) { acc in
+                                        Text(acc.name).tag(Optional(acc.id))
+                                    }
+                                }
+                                .pickerStyle(.menu)
+                                .accentColor(FTColor.accent)
+                            }
+                            Divider().padding(.leading, FTSpacing.screen)
                             formRow(label: "Notes") {
                                 TextField("Optional notes", text: $notes)
                                     .font(.ftBody)
@@ -2110,6 +2162,19 @@ private struct RecordBorrowedRepaymentSheet: View {
                         }
                         .ftGlass(FTRadius.lg)
                         .padding(.horizontal, FTSpacing.screen)
+
+                        if let acc = selectedAccount {
+                            HStack(spacing: FTSpacing.xs) {
+                                Image(systemName: "info.circle")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(FTColor.expense)
+                                Text("Balance of \(acc.name) will decrease by \(amount) \(item.currency)")
+                                    .font(.ftCaption)
+                                    .foregroundStyle(FTColor.textSecondary)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, FTSpacing.screen)
+                        }
 
                         Text("Remaining: \(item.remainingBalance.formatted(as: item.currency))")
                             .font(.ftCaption)
@@ -2136,6 +2201,8 @@ private struct RecordBorrowedRepaymentSheet: View {
             }
             .onAppear {
                 amount = String(format: "%.2f", item.remainingBalance)
+                selectedAccountId = activeAccounts.first(where: { $0.isDefault })?.id
+                    ?? activeAccounts.first?.id
             }
         }
     }
@@ -2173,6 +2240,11 @@ private struct RecordBorrowedRepaymentSheet: View {
             date: date,
             notes: notes.isEmpty ? nil : notes
         )
+        if let account = selectedAccount {
+            tx.account = account
+            let delta = CurrencyService.shared.convert(amountValue, from: item.currency, to: account.currency)
+            account.balance -= delta
+        }
         context.insert(tx)
         try? context.save()
         dismiss()
