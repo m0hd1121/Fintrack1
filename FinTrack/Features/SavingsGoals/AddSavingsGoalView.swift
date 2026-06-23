@@ -72,9 +72,9 @@ struct AddSavingsGoalView: View {
                         notesSection
                         Color.clear.frame(height: 80)
                     }
-                    .padding(.horizontal, FTSpacing.screen)
                     .padding(.top, FTSpacing.lg)
                 }
+                .contentMargins(.horizontal, FTSpacing.screen, for: .scrollContent)
                 .scrollContentBackground(.hidden)
                 .scrollDismissesKeyboard(.interactively)
 
