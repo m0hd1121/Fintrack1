@@ -192,40 +192,10 @@ struct AddTransactionView: View {
                 FTBackdrop()
 
                 ScrollView {
-                    VStack(spacing: FTSpacing.lg) {
-                        FTSegmentedControl(options: ["Expense", "Income", "Transfer", "Lent", "Borrowed"], selection: modeBinding)
-
-                        amountCard
-
-                        if isLentMode {
-                            lentDetailsCard
-                        } else if isBorrowedMode {
-                            borrowedDetailsCard
-                        } else if type == .transfer {
-                            transferCard
-                        } else {
-                            categorySection
-                            if isLoyaltyCategory { loyaltyProgramCard }
-                            if type == .expense && !isLoyaltyCategory { splitSection }
-                        }
-
-                        detailsCard
-                        recurringCard
-                        statusCard
-                        if type == .expense && !isLentMode { taxSection }
-                        notesReceiptCard
-
-                        if !pendingDocuments.isEmpty { documentsPreviewCard }
-
-                        if let scan = scanner.scanResult { scanResultsCard(scan) }
-
-                        if showingDuplicateWarning { duplicateWarningCard }
-
-                        Color.clear.frame(height: 80)
-                    }
-                    .padding(.horizontal, FTSpacing.screen)
-                    .padding(.top, FTSpacing.sm)
-                    .padding(.bottom, FTSpacing.lg)
+                    cardStack()
+                        .padding(.horizontal, FTSpacing.screen)
+                        .padding(.top, FTSpacing.sm)
+                        .padding(.bottom, FTSpacing.lg)
                 }
                 .scrollContentBackground(.hidden)
                 .scrollDismissesKeyboard(.interactively)
@@ -288,6 +258,40 @@ struct AddTransactionView: View {
                 handleDocumentImport(result)
             }
         }
+    }
+
+    // MARK: - Card stack helpers
+
+    // AnyView erases the deeply nested _ConditionalContent type that iOS 26 overflows
+    // when the view is presented as a sheet. Same fix as DebtManagementView (commit 46e2223).
+    private func cardStack() -> AnyView {
+        AnyView(
+            VStack(spacing: FTSpacing.lg) {
+                FTSegmentedControl(options: ["Expense", "Income", "Transfer", "Lent", "Borrowed"], selection: modeBinding)
+                amountCard
+                modeContentCards()
+                detailsCard
+                recurringCard
+                statusCard
+                if type == .expense && !isLentMode { taxSection }
+                notesReceiptCard
+                if !pendingDocuments.isEmpty { documentsPreviewCard }
+                if let scan = scanner.scanResult { scanResultsCard(scan) }
+                if showingDuplicateWarning { duplicateWarningCard }
+                Color.clear.frame(height: 80)
+            }
+        )
+    }
+
+    private func modeContentCards() -> AnyView {
+        if isLentMode     { return AnyView(lentDetailsCard) }
+        if isBorrowedMode { return AnyView(borrowedDetailsCard) }
+        if type == .transfer { return AnyView(transferCard) }
+        return AnyView(Group {
+            categorySection
+            if isLoyaltyCategory { loyaltyProgramCard }
+            if type == .expense && !isLoyaltyCategory { splitSection }
+        })
     }
 
     // MARK: - Amount card
