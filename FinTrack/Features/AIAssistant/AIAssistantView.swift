@@ -248,7 +248,7 @@ enum AIFeature: String, CaseIterable, Identifiable {
         case .spendingPatterns:   return "calendar.day.timeline.left"
         case .savingsOpportunity: return "sparkles"
         case .budgetingCoach:     return "brain.head.profile"
-        case .billNegotiation:    return "phone.badge.checkmark.fill"
+        case .billNegotiation:    return "phone.circle.fill"
         case .esgAnalysis:        return "leaf.fill"
         case .digitalTwin:        return "slider.horizontal.3"
         }

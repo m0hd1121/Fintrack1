@@ -53,7 +53,7 @@ struct BillNegotiationView: View {
                         .foregroundStyle(FTColor.textSecondary)
                 }
                 Spacer()
-                Image(systemName: "phone.badge.checkmark.fill")
+                Image(systemName: "phone.circle.fill")
                     .font(.system(size: 40))
                     .foregroundStyle(FTColor.income.opacity(0.8))
             }
@@ -279,7 +279,7 @@ struct BillNegotiationView: View {
 
     private var emptyState: some View {
         VStack(spacing: FTSpacing.lg) {
-            Image(systemName: "phone.badge.checkmark.fill")
+            Image(systemName: "phone.circle.fill")
                 .font(.system(size: 52))
                 .foregroundStyle(FTColor.textMuted)
             Text("No Bills to Negotiate")
