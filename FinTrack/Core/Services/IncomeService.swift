@@ -568,7 +568,7 @@ final class IncomeService {
             name:   "Historical Volatility",
             score:  volatilityScore,
             weight: 0.10,
-            detail: "Average monthly deviation from 6-month mean: \(String(format: "%.1f", (mean6 > 0 ? avgDeviation / mean6 * 100 : 100)))%.",
+            detail: "Average monthly deviation from 6-month mean: \(String(format: "%.1f", (mean6 > 0 ? avgDeviation / mean6 * 100.0 : 100.0)))%.",
             icon:   "chart.xyaxis.line"
         )
 

@@ -305,7 +305,7 @@ final class NetWorthService {
             explanation = "You're in the top \(Int(100 - percentile))% — a high-net-worth individual in the UAE context."
         default:
             tier = "Ultra-High Net Worth"
-            explanation = "You rank in the top \(String(format: "%.1f", 100 - percentile))% of UAE adults — an elite wealth tier."
+            explanation = "You rank in the top \(String(format: "%.1f", 100.0 - percentile))% of UAE adults — an elite wealth tier."
         }
 
         return PercentileResult(percentile: percentile, explanation: explanation, tier: tier)

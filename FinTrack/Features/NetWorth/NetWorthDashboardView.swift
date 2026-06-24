@@ -907,7 +907,7 @@ extension NetWorthDashboardView {
                 HStack(spacing: FTSpacing.sm) {
                     BadgeView(text: result.tier, color: tierColor(result.percentile))
                     Spacer()
-                    Text("Top \(String(format: "%.1f", 100 - result.percentile))%")
+                    Text("Top \(String(format: "%.1f", 100.0 - result.percentile))%")
                         .font(.ftBodySemibold)
                         .foregroundStyle(tierColor(result.percentile))
                 }
