@@ -11,7 +11,7 @@ struct VehicleListView: View {
     @Environment(CurrencyService.self) private var currencyService
 
     // MARK: Queries
-    @Query(filter: #Predicate<Vehicle> { !$0.isArchived },
+    @Query(filter: #Predicate<Vehicle> { $0.isArchived == false },
            sort: \Vehicle.createdAt, order: .reverse)
     private var vehicles: [Vehicle]
 

@@ -11,7 +11,7 @@ struct RootView: View {
     @Query private var bills: [Bill]
     @Query private var allTransactions: [Transaction]
     @Query(filter: #Predicate<SalaryRecord> { $0.isActive }) private var salaryRecords: [SalaryRecord]
-    @Query(filter: #Predicate<FreelanceProject> { !$0.isArchived }) private var freelanceProjects: [FreelanceProject]
+    @Query(filter: #Predicate<FreelanceProject> { $0.isArchived == false }) private var freelanceProjects: [FreelanceProject]
     @Query(filter: #Predicate<RentalProperty> { $0.isActive }) private var rentalProperties: [RentalProperty]
     @Query private var moneyLent: [MoneyLent]
     @Query private var moneyBorrowed: [MoneyBorrowed]

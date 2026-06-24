@@ -3,7 +3,7 @@ import SwiftData
 
 struct DigitalAssetsListView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query(filter: #Predicate<DigitalAsset> { !$0.isArchived }, sort: \DigitalAsset.name) private var assets: [DigitalAsset]
+    @Query(filter: #Predicate<DigitalAsset> { $0.isArchived == false }, sort: \DigitalAsset.name) private var assets: [DigitalAsset]
 
     @State private var selectedType: DigitalAssetType? = nil
     @State private var showingAdd = false

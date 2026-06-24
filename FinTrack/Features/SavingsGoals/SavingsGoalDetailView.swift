@@ -10,7 +10,7 @@ struct SavingsGoalDetailView: View {
     @Environment(CurrencyService.self) private var currencyService
     @Environment(\.modelContext) private var context
     @Query private var transactions: [Transaction]
-    @Query(filter: #Predicate<SavingsGoal> { !$0.isArchived && !$0.isCompleted }) private var activeGoals: [SavingsGoal]
+    @Query(filter: #Predicate<SavingsGoal> { $0.isArchived == false && $0.isCompleted == false }) private var activeGoals: [SavingsGoal]
 
     @State private var selectedTab = 0
     @State private var showingContribute = false

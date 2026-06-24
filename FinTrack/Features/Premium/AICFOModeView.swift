@@ -6,7 +6,7 @@ struct AICFOModeView: View {
     @Query private var transactions: [Transaction]
     @Query private var accounts: [Account]
     @Query private var budgets: [Budget]
-    @Query(filter: #Predicate<SavingsGoal> { !$0.isCompleted }) private var goals: [SavingsGoal]
+    @Query(filter: #Predicate<SavingsGoal> { $0.isCompleted == false }) private var goals: [SavingsGoal]
     @Query private var loans: [Loan]
     @Query private var investments: [Investment]
 

@@ -11,7 +11,7 @@ struct IncomeManagementView: View {
     @Environment(\.dismiss) private var dismiss
 
     @Query(filter: #Predicate<SalaryRecord> { $0.isActive }) private var salaryRecords: [SalaryRecord]
-    @Query(filter: #Predicate<FreelanceProject> { !$0.isArchived }) private var projects: [FreelanceProject]
+    @Query(filter: #Predicate<FreelanceProject> { $0.isArchived == false }) private var projects: [FreelanceProject]
     @Query(filter: #Predicate<RentalProperty> { $0.isActive }) private var properties: [RentalProperty]
     @Query private var dividends: [Dividend]
     @Query private var transactions: [Transaction]

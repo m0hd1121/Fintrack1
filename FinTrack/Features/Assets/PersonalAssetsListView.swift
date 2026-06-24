@@ -8,7 +8,7 @@ struct PersonalAssetsListView: View {
     @Environment(AppState.self) private var appState
     @Environment(CurrencyService.self) private var currencyService
 
-    @Query(filter: #Predicate<PersonalAsset> { !$0.isArchived },
+    @Query(filter: #Predicate<PersonalAsset> { $0.isArchived == false },
            sort: \PersonalAsset.createdAt, order: .reverse)
     private var assets: [PersonalAsset]
 

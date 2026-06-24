@@ -8,7 +8,7 @@ struct UpcomingPaymentsView: View {
 
     @Query(filter: #Predicate<Loan> { $0.isActive }) private var loans: [Loan]
     @Query(filter: #Predicate<CreditCard> { $0.isActive }) private var creditCards: [CreditCard]
-    @Query(filter: #Predicate<BNPLPlan> { !$0.isCompleted }) private var bnplPlans: [BNPLPlan]
+    @Query(filter: #Predicate<BNPLPlan> { $0.isCompleted == false }) private var bnplPlans: [BNPLPlan]
     @Query(filter: #Predicate<Transaction> { $0.isRecurring }) private var recurringExpenses: [Transaction]
     @Query(filter: #Predicate<Bill> { $0.isActive }) private var bills: [Bill]
 

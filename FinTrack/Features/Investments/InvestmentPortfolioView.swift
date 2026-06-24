@@ -12,7 +12,7 @@ struct InvestmentPortfolioView: View {
 
     @Query private var investments: [Investment]
     @Query private var cryptoHoldings: [CryptoHolding]
-    @Query(filter: #Predicate<GoldHolding> { !$0.isArchived }) private var goldHoldings: [GoldHolding]
+    @Query(filter: #Predicate<GoldHolding> { $0.isArchived == false }) private var goldHoldings: [GoldHolding]
     @Query private var dividends: [Dividend]
     @Query private var accounts: [Account]
 

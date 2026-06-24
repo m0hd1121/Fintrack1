@@ -11,16 +11,16 @@ struct AssetsLiabilitiesView: View {
     @Environment(CurrencyService.self) private var currencyService
 
     // MARK: Queries
-    @Query(filter: #Predicate<RealEstateProperty> { !$0.isArchived })
+    @Query(filter: #Predicate<RealEstateProperty> { $0.isArchived == false })
     private var realEstate: [RealEstateProperty]
 
-    @Query(filter: #Predicate<Vehicle> { !$0.isArchived })
+    @Query(filter: #Predicate<Vehicle> { $0.isArchived == false })
     private var vehicles: [Vehicle]
 
-    @Query(filter: #Predicate<PersonalAsset> { !$0.isArchived })
+    @Query(filter: #Predicate<PersonalAsset> { $0.isArchived == false })
     private var personalAssets: [PersonalAsset]
 
-    @Query(filter: #Predicate<DigitalAsset> { !$0.isArchived })
+    @Query(filter: #Predicate<DigitalAsset> { $0.isArchived == false })
     private var digitalAssets: [DigitalAsset]
 
     // MARK: Computed Totals

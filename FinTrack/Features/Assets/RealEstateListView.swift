@@ -11,7 +11,7 @@ struct RealEstateListView: View {
     @Environment(CurrencyService.self) private var currencyService
 
     // MARK: Queries
-    @Query(filter: #Predicate<RealEstateProperty> { !$0.isArchived },
+    @Query(filter: #Predicate<RealEstateProperty> { $0.isArchived == false },
            sort: \RealEstateProperty.createdAt, order: .reverse)
     private var properties: [RealEstateProperty]
 

@@ -286,7 +286,7 @@ struct CategoryManagementView: View {
 struct EditCategoryView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
-    @Query(filter: #Predicate<CustomCategory> { !$0.isArchived }, sort: \CustomCategory.sortOrder)
+    @Query(filter: #Predicate<CustomCategory> { $0.isArchived == false }, sort: \CustomCategory.sortOrder)
     private var allActiveCategories: [CustomCategory]
 
     let category: CustomCategory?
