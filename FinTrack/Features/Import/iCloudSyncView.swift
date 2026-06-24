@@ -96,6 +96,9 @@ struct iCloudSyncView: View {
         .navigationTitle("iCloud Backup")
         .navigationBarTitleDisplayMode(.inline)
         .background { FTBackdrop() }
+        .onAppear {
+            if !backup.iCloudAvailable { backup.clearError() }
+        }
         .scrollContentBackground(.hidden)
         .confirmationDialog("Restore from iCloud?", isPresented: $showingRestoreConfirm, titleVisibility: .visible) {
             Button("Merge with current data") {
@@ -161,7 +164,7 @@ struct iCloudSyncView: View {
                 }
             }
 
-            if let err = backup.lastError {
+            if backup.iCloudAvailable, let err = backup.lastError {
                 HStack(spacing: FTSpacing.sm) {
                     Image(systemName: "exclamationmark.circle.fill").foregroundStyle(FTColor.expense)
                     Text(err).font(.ftCaption).foregroundStyle(FTColor.expense)

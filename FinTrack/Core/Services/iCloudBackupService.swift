@@ -118,6 +118,8 @@ final class iCloudBackupService {
         Task { await performBackup(context: context, wifiOnly: wifiOnly) }
     }
 
+    @MainActor func clearError() { lastError = nil }
+
     private func set(error msg: String) async {
         await MainActor.run { lastError = msg }
     }
