@@ -45,7 +45,8 @@ struct DebtManagementView: View {
     }
 
     private var totalDebt: Double {
-        debtItems.reduce(0) { $0 + currencyService.convert($1.outstandingBalance, from: $1.currency, to: baseCurrency) }
+        let loansAndCards = debtItems.reduce(0.0) { $0 + currencyService.convert($1.outstandingBalance, from: $1.currency, to: baseCurrency) }
+        return loansAndCards + totalBorrowed
     }
 
     private var totalMinimumPayments: Double {
@@ -301,8 +302,25 @@ struct DebtManagementView: View {
                 }
             }
 
+            // Borrowed money
+            if !activeBorrowedItems.isEmpty {
+                VStack(alignment: .leading, spacing: FTSpacing.sm) {
+                    debtSectionHeader("Money Borrowed", symbol: "arrow.down.circle.fill", tint: FTColor.expense)
+                        .padding(.horizontal, FTSpacing.screen)
+
+                    VStack(spacing: FTSpacing.sm) {
+                        ForEach(activeBorrowedItems.sorted { $0.borrowDate > $1.borrowDate }, id: \.id) { item in
+                            MoneyBorrowedCard(item: item, baseCurrency: baseCurrency, currencyService: currencyService) {
+                                selectedBorrowed = item
+                            }
+                            .padding(.horizontal, FTSpacing.screen)
+                        }
+                    }
+                }
+            }
+
             // Empty state
-            if activeLoans.isEmpty && activeCards.isEmpty {
+            if activeLoans.isEmpty && activeCards.isEmpty && activeBorrowedItems.isEmpty {
                 debtEmptyState(
                     symbol: "creditcard",
                     title: "No Active Debts",
@@ -349,8 +367,8 @@ struct DebtManagementView: View {
                     .background(.white.opacity(0.3))
                     .padding(.horizontal, FTSpacing.lg)
                 DebtSummaryMetric(
-                    label: "Min/Month",
-                    value: totalMinimumPayments.asCompact(currency: baseCurrency),
+                    label: "Borrowed",
+                    value: "\(activeBorrowedItems.count)",
                     valueColor: .white
                 )
             }
