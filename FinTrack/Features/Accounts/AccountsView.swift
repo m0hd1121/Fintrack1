@@ -7,8 +7,6 @@ struct AccountsView: View {
     @Environment(\.modelContext) private var context
     @Query(sort: \Account.name) private var accounts: [Account]
     @Query private var creditCards: [CreditCard]
-    @Query private var loans: [Loan]
-    @Query private var bnplPlans: [BNPLPlan]
     @Query private var investments: [Investment]
     @Query private var cryptoHoldings: [CryptoHolding]
     @Query private var goldHoldings: [GoldHolding]
@@ -17,8 +15,6 @@ struct AccountsView: View {
 
     @State private var showingAddAccount = false
     @State private var showingAddCreditCard = false
-    @State private var showingAddLoan = false
-    @State private var showingAddBNPL = false
     @State private var showingAddInvestment = false
     @State private var showingAddCrypto = false
     @State private var showingAddGold = false
@@ -45,11 +41,8 @@ struct AccountsView: View {
     }
 
     private var totalDebt: Double {
-        let loanDebt = loans.filter { $0.isActive }
+        creditCards.filter { $0.isActive }
             .reduce(0) { $0 + currencyService.convert($1.outstandingBalance, from: $1.currency, to: baseCurrency) }
-        let ccDebt = creditCards.filter { $0.isActive }
-            .reduce(0) { $0 + currencyService.convert($1.outstandingBalance, from: $1.currency, to: baseCurrency) }
-        return loanDebt + ccDebt
     }
 
     private var investmentValue: Double {
@@ -129,55 +122,6 @@ struct AccountsView: View {
                     .listRowSeparator(.hidden)
                 } header: {
                     Text("Accounts").font(.ftLabel).tracking(1.4).foregroundStyle(FTColor.textSecondary)
-                }
-
-                // Loans / Debts
-                Section {
-                    ForEach(loans.filter { $0.isActive }) { loan in
-                        NavigationLink(destination: LazyView { LoanDetailView(loan: loan) }) {
-                            LoanRow(loan: loan, baseCurrency: baseCurrency)
-                        }
-                        .listRowBackground(RoundedRectangle(cornerRadius: FTRadius.md).fill(.regularMaterial).overlay(RoundedRectangle(cornerRadius: FTRadius.md).strokeBorder(.white.opacity(0.3), lineWidth: 0.5)).padding(.vertical, FTSpacing.xs))
-                        .listRowSeparator(.hidden)
-                        .swipeActions(edge: .trailing) {
-                            Button(role: .destructive) {
-                                context.delete(loan); try? context.save()
-                            } label: { Label("Delete", systemImage: "trash") }
-                        }
-                    }
-                    Button { showingAddLoan = true } label: {
-                        Label("Add Loan", systemImage: "plus.circle.fill")
-                            .font(.ftBodySemibold).foregroundStyle(FTColor.accent)
-                            .frame(maxWidth: .infinity, alignment: .center)
-                            .padding(.vertical, FTSpacing.sm)
-                    }
-                    .listRowBackground(RoundedRectangle(cornerRadius: FTRadius.md).fill(.regularMaterial).overlay(RoundedRectangle(cornerRadius: FTRadius.md).strokeBorder(.white.opacity(0.3), lineWidth: 0.5)).padding(.vertical, FTSpacing.xs))
-                    .listRowSeparator(.hidden)
-                } header: {
-                    Text("Loans / Debts").font(.ftLabel).tracking(1.4).foregroundStyle(FTColor.textSecondary)
-                }
-
-                // BNPL
-                Section {
-                    ForEach(bnplPlans.filter { !$0.isCompleted }) { plan in
-                        BNPLRow(plan: plan, baseCurrency: baseCurrency)
-                            .accountRowStyle()
-                            .swipeActions(edge: .trailing) {
-                                Button(role: .destructive) {
-                                    context.delete(plan); try? context.save()
-                                } label: { Label("Delete", systemImage: "trash") }
-                            }
-                    }
-                    Button { showingAddBNPL = true } label: {
-                        Label("Add BNPL Plan", systemImage: "plus.circle.fill")
-                            .font(.ftBodySemibold).foregroundStyle(FTColor.accent)
-                            .frame(maxWidth: .infinity, alignment: .center)
-                            .padding(.vertical, FTSpacing.sm)
-                    }
-                    .listRowBackground(RoundedRectangle(cornerRadius: FTRadius.md).fill(.regularMaterial).overlay(RoundedRectangle(cornerRadius: FTRadius.md).strokeBorder(.white.opacity(0.3), lineWidth: 0.5)).padding(.vertical, FTSpacing.xs))
-                    .listRowSeparator(.hidden)
-                } header: {
-                    Text("Buy Now Pay Later").font(.ftLabel).tracking(1.4).foregroundStyle(FTColor.textSecondary)
                 }
 
                 // Investments
@@ -323,8 +267,6 @@ struct AccountsView: View {
             // #5 – NO floating button inside this view; it lives in the tab bar
             .sheet(isPresented: $showingAddAccount) { AddAccountView() }
             .sheet(isPresented: $showingAddCreditCard) { AddCreditCardView() }
-            .sheet(isPresented: $showingAddLoan) { AddLoanView() }
-            .sheet(isPresented: $showingAddBNPL) { AddBNPLView() }
             .sheet(isPresented: $showingAddInvestment) { AddInvestmentView() }
             .sheet(isPresented: $showingAddCrypto) { AddCryptoView() }
             .sheet(isPresented: $showingAddGold) { AddGoldHoldingView() }
@@ -485,47 +427,6 @@ struct CreditCardRow: View {
         .padding(.vertical, 4)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(card.name), credit card, outstanding \(card.outstandingBalance.formatted(as: card.currency)), \(Int(card.utilizationRate * 100)) percent utilized\(card.isPaymentDueSoon ? ", payment due soon" : "")")
-    }
-}
-
-struct LoanRow: View {
-    let loan: Loan; let baseCurrency: String
-    var body: some View {
-        HStack(spacing: FTSpacing.md) {
-            FTIconTile(symbol: loan.loanType.icon, tint: FTColor.gold)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(loan.name).font(.ftBody).foregroundStyle(FTColor.textPrimary)
-                Text(loan.loanType.rawValue).font(.ftCaption).foregroundStyle(FTColor.textSecondary)
-            }
-            Spacer()
-            VStack(alignment: .trailing, spacing: 2) {
-                Text(loan.outstandingBalance.formatted(as: loan.currency))
-                    .font(.ftBodySemibold).foregroundStyle(FTColor.gold)
-                Text("EMI: \(loan.emiAmount.formatted(as: loan.currency))")
-                    .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
-            }
-        }
-        .padding(.vertical, 4)
-    }
-}
-
-struct BNPLRow: View {
-    let plan: BNPLPlan; let baseCurrency: String
-    var body: some View {
-        HStack(spacing: FTSpacing.md) {
-            FTIconTile(symbol: "cart.fill", tint: Color.fromString(plan.provider.color))
-            VStack(alignment: .leading, spacing: 2) {
-                Text(plan.name).font(.ftBody).foregroundStyle(FTColor.textPrimary)
-                Text("\(plan.provider.rawValue) • \(plan.merchant)").font(.ftCaption).foregroundStyle(FTColor.textSecondary)
-            }
-            Spacer()
-            VStack(alignment: .trailing, spacing: 2) {
-                Text(plan.remainingAmount.formatted(as: plan.currency))
-                    .font(.ftBodySemibold).foregroundStyle(FTColor.accentBright)
-                Text("\(plan.paidInstallments)/\(plan.totalInstallments)").font(.ftCaption).foregroundStyle(FTColor.textSecondary)
-            }
-        }
-        .padding(.vertical, 4)
     }
 }
 
@@ -692,7 +593,3 @@ struct LoyaltyProgramRow: View {
     }
 }
 
-private struct LazyView<Content: View>: View {
-    let build: () -> Content
-    var body: some View { build() }
-}

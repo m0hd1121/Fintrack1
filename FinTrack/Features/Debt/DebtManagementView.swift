@@ -14,8 +14,11 @@ struct DebtManagementView: View {
     @Query(filter: #Predicate<CreditCard> { $0.isActive }) private var creditCards: [CreditCard]
     @Query private var moneyLent: [MoneyLent]
     @Query private var moneyBorrowed: [MoneyBorrowed]
+    @Query(filter: #Predicate<BNPLPlan> { $0.isCompleted == false }) private var bnplPlans: [BNPLPlan]
 
     @State private var selectedTab = 0
+    @State private var showingAddLoan = false
+    @State private var showingAddBNPL = false
     @State private var showingAddLent = false
     @State private var showingAddBorrowed = false
     @State private var editingLent: MoneyLent? = nil
@@ -31,7 +34,7 @@ struct DebtManagementView: View {
     @State private var selectedLent: MoneyLent? = nil
     @State private var selectedBorrowed: MoneyBorrowed? = nil
 
-    private let tabs = ["Overview", "Snowball", "Avalanche", "Calculator", "Lent", "Borrowed", "Utilization"]
+    private let tabs = ["Overview", "Snowball", "Avalanche", "Calculator", "Lent", "Borrowed", "BNPL", "Utilization"]
 
     private var baseCurrency: String { appState.baseCurrency }
 
@@ -46,7 +49,7 @@ struct DebtManagementView: View {
 
     private var totalDebt: Double {
         let loansAndCards = debtItems.reduce(0.0) { $0 + currencyService.convert($1.outstandingBalance, from: $1.currency, to: baseCurrency) }
-        return loansAndCards + totalBorrowed
+        return loansAndCards + totalBorrowed + totalBNPL
     }
 
     private var totalMinimumPayments: Double {
@@ -62,6 +65,12 @@ struct DebtManagementView: View {
 
     private var totalBorrowed: Double {
         moneyBorrowed.reduce(0) { $0 + currencyService.convert($1.remainingBalance, from: $1.currency, to: baseCurrency) }
+    }
+
+    private var activeBNPLItems: [BNPLPlan] { Array(bnplPlans) }
+
+    private var totalBNPL: Double {
+        activeBNPLItems.reduce(0) { $0 + currencyService.convert($1.remainingAmount, from: $1.currency, to: baseCurrency) }
     }
 
     // MARK: - Body
@@ -93,6 +102,12 @@ struct DebtManagementView: View {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     addButton
                 }
+            }
+            .sheet(isPresented: $showingAddLoan) {
+                AddLoanView()
+            }
+            .sheet(isPresented: $showingAddBNPL) {
+                AddBNPLView()
             }
             .sheet(isPresented: $showingAddLent) {
                 AddMoneyLentSheet()
@@ -148,12 +163,13 @@ struct DebtManagementView: View {
         case 3: return "function"
         case 4: return "hand.raised.fill"
         case 5: return "hand.point.down.fill"
-        case 6: return "gauge.medium"
+        case 6: return "cart.fill"
+        case 7: return "gauge.medium"
         default: return "circle"
         }
     }
 
-    // AnyView erases the complex 7-branch _ConditionalContent type that would
+    // AnyView erases the complex 8-branch _ConditionalContent type that would
     // otherwise create deeply nested generic stack frames and overflow on open.
     private func activeTabView() -> AnyView {
         switch selectedTab {
@@ -162,7 +178,8 @@ struct DebtManagementView: View {
         case 3: return AnyView(calculatorTab)
         case 4: return AnyView(lentTab)
         case 5: return AnyView(borrowedTab)
-        case 6: return AnyView(utilizationTab)
+        case 6: return AnyView(bnplTab)
+        case 7: return AnyView(utilizationTab)
         default: return AnyView(overviewTab)
         }
     }
@@ -171,15 +188,33 @@ struct DebtManagementView: View {
 
     @ViewBuilder
     private var addButton: some View {
-        if selectedTab == 4 || selectedTab == 5 {
-            Button {
-                if selectedTab == 4 { showingAddLent = true }
-                else { showingAddBorrowed = true }
-            } label: {
+        switch selectedTab {
+        case 0:
+            Button { showingAddLoan = true } label: {
                 Image(systemName: "plus")
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(FTColor.accent)
             }
+        case 4:
+            Button { showingAddLent = true } label: {
+                Image(systemName: "plus")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(FTColor.accent)
+            }
+        case 5:
+            Button { showingAddBorrowed = true } label: {
+                Image(systemName: "plus")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(FTColor.accent)
+            }
+        case 6:
+            Button { showingAddBNPL = true } label: {
+                Image(systemName: "plus")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(FTColor.accent)
+            }
+        default:
+            EmptyView()
         }
     }
 
@@ -302,6 +337,21 @@ struct DebtManagementView: View {
                 }
             }
 
+            // BNPL
+            if !activeBNPLItems.isEmpty {
+                VStack(alignment: .leading, spacing: FTSpacing.sm) {
+                    debtSectionHeader("Buy Now Pay Later", symbol: "cart.fill", tint: FTColor.accentBright)
+                        .padding(.horizontal, FTSpacing.screen)
+
+                    VStack(spacing: FTSpacing.sm) {
+                        ForEach(activeBNPLItems.sorted { $0.nextPaymentDate < $1.nextPaymentDate }, id: \.id) { plan in
+                            BNPLDebtCard(plan: plan, baseCurrency: baseCurrency, currencyService: currencyService)
+                                .padding(.horizontal, FTSpacing.screen)
+                        }
+                    }
+                }
+            }
+
             // Borrowed money
             if !activeBorrowedItems.isEmpty {
                 VStack(alignment: .leading, spacing: FTSpacing.sm) {
@@ -320,7 +370,7 @@ struct DebtManagementView: View {
             }
 
             // Empty state
-            if activeLoans.isEmpty && activeCards.isEmpty && activeBorrowedItems.isEmpty {
+            if activeLoans.isEmpty && activeCards.isEmpty && activeBNPLItems.isEmpty && activeBorrowedItems.isEmpty {
                 debtEmptyState(
                     symbol: "creditcard",
                     title: "No Active Debts",
@@ -367,8 +417,8 @@ struct DebtManagementView: View {
                     .background(.white.opacity(0.3))
                     .padding(.horizontal, FTSpacing.lg)
                 DebtSummaryMetric(
-                    label: "Borrowed",
-                    value: "\(activeBorrowedItems.count)",
+                    label: "BNPL",
+                    value: "\(activeBNPLItems.count)",
                     valueColor: .white
                 )
             }
@@ -848,7 +898,71 @@ struct DebtManagementView: View {
         .padding(.top, FTSpacing.md)
     }
 
-    // MARK: - TAB 6: CREDIT UTILIZATION
+    // MARK: - TAB 6: BNPL
+
+    private var bnplTab: some View {
+        VStack(spacing: FTSpacing.lg) {
+            // Summary header
+            HStack(spacing: FTSpacing.md) {
+                FTIconTile(symbol: "cart.fill", tint: FTColor.accentBright, size: 42)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Buy Now Pay Later")
+                        .font(.ftBodySemibold)
+                        .foregroundStyle(FTColor.textPrimary)
+                    Text("\(activeBNPLItems.count) active plans")
+                        .font(.ftCaption)
+                        .foregroundStyle(FTColor.textSecondary)
+                }
+                Spacer()
+                VStack(alignment: .trailing, spacing: 3) {
+                    Text(totalBNPL.formatted(as: baseCurrency))
+                        .font(.ftBodySemibold)
+                        .foregroundStyle(FTColor.accentBright)
+                    Text("remaining")
+                        .font(.ftLabel)
+                        .tracking(0.3)
+                        .foregroundStyle(FTColor.textMuted)
+                }
+            }
+            .padding(FTSpacing.lg)
+            .ftGlass(FTRadius.lg)
+            .padding(.horizontal, FTSpacing.screen)
+
+            if bnplPlans.isEmpty {
+                debtEmptyState(
+                    symbol: "cart",
+                    title: "No BNPL Plans",
+                    message: "Track your Buy Now Pay Later installment plans here.",
+                    buttonTitle: "Add Plan",
+                    action: { showingAddBNPL = true }
+                )
+                .padding(.horizontal, FTSpacing.screen)
+            } else {
+                VStack(alignment: .leading, spacing: FTSpacing.sm) {
+                    debtSectionHeader("Active Plans", symbol: "list.bullet", tint: FTColor.accentBright)
+                        .padding(.horizontal, FTSpacing.screen)
+
+                    VStack(spacing: FTSpacing.sm) {
+                        ForEach(bnplPlans.sorted { $0.nextPaymentDate < $1.nextPaymentDate }, id: \.id) { plan in
+                            BNPLDebtCard(plan: plan, baseCurrency: baseCurrency, currencyService: currencyService)
+                                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                    Button(role: .destructive) {
+                                        context.delete(plan)
+                                        try? context.save()
+                                    } label: {
+                                        Label("Delete", systemImage: "trash")
+                                    }
+                                }
+                                .padding(.horizontal, FTSpacing.screen)
+                        }
+                    }
+                }
+            }
+        }
+        .padding(.top, FTSpacing.md)
+    }
+
+    // MARK: - TAB 7: CREDIT UTILIZATION
 
     private var utilizationTab: some View {
         VStack(spacing: FTSpacing.lg) {
@@ -1136,6 +1250,83 @@ private struct CreditCardDebtCard: View {
                     }
                     .foregroundStyle(FTColor.expense)
                 }
+            }
+        }
+        .padding(FTSpacing.lg)
+        .ftGlassInteractive(FTRadius.lg)
+    }
+}
+
+// MARK: - BNPLDebtCard
+
+private struct BNPLDebtCard: View {
+    let plan: BNPLPlan
+    let baseCurrency: String
+    let currencyService: CurrencyService
+
+    var body: some View {
+        VStack(spacing: FTSpacing.md) {
+            HStack(spacing: FTSpacing.md) {
+                FTIconTile(symbol: "cart.fill", tint: Color.fromString(plan.provider.color), size: 42)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(plan.name)
+                        .font(.ftBodySemibold)
+                        .foregroundStyle(FTColor.textPrimary)
+                        .lineLimit(1)
+                    Text("\(plan.provider.rawValue) • \(plan.merchant)")
+                        .font(.ftCaption)
+                        .foregroundStyle(FTColor.textSecondary)
+                        .lineLimit(1)
+                }
+
+                Spacer()
+
+                VStack(alignment: .trailing, spacing: 3) {
+                    Text(currencyService.convert(plan.remainingAmount, from: plan.currency, to: baseCurrency).formatted(as: baseCurrency))
+                        .font(.ftBodySemibold)
+                        .foregroundStyle(FTColor.accentBright)
+                    Text("remaining")
+                        .font(.ftLabel)
+                        .tracking(0.3)
+                        .foregroundStyle(FTColor.textMuted)
+                }
+            }
+
+            VStack(spacing: FTSpacing.xs) {
+                HStack {
+                    Text("\(plan.paidInstallments) of \(plan.totalInstallments) installments")
+                        .font(.ftLabel)
+                        .tracking(0.3)
+                        .foregroundStyle(FTColor.textMuted)
+                    Spacer()
+                    let progress = plan.totalInstallments > 0 ? Double(plan.paidInstallments) / Double(plan.totalInstallments) : 0
+                    Text((progress * 100).asPercentage(decimals: 0))
+                        .font(.ftLabel)
+                        .tracking(0.3)
+                        .foregroundStyle(FTColor.textSecondary)
+                }
+                let progress = plan.totalInstallments > 0 ? Double(plan.paidInstallments) / Double(plan.totalInstallments) : 0
+                FTProgressBar(
+                    value: min(max(progress, 0), 1),
+                    color: FTColor.accentBright,
+                    height: 7
+                )
+            }
+
+            HStack {
+                HStack(spacing: FTSpacing.xs) {
+                    Image(systemName: "calendar.badge.clock")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(FTColor.textMuted)
+                    Text("Next: \(plan.nextPaymentDate.relativeFormatted)")
+                        .font(.ftCaption)
+                        .foregroundStyle(FTColor.textSecondary)
+                }
+                Spacer()
+                Text(plan.installmentAmount.formatted(as: plan.currency) + "/mo")
+                    .font(.ftCaption)
+                    .foregroundStyle(FTColor.textSecondary)
             }
         }
         .padding(FTSpacing.lg)
@@ -2677,6 +2868,7 @@ private struct AddMoneyBorrowedSheet: View {
         for: [
             Loan.self,
             CreditCard.self,
+            BNPLPlan.self,
             MoneyLent.self,
             MoneyBorrowed.self,
             Transaction.self,
