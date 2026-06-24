@@ -37,7 +37,7 @@ struct ImportIntegrationView: View {
                     } else {
                         Text("Ready to Import")
                             .font(.ftHeadline).foregroundStyle(FTColor.textSecondary)
-                        Text("Import bank statements, OFX files, or connect via Open Banking")
+                        Text("Import bank statements or OFX files to get started")
                             .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
                     }
                 }
@@ -90,13 +90,6 @@ struct ImportIntegrationView: View {
                 methodRow(icon: "arrow.down.doc.fill", color: FTColor.catBlue,
                           title: "OFX / QIF / QFX",
                           subtitle: "Standard banking formats · Auto dedup")
-            }
-            .buttonStyle(.plain)
-
-            NavigationLink(destination: OpenBankingView()) {
-                methodRow(icon: "building.2.fill", color: FTColor.catPurple,
-                          title: "Open Banking (UAE)",
-                          subtitle: "Consent-based · Secure token · Auto-sync")
             }
             .buttonStyle(.plain)
 
