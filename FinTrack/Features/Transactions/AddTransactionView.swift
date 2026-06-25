@@ -86,6 +86,10 @@ struct AddTransactionView: View {
     @State private var loyaltyPoints = ""
     @State private var isLoyaltyTransfer = false
 
+    // — Transfer fee
+    @State private var hasTransferFee = false
+    @State private var transferFee = ""
+
     // — New: AI & rules
     @State private var aiPrediction: CategoryPrediction? = nil
     @State private var appliedRuleName: String? = nil
@@ -378,6 +382,48 @@ struct AddTransactionView: View {
                     Text("Source and destination must be different accounts")
                         .font(.ftCaption).foregroundStyle(FTColor.expense)
                 }.padding(.vertical, FTSpacing.sm)
+            }
+            Divider().opacity(0.4)
+            // Fee toggle
+            HStack(spacing: FTSpacing.md) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8).fill(FTColor.expense.opacity(0.12)).frame(width: 32, height: 32)
+                    Image(systemName: "banknote.fill").font(.system(size: 13)).foregroundStyle(FTColor.expense)
+                }
+                Text("Transfer Fee").font(.ftBody).foregroundStyle(FTColor.textPrimary)
+                Spacer()
+                Toggle("", isOn: $hasTransferFee).labelsHidden()
+                    .tint(FTColor.expense)
+            }
+            .padding(.vertical, FTSpacing.sm)
+            if hasTransferFee {
+                Divider().opacity(0.4)
+                HStack(spacing: FTSpacing.md) {
+                    Text("Fee Amount").font(.ftBody).foregroundStyle(FTColor.textSecondary)
+                    Spacer()
+                    TextField("0.00", text: $transferFee)
+                        .keyboardType(.decimalPad)
+                        .multilineTextAlignment(.trailing)
+                        .font(.ftBodySemibold)
+                        .foregroundStyle(FTColor.expense)
+                        .frame(maxWidth: 120)
+                    Text(currency).font(.ftCaption).foregroundStyle(FTColor.textMuted)
+                }
+                .padding(.vertical, FTSpacing.sm)
+                if let from = selectedAccount,
+                   let feeVal = AmountTextField.double(from: transferFee), feeVal > 0,
+                   let amt = amountDouble {
+                    let totalDeducted = currencyService.convert(amt + feeVal, from: currency, to: from.currency)
+                    Divider().opacity(0.4)
+                    HStack {
+                        Text("Total from \(from.name)")
+                            .font(.ftCaption).foregroundStyle(FTColor.textMuted)
+                        Spacer()
+                        Text(totalDeducted.formatted(as: from.currency))
+                            .font(.ftCaption).foregroundStyle(FTColor.expense)
+                    }
+                    .padding(.vertical, FTSpacing.xs)
+                }
             }
         }
         .padding(.horizontal, FTSpacing.lg)
@@ -1562,6 +1608,22 @@ struct AddTransactionView: View {
                     if let to = toAccount {
                         let delta = currencyService.convert(amountValue, from: currency, to: to.currency)
                         to.balance += delta
+                    }
+                    // Deduct fee from source and record as expense
+                    let feeValue = AmountTextField.double(from: transferFee)
+                    if hasTransferFee, feeValue > 0, let from = selectedAccount {
+                        let feeDelta = currencyService.convert(feeValue, from: currency, to: from.currency)
+                        from.balance -= feeDelta
+                        let feeBaseCurrency = currencyService.convert(feeValue, from: currency, to: baseCurrency)
+                        let feeTx = Transaction(
+                            title: "Transfer Fee – \(title)",
+                            amount: feeValue, currency: currency,
+                            amountInBaseCurrency: feeBaseCurrency,
+                            type: .expense, category: .bankFees,
+                            date: date, notes: "Bank transfer fee"
+                        )
+                        feeTx.account = from
+                        context.insert(feeTx)
                     }
                 } else if let account = selectedAccount {
                     let delta = currencyService.convert(amountValue, from: currency, to: account.currency)
