@@ -1210,7 +1210,7 @@ struct FinTrackLiveActivityConfiguration: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: BudgetLiveActivityAttributes.self) { context in
             BudgetLiveActivityView(context: context)
-                .containerBackground(.black.opacity(0.85), for: .expanded)
+                .activityBackgroundTint(.black.opacity(0.85))
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
