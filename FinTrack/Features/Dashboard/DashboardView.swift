@@ -226,12 +226,37 @@ struct DashboardView: View {
             )
         }
 
+        let billPayments = bills.map { bill in
+            WidgetPaymentSnapshot(id: bill.id, name: bill.name, amount: bill.amount,
+                                  currency: bill.currency, dueDate: bill.nextDueDate,
+                                  icon: bill.icon, kind: "bill")
+        }
+        let bnplPayments = bnplPlans.filter { !$0.isCompleted }.map { plan in
+            WidgetPaymentSnapshot(id: plan.id,
+                                  name: "\(plan.name) · \(plan.provider.rawValue)",
+                                  amount: plan.installmentAmount,
+                                  currency: plan.currency,
+                                  dueDate: plan.nextPaymentDate,
+                                  icon: plan.provider.logo,
+                                  kind: "bnpl")
+        }
+        let scheduledPayments = transactions
+            .filter { $0.isScheduled && $0.scheduledDate != nil && $0.type == .expense }
+            .map { tx in
+                WidgetPaymentSnapshot(id: tx.id, name: tx.title, amount: tx.amount,
+                                      currency: tx.currency, dueDate: tx.scheduledDate!,
+                                      icon: tx.category.icon, kind: "scheduled")
+            }
+        let allPayments = (billPayments + bnplPayments + scheduledPayments)
+            .sorted { $0.dueDate < $1.dueDate }
+
         WidgetDataService.shared.updateAll(
             netWorth: metrics.netWorth,
             currency: baseCurrency,
             transactions: Array(txSnapshots),
             budgets: budgetSnapshots,
-            bills: billSnapshots
+            bills: billSnapshots,
+            payments: allPayments
         )
     }
 

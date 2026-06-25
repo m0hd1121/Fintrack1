@@ -16,7 +16,8 @@ final class WidgetDataService {
         currency: String,
         transactions: [WidgetTxSnapshot],
         budgets: [WidgetBudgetSnapshot],
-        bills: [WidgetBillSnapshot]
+        bills: [WidgetBillSnapshot],
+        payments: [WidgetPaymentSnapshot] = []
     ) {
         guard let defaults = UserDefaults(suiteName: suiteName) else { return }
         defaults.set(netWorth, forKey: "widget_net_worth")
@@ -29,6 +30,9 @@ final class WidgetDataService {
         }
         if let data = try? JSONEncoder().encode(bills) {
             defaults.set(data, forKey: "widget_bills")
+        }
+        if let data = try? JSONEncoder().encode(payments) {
+            defaults.set(data, forKey: "widget_upcoming_payments")
         }
         WidgetCenter.shared.reloadAllTimelines()
     }
@@ -108,6 +112,24 @@ struct WidgetBillSnapshot: Codable, Identifiable {
     var daysUntilDue: Int {
         Calendar.current.dateComponents([.day], from: Calendar.current.startOfDay(for: Date()),
                                         to: Calendar.current.startOfDay(for: dueDate)).day ?? 0
+    }
+}
+
+struct WidgetPaymentSnapshot: Codable, Identifiable {
+    var id: UUID
+    var name: String
+    var amount: Double
+    var currency: String
+    var dueDate: Date
+    var icon: String
+    var kind: String  // "bill" | "bnpl" | "scheduled"
+
+    var daysUntilDue: Int {
+        Calendar.current.dateComponents(
+            [.day],
+            from: Calendar.current.startOfDay(for: Date()),
+            to: Calendar.current.startOfDay(for: dueDate)
+        ).day ?? 0
     }
 }
 

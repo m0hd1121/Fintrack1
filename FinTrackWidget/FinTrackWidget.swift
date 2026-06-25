@@ -89,6 +89,31 @@ private func bills() -> [WidgetBill] {
     return items.filter { !$0.isPaid }.sorted { $0.dueDate < $1.dueDate }
 }
 
+struct WidgetPayment: Codable, Identifiable {
+    var id: UUID
+    var name: String
+    var amount: Double
+    var currency: String
+    var dueDate: Date
+    var icon: String
+    var kind: String
+
+    var daysUntilDue: Int {
+        Calendar.current.dateComponents(
+            [.day],
+            from: Calendar.current.startOfDay(for: Date()),
+            to: Calendar.current.startOfDay(for: dueDate)
+        ).day ?? 0
+    }
+}
+
+private func payments() -> [WidgetPayment] {
+    guard let data = loadDefaults()?.data(forKey: "widget_upcoming_payments"),
+          let items = try? JSONDecoder().decode([WidgetPayment].self, from: data)
+    else { return [] }
+    return items.sorted { $0.dueDate < $1.dueDate }
+}
+
 // MARK: – Sample data
 
 private func sampleTransactions() -> [WidgetTransaction] {
@@ -118,6 +143,26 @@ private func sampleBills() -> [WidgetBill] {
     ]
 }
 
+private func samplePayments() -> [WidgetPayment] {
+    let cal = Calendar.current
+    return [
+        WidgetPayment(id: UUID(), name: "DEWA", amount: 450, currency: "AED",
+                      dueDate: cal.date(byAdding: .day, value: 1, to: Date())!, icon: "bolt.fill", kind: "bill"),
+        WidgetPayment(id: UUID(), name: "Tabby · Noon", amount: 375, currency: "AED",
+                      dueDate: cal.date(byAdding: .day, value: 3, to: Date())!, icon: "t.circle.fill", kind: "bnpl"),
+        WidgetPayment(id: UUID(), name: "Etisalat", amount: 250, currency: "AED",
+                      dueDate: cal.date(byAdding: .day, value: 7, to: Date())!, icon: "wifi", kind: "bill"),
+        WidgetPayment(id: UUID(), name: "Gym Membership", amount: 350, currency: "AED",
+                      dueDate: cal.date(byAdding: .day, value: 9, to: Date())!, icon: "figure.run", kind: "scheduled"),
+        WidgetPayment(id: UUID(), name: "Tamara · H&M", amount: 200, currency: "AED",
+                      dueDate: cal.date(byAdding: .day, value: 12, to: Date())!, icon: "t.square.fill", kind: "bnpl"),
+        WidgetPayment(id: UUID(), name: "Netflix", amount: 45, currency: "AED",
+                      dueDate: cal.date(byAdding: .day, value: 14, to: Date())!, icon: "play.tv.fill", kind: "bill"),
+        WidgetPayment(id: UUID(), name: "Car Insurance", amount: 1200, currency: "AED",
+                      dueDate: cal.date(byAdding: .day, value: 22, to: Date())!, icon: "car.fill", kind: "scheduled"),
+    ]
+}
+
 // MARK: – Timeline Entry
 
 struct FinTrackEntry: TimelineEntry {
@@ -127,10 +172,12 @@ struct FinTrackEntry: TimelineEntry {
     var transactions: [WidgetTransaction]
     var budgets: [WidgetBudget]
     var bills: [WidgetBill]
+    var payments: [WidgetPayment]
 
     static var placeholder: FinTrackEntry {
         FinTrackEntry(date: Date(), netWorth: 85_000, currency: "AED",
-                      transactions: sampleTransactions(), budgets: sampleBudgets(), bills: sampleBills())
+                      transactions: sampleTransactions(), budgets: sampleBudgets(),
+                      bills: sampleBills(), payments: samplePayments())
     }
 }
 
@@ -156,7 +203,8 @@ struct FinTrackProvider: TimelineProvider {
             currency: currency(),
             transactions: transactions(),
             budgets: budgets(),
-            bills: bills()
+            bills: bills(),
+            payments: payments()
         )
     }
 }
@@ -779,6 +827,178 @@ struct BillsWidgetView: View {
     }
 }
 
+// MARK: – Payments Widget Views
+
+struct PaymentsLargeView: View {
+    var entry: FinTrackEntry
+
+    private var upcoming: [WidgetPayment] {
+        Array(entry.payments.sorted { $0.dueDate < $1.dueDate }.prefix(7))
+    }
+
+    private var totalNext30: Double {
+        entry.payments
+            .filter { $0.daysUntilDue >= 0 && $0.daysUntilDue <= 30 }
+            .reduce(0) { $0 + $1.amount }
+    }
+
+    private var overdueCount: Int {
+        entry.payments.filter { $0.daysUntilDue < 0 }.count
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Header
+            HStack(spacing: 8) {
+                Image(systemName: "calendar.badge.clock")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color.ftAccent)
+                Text("Upcoming Payments")
+                    .font(.system(size: 13, weight: .semibold))
+                Spacer()
+                VStack(alignment: .trailing, spacing: 1) {
+                    Text(totalNext30.asCompact(currency: entry.currency))
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .foregroundStyle(Color.ftGold)
+                    Text("next 30 days")
+                        .font(.system(size: 8))
+                        .foregroundStyle(.tertiary)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 14)
+            .padding(.bottom, 10)
+
+            Rectangle().fill(.white.opacity(0.1)).frame(height: 0.5)
+
+            if upcoming.isEmpty {
+                Spacer()
+                VStack(spacing: 8) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 30))
+                        .foregroundStyle(Color.ftIncome)
+                    Text("All clear")
+                        .font(.system(size: 13, weight: .semibold))
+                    Text("No upcoming payments")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+                Spacer()
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(Array(upcoming.enumerated()), id: \.element.id) { idx, payment in
+                        PaymentRowView(payment: payment, fallbackCurrency: entry.currency)
+                        if idx < upcoming.count - 1 {
+                            Rectangle()
+                                .fill(.white.opacity(0.06))
+                                .frame(height: 0.5)
+                                .padding(.leading, 58)
+                        }
+                    }
+                }
+                Spacer(minLength: 0)
+            }
+
+            Rectangle().fill(.white.opacity(0.1)).frame(height: 0.5)
+
+            HStack(spacing: 6) {
+                Image(systemName: "clock")
+                    .font(.system(size: 8))
+                    .foregroundStyle(.quaternary)
+                Text(entry.date, style: .time)
+                    .font(.system(size: 9))
+                    .foregroundStyle(.tertiary)
+                Spacer()
+                if overdueCount > 0 {
+                    Label("\(overdueCount) overdue", systemImage: "exclamationmark.circle.fill")
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundStyle(Color.ftExpense)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    }
+}
+
+private struct PaymentRowView: View {
+    var payment: WidgetPayment
+    var fallbackCurrency: String
+
+    private var urgencyColor: Color {
+        if payment.daysUntilDue < 0  { return Color.ftExpense }
+        if payment.daysUntilDue <= 3 { return Color.ftExpense }
+        if payment.daysUntilDue <= 7 { return Color.ftGold }
+        return Color.ftIncome
+    }
+
+    private var dueText: String {
+        switch payment.daysUntilDue {
+        case ..<0:  return "\(abs(payment.daysUntilDue))d overdue"
+        case 0:     return "Due today"
+        case 1:     return "Tomorrow"
+        default:    return "In \(payment.daysUntilDue)d"
+        }
+    }
+
+    private var kindBadge: String {
+        switch payment.kind {
+        case "bnpl":      return "BNPL"
+        case "scheduled": return "Sched."
+        default:          return "Bill"
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 10) {
+            ZStack {
+                Circle()
+                    .fill(urgencyColor.opacity(0.15))
+                    .frame(width: 34, height: 34)
+                Image(systemName: payment.icon)
+                    .font(.system(size: 14))
+                    .foregroundStyle(urgencyColor)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(payment.name)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                Text(kindBadge)
+                    .font(.system(size: 8, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.45))
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 2)
+                    .background(.white.opacity(0.08), in: Capsule())
+            }
+
+            Spacer()
+
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(payment.amount.asCompact(currency: payment.currency.isEmpty ? fallbackCurrency : payment.currency))
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.primary)
+                Text(dueText)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(urgencyColor)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 7)
+    }
+}
+
+struct PaymentsWidgetView: View {
+    var entry: FinTrackEntry
+
+    var body: some View {
+        PaymentsLargeView(entry: entry)
+    }
+}
+
 // MARK: – Widget declarations
 
 struct FinTrackBalanceWidget: Widget {
@@ -838,6 +1058,25 @@ struct FinTrackBillsWidget: Widget {
         .configurationDisplayName("Upcoming Bills")
         .description("See upcoming bills and due dates.")
         .supportedFamilies([.systemMedium, .systemLarge])
+    }
+}
+
+struct FinTrackPaymentsWidget: Widget {
+    let kind = "FinTrackPaymentsWidget"
+
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: kind, provider: FinTrackProvider()) { entry in
+            PaymentsWidgetView(entry: entry)
+                .containerBackground(for: .widget) {
+                    LinearGradient(
+                        colors: [Color(hexStr: "#0D1117"), Color(hexStr: "#161B22")],
+                        startPoint: .topLeading, endPoint: .bottomTrailing
+                    )
+                }
+        }
+        .configurationDisplayName("Upcoming Payments")
+        .description("Bills, BNPL installments, and scheduled payments — all in one place.")
+        .supportedFamilies([.systemLarge])
     }
 }
 
@@ -1014,6 +1253,7 @@ struct FinTrackWidgetBundle: WidgetBundle {
         FinTrackBalanceWidget()
         FinTrackBudgetWidget()
         FinTrackBillsWidget()
+        FinTrackPaymentsWidget()
         if #available(iOS 16.1, *) {
             FinTrackLiveActivityConfiguration()
         }
