@@ -410,9 +410,8 @@ struct AddTransactionView: View {
                     Text(currency).font(.ftCaption).foregroundStyle(FTColor.textMuted)
                 }
                 .padding(.vertical, FTSpacing.sm)
-                if let from = selectedAccount,
-                   let feeVal = AmountTextField.double(from: transferFee), feeVal > 0,
-                   let amt = amountDouble {
+                let feeVal = AmountTextField.double(from: transferFee)
+                if let from = selectedAccount, feeVal > 0, let amt = amountDouble {
                     let totalDeducted = currencyService.convert(amt + feeVal, from: currency, to: from.currency)
                     Divider().opacity(0.4)
                     HStack {
