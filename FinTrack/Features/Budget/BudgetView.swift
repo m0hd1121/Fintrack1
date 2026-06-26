@@ -65,7 +65,7 @@ struct BudgetView: View {
         return result
     }
 
-    /// Per-budget spending, respecting an optional merchantFilter keyword.
+    /// Per-budget monthly spending, respecting an optional merchantFilter keyword.
     private func spending(for budget: Budget, in month: Date) -> Double {
         guard let filter = budget.merchantFilter, !filter.isEmpty else {
             return spentByCategory[budget.category] ?? 0
@@ -73,6 +73,24 @@ struct BudgetView: View {
         let lower = filter.lowercased()
         return transactions
             .filter { $0.date.isSameMonth(as: month) }
+            .filter { tx in
+                tx.title.lowercased().contains(lower) ||
+                (tx.merchant?.lowercased().contains(lower) ?? false)
+            }
+            .flatMap { $0.spendingPairs }
+            .filter { $0.0 == budget.category }
+            .reduce(0) { $0 + $1.1 }
+    }
+
+    /// Per-budget year-to-date spending, respecting an optional merchantFilter keyword.
+    private func ytdSpending(for budget: Budget) -> Double {
+        guard let filter = budget.merchantFilter, !filter.isEmpty else {
+            return ytdSpentByCategory[budget.category] ?? 0
+        }
+        let lower = filter.lowercased()
+        let yearStart = Date().startOfYear
+        return transactions
+            .filter { $0.date >= yearStart }
             .filter { tx in
                 tx.title.lowercased().contains(lower) ||
                 (tx.merchant?.lowercased().contains(lower) ?? false)
@@ -361,22 +379,7 @@ struct BudgetView: View {
             } else {
                 VStack(spacing: FTSpacing.sm) {
                     ForEach(allAnnualBudgets, id: \.id) { budget in
-                        let spent: Double = {
-                            if let filter = budget.merchantFilter, !filter.isEmpty {
-                                let lower = filter.lowercased()
-                                let yearStart = Date().startOfYear
-                                return transactions
-                                    .filter { $0.date >= yearStart }
-                                    .filter { tx in
-                                        tx.title.lowercased().contains(lower) ||
-                                        (tx.merchant?.lowercased().contains(lower) ?? false)
-                                    }
-                                    .flatMap { $0.spendingPairs }
-                                    .filter { $0.0 == budget.category }
-                                    .reduce(0) { $0 + $1.1 }
-                            }
-                            return ytd[budget.category] ?? 0
-                        }()
+                        let spent = ytdSpending(for: budget)
                         let annualTarget = annualTarget(for: budget)
                         AnnualBudgetRow(
                             budget: budget,
