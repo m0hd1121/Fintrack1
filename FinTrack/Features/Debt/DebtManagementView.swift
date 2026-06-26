@@ -1752,9 +1752,11 @@ struct MoneyLentDetailSheet: View {
     @Environment(AppState.self) private var appState
 
     let item: MoneyLent
+    @Query private var allTransactions: [Transaction]
     @State private var showingRepaymentSheet = false
     @State private var showingEdit = false
     @State private var showingDeleteConfirm = false
+    @State private var editingRepayment: RepaymentRecord? = nil
 
     private var baseCurrency: String { appState.baseCurrency }
 
@@ -1861,6 +1863,24 @@ struct MoneyLentDetailSheet: View {
                                                 }
                                             }
                                             Spacer()
+                                            HStack(spacing: FTSpacing.sm) {
+                                                Button { editingRepayment = repayment } label: {
+                                                    Image(systemName: "pencil")
+                                                        .font(.system(size: 12, weight: .semibold))
+                                                        .foregroundStyle(FTColor.accent)
+                                                        .frame(width: 28, height: 28)
+                                                        .background(.regularMaterial, in: .circle)
+                                                }
+                                                .buttonStyle(.plain)
+                                                Button { deleteRepayment(repayment) } label: {
+                                                    Image(systemName: "trash")
+                                                        .font(.system(size: 12, weight: .semibold))
+                                                        .foregroundStyle(FTColor.expense)
+                                                        .frame(width: 28, height: 28)
+                                                        .background(.regularMaterial, in: .circle)
+                                                }
+                                                .buttonStyle(.plain)
+                                            }
                                         }
                                         .padding(.horizontal, FTSpacing.screen)
                                         .padding(.vertical, FTSpacing.sm)
@@ -1913,6 +1933,11 @@ struct MoneyLentDetailSheet: View {
             .sheet(isPresented: $showingEdit) {
                 AddMoneyLentSheet(editing: item)
             }
+            .sheet(item: $editingRepayment) { repayment in
+                EditDebtRepaymentSheet(repayment: repayment, currency: item.currency) { amount, date, notes in
+                    updateRepayment(repayment, amount: amount, date: date, notes: notes)
+                }
+            }
             .confirmationDialog("Delete this record?", isPresented: $showingDeleteConfirm, titleVisibility: .visible) {
                 Button("Delete", role: .destructive) {
                     context.delete(item)
@@ -1951,6 +1976,44 @@ struct MoneyLentDetailSheet: View {
         }
         .padding(.horizontal, FTSpacing.screen)
         .padding(.vertical, FTSpacing.md)
+    }
+
+    private func deleteRepayment(_ repayment: RepaymentRecord) {
+        if let tx = allTransactions.first(where: { $0.linkedDebtRepaymentId == repayment.id }) {
+            if let account = tx.account {
+                let delta = currencyService.convert(tx.amount, from: tx.currency, to: account.currency)
+                account.balance -= delta  // reverse the income received
+            }
+            context.delete(tx)
+        }
+        item.repayments.removeAll { $0.id == repayment.id }
+        item.updatedAt = Date()
+        try? context.save()
+    }
+
+    private func updateRepayment(_ old: RepaymentRecord, amount: Double, date: Date, notes: String?) {
+        if let tx = allTransactions.first(where: { $0.linkedDebtRepaymentId == old.id }) {
+            if let account = tx.account, amount != old.amount {
+                let oldDelta = currencyService.convert(old.amount, from: item.currency, to: account.currency)
+                let newDelta = currencyService.convert(amount, from: item.currency, to: account.currency)
+                account.balance -= oldDelta  // reverse old income
+                account.balance += newDelta  // apply new income
+            }
+            tx.amount = amount
+            tx.amountInBaseCurrency = currencyService.convert(amount, from: item.currency, to: baseCurrency)
+            tx.date = date
+            tx.notes = notes
+            tx.updatedAt = Date()
+        }
+        var repayments = item.repayments
+        if let idx = repayments.firstIndex(where: { $0.id == old.id }) {
+            repayments[idx].amount = amount
+            repayments[idx].date = date
+            repayments[idx].notes = notes
+        }
+        item.repayments = repayments
+        item.updatedAt = Date()
+        try? context.save()
     }
 }
 
@@ -2113,9 +2176,11 @@ struct MoneyBorrowedDetailSheet: View {
     @Environment(AppState.self) private var appState
 
     let item: MoneyBorrowed
+    @Query private var allTransactions: [Transaction]
     @State private var showingRepaymentSheet = false
     @State private var showingEdit = false
     @State private var showingDeleteConfirm = false
+    @State private var editingRepayment: RepaymentRecord? = nil
 
     private var baseCurrency: String { appState.baseCurrency }
 
@@ -2222,6 +2287,24 @@ struct MoneyBorrowedDetailSheet: View {
                                                 }
                                             }
                                             Spacer()
+                                            HStack(spacing: FTSpacing.sm) {
+                                                Button { editingRepayment = repayment } label: {
+                                                    Image(systemName: "pencil")
+                                                        .font(.system(size: 12, weight: .semibold))
+                                                        .foregroundStyle(FTColor.accent)
+                                                        .frame(width: 28, height: 28)
+                                                        .background(.regularMaterial, in: .circle)
+                                                }
+                                                .buttonStyle(.plain)
+                                                Button { deleteRepayment(repayment) } label: {
+                                                    Image(systemName: "trash")
+                                                        .font(.system(size: 12, weight: .semibold))
+                                                        .foregroundStyle(FTColor.expense)
+                                                        .frame(width: 28, height: 28)
+                                                        .background(.regularMaterial, in: .circle)
+                                                }
+                                                .buttonStyle(.plain)
+                                            }
                                         }
                                         .padding(.horizontal, FTSpacing.screen)
                                         .padding(.vertical, FTSpacing.sm)
@@ -2273,6 +2356,11 @@ struct MoneyBorrowedDetailSheet: View {
             .sheet(isPresented: $showingEdit) {
                 AddMoneyBorrowedSheet(editing: item)
             }
+            .sheet(item: $editingRepayment) { repayment in
+                EditDebtRepaymentSheet(repayment: repayment, currency: item.currency) { amount, date, notes in
+                    updateRepayment(repayment, amount: amount, date: date, notes: notes)
+                }
+            }
             .confirmationDialog("Delete this record?", isPresented: $showingDeleteConfirm, titleVisibility: .visible) {
                 Button("Delete", role: .destructive) {
                     context.delete(item)
@@ -2311,6 +2399,44 @@ struct MoneyBorrowedDetailSheet: View {
         }
         .padding(.horizontal, FTSpacing.screen)
         .padding(.vertical, FTSpacing.md)
+    }
+
+    private func deleteRepayment(_ repayment: RepaymentRecord) {
+        if let tx = allTransactions.first(where: { $0.linkedDebtRepaymentId == repayment.id }) {
+            if let account = tx.account {
+                let delta = currencyService.convert(tx.amount, from: tx.currency, to: account.currency)
+                account.balance += delta  // reverse the expense payment
+            }
+            context.delete(tx)
+        }
+        item.repayments.removeAll { $0.id == repayment.id }
+        item.updatedAt = Date()
+        try? context.save()
+    }
+
+    private func updateRepayment(_ old: RepaymentRecord, amount: Double, date: Date, notes: String?) {
+        if let tx = allTransactions.first(where: { $0.linkedDebtRepaymentId == old.id }) {
+            if let account = tx.account, amount != old.amount {
+                let oldDelta = currencyService.convert(old.amount, from: item.currency, to: account.currency)
+                let newDelta = currencyService.convert(amount, from: item.currency, to: account.currency)
+                account.balance += oldDelta  // reverse old
+                account.balance -= newDelta  // apply new
+            }
+            tx.amount = amount
+            tx.amountInBaseCurrency = currencyService.convert(amount, from: item.currency, to: baseCurrency)
+            tx.date = date
+            tx.notes = notes
+            tx.updatedAt = Date()
+        }
+        var repayments = item.repayments
+        if let idx = repayments.firstIndex(where: { $0.id == old.id }) {
+            repayments[idx].amount = amount
+            repayments[idx].date = date
+            repayments[idx].notes = notes
+        }
+        item.repayments = repayments
+        item.updatedAt = Date()
+        try? context.save()
     }
 }
 
@@ -2856,6 +2982,92 @@ private struct AddMoneyBorrowedSheet: View {
         }
         try? context.save()
         dismiss()
+    }
+}
+
+// MARK: - EditDebtRepaymentSheet
+
+private struct EditDebtRepaymentSheet: View {
+    @Environment(\.dismiss) private var dismiss
+
+    let repayment: RepaymentRecord
+    let currency: String
+    let onSave: (Double, Date, String?) -> Void
+
+    @State private var amount: String = ""
+    @State private var date = Date()
+    @State private var notes = ""
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                FTBackdrop()
+                ScrollView {
+                    VStack(spacing: FTSpacing.lg) {
+                        VStack(spacing: 0) {
+                            formRow(label: "Amount (\(currency))") {
+                                TextField("0.00", text: $amount)
+                                    .keyboardType(.decimalPad)
+                                    .font(.ftBodySemibold)
+                                    .foregroundStyle(FTColor.textPrimary)
+                                    .multilineTextAlignment(.trailing)
+                            }
+                            Divider().padding(.leading, FTSpacing.screen)
+                            formRow(label: "Date") {
+                                DatePicker("", selection: $date, displayedComponents: .date)
+                                    .labelsHidden()
+                                    .tint(FTColor.accent)
+                            }
+                            Divider().padding(.leading, FTSpacing.screen)
+                            formRow(label: "Notes") {
+                                TextField("Optional notes", text: $notes)
+                                    .font(.ftBody)
+                                    .foregroundStyle(FTColor.textPrimary)
+                                    .multilineTextAlignment(.trailing)
+                            }
+                        }
+                        .ftGlass(FTRadius.lg)
+                        .padding(.horizontal, FTSpacing.screen)
+
+                        Button("Save Changes") {
+                            guard let amountValue = Double(amount), amountValue > 0 else { return }
+                            onSave(amountValue, date, notes.isEmpty ? nil : notes)
+                            dismiss()
+                        }
+                        .buttonStyle(.ftPrimary)
+                        .padding(.horizontal, FTSpacing.screen)
+                        .disabled(Double(amount) == nil || (Double(amount) ?? 0) <= 0)
+                    }
+                    .padding(.top, FTSpacing.lg)
+                }
+            }
+            .navigationTitle("Edit Repayment")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") { dismiss() }
+                        .foregroundStyle(FTColor.accent)
+                }
+            }
+            .onAppear {
+                amount = String(format: "%.2f", repayment.amount)
+                date = repayment.date
+                notes = repayment.notes ?? ""
+            }
+        }
+    }
+
+    private func formRow<Content: View>(label: String, @ViewBuilder content: () -> Content) -> some View {
+        HStack {
+            Text(label)
+                .font(.ftBody)
+                .foregroundStyle(FTColor.textSecondary)
+            Spacer()
+            content()
+        }
+        .padding(.horizontal, FTSpacing.screen)
+        .padding(.vertical, FTSpacing.md)
     }
 }
 
