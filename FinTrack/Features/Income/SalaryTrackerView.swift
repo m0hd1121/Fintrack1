@@ -543,11 +543,14 @@ struct RecordSalaryPaymentSheet: View {
 
     let record: SalaryRecord
 
+    @Query(sort: \Account.name) private var accounts: [Account]
+
     @State private var amountText: String = ""
     @State private var paymentDate: Date = Date()
     @State private var notes: String = ""
     @State private var isProcessing: Bool = false
     @State private var showValidation: Bool = false
+    @State private var selectedAccount: Account? = nil
 
     init(record: SalaryRecord) {
         self.record = record
@@ -634,6 +637,39 @@ struct RecordSalaryPaymentSheet: View {
                             .ftGlass(FTRadius.md)
                         }
 
+                        // Account picker
+                        if !accounts.isEmpty {
+                            VStack(alignment: .leading, spacing: FTSpacing.sm) {
+                                sectionLabel("Deposit to Account")
+
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: FTSpacing.sm) {
+                                        ForEach(accounts) { account in
+                                            let isSelected = selectedAccount?.id == account.id
+                                            Button {
+                                                selectedAccount = isSelected ? nil : account
+                                            } label: {
+                                                HStack(spacing: FTSpacing.xs) {
+                                                    Image(systemName: account.icon)
+                                                        .font(.system(size: 14, weight: .semibold))
+                                                    Text(account.name)
+                                                        .font(.ftCallout)
+                                                }
+                                                .foregroundStyle(isSelected ? .white : FTColor.textPrimary)
+                                                .padding(.horizontal, FTSpacing.md)
+                                                .padding(.vertical, FTSpacing.sm)
+                                                .background(
+                                                    isSelected ? FTColor.accent : FTColor.bgElevated.opacity(0.6),
+                                                    in: Capsule()
+                                                )
+                                            }
+                                        }
+                                    }
+                                    .padding(.horizontal, 2)
+                                }
+                            }
+                        }
+
                         // Notes section
                         VStack(alignment: .leading, spacing: FTSpacing.sm) {
                             sectionLabel("Notes (Optional)")
@@ -710,7 +746,6 @@ struct RecordSalaryPaymentSheet: View {
             date: paymentDate,
             notes: notes.trimmingCharacters(in: .whitespaces).isEmpty ? nil : notes
         )
-        _ = payment
 
         // Create a matching Transaction for the ledger
         let amountInBase = currencyService.convert(amount, from: record.currency, to: appState.baseCurrency)
@@ -725,8 +760,17 @@ struct RecordSalaryPaymentSheet: View {
             notes: notes.trimmingCharacters(in: .whitespaces).isEmpty ? nil : notes,
             incomeSource: record.employerName
         )
-        context.insert(tx)
+        tx.account = selectedAccount
+        tx.linkedSalaryRecordId = record.id
+        tx.linkedSalaryPaymentId = payment.id
 
+        // Credit the selected account balance
+        if let account = selectedAccount {
+            let delta = currencyService.convert(amount, from: record.currency, to: account.currency)
+            account.balance += delta
+        }
+
+        context.insert(tx)
         try? context.save()
         isProcessing = false
         dismiss()

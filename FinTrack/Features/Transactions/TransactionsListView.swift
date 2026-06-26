@@ -7,6 +7,7 @@ struct TransactionsListView: View {
     @Environment(\.modelContext) private var context
     @Query(sort: \Transaction.date, order: .reverse) private var transactions: [Transaction]
     @Query private var loyaltyPrograms: [LoyaltyProgram]
+    @Query private var salaryRecords: [SalaryRecord]
 
     @State private var searchText = ""
     @State private var selectedType: TransactionType? = nil
@@ -446,6 +447,13 @@ struct TransactionsListView: View {
                 program.totalPointsRedeemed = max(0, program.totalPointsRedeemed - tx.loyaltyPointsAmount)
             }
         }
+        // Remove the linked SalaryPayment from its parent SalaryRecord
+        if let recordId = tx.linkedSalaryRecordId,
+           let paymentId = tx.linkedSalaryPaymentId,
+           let record = salaryRecords.first(where: { $0.id == recordId }) {
+            record.payments.removeAll { $0.id == paymentId }
+        }
+
         context.delete(tx)
         try? context.save()
     }

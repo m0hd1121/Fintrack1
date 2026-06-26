@@ -140,6 +140,10 @@ final class Transaction {
     var linkedLoyaltyProgramID: UUID?
     var loyaltyPointsAmount: Double
 
+    // Back-reference to the salary record/payment that created this transaction
+    var linkedSalaryRecordId: UUID?
+    var linkedSalaryPaymentId: UUID?
+
     init(
         id: UUID = UUID(),
         title: String,
@@ -208,6 +212,8 @@ final class Transaction {
         self.customCategoryID = customCategoryID
         self.linkedLoyaltyProgramID = linkedLoyaltyProgramID
         self.loyaltyPointsAmount = loyaltyPointsAmount
+        self.linkedSalaryRecordId = nil
+        self.linkedSalaryPaymentId = nil
         self.documents = []
         self.createdAt = Date()
         self.updatedAt = Date()
