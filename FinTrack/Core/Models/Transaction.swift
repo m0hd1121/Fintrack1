@@ -144,6 +144,11 @@ final class Transaction {
     var linkedSalaryRecordId: UUID?
     var linkedSalaryPaymentId: UUID?
 
+    // Back-references to personal lending/borrowing repayment records
+    var linkedMoneyLentId: UUID?
+    var linkedMoneyBorrowedId: UUID?
+    var linkedDebtRepaymentId: UUID?
+
     init(
         id: UUID = UUID(),
         title: String,
@@ -214,6 +219,9 @@ final class Transaction {
         self.loyaltyPointsAmount = loyaltyPointsAmount
         self.linkedSalaryRecordId = nil
         self.linkedSalaryPaymentId = nil
+        self.linkedMoneyLentId = nil
+        self.linkedMoneyBorrowedId = nil
+        self.linkedDebtRepaymentId = nil
         self.documents = []
         self.createdAt = Date()
         self.updatedAt = Date()

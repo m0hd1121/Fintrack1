@@ -2091,6 +2091,8 @@ private struct RecordLentRepaymentSheet: View {
             date: date,
             notes: notes.isEmpty ? nil : notes
         )
+        tx.linkedMoneyLentId = item.id
+        tx.linkedDebtRepaymentId = record.id
         if let account = selectedAccount {
             tx.account = account
             let delta = CurrencyService.shared.convert(amountValue, from: item.currency, to: account.currency)
@@ -2449,6 +2451,8 @@ private struct RecordBorrowedRepaymentSheet: View {
             date: date,
             notes: notes.isEmpty ? nil : notes
         )
+        tx.linkedMoneyBorrowedId = item.id
+        tx.linkedDebtRepaymentId = record.id
         if let account = selectedAccount {
             tx.account = account
             let delta = CurrencyService.shared.convert(amountValue, from: item.currency, to: account.currency)

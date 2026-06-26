@@ -8,6 +8,8 @@ struct TransactionsListView: View {
     @Query(sort: \Transaction.date, order: .reverse) private var transactions: [Transaction]
     @Query private var loyaltyPrograms: [LoyaltyProgram]
     @Query private var salaryRecords: [SalaryRecord]
+    @Query private var moneyLentRecords: [MoneyLent]
+    @Query private var moneyBorrowedRecords: [MoneyBorrowed]
 
     @State private var searchText = ""
     @State private var selectedType: TransactionType? = nil
@@ -452,6 +454,19 @@ struct TransactionsListView: View {
            let paymentId = tx.linkedSalaryPaymentId,
            let record = salaryRecords.first(where: { $0.id == recordId }) {
             record.payments.removeAll { $0.id == paymentId }
+        }
+
+        // Remove the linked RepaymentRecord from MoneyLent or MoneyBorrowed
+        if let repaymentId = tx.linkedDebtRepaymentId {
+            if let lentId = tx.linkedMoneyLentId,
+               let lent = moneyLentRecords.first(where: { $0.id == lentId }) {
+                lent.repayments.removeAll { $0.id == repaymentId }
+                lent.updatedAt = Date()
+            } else if let borrowedId = tx.linkedMoneyBorrowedId,
+                      let borrowed = moneyBorrowedRecords.first(where: { $0.id == borrowedId }) {
+                borrowed.repayments.removeAll { $0.id == repaymentId }
+                borrowed.updatedAt = Date()
+            }
         }
 
         context.delete(tx)
