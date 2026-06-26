@@ -12,6 +12,9 @@ struct AccountsView: View {
     @Query private var goldHoldings: [GoldHolding]
     @Query private var giftCards: [GiftCard]
     @Query private var loyaltyPrograms: [LoyaltyProgram]
+    @Query private var loans: [Loan]
+    @Query private var bnplPlans: [BNPLPlan]
+    @Query private var moneyBorrowed: [MoneyBorrowed]
 
     @State private var showingAddAccount = false
     @State private var showingAddCreditCard = false
@@ -41,8 +44,15 @@ struct AccountsView: View {
     }
 
     private var totalDebt: Double {
-        creditCards.filter { $0.isActive }
+        let creditCardDebt = creditCards.filter { $0.isActive }
             .reduce(0) { $0 + currencyService.convert($1.outstandingBalance, from: $1.currency, to: baseCurrency) }
+        let loanDebt = loans.filter { $0.isActive }
+            .reduce(0) { $0 + currencyService.convert($1.outstandingBalance, from: $1.currency, to: baseCurrency) }
+        let bnplDebt = bnplPlans.filter { !$0.isCompleted }
+            .reduce(0) { $0 + currencyService.convert($1.remainingAmount, from: $1.currency, to: baseCurrency) }
+        let borrowedDebt = moneyBorrowed.filter { $0.computedStatus != .repaid && $0.computedStatus != .writtenOff }
+            .reduce(0) { $0 + currencyService.convert($1.remainingBalance, from: $1.currency, to: baseCurrency) }
+        return creditCardDebt + loanDebt + bnplDebt + borrowedDebt
     }
 
     private var investmentValue: Double {
