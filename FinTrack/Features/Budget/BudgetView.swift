@@ -65,12 +65,38 @@ struct BudgetView: View {
         return result
     }
 
-    /// Per-budget monthly spending, respecting an optional merchantFilter keyword.
+    /// Generic stop-words stripped when auto-deriving a keyword from a budget name.
+    private static let budgetNameStopWords: Set<String> = [
+        "membership", "budget", "subscription", "subscriptions", "plan", "plans",
+        "fee", "fees", "payment", "payments", "monthly", "annual", "yearly",
+        "weekly", "daily", "my", "the", "a", "an"
+    ]
+
+    /// Derives a matching keyword from a budget name by stripping generic words.
+    /// "Claude Membership" → "claude", "GYM Membership" → "gym"
+    private func autoKeyword(from name: String) -> String {
+        name.components(separatedBy: .whitespacesAndNewlines)
+            .filter { !Self.budgetNameStopWords.contains($0.lowercased()) && !$0.isEmpty }
+            .joined(separator: " ")
+            .trimmingCharacters(in: .whitespaces)
+    }
+
+    /// Returns the effective filter keyword for a budget:
+    /// explicit merchantFilter → auto-derived from name (when category is shared) → nil
+    private func effectiveKeyword(for budget: Budget) -> String? {
+        if let explicit = budget.merchantFilter, !explicit.isEmpty { return explicit }
+        let siblings = budgets.filter { $0.isActive && $0.category == budget.category && $0.id != budget.id }
+        guard !siblings.isEmpty else { return nil }
+        let kw = autoKeyword(from: budget.name)
+        return kw.isEmpty ? nil : kw
+    }
+
+    /// Per-budget monthly spending, auto-filtering by keyword when the category is shared.
     private func spending(for budget: Budget, in month: Date) -> Double {
-        guard let filter = budget.merchantFilter, !filter.isEmpty else {
+        guard let keyword = effectiveKeyword(for: budget) else {
             return spentByCategory[budget.category] ?? 0
         }
-        let lower = filter.lowercased()
+        let lower = keyword.lowercased()
         return transactions
             .filter { $0.date.isSameMonth(as: month) }
             .filter { tx in
@@ -82,12 +108,12 @@ struct BudgetView: View {
             .reduce(0) { $0 + $1.1 }
     }
 
-    /// Per-budget year-to-date spending, respecting an optional merchantFilter keyword.
+    /// Per-budget year-to-date spending, auto-filtering by keyword when the category is shared.
     private func ytdSpending(for budget: Budget) -> Double {
-        guard let filter = budget.merchantFilter, !filter.isEmpty else {
+        guard let keyword = effectiveKeyword(for: budget) else {
             return ytdSpentByCategory[budget.category] ?? 0
         }
-        let lower = filter.lowercased()
+        let lower = keyword.lowercased()
         let yearStart = Date().startOfYear
         return transactions
             .filter { $0.date >= yearStart }
@@ -1417,12 +1443,12 @@ struct AddBudgetView: View {
                         Divider().opacity(0.4)
                         formRow {
                             VStack(alignment: .leading, spacing: 2) {
-                                Text("Keyword Filter").font(.ftBody).foregroundStyle(FTColor.textSecondary)
-                                Text("Only count transactions matching this keyword")
+                                Text("Keyword Override").font(.ftBody).foregroundStyle(FTColor.textSecondary)
+                                Text("Auto-detected from name · override only if needed")
                                     .font(.ftCaption).foregroundStyle(FTColor.textMuted)
                             }
                             Spacer()
-                            TextField("e.g. Netflix", text: $merchantFilter)
+                            TextField("Auto", text: $merchantFilter)
                                 .multilineTextAlignment(.trailing)
                                 .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
                                 .frame(maxWidth: 130)
