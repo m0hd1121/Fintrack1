@@ -365,7 +365,6 @@ struct BudgetView: View {
 
             sectionHeader("Year-to-Date by Category", action: nil, onAction: nil)
 
-            let ytd = ytdSpentByCategory
             let allAnnualBudgets = budgets.filter { $0.isActive }
 
             if allAnnualBudgets.isEmpty {
