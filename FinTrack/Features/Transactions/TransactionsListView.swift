@@ -76,13 +76,16 @@ struct TransactionsListView: View {
             return tx.date.formatted
         }
         groupedCache = grouped.sorted { lhs, rhs in
-            let order = ["Today", "Yesterday"]
-            if let li = order.firstIndex(of: lhs.key), let ri = order.firstIndex(of: rhs.key) {
+            let pinned = ["Today", "Yesterday"]
+            if let li = pinned.firstIndex(of: lhs.key), let ri = pinned.firstIndex(of: rhs.key) {
                 return li < ri
             }
-            if order.contains(lhs.key) { return true }
-            if order.contains(rhs.key) { return false }
-            return lhs.key > rhs.key
+            if pinned.contains(lhs.key) { return true }
+            if pinned.contains(rhs.key) { return false }
+            // Compare by actual date so "25 Jun" sorts before "9 Apr", not by string
+            let ld = lhs.value.first?.date ?? .distantPast
+            let rd = rhs.value.first?.date ?? .distantPast
+            return ld > rd
         }
     }
 
