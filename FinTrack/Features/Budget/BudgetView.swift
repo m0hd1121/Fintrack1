@@ -65,9 +65,25 @@ struct BudgetView: View {
         return result
     }
 
+    /// Per-budget spending, respecting an optional merchantFilter keyword.
+    private func spending(for budget: Budget, in month: Date) -> Double {
+        guard let filter = budget.merchantFilter, !filter.isEmpty else {
+            return spentByCategory[budget.category] ?? 0
+        }
+        let lower = filter.lowercased()
+        return transactions
+            .filter { $0.date.isSameMonth(as: month) }
+            .filter { tx in
+                tx.title.lowercased().contains(lower) ||
+                (tx.merchant?.lowercased().contains(lower) ?? false)
+            }
+            .flatMap { $0.spendingPairs }
+            .filter { $0.0 == budget.category }
+            .reduce(0) { $0 + $1.1 }
+    }
+
     private var monthlyBudgetsWithSpending: [(Budget, Double)] {
-        let spent = spentByCategory
-        return activeMonthlyBudgets.map { ($0, spent[$0.category] ?? 0) }
+        activeMonthlyBudgets.map { ($0, spending(for: $0, in: selectedMonth)) }
     }
 
     private var totalMonthlyBudgeted: Double {
@@ -345,7 +361,22 @@ struct BudgetView: View {
             } else {
                 VStack(spacing: FTSpacing.sm) {
                     ForEach(allAnnualBudgets, id: \.id) { budget in
-                        let spent = ytd[budget.category] ?? 0
+                        let spent: Double = {
+                            if let filter = budget.merchantFilter, !filter.isEmpty {
+                                let lower = filter.lowercased()
+                                let yearStart = Date().startOfYear
+                                return transactions
+                                    .filter { $0.date >= yearStart }
+                                    .filter { tx in
+                                        tx.title.lowercased().contains(lower) ||
+                                        (tx.merchant?.lowercased().contains(lower) ?? false)
+                                    }
+                                    .flatMap { $0.spendingPairs }
+                                    .filter { $0.0 == budget.category }
+                                    .reduce(0) { $0 + $1.1 }
+                            }
+                            return ytd[budget.category] ?? 0
+                        }()
                         let annualTarget = annualTarget(for: budget)
                         AnnualBudgetRow(
                             budget: budget,
@@ -853,9 +884,8 @@ struct BudgetView: View {
     }
 
     private func checkBudgetAlerts() {
-        let spent = spentByCategory
         for budget in activeMonthlyBudgets {
-            let budgetSpent = spent[budget.category] ?? 0
+            let budgetSpent = spending(for: budget, in: selectedMonth)
             BudgetService.shared.checkAndSendAlerts(budget: budget, spent: budgetSpent, currency: baseCurrency)
         }
         try? context.save()
@@ -1340,6 +1370,7 @@ struct AddBudgetView: View {
     @State private var isRollover = false
     @State private var isShared = false
     @State private var sharedMembersText = ""
+    @State private var merchantFilter = ""
 
     private var isEditing: Bool { editingBudget != nil }
 
@@ -1380,6 +1411,19 @@ struct AddBudgetView: View {
                                 Image(systemName: "chevron.up.chevron.down")
                                     .font(.system(size: 11, weight: .semibold)).foregroundStyle(FTColor.textMuted)
                             }
+                        }
+                        Divider().opacity(0.4)
+                        formRow {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Keyword Filter").font(.ftBody).foregroundStyle(FTColor.textSecondary)
+                                Text("Only count transactions matching this keyword")
+                                    .font(.ftCaption).foregroundStyle(FTColor.textMuted)
+                            }
+                            Spacer()
+                            TextField("e.g. Netflix", text: $merchantFilter)
+                                .multilineTextAlignment(.trailing)
+                                .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                                .frame(maxWidth: 130)
                         }
                         Divider().opacity(0.4)
                         formRow {
@@ -1539,6 +1583,7 @@ struct AddBudgetView: View {
         isShared = b.isShared
         sharedMembersText = b.sharedMembers.joined(separator: ", ")
         if let end = b.endDate { hasExpiration = true; expirationDate = end }
+        merchantFilter = b.merchantFilter ?? ""
     }
 
     private func save() {
@@ -1547,6 +1592,7 @@ struct AddBudgetView: View {
             .map { $0.trimmingCharacters(in: .whitespaces) }
             .filter { !$0.isEmpty }
 
+        let filterValue = merchantFilter.trimmingCharacters(in: .whitespacesAndNewlines)
         if let b = editingBudget {
             b.name = name
             b.category = category
@@ -1558,6 +1604,7 @@ struct AddBudgetView: View {
             b.sharedMembers = members
             b.endDate = hasExpiration ? expirationDate : nil
             b.color = category.color
+            b.merchantFilter = filterValue.isEmpty ? nil : filterValue
         } else {
             let budget = Budget(
                 name: name,
@@ -1572,6 +1619,7 @@ struct AddBudgetView: View {
                 isShared: isShared,
                 sharedMembers: members
             )
+            budget.merchantFilter = filterValue.isEmpty ? nil : filterValue
             context.insert(budget)
         }
         try? context.save()

@@ -80,6 +80,9 @@ final class Budget {
     // Unused stored field kept for schema compatibility
     var spent: Double = 0
 
+    // Optional keyword to filter matching transactions (e.g. "Netflix" within Subscriptions)
+    var merchantFilter: String?
+
     // Feature 5: Rollover
     var isRollover: Bool
     var rolloverAmount: Double
