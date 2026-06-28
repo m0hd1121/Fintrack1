@@ -782,8 +782,16 @@ struct RecordSalaryPaymentSheet: View {
 struct SalaryPaymentHistoryView: View {
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var context
+    @Environment(CurrencyService.self) private var currencyService
+    @Environment(AppState.self) private var appState
 
     let record: SalaryRecord
+
+    @Query private var allTransactions: [Transaction]
+    @State private var editingPayment: SalaryPayment? = nil
+
+    private var baseCurrency: String { appState.baseCurrency }
 
     private var sortedPayments: [SalaryPayment] {
         record.payments.sorted { $0.expectedDate > $1.expectedDate }
@@ -831,6 +839,11 @@ struct SalaryPaymentHistoryView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
                         .font(.ftBodySemibold)
+                }
+            }
+            .sheet(item: $editingPayment) { payment in
+                EditSalaryPaymentSheet(payment: payment, currency: record.currency) { amount, date, notes in
+                    updatePayment(payment, amount: amount, date: date, notes: notes)
                 }
             }
         }
@@ -928,6 +941,25 @@ struct SalaryPaymentHistoryView: View {
                     }
                 }
             }
+
+            HStack(spacing: FTSpacing.xs) {
+                Button { editingPayment = payment } label: {
+                    Image(systemName: "pencil")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(FTColor.accent)
+                        .frame(width: 28, height: 28)
+                        .background(.regularMaterial, in: .circle)
+                }
+                .buttonStyle(.plain)
+                Button { deletePayment(payment) } label: {
+                    Image(systemName: "trash")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(FTColor.expense)
+                        .frame(width: 28, height: 28)
+                        .background(.regularMaterial, in: .circle)
+                }
+                .buttonStyle(.plain)
+            }
         }
         .padding(.horizontal, FTSpacing.lg)
         .padding(.vertical, FTSpacing.md)
@@ -952,6 +984,134 @@ struct SalaryPaymentHistoryView: View {
             Spacer()
         }
         .frame(maxWidth: .infinity)
+    }
+
+    // MARK: Helpers
+
+    private func deletePayment(_ payment: SalaryPayment) {
+        if let tx = allTransactions.first(where: { $0.linkedSalaryPaymentId == payment.id }) {
+            if let account = tx.account {
+                let delta = currencyService.convert(tx.amount, from: tx.currency, to: account.currency)
+                account.balance -= delta  // reverse the income credit
+            }
+            context.delete(tx)
+        }
+        record.payments.removeAll { $0.id == payment.id }
+        record.updatedAt = Date()
+        try? context.save()
+    }
+
+    private func updatePayment(_ old: SalaryPayment, amount: Double, date: Date, notes: String?) {
+        if let tx = allTransactions.first(where: { $0.linkedSalaryPaymentId == old.id }) {
+            let oldAmount = old.receivedAmount ?? old.expectedAmount
+            if let account = tx.account, amount != oldAmount {
+                let oldDelta = currencyService.convert(oldAmount, from: record.currency, to: account.currency)
+                let newDelta = currencyService.convert(amount, from: record.currency, to: account.currency)
+                account.balance -= oldDelta  // reverse old income
+                account.balance += newDelta  // apply new income
+            }
+            tx.amount = amount
+            tx.amountInBaseCurrency = currencyService.convert(amount, from: record.currency, to: baseCurrency)
+            tx.date = date
+            tx.notes = notes
+            tx.updatedAt = Date()
+        }
+        var payments = record.payments
+        if let idx = payments.firstIndex(where: { $0.id == old.id }) {
+            payments[idx].receivedAmount = amount
+            payments[idx].receivedDate = date
+            payments[idx].notes = notes
+            payments[idx].statusRaw = SalaryPaymentStatus.received.rawValue
+        }
+        record.payments = payments
+        record.updatedAt = Date()
+        try? context.save()
+    }
+}
+
+// MARK: - EditSalaryPaymentSheet
+
+private struct EditSalaryPaymentSheet: View {
+    @Environment(\.dismiss) private var dismiss
+
+    let payment: SalaryPayment
+    let currency: String
+    let onSave: (Double, Date, String?) -> Void
+
+    @State private var amount: String = ""
+    @State private var date = Date()
+    @State private var notes = ""
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                FTBackdrop()
+                ScrollView {
+                    VStack(spacing: FTSpacing.lg) {
+                        VStack(spacing: 0) {
+                            formRow(label: "Amount (\(currency))") {
+                                TextField("0.00", text: $amount)
+                                    .keyboardType(.decimalPad)
+                                    .font(.ftBodySemibold)
+                                    .foregroundStyle(FTColor.textPrimary)
+                                    .multilineTextAlignment(.trailing)
+                            }
+                            Divider().padding(.leading, FTSpacing.screen)
+                            formRow(label: "Received Date") {
+                                DatePicker("", selection: $date, displayedComponents: .date)
+                                    .labelsHidden()
+                                    .tint(FTColor.accent)
+                            }
+                            Divider().padding(.leading, FTSpacing.screen)
+                            formRow(label: "Notes") {
+                                TextField("Optional notes", text: $notes)
+                                    .font(.ftBody)
+                                    .foregroundStyle(FTColor.textPrimary)
+                                    .multilineTextAlignment(.trailing)
+                            }
+                        }
+                        .ftGlass(FTRadius.lg)
+                        .padding(.horizontal, FTSpacing.screen)
+
+                        Button("Save Changes") {
+                            guard let amountValue = Double(amount), amountValue > 0 else { return }
+                            onSave(amountValue, date, notes.isEmpty ? nil : notes)
+                            dismiss()
+                        }
+                        .buttonStyle(.ftPrimary)
+                        .padding(.horizontal, FTSpacing.screen)
+                        .disabled(Double(amount) == nil || (Double(amount) ?? 0) <= 0)
+                    }
+                    .padding(.top, FTSpacing.lg)
+                }
+            }
+            .navigationTitle("Edit Payment")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") { dismiss() }
+                        .foregroundStyle(FTColor.accent)
+                }
+            }
+            .onAppear {
+                amount = String(format: "%.2f", payment.receivedAmount ?? payment.expectedAmount)
+                date = payment.receivedDate ?? Date()
+                notes = payment.notes ?? ""
+            }
+        }
+    }
+
+    private func formRow<Content: View>(label: String, @ViewBuilder content: () -> Content) -> some View {
+        HStack {
+            Text(label)
+                .font(.ftBody)
+                .foregroundStyle(FTColor.textSecondary)
+            Spacer()
+            content()
+        }
+        .padding(.horizontal, FTSpacing.screen)
+        .padding(.vertical, FTSpacing.md)
     }
 }
 
