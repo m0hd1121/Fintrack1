@@ -3,8 +3,8 @@ import Observation
 
 // MARK: - CryptoPriceService
 // Fetches live USD prices with a 10-second timeout.
-// Primary source: CoinCap (api.coincap.io) — no key required, reliable globally.
-// Fallback: CoinGecko (api.coingecko.com/api/v3).
+// Primary source: Binance public API (api.binance.com) — no key, highly reliable globally.
+// Fallback: CryptoCompare (min-api.cryptocompare.com) — free tier, no key.
 
 @Observable
 @MainActor
@@ -17,67 +17,22 @@ final class CryptoPriceService {
     var isRefreshing = false
     var lastError: String?
 
-    // MARK: - Mappings
+    // MARK: - Symbols
 
-    // CoinCap uses its own lowercase IDs (different from CoinGecko)
-    private static let symbolToCoinCapId: [String: String] = [
-        "BTC": "bitcoin",
-        "ETH": "ethereum",
-        "USDT": "tether",
-        "USDC": "usd-coin",
-        "BNB": "binance-coin",
-        "SOL": "solana",
-        "XRP": "xrp",
-        "DOGE": "dogecoin",
-        "ADA": "cardano",
-        "MATIC": "polygon",
-        "DOT": "polkadot",
-        "LINK": "chainlink",
-        "UNI": "uniswap",
-        "AVAX": "avalanche",
-        "SHIB": "shiba-inu",
-        "LTC": "litecoin",
-        "ATOM": "cosmos",
-        "DAI": "multi-collateral-dai",
-        "TRX": "tron",
-        "TON": "toncoin",
-        "NEAR": "near-protocol",
-        "OP": "optimism",
-        "ARB": "arbitrum",
-        "APT": "aptos",
-        "SUI": "sui",
+    // Binance USDT pairs we want prices for
+    private static let binanceSymbols: [String] = [
+        "BTCUSDT", "ETHUSDT", "USDTUSDT", "BNBUSDT", "SOLUSDT",
+        "XRPUSDT", "DOGEUSDT", "ADAUSDT", "MATICUSDT", "DOTUSDT",
+        "LINKUSDT", "UNIUSDT", "AVAXUSDT", "SHIBUSDT", "LTCUSDT",
+        "ATOMUSDT", "TRXUSDT", "NEARUSDT", "OPUSDT", "ARBUSDT",
+        "APTUSDT", "SUIUSDT", "TONUSDT",
     ]
 
-    // CoinGecko fallback IDs
-    private static let symbolToCoinGeckoId: [String: String] = [
-        "BTC": "bitcoin",
-        "ETH": "ethereum",
-        "USDT": "tether",
-        "USDC": "usd-coin",
-        "BNB": "binancecoin",
-        "SOL": "solana",
-        "XRP": "ripple",
-        "DOGE": "dogecoin",
-        "ADA": "cardano",
-        "MATIC": "matic-network",
-        "DOT": "polkadot",
-        "LINK": "chainlink",
-        "UNI": "uniswap",
-        "AVAX": "avalanche-2",
-        "SHIB": "shiba-inu",
-        "LTC": "litecoin",
-        "ATOM": "cosmos",
-        "DAI": "dai",
-        "TRX": "tron",
-        "TON": "the-open-network",
-        "NEAR": "near",
-        "OP": "optimism",
-        "ARB": "arbitrum",
-        "APT": "aptos",
-        "SUI": "sui",
-    ]
+    // CryptoCompare comma-separated symbols (fallback)
+    private static let cryptoCompareSymbols =
+        "BTC,ETH,USDT,USDC,BNB,SOL,XRP,DOGE,ADA,MATIC,DOT,LINK,UNI,AVAX,SHIB,LTC,ATOM,TRX,TON,NEAR,OP,ARB,APT,SUI"
 
-    // MARK: - Session with short timeout
+    // MARK: - Session
 
     private static let session: URLSession = {
         let config = URLSessionConfiguration.default
@@ -122,35 +77,45 @@ final class CryptoPriceService {
             isRefreshing = false
         }
 
-        if await fetchFromCoinCap() { return }
-        await fetchFromCoinGecko()
+        if await fetchFromBinance() { return }
+        await fetchFromCryptoCompare()
     }
 
-    // MARK: - CoinCap
+    // MARK: - Binance
 
-    private func fetchFromCoinCap() async -> Bool {
-        let ids = Self.symbolToCoinCapId.values.joined(separator: ",")
-        guard let url = URL(string: "https://api.coincap.io/v2/assets?ids=\(ids)") else { return false }
+    private func fetchFromBinance() async -> Bool {
+        // Build the JSON array parameter: ["BTCUSDT","ETHUSDT",...]
+        let symbolsJSON = "[" + Self.binanceSymbols.map { "\"\($0)\"" }.joined(separator: ",") + "]"
+        guard let encoded = symbolsJSON.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let url = URL(string: "https://api.binance.com/api/v3/ticker/price?symbols=\(encoded)") else {
+            return false
+        }
 
         do {
             let (data, _) = try await Self.session.data(from: url)
 
-            struct Response: Decodable {
-                struct Asset: Decodable {
-                    let symbol: String
-                    let priceUsd: String
-                }
-                let data: [Asset]
+            struct Ticker: Decodable {
+                let symbol: String
+                let price: String
             }
 
-            let response = try JSONDecoder().decode(Response.self, from: data)
-            guard !response.data.isEmpty else { return false }
+            let tickers = try JSONDecoder().decode([Ticker].self, from: data)
+            guard !tickers.isEmpty else { return false }
 
-            for asset in response.data {
-                if let price = Double(asset.priceUsd) {
-                    prices[asset.symbol.uppercased()] = price
+            for ticker in tickers {
+                // Strip "USDT" suffix to get the crypto symbol (BTCUSDT → BTC)
+                let sym = ticker.symbol.hasSuffix("USDT")
+                    ? String(ticker.symbol.dropLast(4))
+                    : ticker.symbol
+                if let price = Double(ticker.price), sym != "USDT" {
+                    prices[sym] = price
                 }
             }
+            // USDT and USDC are always $1
+            prices["USDT"] = 1.0
+            prices["USDC"] = 1.0
+            prices["DAI"]  = 1.0
+
             lastUpdated = Date()
             lastError = nil
             cachePrices()
@@ -160,20 +125,19 @@ final class CryptoPriceService {
         }
     }
 
-    // MARK: - CoinGecko fallback
+    // MARK: - CryptoCompare fallback
 
-    private func fetchFromCoinGecko() async {
-        let ids = Self.symbolToCoinGeckoId.values.joined(separator: ",")
-        guard let url = URL(string: "https://api.coingecko.com/api/v3/simple/price?ids=\(ids)&vs_currencies=usd") else { return }
+    private func fetchFromCryptoCompare() async {
+        guard let url = URL(string: "https://min-api.cryptocompare.com/data/pricemulti?fsyms=\(Self.cryptoCompareSymbols)&tsyms=USD") else { return }
 
         do {
             let (data, _) = try await Self.session.data(from: url)
+            // Response: { "BTC": { "USD": 67000 }, "ETH": { "USD": 3500 }, ... }
             guard let json = try JSONSerialization.jsonObject(with: data) as? [String: [String: Double]] else { return }
 
-            let idToSymbol = Dictionary(uniqueKeysWithValues: Self.symbolToCoinGeckoId.map { ($1, $0) })
-            for (coinId, values) in json {
-                if let usdPrice = values["usd"], let symbol = idToSymbol[coinId] {
-                    prices[symbol] = usdPrice
+            for (symbol, values) in json {
+                if let usd = values["USD"] {
+                    prices[symbol.uppercased()] = usd
                 }
             }
             lastUpdated = Date()
