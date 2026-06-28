@@ -177,15 +177,6 @@ struct InvestmentPortfolioView: View {
             .sheet(item: $selectedInvestment) { inv in InvestmentDetailSheet(investment: inv) }
             .sheet(item: $selectedCrypto) { crypto in CryptoDetailSheet(holding: crypto) }
             .sheet(item: $selectedGold) { gold in GoldDetailSheet(holding: gold) }
-            .onChange(of: cryptoPriceService.lastUpdated) {
-                cryptoPriceService.updateHoldings(Array(cryptoHoldings), currencyService: currencyService)
-                try? context.save()
-            }
-            .task {
-                await cryptoPriceService.fetchPrices()
-                cryptoPriceService.updateHoldings(Array(cryptoHoldings), currencyService: currencyService)
-                try? context.save()
-            }
         }
     }
 

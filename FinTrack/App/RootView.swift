@@ -4,8 +4,10 @@ import CoreSpotlight
 
 struct RootView: View {
     @Environment(AppState.self) private var appState
+    @Environment(CryptoPriceService.self) private var cryptoPriceService
     @Query private var profiles: [UserProfile]
     @Query private var settings: [AppSettings]
+    @Query private var cryptoHoldings: [CryptoHolding]
     @Query(filter: #Predicate<Transaction> { $0.isRecurring }) private var recurringTxs: [Transaction]
     @Query(filter: #Predicate<Transaction> { $0.isScheduled }) private var scheduledTxs: [Transaction]
     @Query private var bills: [Bill]
@@ -97,6 +99,15 @@ struct RootView: View {
         }
         .onContinueUserActivity(CSSearchableItemActionType) { activity in
             handleSpotlightActivity(activity)
+        }
+        .onChange(of: cryptoPriceService.lastUpdated) {
+            cryptoPriceService.updateHoldings(Array(cryptoHoldings), currencyService: currencyService)
+            try? context.save()
+        }
+        .task {
+            await cryptoPriceService.fetchPrices()
+            cryptoPriceService.updateHoldings(Array(cryptoHoldings), currencyService: currencyService)
+            try? context.save()
         }
     }
 
