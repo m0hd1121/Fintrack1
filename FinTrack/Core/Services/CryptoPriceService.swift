@@ -59,13 +59,13 @@ final class CryptoPriceService {
         refreshTask?.cancel()
         refreshTask = Task {
             while !Task.isCancelled {
-                if let last = lastUpdated, Date().timeIntervalSince(last) < 55 {
-                    let wait = 60 - Date().timeIntervalSince(last)
-                    try? await Task.sleep(for: .seconds(max(5, wait)))
+                if let last = lastUpdated, Date().timeIntervalSince(last) < 20 {
+                    let wait = 25 - Date().timeIntervalSince(last)
+                    try? await Task.sleep(for: .seconds(max(2, wait)))
                     continue
                 }
                 await fetchPrices()
-                try? await Task.sleep(for: .seconds(60))
+                try? await Task.sleep(for: .seconds(25))
             }
         }
     }
