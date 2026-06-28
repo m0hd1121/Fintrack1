@@ -2,7 +2,9 @@ import Foundation
 import Observation
 
 // MARK: - CryptoPriceService
-// Fetches live USD prices from CoinGecko's public API and auto-refreshes every 60 s.
+// Fetches live USD prices with a 10-second timeout.
+// Primary source: CoinCap (api.coincap.io) — no key required, reliable globally.
+// Fallback: CoinGecko (api.coingecko.com/api/v3).
 
 @Observable
 @MainActor
@@ -15,9 +17,39 @@ final class CryptoPriceService {
     var isRefreshing = false
     var lastError: String?
 
-    // MARK: - Symbol → CoinGecko ID
+    // MARK: - Mappings
 
-    static let symbolToId: [String: String] = [
+    // CoinCap uses its own lowercase IDs (different from CoinGecko)
+    private static let symbolToCoinCapId: [String: String] = [
+        "BTC": "bitcoin",
+        "ETH": "ethereum",
+        "USDT": "tether",
+        "USDC": "usd-coin",
+        "BNB": "binance-coin",
+        "SOL": "solana",
+        "XRP": "xrp",
+        "DOGE": "dogecoin",
+        "ADA": "cardano",
+        "MATIC": "polygon",
+        "DOT": "polkadot",
+        "LINK": "chainlink",
+        "UNI": "uniswap",
+        "AVAX": "avalanche",
+        "SHIB": "shiba-inu",
+        "LTC": "litecoin",
+        "ATOM": "cosmos",
+        "DAI": "multi-collateral-dai",
+        "TRX": "tron",
+        "TON": "toncoin",
+        "NEAR": "near-protocol",
+        "OP": "optimism",
+        "ARB": "arbitrum",
+        "APT": "aptos",
+        "SUI": "sui",
+    ]
+
+    // CoinGecko fallback IDs
+    private static let symbolToCoinGeckoId: [String: String] = [
         "BTC": "bitcoin",
         "ETH": "ethereum",
         "USDT": "tether",
@@ -45,6 +77,15 @@ final class CryptoPriceService {
         "SUI": "sui",
     ]
 
+    // MARK: - Session with short timeout
+
+    private static let session: URLSession = {
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 10
+        config.timeoutIntervalForResource = 15
+        return URLSession(configuration: config)
+    }()
+
     private var refreshTask: Task<Void, Never>?
     private var isFetching = false
 
@@ -70,7 +111,7 @@ final class CryptoPriceService {
         }
     }
 
-    // MARK: - Fetch
+    // MARK: - Fetch (primary → fallback)
 
     func fetchPrices() async {
         guard !isFetching else { return }
@@ -81,15 +122,55 @@ final class CryptoPriceService {
             isRefreshing = false
         }
 
-        let ids = Self.symbolToId.values.joined(separator: ",")
-        let urlString = "https://api.coingecko.com/api/v3/simple/price?ids=\(ids)&vs_currencies=usd"
-        guard let url = URL(string: urlString) else { return }
+        if await fetchFromCoinCap() { return }
+        await fetchFromCoinGecko()
+    }
+
+    // MARK: - CoinCap
+
+    private func fetchFromCoinCap() async -> Bool {
+        let ids = Self.symbolToCoinCapId.values.joined(separator: ",")
+        guard let url = URL(string: "https://api.coincap.io/v2/assets?ids=\(ids)") else { return false }
 
         do {
-            let (data, _) = try await URLSession.shared.data(from: url)
+            let (data, _) = try await Self.session.data(from: url)
+
+            struct Response: Decodable {
+                struct Asset: Decodable {
+                    let symbol: String
+                    let priceUsd: String
+                }
+                let data: [Asset]
+            }
+
+            let response = try JSONDecoder().decode(Response.self, from: data)
+            guard !response.data.isEmpty else { return false }
+
+            for asset in response.data {
+                if let price = Double(asset.priceUsd) {
+                    prices[asset.symbol.uppercased()] = price
+                }
+            }
+            lastUpdated = Date()
+            lastError = nil
+            cachePrices()
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    // MARK: - CoinGecko fallback
+
+    private func fetchFromCoinGecko() async {
+        let ids = Self.symbolToCoinGeckoId.values.joined(separator: ",")
+        guard let url = URL(string: "https://api.coingecko.com/api/v3/simple/price?ids=\(ids)&vs_currencies=usd") else { return }
+
+        do {
+            let (data, _) = try await Self.session.data(from: url)
             guard let json = try JSONSerialization.jsonObject(with: data) as? [String: [String: Double]] else { return }
 
-            let idToSymbol = Dictionary(uniqueKeysWithValues: Self.symbolToId.map { ($1, $0) })
+            let idToSymbol = Dictionary(uniqueKeysWithValues: Self.symbolToCoinGeckoId.map { ($1, $0) })
             for (coinId, values) in json {
                 if let usdPrice = values["usd"], let symbol = idToSymbol[coinId] {
                     prices[symbol] = usdPrice
@@ -99,7 +180,7 @@ final class CryptoPriceService {
             lastError = nil
             cachePrices()
         } catch {
-            lastError = error.localizedDescription
+            lastError = "Prices unavailable"
         }
     }
 
