@@ -9,6 +9,8 @@ struct AddCryptoView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
     @Environment(AppState.self) private var appState
+    @Environment(CryptoPriceService.self) private var cryptoPriceService
+    @Environment(CurrencyService.self) private var currencyService
 
     // MARK: Editing target
     var editingItem: CryptoHolding? = nil
@@ -40,7 +42,6 @@ struct AddCryptoView: View {
     // Section 2 — Purchase
     @State private var quantityText: String = ""
     @State private var averageCostText: String = ""
-    @State private var currentPriceText: String = ""
     @State private var currency: String = "USD"
     @State private var purchaseDate: Date = Date()
 
@@ -66,6 +67,19 @@ struct AddCryptoView: View {
 
     private var canSave: Bool {
         !cryptoName.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
+    /// Live price in the selected currency, sourced from CryptoPriceService (USD) and converted.
+    private var livePrice: Double? {
+        let sym = cryptoSymbol.trimmingCharacters(in: .whitespaces).uppercased()
+        guard !sym.isEmpty, let usd = cryptoPriceService.usdPrice(for: sym) else { return nil }
+        return currencyService.convert(usd, from: "USD", to: currency)
+    }
+
+    private var livePriceLabel: String {
+        guard let p = livePrice else { return "—" }
+        if p >= 1 { return String(format: "%.2f %@", p, currency) }
+        return String(format: "%.6f %@", p, currency)
     }
 
     // MARK: - Init
@@ -301,13 +315,31 @@ struct AddCryptoView: View {
 
                 divider
 
-                fieldRow(label: "Current Price") {
-                    TextField("0.00", text: $currentPriceText)
+                // Live price — read-only, auto-populated from API
+                HStack(spacing: FTSpacing.md) {
+                    Text("Current Price")
                         .font(.ftBody)
-                        .foregroundStyle(FTColor.textPrimary)
-                        .multilineTextAlignment(.trailing)
-                        .keyboardType(.decimalPad)
+                        .foregroundStyle(FTColor.textSecondary)
+                        .fixedSize()
+                    Spacer()
+                    if cryptoPriceService.isRefreshing && livePrice == nil {
+                        HStack(spacing: 6) {
+                            ProgressView().scaleEffect(0.65).tint(FTColor.accent)
+                            Text("Fetching…")
+                                .font(.ftBody).foregroundStyle(FTColor.textMuted)
+                        }
+                    } else {
+                        HStack(spacing: 6) {
+                            Circle()
+                                .fill(livePrice != nil ? Color.green : FTColor.textMuted)
+                                .frame(width: 7, height: 7)
+                            Text(livePriceLabel)
+                                .font(.ftBody)
+                                .foregroundStyle(livePrice != nil ? FTColor.textPrimary : FTColor.textMuted)
+                        }
+                    }
                 }
+                .padding(.vertical, FTSpacing.md)
 
                 divider
 
@@ -593,7 +625,6 @@ struct AddCryptoView: View {
         walletAddress   = item.walletAddress ?? ""
         quantityText    = item.quantity > 0 ? String(format: "%g", item.quantity) : ""
         averageCostText = item.averageCost > 0 ? String(format: "%.2f", item.averageCost) : ""
-        currentPriceText = item.currentPrice > 0 ? String(format: "%.2f", item.currentPrice) : ""
         currency        = item.currency
         purchaseDate    = item.purchaseDate
         notes           = item.notes ?? ""
@@ -627,7 +658,7 @@ struct AddCryptoView: View {
     private func save() {
         let qty          = Double(quantityText.replacingOccurrences(of: ",", with: ".")) ?? 0
         let avgCost      = Double(averageCostText.replacingOccurrences(of: ",", with: ".")) ?? 0
-        let curPrice     = Double(currentPriceText.replacingOccurrences(of: ",", with: ".")) ?? 0
+        let curPrice     = livePrice ?? 0
         let trimmedName  = cryptoName.trimmingCharacters(in: .whitespaces)
         let trimmedSym   = cryptoSymbol.trimmingCharacters(in: .whitespaces).uppercased()
         let trimmedExch  = exchangeLabel.trimmingCharacters(in: .whitespaces)
