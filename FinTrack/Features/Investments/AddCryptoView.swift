@@ -15,22 +15,10 @@ struct AddCryptoView: View {
     // MARK: Editing target
     var editingItem: CryptoHolding? = nil
 
-    // MARK: - Popular cryptos
-
-    private let popularCryptos: [(name: String, symbol: String)] = [
-        ("Bitcoin",  "BTC"),
-        ("Ethereum", "ETH"),
-        ("Tether",   "USDT"),
-        ("BNB",      "BNB"),
-        ("Solana",   "SOL"),
-        ("XRP",      "XRP"),
-        ("Dogecoin", "DOGE")
-    ]
-
     // MARK: - Form state
 
-    // Quick select
-    @State private var selectedPreset: String? = nil
+    // Coin search
+    @State private var coinSearch: String = ""
 
     // Section 1 — Asset
     @State private var cryptoName: String = ""
@@ -97,7 +85,7 @@ struct AddCryptoView: View {
 
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
-                        quickSelectSection
+                        coinPickerSection
                         assetSection
                         purchaseSection
                         purchaseLotsSection
@@ -126,82 +114,120 @@ struct AddCryptoView: View {
         }
     }
 
-    // MARK: - Quick Select
+    // MARK: - Coin Picker
 
-    private var quickSelectSection: some View {
+    private var coinPickerSection: some View {
         VStack(alignment: .leading, spacing: FTSpacing.xs) {
-            sectionLabel("Quick Select")
+            sectionLabel("Choose Coin")
 
-            ScrollView(.horizontal, showsIndicators: false) {
+            VStack(spacing: 0) {
+                // Search bar
                 HStack(spacing: FTSpacing.sm) {
-                    ForEach(popularCryptos, id: \.symbol) { crypto in
-                        cryptoChip(name: crypto.name, symbol: crypto.symbol)
-                    }
-                    // Custom option
-                    Button {
-                        withAnimation(.snappy(duration: 0.2)) {
-                            selectedPreset = nil
-                            cryptoName = ""
-                            cryptoSymbol = ""
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(FTColor.textMuted)
+                    TextField("Search Bitcoin, ETH, SOL…", text: $coinSearch)
+                        .font(.ftBody)
+                        .foregroundStyle(FTColor.textPrimary)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                    if !coinSearch.isEmpty {
+                        Button {
+                            withAnimation(.snappy(duration: 0.2)) { coinSearch = "" }
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 16))
+                                .foregroundStyle(FTColor.textMuted)
                         }
-                    } label: {
-                        Text("Custom")
-                            .font(.ftCallout)
-                            .foregroundStyle(selectedPreset == nil ? .white : FTColor.textPrimary)
-                            .padding(.horizontal, FTSpacing.lg)
-                            .padding(.vertical, FTSpacing.sm + 2)
-                            .background(
-                                selectedPreset == nil
-                                    ? AnyShapeStyle(FTColor.accentGradient)
-                                    : AnyShapeStyle(.regularMaterial),
-                                in: .capsule
-                            )
-                            .overlay(
-                                Capsule()
-                                    .strokeBorder(
-                                        selectedPreset == nil ? Color.clear : Color.white.opacity(0.3),
-                                        lineWidth: 0.5
-                                    )
-                            )
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
-                .padding(.horizontal, FTSpacing.screen)
+                .padding(.horizontal, FTSpacing.lg)
+                .padding(.vertical, FTSpacing.md)
+
+                divider
+
+                let coins = cryptoPriceService.searchCoins(query: coinSearch)
+                if coins.isEmpty {
+                    Text("No coins found")
+                        .font(.ftBody)
+                        .foregroundStyle(FTColor.textMuted)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.vertical, FTSpacing.xxl)
+                } else {
+                    let visible = Array(coins.prefix(80))
+                    ScrollView {
+                        LazyVStack(spacing: 0) {
+                            ForEach(Array(visible.enumerated()), id: \.element.symbol) { idx, coin in
+                                coinPickerRow(coin)
+                                if idx < visible.count - 1 {
+                                    divider
+                                        .padding(.leading, FTSpacing.lg + 38 + FTSpacing.md)
+                                }
+                            }
+                        }
+                    }
+                    .frame(height: 240)
+                }
             }
-            .padding(.horizontal, -FTSpacing.screen)
+            .ftGlass(FTRadius.lg)
         }
     }
 
-    private func cryptoChip(name: String, symbol: String) -> some View {
-        let isSelected = selectedPreset == symbol
+    private func coinPickerRow(_ coin: (symbol: String, name: String)) -> some View {
+        let isSelected = cryptoSymbol.uppercased() == coin.symbol
+        let usdPrice = cryptoPriceService.usdPrice(for: coin.symbol)
+
         return Button {
             withAnimation(.snappy(duration: 0.2)) {
-                selectedPreset = symbol
-                cryptoName = name
-                cryptoSymbol = symbol
+                cryptoSymbol = coin.symbol
+                cryptoName = coin.name
             }
         } label: {
-            HStack(spacing: FTSpacing.xs) {
-                Text(symbol)
-                    .font(.ftCallout)
-                    .foregroundStyle(isSelected ? .white : FTColor.textPrimary)
-                    .fontWeight(isSelected ? .bold : .medium)
+            HStack(spacing: FTSpacing.md) {
+                // Symbol badge
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(isSelected ? AnyShapeStyle(FTColor.accentGradient) : AnyShapeStyle(FTColor.accent.opacity(0.12)))
+                        .frame(width: 38, height: 38)
+                    Text(String(coin.symbol.prefix(4)))
+                        .font(.system(size: 9, weight: .black, design: .monospaced))
+                        .foregroundStyle(isSelected ? .white : FTColor.accent)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5)
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(coin.name)
+                        .font(.ftBodySemibold)
+                        .foregroundStyle(FTColor.textPrimary)
+                        .lineLimit(1)
+                    Text(coin.symbol)
+                        .font(.ftCaption)
+                        .foregroundStyle(FTColor.textMuted)
+                }
+
+                Spacer(minLength: 0)
+
+                if let p = usdPrice {
+                    Text(p >= 1 ? String(format: "$%.2f", p) : String(format: "$%.5f", p))
+                        .font(.ftCaption)
+                        .foregroundStyle(FTColor.textSecondary)
+                        .monospacedDigit()
+                } else {
+                    Text("—")
+                        .font(.ftCaption)
+                        .foregroundStyle(FTColor.textMuted)
+                }
+
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 17))
+                    .foregroundStyle(isSelected ? FTColor.accent : Color.clear)
             }
             .padding(.horizontal, FTSpacing.lg)
             .padding(.vertical, FTSpacing.sm + 2)
-            .background(
-                isSelected
-                    ? AnyShapeStyle(FTColor.accentGradient)
-                    : AnyShapeStyle(.regularMaterial),
-                in: .capsule
-            )
-            .overlay(
-                Capsule()
-                    .strokeBorder(
-                        isSelected ? Color.clear : Color.white.opacity(0.3),
-                        lineWidth: 0.5
-                    )
-            )
+            .background(isSelected ? FTColor.accent.opacity(0.08) : Color.clear)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }
@@ -632,10 +658,6 @@ struct AddCryptoView: View {
         if !existingLots.isEmpty {
             trackLots = true
             lots = existingLots
-        }
-        // Detect preset match
-        if let match = popularCryptos.first(where: { $0.symbol == item.symbol }) {
-            selectedPreset = match.symbol
         }
     }
 
