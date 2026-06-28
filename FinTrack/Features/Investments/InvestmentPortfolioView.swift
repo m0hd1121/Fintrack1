@@ -7,6 +7,7 @@ import Charts
 struct InvestmentPortfolioView: View {
     @Environment(AppState.self) private var appState
     @Environment(CurrencyService.self) private var currencyService
+    @Environment(CryptoPriceService.self) private var cryptoPriceService
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
 
@@ -29,6 +30,9 @@ struct InvestmentPortfolioView: View {
     @State private var selectedInvestment: Investment? = nil
     @State private var selectedCrypto: CryptoHolding? = nil
     @State private var selectedGold: GoldHolding? = nil
+
+    // MARK: - Crypto Live Prices
+    @State private var livePulse = false
 
     // MARK: - Holdings Filter
     @State private var selectedTypeFilter: InvestmentType? = nil
@@ -173,6 +177,15 @@ struct InvestmentPortfolioView: View {
             .sheet(item: $selectedInvestment) { inv in InvestmentDetailSheet(investment: inv) }
             .sheet(item: $selectedCrypto) { crypto in CryptoDetailSheet(holding: crypto) }
             .sheet(item: $selectedGold) { gold in GoldDetailSheet(holding: gold) }
+            .onChange(of: cryptoPriceService.lastUpdated) {
+                cryptoPriceService.updateHoldings(Array(cryptoHoldings), currencyService: currencyService)
+                try? context.save()
+            }
+            .task {
+                await cryptoPriceService.fetchPrices()
+                cryptoPriceService.updateHoldings(Array(cryptoHoldings), currencyService: currencyService)
+                try? context.save()
+            }
         }
     }
 
@@ -420,8 +433,13 @@ struct InvestmentPortfolioView: View {
     private var cryptoTab: some View {
         VStack(spacing: FTSpacing.lg) {
             VStack(alignment: .leading, spacing: FTSpacing.md) {
-                Text("TOTAL CRYPTO VALUE")
-                    .font(.ftLabel).tracking(1.6).foregroundStyle(.white.opacity(0.8))
+                HStack {
+                    Text("TOTAL CRYPTO VALUE")
+                        .font(.ftLabel).tracking(1.6).foregroundStyle(.white.opacity(0.8))
+                    Spacer()
+                    CryptoLiveBadge(isRefreshing: cryptoPriceService.isRefreshing,
+                                    lastUpdated: cryptoPriceService.lastUpdated)
+                }
                 Text(cryptoValue.formatted(as: baseCurrency))
                     .font(.ftAmount).foregroundStyle(.white)
                     .minimumScaleFactor(0.5).lineLimit(1)
@@ -1287,6 +1305,48 @@ private struct HoldingRow: View {
     }
 }
 
+// MARK: - Live Badge
+
+private struct CryptoLiveBadge: View {
+    let isRefreshing: Bool
+    let lastUpdated: Date?
+
+    @State private var pulse = false
+
+    private var label: String {
+        guard !isRefreshing else { return "Updating…" }
+        guard let date = lastUpdated else { return "—" }
+        let age = Int(Date().timeIntervalSince(date))
+        if age < 60 { return "Just now" }
+        if age < 3600 { return "\(age / 60)m ago" }
+        return "\(age / 3600)h ago"
+    }
+
+    var body: some View {
+        HStack(spacing: 4) {
+            if isRefreshing {
+                ProgressView()
+                    .scaleEffect(0.6)
+                    .tint(.white)
+            } else {
+                Circle()
+                    .fill(Color.green)
+                    .frame(width: 6, height: 6)
+                    .opacity(pulse ? 0.3 : 1.0)
+                    .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: pulse)
+                    .onAppear { pulse = true }
+            }
+            Text(label)
+                .font(.ftLabel)
+                .tracking(0.5)
+                .foregroundStyle(.white.opacity(0.75))
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(.white.opacity(0.12), in: .capsule)
+    }
+}
+
 // MARK: - CryptoRow
 
 private struct PortfolioCryptoRow: View {
@@ -1298,6 +1358,13 @@ private struct PortfolioCryptoRow: View {
         currencyService.convert(holding.currentValue, from: holding.currency, to: baseCurrency)
     }
 
+    private var priceLabel: String {
+        let p = holding.currentPrice
+        if p == 0 { return "—" }
+        if p >= 1 { return String(format: "$%.2f", p) }
+        return String(format: "$%.6f", p)
+    }
+
     var body: some View {
         HStack(spacing: FTSpacing.md) {
             FTIconTile(symbol: "bitcoinsign.circle.fill", tint: FTColor.catPurple, size: 42)
@@ -1305,6 +1372,8 @@ private struct PortfolioCryptoRow: View {
                 Text(holding.symbol.uppercased()).font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
                 Text("\(holding.name) · \(String(format: "%.6g", holding.quantity))")
                     .font(.ftCaption).foregroundStyle(FTColor.textSecondary).lineLimit(1)
+                Text(priceLabel)
+                    .font(.ftLabel).tracking(0.3).foregroundStyle(FTColor.accent)
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 3) {
