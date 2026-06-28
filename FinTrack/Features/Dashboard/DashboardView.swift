@@ -510,78 +510,81 @@ struct DashboardView: View {
 
     private var spendingChartSection: some View {
         let totalSpending = metrics.spendingByCategory.reduce(0) { $0 + $1.amount }
-        let indexed = Array(metrics.spendingByCategory.enumerated())
+        let items = metrics.spendingByCategory
 
         return VStack(alignment: .leading, spacing: FTSpacing.md) {
             HStack {
                 Text("Spending this month")
                     .font(.ftHeadline).foregroundStyle(FTColor.textPrimary)
                 Spacer()
-                Button("View all") { appState.selectedTab = .reports }
+                Button("View all") { showingReports = true }
                     .font(.ftCallout).foregroundStyle(FTColor.accent)
             }
 
             VStack(spacing: 0) {
-                ZStack {
-                    Chart(indexed, id: \.element.category) { pair in
-                        SectorMark(
-                            angle: .value("Amount", pair.element.amount),
-                            innerRadius: .ratio(0.6),
-                            angularInset: 2
-                        )
-                        .foregroundStyle(chartPalette[pair.offset % chartPalette.count])
-                        .cornerRadius(4)
+                // Chart + legend side-by-side
+                HStack(alignment: .center, spacing: FTSpacing.lg) {
+                    // Donut
+                    ZStack {
+                        Chart(items, id: \.category) { item in
+                            SectorMark(
+                                angle: .value("Amount", item.amount),
+                                innerRadius: .ratio(0.58),
+                                angularInset: 1.5
+                            )
+                            .foregroundStyle(Color.fromString(item.category.color))
+                            .cornerRadius(3)
+                        }
+                        .chartLegend(.hidden)
+                        .chartPlotStyle { $0.background(Color.clear) }
+                        .animation(.snappy(duration: 0.3), value: items.count)
+
+                        VStack(spacing: 2) {
+                            Text("TOTAL")
+                                .font(.ftLabel).tracking(1.4)
+                                .foregroundStyle(FTColor.textMuted)
+                            Text(totalSpending.formatted(as: baseCurrency))
+                                .font(.ftCallout).fontWeight(.bold)
+                                .foregroundStyle(FTColor.textPrimary)
+                                .minimumScaleFactor(0.6)
+                                .lineLimit(1)
+                        }
+                        .padding(.horizontal, FTSpacing.sm)
                     }
-                    .chartLegend(.hidden)
-                    .chartPlotStyle { $0.background(Color.clear) }
-                    .frame(height: 180)
-                    .padding(FTSpacing.lg)
-                    .animation(.snappy(duration: 0.3), value: metrics.spendingByCategory.count)
+                    .frame(width: 140, height: 140)
 
-                    VStack(spacing: FTSpacing.xs) {
-                        Text("TOTAL")
-                            .font(.ftLabel).tracking(1.6)
-                            .foregroundStyle(FTColor.textMuted)
-                        Text(totalSpending.formatted(as: baseCurrency))
-                            .font(.ftAmount)
-                            .foregroundStyle(FTColor.textPrimary)
-                            .minimumScaleFactor(0.5)
-                            .lineLimit(1)
-                            .padding(.horizontal, FTSpacing.md)
-                    }
-                }
-
-                Divider().padding(.horizontal, FTSpacing.lg)
-
-                VStack(spacing: 0) {
-                    let legend = Array(metrics.spendingByCategory.prefix(5).enumerated())
-                    ForEach(legend, id: \.element.category) { idx, item in
-                        HStack {
+                    // Legend
+                    VStack(alignment: .leading, spacing: FTSpacing.sm) {
+                        let legend = Array(items.prefix(5))
+                        ForEach(legend, id: \.category) { item in
                             HStack(spacing: FTSpacing.sm) {
-                                RoundedRectangle(cornerRadius: 3)
-                                    .fill(chartPalette[idx % chartPalette.count])
-                                    .frame(width: 10, height: 10)
+                                Circle()
+                                    .fill(Color.fromString(item.category.color))
+                                    .frame(width: 8, height: 8)
                                 Image(systemName: item.category.icon)
-                                    .font(.ftCaption)
-                                    .foregroundStyle(chartPalette[idx % chartPalette.count])
-                                Text(item.category.rawValue)
-                                    .font(.ftCaption)
-                                    .foregroundStyle(FTColor.textPrimary)
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(Color.fromString(item.category.color))
+                                    .frame(width: 14)
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(item.category.rawValue)
+                                        .font(.ftLabel).tracking(0.2)
+                                        .foregroundStyle(FTColor.textPrimary)
+                                        .lineLimit(1)
+                                    Text(item.amount.formatted(as: baseCurrency))
+                                        .font(.ftLabel).tracking(0.2)
+                                        .foregroundStyle(FTColor.textSecondary)
+                                }
                             }
-                            Spacer()
-                            Text(item.amount.formatted(as: baseCurrency))
-                                .font(.ftCaption)
-                                .foregroundStyle(FTColor.textSecondary)
                         }
-                        .padding(.horizontal, FTSpacing.lg)
-                        .padding(.vertical, FTSpacing.sm + 2)
-
-                        if idx < legend.count - 1 {
-                            Divider().padding(.leading, FTSpacing.lg)
+                        if items.count > 5 {
+                            Text("+\(items.count - 5) more")
+                                .font(.ftLabel).tracking(0.2)
+                                .foregroundStyle(FTColor.textMuted)
                         }
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .padding(.vertical, FTSpacing.xs)
+                .padding(FTSpacing.lg)
             }
             .ftGlass(FTRadius.xl)
         }
