@@ -92,37 +92,72 @@ struct BudgetView: View {
     }
 
     /// Per-budget monthly spending, auto-filtering by keyword when the category is shared.
+    /// Falls back to cross-category keyword search when primary returns 0 and the budget
+    /// name contains a specific keyword (e.g. "Shiraz Home Payment" → "shiraz home").
     private func spending(for budget: Budget, in month: Date) -> Double {
-        guard let keyword = effectiveKeyword(for: budget) else {
-            return spentByCategory[budget.category] ?? 0
+        let monthlyTxs = transactions.filter { $0.date.isSameMonth(as: month) }
+
+        if let keyword = effectiveKeyword(for: budget) {
+            let lower = keyword.lowercased()
+            let primary = monthlyTxs
+                .filter { tx in
+                    tx.title.lowercased().contains(lower) ||
+                    (tx.merchant?.lowercased().contains(lower) ?? false)
+                }
+                .flatMap { $0.spendingPairs }
+                .filter { $0.0 == budget.category }
+                .reduce(0) { $0 + $1.1 }
+            if primary > 0 { return primary }
+        } else {
+            let primary = spentByCategory[budget.category] ?? 0
+            if primary > 0 { return primary }
         }
-        let lower = keyword.lowercased()
-        return transactions
-            .filter { $0.date.isSameMonth(as: month) }
+
+        // Fallback: if the budget name contains a specific keyword, search across all
+        // expense categories so transactions categorised differently still count.
+        let kw = autoKeyword(from: budget.name)
+        guard !kw.isEmpty else { return 0 }
+        let lower = kw.lowercased()
+        return monthlyTxs
             .filter { tx in
                 tx.title.lowercased().contains(lower) ||
                 (tx.merchant?.lowercased().contains(lower) ?? false)
             }
             .flatMap { $0.spendingPairs }
-            .filter { $0.0 == budget.category }
             .reduce(0) { $0 + $1.1 }
     }
 
     /// Per-budget year-to-date spending, auto-filtering by keyword when the category is shared.
+    /// Falls back to cross-category keyword search when primary returns 0.
     private func ytdSpending(for budget: Budget) -> Double {
-        guard let keyword = effectiveKeyword(for: budget) else {
-            return ytdSpentByCategory[budget.category] ?? 0
-        }
-        let lower = keyword.lowercased()
         let yearStart = Date().startOfYear
-        return transactions
-            .filter { $0.date >= yearStart }
+        let yearTxs = transactions.filter { $0.date >= yearStart }
+
+        if let keyword = effectiveKeyword(for: budget) {
+            let lower = keyword.lowercased()
+            let primary = yearTxs
+                .filter { tx in
+                    tx.title.lowercased().contains(lower) ||
+                    (tx.merchant?.lowercased().contains(lower) ?? false)
+                }
+                .flatMap { $0.spendingPairs }
+                .filter { $0.0 == budget.category }
+                .reduce(0) { $0 + $1.1 }
+            if primary > 0 { return primary }
+        } else {
+            let primary = ytdSpentByCategory[budget.category] ?? 0
+            if primary > 0 { return primary }
+        }
+
+        let kw = autoKeyword(from: budget.name)
+        guard !kw.isEmpty else { return 0 }
+        let lower = kw.lowercased()
+        return yearTxs
             .filter { tx in
                 tx.title.lowercased().contains(lower) ||
                 (tx.merchant?.lowercased().contains(lower) ?? false)
             }
             .flatMap { $0.spendingPairs }
-            .filter { $0.0 == budget.category }
             .reduce(0) { $0 + $1.1 }
     }
 
@@ -1405,7 +1440,8 @@ struct AddBudgetView: View {
     private let expenseCategories: [TransactionCategory] = [
         .food, .shopping, .transportation, .fuel, .utilities, .rent, .mortgage,
         .education, .medical, .entertainment, .travel, .insurance, .subscriptions,
-        .gifts, .personalCare, .charity, .childcare, .pets, .bankFees, .other
+        .gifts, .personalCare, .charity, .childcare, .pets, .bankFees,
+        .loanRepayment, .interestExpense, .other
     ]
 
     var body: some View {
