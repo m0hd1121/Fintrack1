@@ -83,8 +83,7 @@ final class CryptoPriceService {
         "MOG": "Mog Coin", "BRETT": "Brett", "SUNDOG": "Sundog",
         "PONKE": "Ponke", "RATS": "Rats", "HT": "Huobi Token",
         "ALCX": "Alchemix", "VGX": "Voyager Token", "LSK": "Lisk",
-        "KEY": "SelfKey", "OGN": "Origin Protocol", "FRONT": "Frontier",
-        "NMR": "Numeraire", "AURORA": "Aurora", "CELO": "Celo",
+        "KEY": "SelfKey", "FRONT": "Frontier", "AURORA": "Aurora",
     ]
 
     // Market-cap priority order for default display (top to bottom)
