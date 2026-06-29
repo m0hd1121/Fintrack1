@@ -5,6 +5,7 @@ import Charts
 struct DashboardView: View {
     @Environment(AppState.self) private var appState
     @Environment(CurrencyService.self) private var currencyService
+    @Environment(CryptoPriceService.self) private var cryptoPriceService
     @Environment(\.modelContext) private var context
 
     @Query private var accounts: [Account]
@@ -322,6 +323,12 @@ struct DashboardView: View {
                     }
                     .padding(.top, FTSpacing.sm)
                     .padding(.bottom, 120)
+                }
+                .refreshable {
+                    async let rates: () = currencyService.fetchLiveRates()
+                    async let crypto: () = cryptoPriceService.fetchPrices()
+                    _ = await (rates, crypto)
+                    refreshDashboard()
                 }
             }
             .toolbar(.hidden, for: .navigationBar)
