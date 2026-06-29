@@ -2067,12 +2067,14 @@ private struct RecordSaleSheet: View {
 // MARK: - CryptoDetailSheet
 
 private struct CryptoDetailSheet: View {
+    @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
     @Environment(AppState.self) private var appState
     @Environment(CurrencyService.self) private var currencyService
 
     let holding: CryptoHolding
     @State private var showingEdit = false
+    @State private var showingDeleteConfirm = false
 
     private var baseCurrency: String { appState.baseCurrency }
 
@@ -2164,6 +2166,19 @@ private struct CryptoDetailSheet: View {
                             }
                         }
 
+                        Button(role: .destructive) {
+                            showingDeleteConfirm = true
+                        } label: {
+                            Label("Delete Holding", systemImage: "trash")
+                                .font(.ftBodySemibold)
+                                .foregroundStyle(FTColor.expense)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, FTSpacing.md)
+                                .ftGlassInteractive(FTRadius.lg)
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.horizontal, FTSpacing.screen)
+
                         Spacer(minLength: FTSpacing.xxl)
                     }
                 }
@@ -2180,6 +2195,16 @@ private struct CryptoDetailSheet: View {
                 }
             }
             .sheet(isPresented: $showingEdit) { AddCryptoView(editingItem: holding) }
+            .confirmationDialog("Delete \(holding.name)?", isPresented: $showingDeleteConfirm, titleVisibility: .visible) {
+                Button("Delete", role: .destructive) {
+                    context.delete(holding)
+                    try? context.save()
+                    dismiss()
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This will permanently remove \(holding.name) and all its transaction history.")
+            }
         }
     }
 
