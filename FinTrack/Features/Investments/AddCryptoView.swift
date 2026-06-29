@@ -9,8 +9,9 @@ struct AddCryptoView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
     @Environment(AppState.self) private var appState
-    @Environment(CryptoPriceService.self) private var cryptoPriceService
     @Environment(CurrencyService.self) private var currencyService
+
+    private let cryptoPriceService = CryptoPriceService.shared
 
     // MARK: Editing target
     var editingItem: CryptoHolding? = nil
