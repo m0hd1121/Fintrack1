@@ -9,6 +9,10 @@ struct AddMoneyLentView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
 
+    // MARK: Data
+    @Query(sort: \Account.name) private var accounts: [Account]
+    @Query private var allTransactions: [Transaction]
+
     // MARK: Editing target
     let editingItem: MoneyLent?
 
@@ -21,6 +25,7 @@ struct AddMoneyLentView: View {
     // Section 2: Amount & Dates
     @State private var amountText: String = ""
     @State private var currency: String = "AED"
+    @State private var selectedAccountId: UUID? = nil
     @State private var lendingDate: Date = Date()
     @State private var dueDateEnabled: Bool = false
     @State private var dueDate: Date = Calendar.current.date(byAdding: .month, value: 1, to: Date()) ?? Date()
@@ -37,6 +42,10 @@ struct AddMoneyLentView: View {
 
     // Validation
     @State private var showValidationError: Bool = false
+
+    // MARK: - Computed
+    private var activeAccounts: [Account] { accounts.filter { !$0.isArchived } }
+    private var selectedAccount: Account? { activeAccounts.first { $0.id == selectedAccountId } }
 
     // MARK: - Constants
 
@@ -104,6 +113,18 @@ struct AddMoneyLentView: View {
             }
             .navigationTitle(editingItem == nil ? "Lend Money" : "Edit Lent Record")
             .navigationBarTitleDisplayMode(.inline)
+            .onAppear {
+                guard selectedAccountId == nil else { return }
+                if let item = editingItem {
+                    let linkedTx = allTransactions.first {
+                        $0.linkedMoneyLentId == item.id && $0.linkedDebtRepaymentId == nil
+                    }
+                    selectedAccountId = linkedTx?.account?.id
+                } else {
+                    selectedAccountId = activeAccounts.first(where: { $0.isDefault })?.id
+                        ?? activeAccounts.first?.id
+                }
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
@@ -207,6 +228,27 @@ struct AddMoneyLentView: View {
                                 .foregroundStyle(FTColor.textMuted)
                         }
                     }
+                }
+                .padding(.vertical, FTSpacing.md)
+
+                divider
+
+                // Source Account
+                HStack(spacing: FTSpacing.md) {
+                    FTIconTile(symbol: "building.columns.fill", tint: FTColor.accent, size: 36)
+                    Text("Lend From")
+                        .font(.ftBody)
+                        .foregroundStyle(FTColor.textSecondary)
+                        .fixedSize()
+                    Spacer()
+                    Picker("", selection: $selectedAccountId) {
+                        Text("None").tag(Optional<UUID>(nil))
+                        ForEach(activeAccounts) { acc in
+                            Text(acc.name).tag(Optional(acc.id))
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .accentColor(FTColor.accent)
                 }
                 .padding(.vertical, FTSpacing.md)
 
@@ -505,6 +547,48 @@ struct AddMoneyLentView: View {
                 NotificationService.shared.cancelNotification(id: "lent_\(item.id.uuidString)")
             }
 
+            // Find and update the initial-lend transaction (no repayment ID = initial lend)
+            let existingTx = allTransactions.first {
+                $0.linkedMoneyLentId == item.id && $0.linkedDebtRepaymentId == nil
+            }
+            let oldAccount = existingTx?.account
+            if let tx = existingTx {
+                // Reverse old account balance
+                if let oldAcc = oldAccount {
+                    let oldDelta = CurrencyService.shared.convert(item.amount, from: item.currency, to: oldAcc.currency)
+                    oldAcc.balance += oldDelta
+                }
+                // Apply to new account
+                if let newAcc = selectedAccount {
+                    tx.account = newAcc
+                    tx.title = "Lent to \(trimmedName)"
+                    tx.amount = amount
+                    tx.currency = currency
+                    tx.date = lendingDate
+                    tx.notes = trimmedNotes.isEmpty ? nil : trimmedNotes
+                    let delta = CurrencyService.shared.convert(amount, from: currency, to: newAcc.currency)
+                    newAcc.balance -= delta
+                } else {
+                    tx.account = nil
+                }
+            } else if let newAcc = selectedAccount {
+                // No prior transaction existed — create one now
+                let tx = Transaction(
+                    title: "Lent to \(trimmedName)",
+                    amount: amount,
+                    currency: currency,
+                    type: .expense,
+                    category: .personalLent,
+                    date: lendingDate,
+                    notes: trimmedNotes.isEmpty ? nil : trimmedNotes
+                )
+                tx.linkedMoneyLentId = item.id
+                tx.account = newAcc
+                let delta = CurrencyService.shared.convert(amount, from: currency, to: newAcc.currency)
+                newAcc.balance -= delta
+                context.insert(tx)
+            }
+
             // Update existing record
             item.borrowerName      = trimmedName
             item.contactInfo       = trimmedContact.isEmpty ? nil : trimmedContact
@@ -544,6 +628,24 @@ struct AddMoneyLentView: View {
                 color: selectedColorName
             )
             context.insert(newItem)
+
+            // Create the initial-lend transaction and deduct from account
+            if let account = selectedAccount {
+                let tx = Transaction(
+                    title: "Lent to \(trimmedName)",
+                    amount: amount,
+                    currency: currency,
+                    type: .expense,
+                    category: .personalLent,
+                    date: lendingDate,
+                    notes: trimmedNotes.isEmpty ? nil : trimmedNotes
+                )
+                tx.linkedMoneyLentId = newItem.id
+                tx.account = account
+                let delta = CurrencyService.shared.convert(amount, from: currency, to: account.currency)
+                account.balance -= delta
+                context.insert(tx)
+            }
 
             if reminderEnabled, let due = resolvedDueDate {
                 NotificationService.shared.scheduleLentReminder(
