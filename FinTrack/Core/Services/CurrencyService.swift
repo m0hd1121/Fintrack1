@@ -20,6 +20,7 @@ final class CurrencyService {
         CurrencyInfo(code: "KWD", name: "Kuwaiti Dinar", symbol: "KD", flag: "🇰🇼"),
         CurrencyInfo(code: "BHD", name: "Bahraini Dinar", symbol: "BD", flag: "🇧🇭"),
         CurrencyInfo(code: "OMR", name: "Omani Rial", symbol: "OMR", flag: "🇴🇲"),
+        CurrencyInfo(code: "IRR", name: "Iranian Rial", symbol: "﷼", flag: "🇮🇷"),
         CurrencyInfo(code: "INR", name: "Indian Rupee", symbol: "₹", flag: "🇮🇳"),
         CurrencyInfo(code: "PKR", name: "Pakistani Rupee", symbol: "₨", flag: "🇵🇰"),
         CurrencyInfo(code: "EGP", name: "Egyptian Pound", symbol: "E£", flag: "🇪🇬"),
@@ -29,7 +30,6 @@ final class CurrencyService {
         CurrencyInfo(code: "CAD", name: "Canadian Dollar", symbol: "CA$", flag: "🇨🇦"),
         CurrencyInfo(code: "AUD", name: "Australian Dollar", symbol: "A$", flag: "🇦🇺"),
         CurrencyInfo(code: "SGD", name: "Singapore Dollar", symbol: "S$", flag: "🇸🇬"),
-        CurrencyInfo(code: "IRR", name: "Iranian Rial", symbol: "﷼", flag: "🇮🇷"),
         CurrencyInfo(code: "TRY", name: "Turkish Lira", symbol: "₺", flag: "🇹🇷"),
         CurrencyInfo(code: "RUB", name: "Russian Ruble", symbol: "₽", flag: "🇷🇺"),
         CurrencyInfo(code: "MYR", name: "Malaysian Ringgit", symbol: "RM", flag: "🇲🇾"),
@@ -105,12 +105,38 @@ final class CurrencyService {
             let (data, _) = try await URLSession.shared.data(from: url)
             let response = try Self.decoder.decode(ExchangeRateResponse.self, from: data)
             if response.result == "success" {
-                rates = response.rates
+                var updatedRates = response.rates
+                if let irrRate = await fetchLiveIRRRate(usdPerBaseCurrency: updatedRates["USD"]) {
+                    updatedRates["IRR"] = irrRate
+                }
+                rates = updatedRates
                 lastUpdated = Date()
                 cacheRates()
             }
         } catch {
             // Keep fallback rates
+        }
+    }
+
+    // Forex APIs report Iran's official government peg for IRR, which sits far below
+    // the real free-market value. Use the USDT/IRR rate from a crypto exchange
+    // (USDT tracks the US dollar ~1:1) as a proxy for the actual street rate instead.
+    private func fetchLiveIRRRate(usdPerBaseCurrency: Double?) async -> Double? {
+        guard let usdPerBaseCurrency, usdPerBaseCurrency > 0,
+              let url = URL(string: "https://api.nobitex.ir/market/stats?srcCurrency=usdt&dstCurrency=rls") else {
+            return nil
+        }
+        do {
+            let (data, _) = try await URLSession.shared.data(from: url)
+            let response = try Self.decoder.decode(NobitexStatsResponse.self, from: data)
+            guard response.status == "ok",
+                  let irrPerUSDT = response.stats["usdt-rls"]?.latest,
+                  irrPerUSDT > 0 else {
+                return nil
+            }
+            return irrPerUSDT * usdPerBaseCurrency
+        } catch {
+            return nil
         }
     }
 
@@ -141,4 +167,26 @@ struct CurrencyInfo: Identifiable {
 private struct ExchangeRateResponse: Codable {
     let result: String
     let rates: [String: Double]
+}
+
+private struct NobitexStatsResponse: Decodable {
+    let status: String
+    let stats: [String: NobitexMarketStat]
+}
+
+private struct NobitexMarketStat: Decodable {
+    let latest: Double?
+
+    enum CodingKeys: String, CodingKey {
+        case latest
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        if let stringValue = try? container.decode(String.self, forKey: .latest) {
+            latest = Double(stringValue)
+        } else {
+            latest = try? container.decode(Double.self, forKey: .latest)
+        }
+    }
 }
