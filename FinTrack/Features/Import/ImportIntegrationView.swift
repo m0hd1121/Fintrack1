@@ -4,8 +4,10 @@ import SwiftData
 struct ImportIntegrationView: View {
     @Environment(AppState.self) private var appState
     @Query(sort: \ImportedFile.importedAt, order: .reverse) private var importHistory: [ImportedFile]
+    @Query private var pendingEmailItems: [PendingEmailTransaction]
 
     private var lastImport: ImportedFile? { importHistory.first }
+    private var pendingEmailCount: Int { pendingEmailItems.filter { $0.status == .pending }.count }
 
     var body: some View {
         ScrollView {
@@ -78,6 +80,15 @@ struct ImportIntegrationView: View {
         VStack(spacing: FTSpacing.md) {
             Text("IMPORT METHODS").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
                 .frame(maxWidth: .infinity, alignment: .leading)
+
+            NavigationLink(destination: EmailImportView()) {
+                methodRow(icon: "envelope.badge.fill", color: FTColor.accent,
+                          title: "Email Sync (UAE Banks)",
+                          subtitle: pendingEmailCount > 0
+                            ? "\(pendingEmailCount) pending review · AI parsing · OAuth"
+                            : "Bank alert emails · AI parsing · Review queue")
+            }
+            .buttonStyle(.plain)
 
             NavigationLink(destination: PDFImportView()) {
                 methodRow(icon: "doc.fill", color: FTColor.expense,
