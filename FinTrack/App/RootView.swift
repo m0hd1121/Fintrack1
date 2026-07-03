@@ -5,9 +5,11 @@ import CoreSpotlight
 struct RootView: View {
     @Environment(AppState.self) private var appState
     @Environment(CryptoPriceService.self) private var cryptoPriceService
+    @Environment(StockPriceService.self) private var stockPriceService
     @Query private var profiles: [UserProfile]
     @Query private var settings: [AppSettings]
     @Query private var cryptoHoldings: [CryptoHolding]
+    @Query private var investments: [Investment]
     @Query(filter: #Predicate<Transaction> { $0.isRecurring }) private var recurringTxs: [Transaction]
     @Query(filter: #Predicate<Transaction> { $0.isScheduled }) private var scheduledTxs: [Transaction]
     @Query private var bills: [Bill]
@@ -104,9 +106,16 @@ struct RootView: View {
             cryptoPriceService.updateHoldings(Array(cryptoHoldings), currencyService: currencyService)
             try? context.save()
         }
+        .onChange(of: stockPriceService.lastUpdated) {
+            stockPriceService.updateHoldings(Array(investments))
+            try? context.save()
+        }
         .task {
             await cryptoPriceService.fetchPrices()
             cryptoPriceService.updateHoldings(Array(cryptoHoldings), currencyService: currencyService)
+            let symbols = investments.map { $0.symbol }.filter { !$0.isEmpty }
+            await stockPriceService.fetchPrices(symbols: symbols)
+            stockPriceService.updateHoldings(Array(investments))
             try? context.save()
         }
     }

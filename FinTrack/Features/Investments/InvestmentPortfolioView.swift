@@ -31,8 +31,9 @@ struct InvestmentPortfolioView: View {
     @State private var selectedCrypto: CryptoHolding? = nil
     @State private var selectedGold: GoldHolding? = nil
 
-    // MARK: - Crypto Live Prices
+    // MARK: - Live Prices
     @State private var livePulse = false
+    private let stockPriceService = StockPriceService.shared
 
     // MARK: - Holdings Filter
     @State private var selectedTypeFilter: InvestmentType? = nil
@@ -154,6 +155,11 @@ struct InvestmentPortfolioView: View {
                             }
                         }
                         .padding(.bottom, FTSpacing.xxl + FTSpacing.lg)
+                    }
+                    .refreshable {
+                        let symbols = investments.map { $0.symbol }.filter { !$0.isEmpty }
+                        await stockPriceService.fetchPrices(symbols: symbols)
+                        await cryptoPriceService.fetchPrices()
                     }
                 }
             }
@@ -364,6 +370,47 @@ struct InvestmentPortfolioView: View {
 
     private var holdingsTab: some View {
         VStack(spacing: FTSpacing.lg) {
+            // Live-price summary card
+            VStack(alignment: .leading, spacing: FTSpacing.md) {
+                HStack {
+                    Text("STOCKS & ETFs")
+                        .font(.ftLabel).tracking(1.6).foregroundStyle(.white.opacity(0.8))
+                    Spacer()
+                    StockLiveBadge(isRefreshing: stockPriceService.isRefreshing,
+                                   lastUpdated: stockPriceService.lastUpdated)
+                }
+                Text(stocksValue.formatted(as: baseCurrency))
+                    .font(.ftAmount).foregroundStyle(.white)
+                    .minimumScaleFactor(0.5).lineLimit(1)
+
+                let pnl = investments.reduce(0.0) {
+                    $0 + currencyService.convert($1.profitLoss, from: $1.currency, to: baseCurrency)
+                }
+                if !investments.isEmpty {
+                    HStack(spacing: FTSpacing.xs) {
+                        Image(systemName: pnl >= 0 ? "arrow.up.right" : "arrow.down.right")
+                            .font(.system(size: 12, weight: .semibold))
+                        Text(pnl.formatted(as: baseCurrency))
+                            .font(.ftCallout)
+                        Text("unrealized")
+                            .font(.ftLabel).tracking(0.5).opacity(0.75)
+                    }
+                    .foregroundStyle(pnl >= 0 ? FTColor.income : FTColor.expense)
+                    .padding(.horizontal, FTSpacing.sm)
+                    .padding(.vertical, 4)
+                    .background((pnl >= 0 ? FTColor.income : FTColor.expense).opacity(0.18), in: .capsule)
+                }
+            }
+            .padding(FTSpacing.xl)
+            .background(
+                LinearGradient(colors: [Color(hex: 0x1A6FBF), Color(hex: 0x0D4A8A)],
+                               startPoint: .topLeading, endPoint: .bottomTrailing),
+                in: .rect(cornerRadius: FTRadius.xl)
+            )
+            .shadow(color: Color(hex: 0x0D4A8A).opacity(0.4), radius: 20, y: 8)
+            .padding(.horizontal, FTSpacing.screen)
+
+            // Type filter chips
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: FTSpacing.sm) {
                     Button {
@@ -417,6 +464,11 @@ struct InvestmentPortfolioView: View {
             }
         }
         .padding(.top, FTSpacing.md)
+        .task {
+            let symbols = investments.map { $0.symbol }.filter { !$0.isEmpty }
+            guard !symbols.isEmpty else { return }
+            await stockPriceService.fetchPrices(symbols: symbols)
+        }
     }
 
     // MARK: - TAB 2: CRYPTO
@@ -1331,6 +1383,44 @@ private struct CryptoLiveBadge: View {
                 .font(.ftLabel)
                 .tracking(0.5)
                 .foregroundStyle(.white.opacity(0.75))
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(.white.opacity(0.12), in: .capsule)
+    }
+}
+
+// MARK: - StockLiveBadge (identical shape to CryptoLiveBadge)
+
+private struct StockLiveBadge: View {
+    let isRefreshing: Bool
+    let lastUpdated: Date?
+
+    @State private var pulse = false
+
+    private var label: String {
+        guard !isRefreshing else { return "Updating…" }
+        guard let date = lastUpdated else { return "—" }
+        let age = Int(Date().timeIntervalSince(date))
+        if age < 60 { return "Just now" }
+        if age < 3600 { return "\(age / 60)m ago" }
+        return "\(age / 3600)h ago"
+    }
+
+    var body: some View {
+        HStack(spacing: 4) {
+            if isRefreshing {
+                ProgressView().scaleEffect(0.6).tint(.white)
+            } else {
+                Circle()
+                    .fill(Color.green)
+                    .frame(width: 6, height: 6)
+                    .opacity(pulse ? 0.3 : 1.0)
+                    .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: pulse)
+                    .onAppear { pulse = true }
+            }
+            Text(label)
+                .font(.ftLabel).tracking(0.5).foregroundStyle(.white.opacity(0.75))
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 4)

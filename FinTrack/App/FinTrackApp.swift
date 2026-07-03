@@ -7,6 +7,7 @@ struct FinTrackApp: App {
     @State private var appState = AppState()
     @State private var currencyService = CurrencyService.shared
     @State private var cryptoPriceService = CryptoPriceService.shared
+    @State private var stockPriceService = StockPriceService.shared
 
     let modelContainer: ModelContainer = {
         // Bump this string whenever a non-optional property is added to any @Model
@@ -93,6 +94,7 @@ struct FinTrackApp: App {
                 .environment(appState)
                 .environment(currencyService)
                 .environment(cryptoPriceService)
+                .environment(stockPriceService)
                 .task {
                     await currencyService.fetchLiveRates()
                     await cryptoPriceService.fetchPrices()
