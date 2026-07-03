@@ -52,6 +52,9 @@ final class StockPriceService {
 
     // MARK: - Fetch
 
+    // Uses the v8 chart endpoint (one request per symbol, run concurrently).
+    // The v7 batch-quote endpoint requires a Yahoo session cookie + crumb
+    // token and returns 401 for plain API calls — v8 chart does not.
     func fetchPrices(symbols: [String]) async {
         let cleaned = symbols.map { $0.uppercased().trimmingCharacters(in: .whitespaces) }
                              .filter { !$0.isEmpty }
@@ -62,29 +65,43 @@ final class StockPriceService {
         isRefreshing = true
         defer { isFetching = false; isRefreshing = false }
 
-        // Yahoo Finance v7 quote — batch up to ~200 symbols per request
-        let joined = cleaned.joined(separator: ",")
-        let urlString = "https://query1.finance.yahoo.com/v7/finance/quote?symbols=\(joined)&fields=regularMarketPrice,currency"
-        guard let url = URL(string: urlString) else { return }
+        let fetched = await withTaskGroup(of: (String, Double)?.self) { group in
+            for symbol in Set(cleaned) {
+                group.addTask { await Self.fetchSingle(symbol: symbol) }
+            }
+            var results: [String: Double] = [:]
+            for await pair in group {
+                if let (symbol, price) = pair { results[symbol] = price }
+            }
+            return results
+        }
 
+        guard !fetched.isEmpty else {
+            lastError = "Prices unavailable"
+            return
+        }
+        for (symbol, price) in fetched { prices[symbol] = price }
+        lastUpdated = Date()
+        lastError = nil
+        cachePrices()
+    }
+
+    nonisolated private static func fetchSingle(symbol: String) async -> (String, Double)? {
+        let encoded = symbol.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? symbol
+        guard let url = URL(string: "https://query1.finance.yahoo.com/v8/finance/chart/\(encoded)?interval=1d&range=1d") else {
+            return nil
+        }
         var request = URLRequest(url: url)
         request.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15", forHTTPHeaderField: "User-Agent")
-        request.setValue("https://finance.yahoo.com", forHTTPHeaderField: "Referer")
 
         do {
-            let (data, _) = try await Self.session.data(for: request)
-            let response = try JSONDecoder().decode(YahooQuoteResponse.self, from: data)
-            guard let results = response.quoteResponse.result, !results.isEmpty else { return }
-
-            for quote in results {
-                guard quote.regularMarketPrice > 0 else { continue }
-                prices[quote.symbol.uppercased()] = quote.regularMarketPrice
-            }
-            lastUpdated = Date()
-            lastError = nil
-            cachePrices()
+            let (data, response) = try await session.data(for: request)
+            guard (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
+            let decoded = try JSONDecoder().decode(YahooChartResponse.self, from: data)
+            guard let price = decoded.chart.result?.first?.meta.regularMarketPrice, price > 0 else { return nil }
+            return (symbol, price)
         } catch {
-            lastError = "Prices unavailable"
+            return nil
         }
     }
 
@@ -119,16 +136,19 @@ final class StockPriceService {
 
 // MARK: - Yahoo Finance Response Models
 
-private struct YahooQuoteResponse: Decodable {
-    let quoteResponse: QuoteResult
+private struct YahooChartResponse: Decodable {
+    let chart: Chart
 
-    struct QuoteResult: Decodable {
-        let result: [Quote]?
+    struct Chart: Decodable {
+        let result: [Result]?
     }
 
-    struct Quote: Decodable {
-        let symbol: String
-        let regularMarketPrice: Double
+    struct Result: Decodable {
+        let meta: Meta
+    }
+
+    struct Meta: Decodable {
+        let regularMarketPrice: Double?
         let currency: String?
     }
 }
