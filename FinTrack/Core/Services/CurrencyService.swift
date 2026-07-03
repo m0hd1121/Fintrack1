@@ -119,25 +119,58 @@ final class CurrencyService {
     }
 
     // Forex APIs report Iran's official government peg for IRR, which sits far below
-    // the real free-market value. Use the USDT/IRR rate from a crypto exchange
-    // (USDT tracks the US dollar ~1:1) as a proxy for the actual street rate instead.
+    // the real free-market value. Use the USDT/IRR market rate (USDT tracks the US
+    // dollar ~1:1) as a proxy for the actual street rate instead.
+    // Iranian .ir domains are often DNS-blocked outside Iran, so several sources
+    // are tried in order; any failure falls through to the next.
     private func fetchLiveIRRRate(usdPerBaseCurrency: Double?) async -> Double? {
-        guard let usdPerBaseCurrency, usdPerBaseCurrency > 0,
-              let url = URL(string: "https://api.nobitex.ir/market/stats?srcCurrency=usdt&dstCurrency=rls") else {
-            return nil
-        }
-        do {
-            let (data, _) = try await URLSession.shared.data(from: url)
-            let response = try Self.decoder.decode(NobitexStatsResponse.self, from: data)
-            guard response.status == "ok",
-                  let irrPerUSDT = response.stats["usdt-rls"]?.latest,
-                  irrPerUSDT > 0 else {
-                return nil
+        guard let usdPerBaseCurrency, usdPerBaseCurrency > 0 else { return nil }
+        for fetch in [fetchIRRFromTGJU, fetchIRRFromNobitex, fetchIRRFromWallex] {
+            if let irrPerUSD = await fetch(), irrPerUSD > 10_000 {
+                return irrPerUSD * usdPerBaseCurrency
             }
-            return irrPerUSDT * usdPerBaseCurrency
-        } catch {
-            return nil
         }
+        return nil
+    }
+
+    private func quickGet(_ urlString: String) async -> Data? {
+        guard let url = URL(string: urlString) else { return nil }
+        let request = URLRequest(url: url, timeoutInterval: 10)
+        guard let (data, response) = try? await URLSession.shared.data(for: request),
+              (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
+        return data
+    }
+
+    // TGJU (.org, reachable worldwide) — free-market USD/IRR reference rate in rials
+    private func fetchIRRFromTGJU() async -> Double? {
+        guard let data = await quickGet("https://call1.tgju.org/ajax.json"),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let current = json["current"] as? [String: Any],
+              let dollar = current["price_dollar_rl"] as? [String: Any],
+              let priceText = dollar["p"] as? String else { return nil }
+        return Double(priceText.replacingOccurrences(of: ",", with: ""))
+    }
+
+    // Nobitex — USDT/IRR last trade
+    private func fetchIRRFromNobitex() async -> Double? {
+        guard let data = await quickGet("https://api.nobitex.ir/market/stats?srcCurrency=usdt&dstCurrency=rls"),
+              let response = try? Self.decoder.decode(NobitexStatsResponse.self, from: data),
+              response.status == "ok" else { return nil }
+        return response.stats["usdt-rls"]?.latest
+    }
+
+    // Wallex — USDT/TMN last trade (Toman × 10 = Rial)
+    private func fetchIRRFromWallex() async -> Double? {
+        guard let data = await quickGet("https://api.wallex.ir/v1/markets"),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let result = json["result"] as? [String: Any],
+              let symbols = result["symbols"] as? [String: Any],
+              let usdtTmn = symbols["USDTTMN"] as? [String: Any],
+              let stats = usdtTmn["stats"] as? [String: Any] else { return nil }
+        let lastPrice = (stats["lastPrice"] as? String).flatMap(Double.init)
+            ?? (stats["lastPrice"] as? Double)
+        guard let toman = lastPrice, toman > 0 else { return nil }
+        return toman * 10
     }
 
     private func cacheRates() {
