@@ -3,6 +3,7 @@ import SwiftData
 import AuthenticationServices
 import CryptoKit
 import Observation
+import UIKit
 
 // MARK: - Errors
 
@@ -617,7 +618,12 @@ final class EmailSyncService: NSObject {
 
 extension EmailSyncService: ASWebAuthenticationPresentationContextProviding {
     nonisolated func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
-        ASPresentationAnchor()
+        MainActor.assumeIsolated {
+            let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+            return scenes.flatMap(\.windows).first(where: \.isKeyWindow)
+                ?? scenes.first?.windows.first
+                ?? UIWindow(frame: .zero)
+        }
     }
 }
 

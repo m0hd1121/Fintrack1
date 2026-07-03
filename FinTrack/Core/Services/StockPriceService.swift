@@ -86,7 +86,7 @@ final class StockPriceService {
         cachePrices()
     }
 
-    nonisolated private static func fetchSingle(symbol: String) async -> (String, Double)? {
+    private static func fetchSingle(symbol: String) async -> (String, Double)? {
         let encoded = symbol.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? symbol
         guard let url = URL(string: "https://query1.finance.yahoo.com/v8/finance/chart/\(encoded)?interval=1d&range=1d") else {
             return nil
