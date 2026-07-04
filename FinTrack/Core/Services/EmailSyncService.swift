@@ -339,16 +339,22 @@ final class EmailSyncService: NSObject {
             .flatMap { [$0.senderEmail, $0.senderDomain] }
             .filter { !$0.isEmpty }
 
+        // Accounts connected with an app password carry an imapHost and sync
+        // over IMAP regardless of provider (e.g. Gmail without OAuth setup).
         let emails: [FetchedEmail]
-        switch account.provider {
-        case .gmail:
-            let token = try await validAccessToken(for: account)
-            emails = try await fetchGmailMessages(accessToken: token, seen: account.seenMessageIds, extraSenders: ruleSenders)
-        case .outlook:
-            let token = try await validAccessToken(for: account)
-            emails = try await fetchOutlookMessages(accessToken: token, seen: account.seenMessageIds, extraSenders: ruleSenders)
-        case .icloud, .imap:
+        if !account.imapHost.isEmpty {
             emails = try await fetchIMAPMessages(account: account, seen: account.seenMessageIds, extraSenders: ruleSenders)
+        } else {
+            switch account.provider {
+            case .gmail:
+                let token = try await validAccessToken(for: account)
+                emails = try await fetchGmailMessages(accessToken: token, seen: account.seenMessageIds, extraSenders: ruleSenders)
+            case .outlook:
+                let token = try await validAccessToken(for: account)
+                emails = try await fetchOutlookMessages(accessToken: token, seen: account.seenMessageIds, extraSenders: ruleSenders)
+            case .icloud, .imap:
+                emails = try await fetchIMAPMessages(account: account, seen: account.seenMessageIds, extraSenders: ruleSenders)
+            }
         }
 
         var imported = 0

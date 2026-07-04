@@ -283,11 +283,11 @@ struct EmailImportView: View {
         case .gmail:
             return syncService.isConfigured(.gmail)
                 ? "OAuth sign-in · read-only · bank senders only"
-                : "Tap for one-time setup, then sync is automatic"
+                : "Sign in with your Gmail + Google App Password"
         case .outlook:
             return syncService.isConfigured(.outlook)
                 ? "OAuth sign-in · read-only · bank senders only"
-                : "Tap for one-time setup, then sync is automatic"
+                : "Tap for one-time setup (Microsoft requires OAuth)"
         case .icloud:
             return "Sign in with your Apple ID email + app-specific password"
         case .imap:
@@ -296,12 +296,20 @@ struct EmailImportView: View {
     }
 
     private func connect(_ provider: EmailProvider) {
-        guard provider.supportsOAuthSync else {
-            imapSignInProvider = provider // iCloud/IMAP: direct app-password sign-in
+        // Direct email sign-in (app password over IMAP) is the default for
+        // everything except Outlook — Microsoft disabled password IMAP in
+        // 2024, so Outlook requires the OAuth client ID. Gmail uses OAuth
+        // automatically once a client ID has been configured.
+        if !provider.supportsOAuthSync {
+            imapSignInProvider = provider
             return
         }
-        guard syncService.isConfigured(provider) else {
-            oauthSetupProvider = provider // one-time client ID setup
+        if !syncService.isConfigured(provider) {
+            if provider == .gmail {
+                imapSignInProvider = provider   // sign in with Google App Password
+            } else {
+                oauthSetupProvider = provider   // Outlook: OAuth is the only way
+            }
             return
         }
         Task {
@@ -484,13 +492,21 @@ private struct IMAPSignInSheet: View {
         if provider == .icloud || ["icloud.com", "me.com", "mac.com"].contains(domain) {
             return "iCloud requires an app-specific password: appleid.apple.com → Sign-In & Security → App-Specific Passwords → generate one for FinTrack."
         }
-        if ["gmail.com", "googlemail.com"].contains(domain) {
-            return "Gmail requires an App Password: myaccount.google.com/apppasswords (2-Step Verification must be on). Your normal password won't work."
+        if provider == .gmail || ["gmail.com", "googlemail.com"].contains(domain) {
+            return "Gmail requires an App Password: open myaccount.google.com/apppasswords, sign in, and generate one for FinTrack (2-Step Verification must be on). Your normal Gmail password won't work here."
         }
         if ["yahoo.com", "ymail.com"].contains(domain) {
             return "Yahoo requires an app password: Yahoo Account Security → Generate app password."
         }
         return "Most providers require an app-specific password for IMAP — check your mail provider's security settings."
+    }
+
+    private var defaultHost: String {
+        switch provider {
+        case .gmail:  return "imap.gmail.com"
+        case .icloud: return "imap.mail.me.com"
+        default:      return ""
+        }
     }
 
     var body: some View {
@@ -597,6 +613,9 @@ private struct IMAPSignInSheet: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                 }
+            }
+            .onAppear {
+                if host.isEmpty { host = defaultHost }
             }
         }
     }
