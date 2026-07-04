@@ -21,6 +21,7 @@ struct EmailImportView: View {
     @State private var showingPrivacy = false
     @State private var showingBankWizard = false
     @State private var editingBankRule: BankEmailRule? = nil
+    @State private var oauthSetupProvider: EmailProvider? = nil
 
     private var pendingCount: Int { pendingItems.filter { $0.status == .pending }.count }
     private var approvedCount: Int { pendingItems.filter { $0.status == .approved }.count }
@@ -44,6 +45,12 @@ struct EmailImportView: View {
         .sheet(isPresented: $showingPasteSheet) { pasteSheet }
         .sheet(isPresented: $showingBankWizard) { BankSetupWizardView() }
         .sheet(item: $editingBankRule) { rule in BankSetupWizardView(editingRule: rule) }
+        .sheet(item: $oauthSetupProvider) { provider in
+            OAuthSetupSheet(provider: provider) {
+                oauthSetupProvider = nil
+                connect(provider)
+            }
+        }
         .alert("Connection Failed", isPresented: Binding(
             get: { connectError != nil },
             set: { if !$0 { connectError = nil } }
@@ -272,19 +279,23 @@ struct EmailImportView: View {
         case .gmail:
             return syncService.isConfigured(.gmail)
                 ? "OAuth sign-in · read-only · bank senders only"
-                : "Requires OAuth setup — use Paste Email meanwhile"
+                : "Tap for one-time setup, then sync is automatic"
         case .outlook:
             return syncService.isConfigured(.outlook)
                 ? "OAuth sign-in · read-only · bank senders only"
-                : "Requires OAuth setup — use Paste Email meanwhile"
+                : "Tap for one-time setup, then sync is automatic"
         case .icloud, .imap:
             return "No sync API — paste or share bank emails instead"
         }
     }
 
     private func connect(_ provider: EmailProvider) {
-        guard provider.supportsOAuthSync, syncService.isConfigured(provider) else {
-            showingPasteSheet = true
+        guard provider.supportsOAuthSync else {
+            showingPasteSheet = true      // iCloud/IMAP: no OAuth API exists
+            return
+        }
+        guard syncService.isConfigured(provider) else {
+            oauthSetupProvider = provider // one-time client ID setup
             return
         }
         Task {
@@ -434,6 +445,119 @@ struct EmailImportView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { showingPasteSheet = false }
                 }
+            }
+        }
+    }
+}
+
+// MARK: - OAuthSetupSheet
+// One-time setup: Google/Microsoft only allow mailbox access to registered
+// OAuth apps, so the owner creates a (free) client ID once and pastes it
+// here. After that, connecting is a normal sign-in — fully automatic.
+
+private struct OAuthSetupSheet: View {
+    let provider: EmailProvider
+    let onConfigured: () -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var clientId = ""
+
+    private var steps: [String] {
+        switch provider {
+        case .gmail:
+            return [
+                "Open console.cloud.google.com and create a project (free)",
+                "APIs & Services → Library → enable “Gmail API”",
+                "APIs & Services → OAuth consent screen → External → add your own Gmail as a test user",
+                "Credentials → Create Credentials → OAuth client ID → type “iOS”, bundle ID of this app",
+                "Copy the Client ID (ends in .apps.googleusercontent.com) and paste it below",
+            ]
+        case .outlook:
+            return [
+                "Open portal.azure.com → Microsoft Entra ID → App registrations → New registration",
+                "Supported accounts: “Personal Microsoft accounts and any organization”",
+                "Add a redirect URI of type “Mobile and desktop”: fintrack://oauth-callback",
+                "API permissions → add Microsoft Graph → Delegated → Mail.Read",
+                "Copy the Application (client) ID and paste it below",
+            ]
+        default:
+            return []
+        }
+    }
+
+    var body: some View {
+        NavigationStack {
+            ZStack(alignment: .bottom) {
+                FTBackdrop()
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: FTSpacing.lg) {
+                        HStack(spacing: FTSpacing.md) {
+                            FTIconTile(symbol: "key.horizontal.fill", tint: FTColor.gold, size: 44)
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("One-Time Setup Required")
+                                    .font(.ftHeadline).foregroundStyle(FTColor.textPrimary)
+                                Text("\(provider.rawValue) only allows registered apps to read mail — even read-only. Create your free client ID once; every sync after that is automatic.")
+                                    .font(.ftCaption).foregroundStyle(FTColor.textMuted)
+                            }
+                        }
+                        .padding()
+                        .ftGlass(FTRadius.md)
+
+                        VStack(alignment: .leading, spacing: FTSpacing.md) {
+                            Text("STEPS")
+                                .font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+                            ForEach(Array(steps.enumerated()), id: \.offset) { index, step in
+                                HStack(alignment: .top, spacing: FTSpacing.sm) {
+                                    Text("\(index + 1)")
+                                        .font(.ftCaption).bold().foregroundStyle(.white)
+                                        .frame(width: 20, height: 20)
+                                        .background(FTColor.accent, in: .circle)
+                                    Text(step)
+                                        .font(.ftCallout).foregroundStyle(FTColor.textSecondary)
+                                }
+                            }
+                        }
+                        .padding()
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .ftGlass(FTRadius.md)
+
+                        VStack(alignment: .leading, spacing: FTSpacing.sm) {
+                            Text("CLIENT ID")
+                                .font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+                            TextField(provider == .gmail
+                                      ? "xxxx.apps.googleusercontent.com"
+                                      : "00000000-0000-0000-0000-000000000000",
+                                      text: $clientId, axis: .vertical)
+                                .font(.ftBody)
+                                .textInputAutocapitalization(.never)
+                                .autocorrectionDisabled()
+                                .padding(FTSpacing.md)
+                                .ftGlass(FTRadius.sm)
+                        }
+
+                        Color.clear.frame(height: 110)
+                    }
+                    .padding(FTSpacing.screen)
+                }
+
+                PrimaryButton("Save & Connect \(provider.rawValue)", icon: "checkmark.circle.fill") {
+                    EmailSyncService.saveClientId(clientId, for: provider)
+                    onConfigured()
+                }
+                .disabled(clientId.trimmingCharacters(in: .whitespacesAndNewlines).count < 10)
+                .padding(.horizontal, FTSpacing.screen)
+                .padding(.bottom, FTSpacing.md)
+            }
+            .navigationTitle("Connect \(provider.rawValue)")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
+            .onAppear {
+                clientId = EmailSyncService.storedClientId(for: provider) ?? ""
             }
         }
     }

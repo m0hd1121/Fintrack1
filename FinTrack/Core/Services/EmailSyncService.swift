@@ -64,11 +64,40 @@ final class EmailSyncService: NSObject {
         let callbackScheme: String
     }
 
+    /// Client IDs can come from Info.plist (build-time) or be pasted by the
+    /// user in the in-app OAuth setup screen (stored in UserDefaults).
+    static func storedClientId(for provider: EmailProvider) -> String? {
+        let defaultsKey: String
+        let plistKey: String
+        switch provider {
+        case .gmail:   defaultsKey = "gmail_oauth_client_id";   plistKey = "GmailOAuthClientID"
+        case .outlook: defaultsKey = "outlook_oauth_client_id"; plistKey = "OutlookOAuthClientID"
+        default: return nil
+        }
+        if let saved = UserDefaults.standard.string(forKey: defaultsKey)?
+            .trimmingCharacters(in: .whitespacesAndNewlines), !saved.isEmpty {
+            return saved
+        }
+        if let fromPlist = (Bundle.main.infoDictionary?[plistKey] as? String), !fromPlist.isEmpty {
+            return fromPlist
+        }
+        return nil
+    }
+
+    static func saveClientId(_ clientId: String, for provider: EmailProvider) {
+        let key: String
+        switch provider {
+        case .gmail:   key = "gmail_oauth_client_id"
+        case .outlook: key = "outlook_oauth_client_id"
+        default: return
+        }
+        UserDefaults.standard.set(clientId.trimmingCharacters(in: .whitespacesAndNewlines), forKey: key)
+    }
+
     private func config(for provider: EmailProvider) -> ProviderConfig? {
-        let info = Bundle.main.infoDictionary ?? [:]
         switch provider {
         case .gmail:
-            guard let clientId = info["GmailOAuthClientID"] as? String, !clientId.isEmpty else { return nil }
+            guard let clientId = Self.storedClientId(for: .gmail) else { return nil }
             // Google requires the reversed-client-ID scheme for installed apps
             let reversed = clientId.split(separator: ".").reversed().joined(separator: ".")
             return ProviderConfig(
@@ -80,7 +109,7 @@ final class EmailSyncService: NSObject {
                 callbackScheme: reversed
             )
         case .outlook:
-            guard let clientId = info["OutlookOAuthClientID"] as? String, !clientId.isEmpty else { return nil }
+            guard let clientId = Self.storedClientId(for: .outlook) else { return nil }
             return ProviderConfig(
                 clientId: clientId,
                 authURL: "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",

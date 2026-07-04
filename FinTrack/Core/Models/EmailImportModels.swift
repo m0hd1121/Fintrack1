@@ -3,7 +3,8 @@ import SwiftData
 
 // MARK: - Email Provider
 
-enum EmailProvider: String, Codable, CaseIterable {
+enum EmailProvider: String, Codable, CaseIterable, Identifiable {
+    var id: String { rawValue }
     case gmail   = "Gmail"
     case outlook = "Outlook"
     case icloud  = "iCloud Mail"
