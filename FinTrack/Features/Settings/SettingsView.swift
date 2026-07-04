@@ -135,6 +135,13 @@ struct SettingsView: View {
                         }
                     }
 
+                    sectionCard("AI Financial Intelligence") {
+                        NavigationLink(destination: LazyView { AICFOView() }) {
+                            settingRow(symbol: "brain.head.profile", tint: FTColor.gold,
+                                       title: "AI CFO & Insights", chevron: true)
+                        }
+                    }
+
                     sectionCard("Tax Management") {
                         NavigationLink(destination: LazyView { TaxManagementView() }) {
                             settingRow(symbol: "doc.text.fill", tint: FTColor.catPurple,
