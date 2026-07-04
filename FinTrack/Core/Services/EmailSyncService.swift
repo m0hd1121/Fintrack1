@@ -299,8 +299,8 @@ final class EmailSyncService: NSObject {
     @discardableResult
     func processEmail(_ email: FetchedEmail, accountId: UUID?, context: ModelContext) -> Bool {
         let parser = BankEmailParser.shared
-        let rules = (try? context.fetch(FetchDescriptor<BankEmailRule>())) ?? []
-        let matchedRule = rules.first { $0.matches(sender: email.sender, subject: email.subject) }
+        let bankRules = (try? context.fetch(FetchDescriptor<BankEmailRule>())) ?? []
+        let matchedRule = bankRules.first { $0.matches(sender: email.sender, subject: email.subject) }
 
         let builtInMatch = parser.isLikelyBankTransactionEmail(sender: email.sender, subject: email.subject)
         guard builtInMatch || matchedRule != nil else { return false }
@@ -403,7 +403,7 @@ final class EmailSyncService: NSObject {
             amount: item.amount,
             currency: item.currency,
             category: item.suggestedCategory.rawValue,
-            autoApproved: item.status == .approved
+            autoApproved: item.status == PendingImportStatus.approved
         )
         return true
     }
@@ -789,9 +789,15 @@ extension EmailSyncService: ASWebAuthenticationPresentationContextProviding {
     nonisolated func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
         MainActor.assumeIsolated {
             let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-            return scenes.flatMap(\.windows).first(where: \.isKeyWindow)
-                ?? scenes.first?.windows.first
-                ?? UIWindow(frame: .zero)
+            if let window = scenes.flatMap(\.windows).first(where: \.isKeyWindow) ?? scenes.first?.windows.first {
+                return window
+            }
+            if let scene = scenes.first {
+                return UIWindow(windowScene: scene)
+            }
+            // OAuth is only ever launched from on-screen UI, so a window
+            // scene always exists by the time this is called.
+            preconditionFailure("OAuth presentation requested with no active window scene")
         }
     }
 }
