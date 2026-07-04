@@ -504,7 +504,33 @@ final class EmailSyncService: NSObject {
             category: item.suggestedCategory.rawValue,
             autoApproved: item.status == PendingImportStatus.approved
         )
+
+        // When rules/learning/keywords all came up empty, ask the maps
+        // services what kind of place this merchant is (async — the queue
+        // item updates in place when the answer arrives).
+        if prediction.confidence <= 0.5 {
+            enrichCategoryFromMaps(itemId: item.id, context: context)
+        }
         return true
+    }
+
+    /// Looks the merchant up via Google Places / OpenStreetMap and refines
+    /// the suggested category — including the already-created transaction
+    /// when the item was auto-approved.
+    private func enrichCategoryFromMaps(itemId: UUID, context: ModelContext) {
+        Task { @MainActor in
+            let items = (try? context.fetch(FetchDescriptor<PendingEmailTransaction>())) ?? []
+            guard let item = items.first(where: { $0.id == itemId }) else { return }
+            guard let result = await MerchantCategoryService.shared.lookupCategory(for: item.merchantNormalized) else { return }
+            item.suggestedCategoryRaw = result.category.rawValue
+            item.parseExplanation += "\nCategory \(result.category.rawValue) via \(result.source)"
+            if item.status == .approved,
+               let txId = item.approvedTransactionId,
+               let tx = ((try? context.fetch(FetchDescriptor<Transaction>())) ?? []).first(where: { $0.id == txId }) {
+                tx.category = result.category
+            }
+            try? context.save()
+        }
     }
 
     // MARK: - Account recognition
