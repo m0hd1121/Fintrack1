@@ -248,6 +248,11 @@ final class PendingEmailTransaction {
     var wasAutoApproved: Bool = false
     /// BankEmailRule that matched this email, if any
     var matchedRuleId: UUID?
+    /// Ledger Account recognized from the email (bank name + card last-4);
+    /// user-overridable in the edit sheet, used on approval
+    var matchedAccountId: UUID?
+    /// Why that account was recognized, e.g. "card ••4821 · Emirates NBD"
+    var accountMatchReason: String?
 
     var direction: ParsedDirection {
         get { ParsedDirection(rawValue: directionRaw) ?? .debit }
@@ -326,5 +331,7 @@ final class PendingEmailTransaction {
         self.approvedTransactionId = nil
         self.wasAutoApproved = false
         self.matchedRuleId = nil
+        self.matchedAccountId = nil
+        self.accountMatchReason = nil
     }
 }

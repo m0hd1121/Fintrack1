@@ -473,6 +473,17 @@ final class EmailSyncService: NSObject {
             duplicateReason: verdict.reason
         )
         item.matchedRuleId = matchedRule?.id
+
+        // Recognize which of the user's accounts this email belongs to
+        let accounts = (try? context.fetch(FetchDescriptor<Account>())) ?? []
+        if let match = Self.recognizeAccount(
+            bankName: parsed.bankName, cardLast4: parsed.cardLast4,
+            currency: parsed.currency, accounts: accounts) {
+            item.matchedAccountId = match.account.id
+            item.accountMatchReason = match.reason
+            item.parseExplanation += "\nRecognized account “\(match.account.name)” (\(match.reason))"
+        }
+
         context.insert(item)
         matchedRule?.matchedCount += 1
 
@@ -494,6 +505,46 @@ final class EmailSyncService: NSObject {
             autoApproved: item.status == PendingImportStatus.approved
         )
         return true
+    }
+
+    // MARK: - Account recognition
+
+    /// Matches a parsed email against the user's existing accounts using the
+    /// card's last-4 digits and the bank name derived from the sender.
+    /// Card digits are near-certain identity; bank name narrows it further
+    /// (or stands alone when the email carries no card digits).
+    static func recognizeAccount(
+        bankName: String, cardLast4: String?, currency: String, accounts: [Account]
+    ) -> (account: Account, reason: String)? {
+        let bankTokens = bankName.lowercased()
+            .components(separatedBy: CharacterSet.alphanumerics.inverted)
+            .filter { $0.count >= 3 }
+
+        func bankMatches(_ account: Account) -> Bool {
+            let haystack = "\(account.bankName) \(account.name)".lowercased()
+            return !bankTokens.isEmpty && bankTokens.allSatisfy { haystack.contains($0) }
+        }
+
+        var best: (account: Account, score: Double, reason: [String])?
+        for account in accounts where !account.isArchived {
+            var score = 0.0
+            var reasons: [String] = []
+            if let last4 = cardLast4, let number = account.accountNumber,
+               !number.isEmpty, number.hasSuffix(last4) {
+                score += 0.6
+                reasons.append("card ••\(last4)")
+            }
+            if bankMatches(account) {
+                score += 0.3
+                reasons.append(bankName)
+            }
+            if account.currency == currency { score += 0.1 }
+            if score > (best?.score ?? 0), score >= 0.3 {
+                best = (account, score, reasons)
+            }
+        }
+        guard let best else { return nil }
+        return (best.account, best.reason.joined(separator: " · "))
     }
 
     // MARK: - Ledger posting (shared by auto-approval and the review queue)
@@ -527,10 +578,15 @@ final class EmailSyncService: NSObject {
             isVerified: true
         )
 
-        // Account resolution: bank rule's linked account wins, else card last-4
+        // Account resolution: recognized/user-chosen account first, then the
+        // bank rule's linked account, then raw card last-4 as a final fallback
         let accounts = (try? context.fetch(FetchDescriptor<Account>())) ?? []
         var target: Account?
-        if let ruleId = item.matchedRuleId,
+        if let matchedId = item.matchedAccountId {
+            target = accounts.first { $0.id == matchedId && !$0.isArchived }
+        }
+        if target == nil,
+           let ruleId = item.matchedRuleId,
            let rules = try? context.fetch(FetchDescriptor<BankEmailRule>()),
            let linkedId = rules.first(where: { $0.id == ruleId })?.linkedAccountId {
             target = accounts.first { $0.id == linkedId && !$0.isArchived }

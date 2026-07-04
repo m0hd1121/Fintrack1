@@ -11,6 +11,12 @@ struct EmailReviewQueueView: View {
 
     @Query(sort: \PendingEmailTransaction.receivedAt, order: .reverse)
     private var allItems: [PendingEmailTransaction]
+    @Query(sort: \Account.name) private var accounts: [Account]
+
+    private func accountName(for item: PendingEmailTransaction) -> String? {
+        guard let id = item.matchedAccountId else { return nil }
+        return accounts.first { $0.id == id }?.name
+    }
 
     @State private var editingItem: PendingEmailTransaction? = nil
     @State private var showRejected = false
@@ -63,7 +69,7 @@ struct EmailReviewQueueView: View {
 
                 Section {
                     ForEach(pendingItems, id: \.id) { item in
-                        PendingEmailRow(item: item)
+                        PendingEmailRow(item: item, accountName: accountName(for: item))
                             .contentShape(.rect)
                             .onTapGesture { editingItem = item }
                             .swipeActions(edge: .leading, allowsFullSwipe: true) {
@@ -118,7 +124,11 @@ struct EmailReviewQueueView: View {
         .navigationTitle("Review Queue")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $editingItem) { item in
-            EditPendingEmailSheet(item: item, onApprove: { approve(item) })
+            EditPendingEmailSheet(
+                item: item,
+                accounts: accounts.filter { !$0.isArchived },
+                onApprove: { approve(item) }
+            )
         }
     }
 
@@ -163,6 +173,7 @@ struct EmailReviewQueueView: View {
 
 private struct PendingEmailRow: View {
     let item: PendingEmailTransaction
+    var accountName: String? = nil
 
     @State private var showExplanation = false
 
@@ -204,6 +215,9 @@ private struct PendingEmailRow: View {
 
             HStack(spacing: FTSpacing.xs) {
                 BadgeView(text: "AI \(item.confidencePercent)%", color: confidenceColor)
+                if let accountName {
+                    BadgeView(text: "→ \(accountName)", color: FTColor.accent)
+                }
                 if item.isPossibleDuplicate {
                     BadgeView(text: "Possible duplicate", color: FTColor.expense)
                 }
@@ -254,6 +268,7 @@ private struct EditPendingEmailSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     @Bindable var item: PendingEmailTransaction
+    let accounts: [Account]
     let onApprove: () -> Void
 
     @State private var amountText: String = ""
@@ -322,6 +337,23 @@ private struct EditPendingEmailSheet: View {
                                 TextField("comma, separated", text: $tagsText)
                                     .multilineTextAlignment(.trailing)
                                     .font(.ftBody).foregroundStyle(FTColor.textPrimary)
+                            }
+                            Divider().opacity(0.4)
+                            fieldRow("Account") {
+                                Picker("", selection: $item.matchedAccountId) {
+                                    Text("None").tag(Optional<UUID>(nil))
+                                    ForEach(accounts) { account in
+                                        Text(account.name).tag(Optional(account.id))
+                                    }
+                                }
+                                .pickerStyle(.menu)
+                                .accentColor(FTColor.accent)
+                            }
+                            if let reason = item.accountMatchReason, item.matchedAccountId != nil {
+                                Text("Recognized from \(reason)")
+                                    .font(.ftCaption).foregroundStyle(FTColor.textMuted)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.bottom, FTSpacing.sm)
                             }
                         }
                         .padding(.horizontal, FTSpacing.lg)
