@@ -253,6 +253,10 @@ final class PendingEmailTransaction {
     var matchedAccountId: UUID?
     /// Why that account was recognized, e.g. "card ••4821 · Emirates NBD"
     var accountMatchReason: String?
+    /// BNPL resolution for Tabby/Tamara-style merchants:
+    /// nil = not chosen yet (approval blocked), "none" = BNPL with no linked
+    /// plan, otherwise a BNPLPlan UUID string
+    var bnplSelectionRaw: String?
 
     var direction: ParsedDirection {
         get { ParsedDirection(rawValue: directionRaw) ?? .debit }
@@ -333,5 +337,28 @@ final class PendingEmailTransaction {
         self.matchedRuleId = nil
         self.matchedAccountId = nil
         self.accountMatchReason = nil
+        self.bnplSelectionRaw = nil
+    }
+}
+
+// MARK: - BNPL detection on pending items
+
+extension PendingEmailTransaction {
+    /// Merchants that are BNPL providers — installments must be linked to a
+    /// plan (or explicitly marked plan-less) before approval.
+    static let bnplKeywords = ["tabby", "tamara", "postpay", "spotii",
+                               "cashew", "atome", "valu", "baseeta"]
+
+    var isBNPLMerchant: Bool {
+        let haystack = "\(merchantRaw) \(merchantNormalized) \(senderAddress)".lowercased()
+        return Self.bnplKeywords.contains { haystack.contains($0) }
+    }
+
+    /// True once the user has made a BNPL choice (a plan or explicitly none).
+    var bnplResolved: Bool { bnplSelectionRaw != nil }
+
+    var linkedBNPLPlanId: UUID? {
+        guard let raw = bnplSelectionRaw, raw != "none" else { return nil }
+        return UUID(uuidString: raw)
     }
 }

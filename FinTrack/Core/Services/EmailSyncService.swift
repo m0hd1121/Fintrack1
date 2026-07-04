@@ -487,12 +487,18 @@ final class EmailSyncService: NSObject {
         context.insert(item)
         matchedRule?.matchedCount += 1
 
+        if item.isBNPLMerchant {
+            item.parseExplanation += "\nBNPL provider detected — link an installment plan before approving"
+        }
+
         // Auto-approval: only via an explicit per-bank opt-in, and never for
-        // duplicates or suspicious parses — those always require human eyes.
+        // duplicates, suspicious parses, or BNPL charges — those always
+        // require human eyes (BNPL needs a plan selection).
         if let rule = matchedRule,
            rule.autoApprove,
            !verdict.isDuplicate,
            !parsed.isSuspicious,
+           !item.isBNPLMerchant,
            item.confidence >= rule.confidenceThreshold {
             approveToLedger(item: item, context: context, autoApproved: true)
         }
@@ -580,6 +586,9 @@ final class EmailSyncService: NSObject {
     /// adjusts its balance, and feeds the learning loops.
     func approveToLedger(item: PendingEmailTransaction, context: ModelContext, autoApproved: Bool = false) {
         guard item.status == .pending else { return }
+        // BNPL charges must have a plan selection (or an explicit "no plan")
+        // before they can enter the ledger.
+        guard !item.isBNPLMerchant || item.bnplResolved else { return }
 
         let type = item.direction.transactionType
         let baseCurrency = UserDefaults.standard.string(forKey: "base_currency") ?? "AED"
@@ -588,6 +597,20 @@ final class EmailSyncService: NSObject {
         var notes = "Imported from \(item.bankName) email"
         if let reference = item.referenceNumber { notes += " · Ref: \(reference)" }
         if autoApproved { notes += " · Auto-approved at \(item.confidencePercent)% confidence" }
+
+        // BNPL: record as an installment payment against the linked plan
+        var linkedPlan: BNPLPlan?
+        if item.isBNPLMerchant, let planId = item.linkedBNPLPlanId,
+           let plans = try? context.fetch(FetchDescriptor<BNPLPlan>()) {
+            linkedPlan = plans.first { $0.id == planId }
+            if let plan = linkedPlan {
+                notes += " · BNPL installment \(min(plan.paidInstallments + 1, plan.totalInstallments))/\(plan.totalInstallments) for \(plan.name)"
+            }
+        }
+
+        let paymentMethod: PaymentMethod = item.isBNPLMerchant
+            ? .bnpl
+            : (item.cardLast4 != nil ? .debitCard : .bankTransfer)
 
         let tx = Transaction(
             title: item.merchantNormalized,
@@ -599,10 +622,21 @@ final class EmailSyncService: NSObject {
             date: item.transactionDate,
             notes: notes,
             merchant: item.merchantNormalized,
-            paymentMethod: item.cardLast4 != nil ? .debitCard : .bankTransfer,
+            paymentMethod: paymentMethod,
             tags: item.suggestedTags,
             isVerified: true
         )
+
+        // Advance the BNPL plan: one installment paid, next due a month out
+        if let plan = linkedPlan, type == .expense {
+            plan.paidInstallments = min(plan.paidInstallments + 1, plan.totalInstallments)
+            if plan.paidInstallments >= plan.totalInstallments {
+                plan.isCompleted = true
+            } else {
+                plan.nextPaymentDate = Calendar.current.date(
+                    byAdding: .month, value: 1, to: plan.nextPaymentDate) ?? plan.nextPaymentDate
+            }
+        }
 
         // Account resolution: recognized/user-chosen account first, then the
         // bank rule's linked account, then raw card last-4 as a final fallback
@@ -712,6 +746,12 @@ final class EmailSyncService: NSObject {
                 subject: "ATM Withdrawal Alert",
                 body: "AED 500.00 withdrawn from your account ending 3402 at RAKBANK ATM DEIRA on \(Self.sampleDate(now, 0)) 12:03. Available balance AED 8,904.12. Ref: RAK8837120.",
                 receivedAt: now.addingTimeInterval(-3_600)),
+            FetchedEmail(
+                messageId: "sample-\(UUID().uuidString)",
+                sender: "alerts@emiratesnbd.com",
+                subject: "Credit Card Purchase Transaction Alert",
+                body: "Your Credit Card ending 9033 was used for AED 262.50 at TABBY FZ LLC DUBAI on \(Self.sampleDate(now, 0)) 15:20. Available limit AED 21,843.40. Ref: ENB7731022.",
+                receivedAt: now.addingTimeInterval(-1_800)),
         ]
         var imported = 0
         for sample in samples where processEmail(sample, accountId: nil, context: context) {

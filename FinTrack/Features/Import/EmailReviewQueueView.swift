@@ -12,6 +12,7 @@ struct EmailReviewQueueView: View {
     @Query(sort: \PendingEmailTransaction.receivedAt, order: .reverse)
     private var allItems: [PendingEmailTransaction]
     @Query(sort: \Account.name) private var accounts: [Account]
+    @Query private var bnplPlans: [BNPLPlan]
 
     private func accountName(for item: PendingEmailTransaction) -> String? {
         guard let id = item.matchedAccountId else { return nil }
@@ -30,7 +31,10 @@ struct EmailReviewQueueView: View {
     }
 
     private var highConfidenceItems: [PendingEmailTransaction] {
-        pendingItems.filter { $0.confidence >= 0.9 && !$0.isPossibleDuplicate && !$0.isSuspiciousParse }
+        pendingItems.filter {
+            $0.confidence >= 0.9 && !$0.isPossibleDuplicate && !$0.isSuspiciousParse
+                && !($0.isBNPLMerchant && !$0.bnplResolved)
+        }
     }
 
     var body: some View {
@@ -130,7 +134,10 @@ struct EmailReviewQueueView: View {
             EditPendingEmailSheet(
                 item: item,
                 accounts: accounts.filter { !$0.isArchived },
-                onApprove: { approve(item) }
+                bnplPlans: bnplPlans.filter { !$0.isCompleted },
+                onApprove: {
+                    EmailSyncService.shared.approveToLedger(item: item, context: context)
+                }
             )
         }
     }
@@ -156,6 +163,11 @@ struct EmailReviewQueueView: View {
     // MARK: - Approve
 
     private func approve(_ item: PendingEmailTransaction) {
+        // BNPL charges need a plan selection first — route to the edit sheet
+        if item.isBNPLMerchant && !item.bnplResolved {
+            editingItem = item
+            return
+        }
         EmailSyncService.shared.approveToLedger(item: item, context: context)
     }
 
@@ -218,6 +230,10 @@ private struct PendingEmailRow: View {
 
             HStack(spacing: FTSpacing.xs) {
                 BadgeView(text: "AI \(item.confidencePercent)%", color: confidenceColor)
+                if item.isBNPLMerchant {
+                    BadgeView(text: item.bnplResolved ? "BNPL" : "BNPL · select plan",
+                              color: item.bnplResolved ? FTColor.catPurple : FTColor.gold)
+                }
                 if let accountName {
                     BadgeView(text: "→ \(accountName)", color: FTColor.accent)
                 }
@@ -272,7 +288,10 @@ private struct EditPendingEmailSheet: View {
 
     @Bindable var item: PendingEmailTransaction
     let accounts: [Account]
+    var bnplPlans: [BNPLPlan] = []
     let onApprove: () -> Void
+
+    private var bnplBlocked: Bool { item.isBNPLMerchant && !item.bnplResolved }
 
     @State private var amountText: String = ""
     @State private var tagsText: String = ""
@@ -362,6 +381,36 @@ private struct EditPendingEmailSheet: View {
                         .padding(.horizontal, FTSpacing.lg)
                         .ftGlass(FTRadius.md)
 
+                        // BNPL plan selection — required for Tabby/Tamara-style merchants
+                        if item.isBNPLMerchant {
+                            VStack(spacing: 0) {
+                                fieldRow("BNPL Plan") {
+                                    Picker("", selection: Binding(
+                                        get: { item.bnplSelectionRaw ?? "" },
+                                        set: { item.bnplSelectionRaw = $0.isEmpty ? nil : $0 }
+                                    )) {
+                                        Text("Choose…").tag("")
+                                        Text("No linked plan").tag("none")
+                                        ForEach(bnplPlans) { plan in
+                                            Text("\(plan.name) (\(plan.paidInstallments)/\(plan.totalInstallments))")
+                                                .tag(plan.id.uuidString)
+                                        }
+                                    }
+                                    .pickerStyle(.menu)
+                                    .accentColor(FTColor.accent)
+                                }
+                                Text(bnplBlocked
+                                     ? "This is a BNPL charge — pick the installment plan it pays (or “No linked plan”) to enable approval."
+                                     : "Approving records this as a BNPL payment\(item.linkedBNPLPlanId != nil ? " and advances the plan by one installment." : ".")")
+                                    .font(.ftCaption)
+                                    .foregroundStyle(bnplBlocked ? FTColor.gold : FTColor.textMuted)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.bottom, FTSpacing.sm)
+                            }
+                            .padding(.horizontal, FTSpacing.lg)
+                            .ftGlass(FTRadius.md)
+                        }
+
                         // Source context (read-only audit trail)
                         VStack(alignment: .leading, spacing: FTSpacing.sm) {
                             Text("SOURCE EMAIL")
@@ -388,6 +437,7 @@ private struct EditPendingEmailSheet: View {
                         onApprove()
                         dismiss()
                     }
+                    .disabled(bnplBlocked)
                     Button("Save Changes Only") {
                         commitEdits()
                         dismiss()
