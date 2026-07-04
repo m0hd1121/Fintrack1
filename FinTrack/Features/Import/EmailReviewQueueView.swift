@@ -121,6 +121,9 @@ struct EmailReviewQueueView: View {
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .background { FTBackdrop() }
+        .refreshable {
+            await EmailSyncService.shared.runSyncPass(context: context)
+        }
         .navigationTitle("Review Queue")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $editingItem) { item in

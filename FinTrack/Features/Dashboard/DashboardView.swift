@@ -327,7 +327,8 @@ struct DashboardView: View {
                 .refreshable {
                     async let rates: () = currencyService.fetchLiveRates()
                     async let crypto: () = cryptoPriceService.fetchPrices()
-                    _ = await (rates, crypto)
+                    async let emails: () = EmailSyncService.shared.runSyncPass(context: context)
+                    _ = await (rates, crypto, emails)
                     refreshDashboard()
                 }
             }

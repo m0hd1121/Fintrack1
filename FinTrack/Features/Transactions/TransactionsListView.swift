@@ -162,6 +162,10 @@ struct TransactionsListView: View {
                         .contentMargins(.bottom, 100, for: .scrollContent)
                         .searchable(text: $searchText, prompt: "Search transactions...")
                         .environment(\.editMode, .constant(isEditing ? .active : .inactive))
+                        .refreshable {
+                            await EmailSyncService.shared.runSyncPass(context: context)
+                            recomputeGroups()
+                        }
                     }
                 }
                 .task(id: searchText) {
