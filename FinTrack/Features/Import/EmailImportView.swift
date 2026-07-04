@@ -625,6 +625,14 @@ private struct IMAPSignInSheet: View {
         errorMessage = nil
         let cleanEmail = email.trimmingCharacters(in: .whitespaces)
         let cleanHost = host.trimmingCharacters(in: .whitespaces)
+        // Google/Apple/Yahoo app passwords never contain spaces, but the
+        // providers display them in spaced groups — strip whatever copying
+        // dragged along so a pasted password just works.
+        var password = self.password
+        let appPasswordHosts = ["imap.gmail.com", "imap.mail.me.com", "imap.mail.yahoo.com", "imap.aol.com"]
+        if appPasswordHosts.contains(cleanHost.lowercased()) {
+            password = password.components(separatedBy: .whitespacesAndNewlines).joined()
+        }
         Task {
             do {
                 let account = try await EmailSyncService.shared.connectIMAP(
