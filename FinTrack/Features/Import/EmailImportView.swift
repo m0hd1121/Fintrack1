@@ -22,6 +22,7 @@ struct EmailImportView: View {
     @State private var showingBankWizard = false
     @State private var editingBankRule: BankEmailRule? = nil
     @State private var oauthSetupProvider: EmailProvider? = nil
+    @State private var imapSignInProvider: EmailProvider? = nil
 
     private var pendingCount: Int { pendingItems.filter { $0.status == .pending }.count }
     private var approvedCount: Int { pendingItems.filter { $0.status == .approved }.count }
@@ -50,6 +51,9 @@ struct EmailImportView: View {
                 oauthSetupProvider = nil
                 connect(provider)
             }
+        }
+        .sheet(item: $imapSignInProvider) { provider in
+            IMAPSignInSheet(provider: provider)
         }
         .alert("Connection Failed", isPresented: Binding(
             get: { connectError != nil },
@@ -260,9 +264,9 @@ struct EmailImportView: View {
                         if syncService.isConnecting {
                             ProgressView().scaleEffect(0.7)
                         } else {
-                            Image(systemName: provider.supportsOAuthSync ? "plus.circle.fill" : "doc.on.clipboard")
+                            Image(systemName: "plus.circle.fill")
                                 .font(.ftHeadline)
-                                .foregroundStyle(provider.supportsOAuthSync ? FTColor.accent : FTColor.textMuted)
+                                .foregroundStyle(FTColor.accent)
                         }
                     }
                     .padding()
@@ -284,14 +288,16 @@ struct EmailImportView: View {
             return syncService.isConfigured(.outlook)
                 ? "OAuth sign-in · read-only · bank senders only"
                 : "Tap for one-time setup, then sync is automatic"
-        case .icloud, .imap:
-            return "No sync API — paste or share bank emails instead"
+        case .icloud:
+            return "Sign in with your Apple ID email + app-specific password"
+        case .imap:
+            return "Any mail provider — sign in with an app password"
         }
     }
 
     private func connect(_ provider: EmailProvider) {
         guard provider.supportsOAuthSync else {
-            showingPasteSheet = true      // iCloud/IMAP: no OAuth API exists
+            imapSignInProvider = provider // iCloud/IMAP: direct app-password sign-in
             return
         }
         guard syncService.isConfigured(provider) else {
@@ -445,6 +451,172 @@ struct EmailImportView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { showingPasteSheet = false }
                 }
+            }
+        }
+    }
+}
+
+// MARK: - IMAPSignInSheet
+// Direct in-app email sign-in over IMAP/TLS with an app-specific password.
+// No developer registration needed — works today for iCloud, Yahoo, and any
+// IMAP mailbox. The password is verified against the mail server, stored in
+// the Keychain, and never leaves the device otherwise.
+
+private struct IMAPSignInSheet: View {
+    let provider: EmailProvider
+
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var context
+
+    @State private var email = ""
+    @State private var password = ""
+    @State private var host = ""
+    @State private var hostEdited = false
+    @State private var isConnecting = false
+    @State private var errorMessage: String? = nil
+
+    private var canConnect: Bool {
+        email.contains("@") && !password.isEmpty && !host.isEmpty && !isConnecting
+    }
+
+    private var passwordHelp: String {
+        let domain = email.components(separatedBy: "@").last?.lowercased() ?? ""
+        if provider == .icloud || ["icloud.com", "me.com", "mac.com"].contains(domain) {
+            return "iCloud requires an app-specific password: appleid.apple.com → Sign-In & Security → App-Specific Passwords → generate one for FinTrack."
+        }
+        if ["gmail.com", "googlemail.com"].contains(domain) {
+            return "Gmail requires an App Password: myaccount.google.com/apppasswords (2-Step Verification must be on). Your normal password won't work."
+        }
+        if ["yahoo.com", "ymail.com"].contains(domain) {
+            return "Yahoo requires an app password: Yahoo Account Security → Generate app password."
+        }
+        return "Most providers require an app-specific password for IMAP — check your mail provider's security settings."
+    }
+
+    var body: some View {
+        NavigationStack {
+            ZStack(alignment: .bottom) {
+                FTBackdrop()
+
+                ScrollView {
+                    VStack(spacing: FTSpacing.lg) {
+                        VStack(spacing: 0) {
+                            HStack(spacing: FTSpacing.md) {
+                                Text("Email").font(.ftBody).foregroundStyle(FTColor.textSecondary)
+                                Spacer()
+                                TextField("you@icloud.com", text: $email)
+                                    .keyboardType(.emailAddress)
+                                    .textInputAutocapitalization(.never)
+                                    .autocorrectionDisabled()
+                                    .multilineTextAlignment(.trailing)
+                                    .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                                    .onChange(of: email) {
+                                        guard !hostEdited else { return }
+                                        host = EmailSyncService.suggestedIMAPHost(for: email)
+                                    }
+                            }
+                            .padding(.vertical, 13)
+
+                            Divider().opacity(0.4)
+
+                            HStack(spacing: FTSpacing.md) {
+                                Text("App Password").font(.ftBody).foregroundStyle(FTColor.textSecondary).fixedSize()
+                                Spacer()
+                                SecureField("xxxx-xxxx-xxxx-xxxx", text: $password)
+                                    .multilineTextAlignment(.trailing)
+                                    .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                            }
+                            .padding(.vertical, 13)
+
+                            Divider().opacity(0.4)
+
+                            HStack(spacing: FTSpacing.md) {
+                                Text("IMAP Server").font(.ftBody).foregroundStyle(FTColor.textSecondary).fixedSize()
+                                Spacer()
+                                TextField("imap.mail.me.com", text: $host)
+                                    .textInputAutocapitalization(.never)
+                                    .autocorrectionDisabled()
+                                    .multilineTextAlignment(.trailing)
+                                    .font(.ftBody).foregroundStyle(FTColor.textPrimary)
+                                    .onChange(of: host) { _, _ in
+                                        if host != EmailSyncService.suggestedIMAPHost(for: email) {
+                                            hostEdited = true
+                                        }
+                                    }
+                            }
+                            .padding(.vertical, 13)
+                        }
+                        .padding(.horizontal, FTSpacing.lg)
+                        .ftGlass(FTRadius.md)
+
+                        HStack(alignment: .top, spacing: FTSpacing.sm) {
+                            Image(systemName: "key.fill")
+                                .font(.ftCaption).foregroundStyle(FTColor.gold)
+                                .frame(width: 20)
+                            Text(passwordHelp)
+                                .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                        }
+                        .padding()
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .ftGlass(FTRadius.md)
+
+                        HStack(alignment: .top, spacing: FTSpacing.sm) {
+                            Image(systemName: "lock.shield.fill")
+                                .font(.ftCaption).foregroundStyle(FTColor.income)
+                                .frame(width: 20)
+                            Text("TLS-only connection directly to your mail server. The password is stored in the iOS Keychain and only bank-sender emails from the last 30 days are ever searched.")
+                                .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                        }
+                        .padding()
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .ftGlass(FTRadius.md)
+
+                        if let errorMessage {
+                            Text(errorMessage)
+                                .font(.ftCaption).foregroundStyle(FTColor.expense)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+
+                        Color.clear.frame(height: 110)
+                    }
+                    .padding(FTSpacing.screen)
+                }
+
+                PrimaryButton(isConnecting ? "Connecting…" : "Sign In & Sync",
+                              icon: "envelope.badge.shield.half.filled.fill",
+                              isLoading: isConnecting) {
+                    signIn()
+                }
+                .disabled(!canConnect)
+                .padding(.horizontal, FTSpacing.screen)
+                .padding(.bottom, FTSpacing.md)
+            }
+            .navigationTitle("Sign In to \(provider.rawValue)")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
+        }
+    }
+
+    private func signIn() {
+        isConnecting = true
+        errorMessage = nil
+        let cleanEmail = email.trimmingCharacters(in: .whitespaces)
+        let cleanHost = host.trimmingCharacters(in: .whitespaces)
+        Task {
+            do {
+                let account = try await EmailSyncService.shared.connectIMAP(
+                    email: cleanEmail, password: password, host: cleanHost,
+                    provider: provider, context: context)
+                await EmailSyncService.shared.syncAll(accounts: [account], context: context)
+                isConnecting = false
+                dismiss()
+            } catch {
+                isConnecting = false
+                errorMessage = error.localizedDescription
             }
         }
     }

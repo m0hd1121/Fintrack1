@@ -29,11 +29,18 @@ enum EmailProvider: String, Codable, CaseIterable, Identifiable {
     }
 
     /// Providers with a full OAuth + REST sync implementation.
-    /// iCloud/IMAP have no OAuth REST API — they use manual paste/share import.
     var supportsOAuthSync: Bool {
         switch self {
         case .gmail, .outlook: return true
         case .icloud, .imap:   return false
+        }
+    }
+
+    /// Providers that sign in directly with an app-specific password over IMAP.
+    var connectsViaIMAP: Bool {
+        switch self {
+        case .icloud, .imap:   return true
+        case .gmail, .outlook: return false
         }
     }
 }
@@ -54,6 +61,8 @@ final class EmailAccount {
     var totalTransactionsParsed: Int
     /// Gmail/Graph message IDs already processed, so re-syncs never duplicate.
     var seenMessageIdsData: Data
+    /// IMAP server host for app-password accounts (empty for OAuth providers)
+    var imapHost: String = ""
 
     var provider: EmailProvider {
         EmailProvider(rawValue: providerRaw) ?? .imap
@@ -81,6 +90,7 @@ final class EmailAccount {
         self.totalEmailsScanned = 0
         self.totalTransactionsParsed = 0
         self.seenMessageIdsData = Data()
+        self.imapHost = ""
     }
 }
 

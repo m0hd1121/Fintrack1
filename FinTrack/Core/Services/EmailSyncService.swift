@@ -196,6 +196,55 @@ final class EmailSyncService: NSObject {
         }
     }
 
+    // MARK: - Connect (IMAP with app-specific password)
+
+    struct IMAPCredentials: Codable {
+        let host: String
+        let username: String
+        let password: String
+    }
+
+    /// Known IMAP hosts by mail domain; anything else gets an "imap." guess
+    /// the user can edit before connecting.
+    static func suggestedIMAPHost(for email: String) -> String {
+        let domain = email.components(separatedBy: "@").last?.lowercased() ?? ""
+        switch domain {
+        case "gmail.com", "googlemail.com":                return "imap.gmail.com"
+        case "outlook.com", "hotmail.com", "live.com",
+             "msn.com", "office365.com":                   return "outlook.office365.com"
+        case "icloud.com", "me.com", "mac.com":            return "imap.mail.me.com"
+        case "yahoo.com", "ymail.com":                     return "imap.mail.yahoo.com"
+        case "aol.com":                                    return "imap.aol.com"
+        case "fastmail.com", "fastmail.fm":                return "imap.fastmail.com"
+        default:                                            return domain.isEmpty ? "" : "imap.\(domain)"
+        }
+    }
+
+    /// Verifies the credentials by signing in once, then stores them in the
+    /// Keychain and creates the account. The password goes only to the mail
+    /// server over TLS — never anywhere else, never logged.
+    func connectIMAP(email: String, password: String, host: String,
+                     provider: EmailProvider, context: ModelContext) async throws -> EmailAccount {
+        isConnecting = true
+        defer { isConnecting = false }
+
+        let client = IMAPClient(host: host)
+        try await client.connect()
+        try await client.login(user: email, password: password)
+        try? await client.logout()
+
+        let account = EmailAccount(emailAddress: email, provider: provider)
+        account.imapHost = host
+        try KeychainStore.save(
+            IMAPCredentials(host: host, username: email, password: password),
+            key: account.tokenKeychainKey)
+        context.insert(account)
+        try? context.save()
+        AuditLogService.log(context: context,
+            "Connected \(email) via IMAP (app-specific password, stored in Keychain)")
+        return account
+    }
+
     // MARK: - Disconnect
 
     /// Instant disconnect: token wiped from Keychain, account and its
@@ -269,7 +318,8 @@ final class EmailSyncService: NSObject {
         defer { isSyncing = false }
 
         var imported = 0, scanned = 0
-        for account in accounts where account.syncEnabled && account.provider.supportsOAuthSync {
+        for account in accounts where account.syncEnabled
+            && (account.provider.supportsOAuthSync || account.provider.connectsViaIMAP) {
             do {
                 let result = try await sync(account: account, context: context)
                 imported += result.imported
@@ -283,8 +333,6 @@ final class EmailSyncService: NSObject {
     }
 
     private func sync(account: EmailAccount, context: ModelContext) async throws -> (scanned: Int, imported: Int) {
-        let token = try await validAccessToken(for: account)
-
         // User bank rules extend the sender whitelist for fetching
         let rules = (try? context.fetch(FetchDescriptor<BankEmailRule>())) ?? []
         let ruleSenders = rules.filter(\.isEnabled)
@@ -293,9 +341,14 @@ final class EmailSyncService: NSObject {
 
         let emails: [FetchedEmail]
         switch account.provider {
-        case .gmail:   emails = try await fetchGmailMessages(accessToken: token, seen: account.seenMessageIds, extraSenders: ruleSenders)
-        case .outlook: emails = try await fetchOutlookMessages(accessToken: token, seen: account.seenMessageIds, extraSenders: ruleSenders)
-        default:       return (0, 0)
+        case .gmail:
+            let token = try await validAccessToken(for: account)
+            emails = try await fetchGmailMessages(accessToken: token, seen: account.seenMessageIds, extraSenders: ruleSenders)
+        case .outlook:
+            let token = try await validAccessToken(for: account)
+            emails = try await fetchOutlookMessages(accessToken: token, seen: account.seenMessageIds, extraSenders: ruleSenders)
+        case .icloud, .imap:
+            emails = try await fetchIMAPMessages(account: account, seen: account.seenMessageIds, extraSenders: ruleSenders)
         }
 
         var imported = 0
@@ -709,6 +762,56 @@ final class EmailSyncService: NSObject {
                 receivedAt: message.receivedDateTime.flatMap { iso.date(from: $0) } ?? Date()
             )
         }
+    }
+
+    // MARK: - IMAP fetch
+
+    /// Searches only whitelisted bank senders (built-in + user rules) from the
+    /// last 30 days, then downloads just the unseen matches — the same
+    /// minimum-scope behaviour as the OAuth providers.
+    private func fetchIMAPMessages(account: EmailAccount, seen: Set<String>, extraSenders: [String]) async throws -> [FetchedEmail] {
+        guard let credentials: IMAPCredentials = KeychainStore.load(key: account.tokenKeychainKey) else {
+            throw EmailSyncError.authFailed("No stored credentials — reconnect this account")
+        }
+
+        let client = IMAPClient(host: credentials.host)
+        try await client.connect()
+        try await client.login(user: credentials.username, password: credentials.password)
+        try await client.selectInbox()
+        defer { client.close() }
+
+        let formatter = DateFormatter()
+        formatter.dateFormat = "d-MMM-yyyy"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        let since = formatter.string(from: Date().addingTimeInterval(-30 * 86_400))
+
+        let domains = Set(BankEmailParser.uaeBanks.flatMap(\.senderDomains)
+                          + extraSenders.filter { !$0.isEmpty })
+
+        var uids = Set<Int>()
+        for domain in domains {
+            let found = (try? await client.uidSearch("SINCE \(since) HEADER FROM \"\(domain)\"")) ?? []
+            uids.formUnion(found)
+        }
+
+        let newUids = uids.filter { !seen.contains("imap-\($0)") }.sorted().suffix(50)
+        var emails: [FetchedEmail] = []
+        for uid in newUids {
+            guard let (headers, body) = try? await client.fetchMessage(uid: uid) else { continue }
+            let dateHeader = MIMEDecoder.headerValue("Date", in: headers)
+            let rfcFormatter = DateFormatter()
+            rfcFormatter.dateFormat = "EEE, d MMM yyyy HH:mm:ss Z"
+            rfcFormatter.locale = Locale(identifier: "en_US_POSIX")
+            emails.append(FetchedEmail(
+                messageId: "imap-\(uid)",
+                sender: MIMEDecoder.headerValue("From", in: headers) ?? "",
+                subject: MIMEDecoder.headerValue("Subject", in: headers) ?? "",
+                body: body,
+                receivedAt: dateHeader.flatMap { rfcFormatter.date(from: $0) } ?? Date()
+            ))
+        }
+        try? await client.logout()
+        return emails
     }
 
     // MARK: - Profile lookup
