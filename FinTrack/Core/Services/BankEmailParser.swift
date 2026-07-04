@@ -242,18 +242,33 @@ final class BankEmailParser {
     }
 
     static func extractMerchant(from text: String) -> (String?, String?) {
+        // Terminators cover the words that commonly follow a merchant name in
+        // UAE bank templates, plus a bare newline/end-of-string for templates
+        // that put the merchant on its own line with nothing after it.
+        let terminator = "(?:on|dated|for|available|avl\\.?|balance|ref|reference|\\.|,|\\n|$)"
         // "at MERCHANT on/dated/." · "to MERCHANT on/." · "towards MERCHANT"
         let patterns: [(String, String)] = [
-            ("at ",      "(?:at)\\s+([A-Z0-9][A-Za-z0-9 &*.'\\-/]{2,40}?)\\s+(?:on|dated|for|\\.|,)"),
-            ("to ",      "(?:paid to|to)\\s+([A-Z0-9][A-Za-z0-9 &*.'\\-/]{2,40}?)\\s+(?:on|dated|for|\\.|,)"),
-            ("towards ", "(?:towards)\\s+([A-Za-z0-9][A-Za-z0-9 &*.'\\-/]{2,40}?)\\s+(?:on|dated|\\.|,)"),
-            ("from ",    "(?:received from|from)\\s+([A-Z][A-Za-z0-9 &*.'\\-/]{2,40}?)\\s+(?:on|dated|\\.|,)"),
+            ("at ",      "(?:at)\\s+([A-Z0-9][A-Za-z0-9 &*.'\\-/]{2,40}?)\\s+\(terminator)"),
+            ("to ",      "(?:paid to|to)\\s+([A-Z0-9][A-Za-z0-9 &*.'\\-/]{2,40}?)\\s+\(terminator)"),
+            ("towards ", "(?:towards)\\s+([A-Za-z0-9][A-Za-z0-9 &*.'\\-/]{2,40}?)\\s+\(terminator)"),
+            ("from ",    "(?:received from|from)\\s+([A-Z][A-Za-z0-9 &*.'\\-/]{2,40}?)\\s+\(terminator)"),
+            // Last resort: no required terminator at all, just capture up to
+            // 40 chars after the lead-in and trim trailing junk afterward.
+            // Tried only if every stricter pattern above finds nothing.
+            ("at ",      "(?:at)\\s+([A-Z0-9][A-Za-z0-9 &*.'\\-/]{2,40})"),
         ]
         for (label, pattern) in patterns {
-            guard let regex = try? NSRegularExpression(pattern: pattern),
+            guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]),
                   let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
                   let g1 = Range(match.range(at: 1), in: text) else { continue }
-            let raw = String(text[g1]).trimmingCharacters(in: .whitespacesAndNewlines)
+            var raw = String(text[g1]).trimmingCharacters(in: .whitespacesAndNewlines)
+            // The loose last-resort pattern can trail into the next clause —
+            // cut at the first strong separator it didn't anchor on.
+            if let cut = raw.range(of: "\\s+(?:on|dated|for|available|avl|balance|ref)\\b",
+                                   options: [.regularExpression, .caseInsensitive]) {
+                raw = String(raw[..<cut.lowerBound])
+            }
+            raw = raw.trimmingCharacters(in: .whitespacesAndNewlines)
             // Skip captures that are clearly not merchants
             let lower = raw.lowercased()
             if lower.contains("your account") || lower.contains("your card") { continue }

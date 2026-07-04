@@ -12,7 +12,7 @@ enum IMAPError: LocalizedError {
     case connectionFailed(String)
     case connectionClosed
     case commandFailed(String)
-    case loginFailed
+    case loginFailed(String)
     case timeout
     case responseTooLarge
 
@@ -21,7 +21,7 @@ enum IMAPError: LocalizedError {
         case .connectionFailed(let message): return "Could not reach mail server: \(message)"
         case .connectionClosed: return "The mail server closed the connection."
         case .commandFailed(let line): return "Mail server error: \(line)"
-        case .loginFailed: return "Sign-in failed — check the address and app-specific password."
+        case .loginFailed(let reason): return "Sign-in failed: \(reason)"
         case .timeout: return "The mail server took too long to respond."
         case .responseTooLarge: return "Mail server response too large."
         }
@@ -97,8 +97,16 @@ final class IMAPClient: @unchecked Sendable {
     func login(user: String, password: String) async throws {
         do {
             _ = try await command("LOGIN \(Self.quote(user)) \(Self.quote(password))")
-        } catch IMAPError.commandFailed {
-            throw IMAPError.loginFailed
+        } catch IMAPError.commandFailed(let line) {
+            // Strip the leading "A2 NO " tag/status so the server's actual
+            // reason surfaces verbatim — e.g. Gmail's own
+            // "Application-specific password required" text, which is far
+            // more useful than a generic guess.
+            let reason = line.replacingOccurrences(
+                of: "^[A-Za-z0-9]+\\s+(NO|BAD)\\s*", with: "",
+                options: .regularExpression
+            ).trimmingCharacters(in: .whitespacesAndNewlines)
+            throw IMAPError.loginFailed(reason.isEmpty ? "invalid credentials" : reason)
         }
     }
 

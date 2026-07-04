@@ -259,7 +259,7 @@ struct EmailImportView: View {
         case .icloud:
             return "Sign in with your Apple ID email + app-specific password"
         case .imap:
-            return "Any mail provider — sign in with an app password"
+            return "Any mail provider — sign in with your email password"
         }
     }
 
@@ -497,8 +497,20 @@ private struct IMAPSignInSheet: View {
         email.contains("@") && !password.isEmpty && !host.isEmpty && !isConnecting
     }
 
+    private var domain: String { email.components(separatedBy: "@").last?.lowercased() ?? "" }
+
+    /// Gmail and iCloud reject plain passwords over IMAP unconditionally —
+    /// this is a policy enforced by Google/Apple's mail servers, not
+    /// something the app can work around. Other IMAP providers vary, so
+    /// don't presume they all need one.
+    private var requiresAppPassword: Bool {
+        provider == .icloud || provider == .gmail
+            || ["icloud.com", "me.com", "mac.com", "gmail.com", "googlemail.com"].contains(domain)
+    }
+
+    private var passwordFieldLabel: String { requiresAppPassword ? "App Password" : "Password" }
+
     private var passwordHelp: String {
-        let domain = email.components(separatedBy: "@").last?.lowercased() ?? ""
         if provider == .icloud || ["icloud.com", "me.com", "mac.com"].contains(domain) {
             return "iCloud requires an app-specific password: appleid.apple.com → Sign-In & Security → App-Specific Passwords → generate one for FinTrack."
         }
@@ -508,7 +520,7 @@ private struct IMAPSignInSheet: View {
         if ["yahoo.com", "ymail.com"].contains(domain) {
             return "Yahoo requires an app password: Yahoo Account Security → Generate app password."
         }
-        return "Most providers require an app-specific password for IMAP — check your mail provider's security settings."
+        return "Try your regular email password first. If sign-in fails, your provider likely requires an app-specific password — check its account security settings for one."
     }
 
     private var defaultHost: String {
@@ -546,9 +558,9 @@ private struct IMAPSignInSheet: View {
                             Divider().opacity(0.4)
 
                             HStack(spacing: FTSpacing.md) {
-                                Text("App Password").font(.ftBody).foregroundStyle(FTColor.textSecondary).fixedSize()
+                                Text(passwordFieldLabel).font(.ftBody).foregroundStyle(FTColor.textSecondary).fixedSize()
                                 Spacer()
-                                SecureField("xxxx-xxxx-xxxx-xxxx", text: $password)
+                                SecureField(requiresAppPassword ? "xxxx-xxxx-xxxx-xxxx" : "Password", text: $password)
                                     .multilineTextAlignment(.trailing)
                                     .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
                             }
