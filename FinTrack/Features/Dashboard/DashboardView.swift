@@ -327,8 +327,10 @@ struct DashboardView: View {
                 .refreshable {
                     async let rates: () = currencyService.fetchLiveRates()
                     async let crypto: () = cryptoPriceService.fetchPrices()
-                    async let emails: () = EmailSyncService.shared.runSyncPass(context: context)
-                    _ = await (rates, crypto, emails)
+                    _ = await (rates, crypto)
+                    // ModelContext isn't Sendable, so this can't join the
+                    // async-let group above — run it as a plain await instead.
+                    await EmailSyncService.shared.runSyncPass(context: context)
                     refreshDashboard()
                 }
             }
