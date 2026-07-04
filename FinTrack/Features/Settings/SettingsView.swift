@@ -135,10 +135,10 @@ struct SettingsView: View {
                         }
                     }
 
-                    sectionCard("AI Financial Intelligence") {
-                        NavigationLink(destination: LazyView { AICFOView() }) {
+                    sectionCard("Financial Intelligence") {
+                        NavigationLink(destination: LazyView { FinancialIntelligenceView() }) {
                             settingRow(symbol: "brain.head.profile", tint: FTColor.gold,
-                                       title: "AI CFO & Insights", chevron: true)
+                                       title: "Health Score & Insights", chevron: true)
                         }
                     }
 
