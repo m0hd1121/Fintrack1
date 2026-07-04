@@ -125,12 +125,43 @@ final class CurrencyService {
     // are tried in order; any failure falls through to the next.
     private func fetchLiveIRRRate(usdPerBaseCurrency: Double?) async -> Double? {
         guard let usdPerBaseCurrency, usdPerBaseCurrency > 0 else { return nil }
-        for fetch in [fetchIRRFromTGJU, fetchIRRFromNobitex, fetchIRRFromWallex] {
-            if let irrPerUSD = await fetch(), irrPerUSD > 10_000 {
+        // Ordered by reachability: Tetherland and CoinGecko run on global
+        // CDNs (UAE ISPs DNS-block tgju.org and .ir domains), the rest are
+        // regional fallbacks. 50,000 IRR/USD sanity floor rejects garbage.
+        for fetch in [fetchIRRFromTetherland, fetchIRRFromCoinGecko,
+                      fetchIRRFromTGJU, fetchIRRFromNobitex, fetchIRRFromWallex] {
+            if let irrPerUSD = await fetch(), irrPerUSD > 50_000 {
                 return irrPerUSD * usdPerBaseCurrency
             }
         }
         return nil
+    }
+
+    // Tetherland (.com, Cloudflare) — USDT price in Toman on the Iranian market
+    private func fetchIRRFromTetherland() async -> Double? {
+        guard let data = await quickGet("https://api.tetherland.com/currencies"),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let payload = json["data"] as? [String: Any],
+              let currencies = payload["currencies"] as? [String: Any],
+              let usdt = currencies["USDT"] as? [String: Any] else { return nil }
+        let toman: Double?
+        if let number = usdt["price"] as? Double {
+            toman = number
+        } else if let text = usdt["price"] as? String {
+            toman = Double(text.replacingOccurrences(of: ",", with: ""))
+        } else {
+            toman = nil
+        }
+        guard let toman, toman > 0 else { return nil }
+        return toman * 10
+    }
+
+    // CoinGecko (global CDN) — Tether price expressed in IRR
+    private func fetchIRRFromCoinGecko() async -> Double? {
+        guard let data = await quickGet("https://api.coingecko.com/api/v3/simple/price?ids=tether&vs_currencies=irr"),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let tether = json["tether"] as? [String: Any] else { return nil }
+        return tether["irr"] as? Double
     }
 
     private func quickGet(_ urlString: String) async -> Data? {

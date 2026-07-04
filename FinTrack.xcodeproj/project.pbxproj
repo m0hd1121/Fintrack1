@@ -258,6 +258,7 @@
 				DEVELOPMENT_TEAM = 95NLZ7N9X8;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "FinTrack-Info.plist";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.finance";
 				INFOPLIST_KEY_NSCameraUsageDescription = "FinTrack needs camera access to scan receipts.";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "FinTrack uses Face ID to protect your financial data.";
@@ -299,6 +300,7 @@
 				DEVELOPMENT_TEAM = 95NLZ7N9X8;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "FinTrack-Info.plist";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.finance";
 				INFOPLIST_KEY_NSCameraUsageDescription = "FinTrack needs camera access to scan receipts.";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "FinTrack uses Face ID to protect your financial data.";
