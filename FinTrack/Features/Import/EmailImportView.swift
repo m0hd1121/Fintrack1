@@ -24,13 +24,10 @@ struct EmailImportView: View {
     @State private var oauthSetupProvider: EmailProvider? = nil
     @State private var imapSignInProvider: EmailProvider? = nil
 
-    private var pendingCount: Int { pendingItems.filter { $0.status == .pending }.count }
-    private var approvedCount: Int { pendingItems.filter { $0.status == .approved }.count }
 
     var body: some View {
         ScrollView {
             VStack(spacing: FTSpacing.xxl) {
-                reviewQueueCard
                 banksSection
                 accountsSection
                 connectSection
@@ -63,37 +60,6 @@ struct EmailImportView: View {
         } message: {
             Text(connectError ?? "")
         }
-    }
-
-    // MARK: - Review queue entry
-
-    private var reviewQueueCard: some View {
-        NavigationLink(destination: EmailReviewQueueView()) {
-            HStack(spacing: FTSpacing.lg) {
-                ZStack {
-                    FTIconTile(symbol: "tray.full.fill", tint: FTColor.accent, size: 48)
-                    if pendingCount > 0 {
-                        Text("\(pendingCount)")
-                            .font(.ftCaption).bold().foregroundStyle(.white)
-                            .padding(.horizontal, 6).padding(.vertical, 2)
-                            .background(FTColor.expense, in: .capsule)
-                            .offset(x: 20, y: -20)
-                    }
-                }
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Review Queue").font(.ftHeadline).foregroundStyle(FTColor.textPrimary)
-                    Text(pendingCount > 0
-                         ? "\(pendingCount) transactions waiting for approval"
-                         : "All caught up · \(approvedCount) approved so far")
-                        .font(.ftCaption).foregroundStyle(FTColor.textMuted)
-                }
-                Spacer()
-                Image(systemName: "chevron.right").font(.ftCaption).foregroundStyle(FTColor.textMuted)
-            }
-            .padding()
-            .ftGlassInteractive(FTRadius.lg)
-        }
-        .buttonStyle(.plain)
     }
 
     // MARK: - My banks (setup wizard rules)

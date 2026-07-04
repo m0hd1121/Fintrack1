@@ -6,6 +6,7 @@ struct TransactionsListView: View {
     @Environment(CurrencyService.self) private var currencyService
     @Environment(\.modelContext) private var context
     @Query(sort: \Transaction.date, order: .reverse) private var transactions: [Transaction]
+    @Query private var pendingEmailItems: [PendingEmailTransaction]
     @Query private var loyaltyPrograms: [LoyaltyProgram]
     @Query private var salaryRecords: [SalaryRecord]
     @Query private var moneyLentRecords: [MoneyLent]
@@ -41,6 +42,10 @@ struct TransactionsListView: View {
 
     // CSV import
     @State private var showingCSVImport = false
+
+    private var pendingImportCount: Int {
+        pendingEmailItems.filter { $0.status == .pending }.count
+    }
 
     private var hasDuplicates: Bool {
         transactions.contains { $0.isDuplicate }
@@ -110,6 +115,14 @@ struct TransactionsListView: View {
                         }
                     } else {
                         List {
+                            // Pending email imports banner
+                            if pendingImportCount > 0 {
+                                pendingImportsBanner
+                                    .listRowBackground(Color.clear)
+                                    .listRowSeparator(.hidden)
+                                    .listRowInsets(EdgeInsets(top: 4, leading: FTSpacing.screen, bottom: 4, trailing: FTSpacing.screen))
+                            }
+
                             // Duplicate detection banner
                             if hasDuplicates {
                                 duplicateBanner
@@ -179,6 +192,23 @@ struct TransactionsListView: View {
                         }
                         .font(isEditing ? .ftBodySemibold : .ftBody)
                         .foregroundStyle(FTColor.accent)
+                    }
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        NavigationLink(destination: EmailReviewQueueView()) {
+                            Image(systemName: pendingImportCount > 0 ? "tray.full.fill" : "tray")
+                                .foregroundStyle(pendingImportCount > 0 ? FTColor.accent : FTColor.textPrimary)
+                                .overlay(alignment: .topTrailing) {
+                                    if pendingImportCount > 0 {
+                                        Text("\(min(pendingImportCount, 99))")
+                                            .font(.system(size: 10, weight: .bold))
+                                            .foregroundStyle(.white)
+                                            .padding(.horizontal, 4).padding(.vertical, 1)
+                                            .background(FTColor.expense, in: .capsule)
+                                            .offset(x: 10, y: -8)
+                                    }
+                                }
+                        }
+                        .accessibilityLabel("Pending imports")
                     }
                     ToolbarItem(placement: .navigationBarTrailing) {
                         Button {
@@ -348,6 +378,33 @@ struct TransactionsListView: View {
     }
 
     // MARK: - Duplicate Banner
+
+    private var pendingImportsBanner: some View {
+        NavigationLink(destination: EmailReviewQueueView()) {
+            HStack(spacing: FTSpacing.md) {
+                ZStack {
+                    FTIconTile(symbol: "tray.full.fill", tint: FTColor.accent, size: 40)
+                    Text("\(pendingImportCount)")
+                        .font(.ftCaption).bold().foregroundStyle(.white)
+                        .padding(.horizontal, 6).padding(.vertical, 2)
+                        .background(FTColor.expense, in: .capsule)
+                        .offset(x: 16, y: -16)
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Pending Imports")
+                        .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                    Text("\(pendingImportCount) transaction\(pendingImportCount == 1 ? "" : "s") from bank emails waiting for review")
+                        .font(.ftCaption).foregroundStyle(FTColor.textMuted)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.ftCaption).foregroundStyle(FTColor.textMuted)
+            }
+            .padding(FTSpacing.md)
+            .ftGlassInteractive(FTRadius.md)
+        }
+        .buttonStyle(.plain)
+    }
 
     private var duplicateBanner: some View {
         HStack(spacing: FTSpacing.sm) {
