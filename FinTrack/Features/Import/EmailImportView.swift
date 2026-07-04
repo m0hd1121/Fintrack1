@@ -11,6 +11,7 @@ struct EmailImportView: View {
 
     @Query(sort: \EmailAccount.connectedAt) private var emailAccounts: [EmailAccount]
     @Query private var pendingItems: [PendingEmailTransaction]
+    @Query(sort: \BankEmailRule.createdAt) private var bankRules: [BankEmailRule]
 
     @State private var syncService = EmailSyncService.shared
     @State private var showingPasteSheet = false
@@ -18,6 +19,8 @@ struct EmailImportView: View {
     @State private var pasteResult: String? = nil
     @State private var connectError: String? = nil
     @State private var showingPrivacy = false
+    @State private var showingBankWizard = false
+    @State private var editingBankRule: BankEmailRule? = nil
 
     private var pendingCount: Int { pendingItems.filter { $0.status == .pending }.count }
     private var approvedCount: Int { pendingItems.filter { $0.status == .approved }.count }
@@ -26,6 +29,7 @@ struct EmailImportView: View {
         ScrollView {
             VStack(spacing: FTSpacing.xxl) {
                 reviewQueueCard
+                banksSection
                 accountsSection
                 connectSection
                 manualImportSection
@@ -38,6 +42,8 @@ struct EmailImportView: View {
         .navigationBarTitleDisplayMode(.inline)
         .background { FTBackdrop() }
         .sheet(isPresented: $showingPasteSheet) { pasteSheet }
+        .sheet(isPresented: $showingBankWizard) { BankSetupWizardView() }
+        .sheet(item: $editingBankRule) { rule in BankSetupWizardView(editingRule: rule) }
         .alert("Connection Failed", isPresented: Binding(
             get: { connectError != nil },
             set: { if !$0 { connectError = nil } }
@@ -75,6 +81,82 @@ struct EmailImportView: View {
             }
             .padding()
             .ftGlassInteractive(FTRadius.lg)
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - My banks (setup wizard rules)
+
+    private var banksSection: some View {
+        VStack(spacing: FTSpacing.md) {
+            HStack {
+                Text("MY BANKS")
+                    .font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+                Spacer()
+                Button { showingBankWizard = true } label: {
+                    Label("Add Bank", systemImage: "plus")
+                        .font(.ftCaption).foregroundStyle(FTColor.accent)
+                }
+            }
+
+            if bankRules.isEmpty {
+                Button { showingBankWizard = true } label: {
+                    HStack(spacing: FTSpacing.lg) {
+                        FTIconTile(symbol: "building.columns.fill", tint: FTColor.gold, size: 44)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Set Up Your First Bank")
+                                .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                            Text("Tell the app how your bank's alert emails look — imports become fully automatic")
+                                .font(.ftCaption).foregroundStyle(FTColor.textMuted)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right").font(.ftCaption).foregroundStyle(FTColor.textMuted)
+                    }
+                    .padding()
+                    .ftGlassInteractive(FTRadius.md)
+                }
+                .buttonStyle(.plain)
+            } else {
+                ForEach(bankRules, id: \.id) { rule in
+                    bankRuleRow(rule)
+                }
+            }
+        }
+    }
+
+    private func bankRuleRow(_ rule: BankEmailRule) -> some View {
+        Button { editingBankRule = rule } label: {
+            HStack(spacing: FTSpacing.md) {
+                FTIconTile(symbol: "building.columns.fill",
+                           tint: rule.isEnabled ? FTColor.accent : FTColor.textMuted, size: 40)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(rule.displayName)
+                        .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary).lineLimit(1)
+                    Text("\(rule.senderEmail.isEmpty ? rule.senderDomain : rule.senderEmail) · \(rule.matchedCount) matched")
+                        .font(.ftCaption).foregroundStyle(FTColor.textMuted).lineLimit(1)
+                }
+                Spacer()
+                if rule.autoApprove {
+                    BadgeView(text: "Auto ≥\(Int(rule.confidenceThreshold * 100))%", color: FTColor.income)
+                }
+                Menu {
+                    Toggle("Enabled", isOn: Binding(
+                        get: { rule.isEnabled },
+                        set: { rule.isEnabled = $0; try? context.save() }
+                    ))
+                    Button(role: .destructive) {
+                        context.delete(rule)
+                        try? context.save()
+                    } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .font(.ftHeadline).foregroundStyle(FTColor.textMuted)
+                }
+            }
+            .padding(FTSpacing.md)
+            .ftGlassInteractive(FTRadius.md)
         }
         .buttonStyle(.plain)
     }

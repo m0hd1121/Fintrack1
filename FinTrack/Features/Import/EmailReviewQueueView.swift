@@ -8,11 +8,9 @@ import SwiftData
 
 struct EmailReviewQueueView: View {
     @Environment(\.modelContext) private var context
-    @Environment(AppState.self) private var appState
 
     @Query(sort: \PendingEmailTransaction.receivedAt, order: .reverse)
     private var allItems: [PendingEmailTransaction]
-    @Query(sort: \Account.name) private var accounts: [Account]
 
     @State private var editingItem: PendingEmailTransaction? = nil
     @State private var showRejected = false
@@ -130,7 +128,7 @@ struct EmailReviewQueueView: View {
                 .foregroundStyle(item.status == .approved ? FTColor.income : FTColor.expense)
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.merchantNormalized).font(.ftBody).foregroundStyle(FTColor.textSecondary).lineLimit(1)
-                Text("\(item.status.rawValue) · \(item.reviewedAt?.relativeFormatted ?? "")")
+                Text("\(item.wasAutoApproved ? "Auto-approved" : item.status.rawValue) · \(item.reviewedAt?.relativeFormatted ?? "")")
                     .font(.ftCaption).foregroundStyle(FTColor.textMuted)
             }
             Spacer()
@@ -145,55 +143,7 @@ struct EmailReviewQueueView: View {
     // MARK: - Approve
 
     private func approve(_ item: PendingEmailTransaction) {
-        guard item.status == .pending else { return }
-
-        let type = item.direction.transactionType
-        let baseAmount = CurrencyService.shared.convert(item.amount, from: item.currency, to: appState.baseCurrency)
-
-        var notes = "Imported from \(item.bankName) email"
-        if let reference = item.referenceNumber { notes += " · Ref: \(reference)" }
-
-        let tx = Transaction(
-            title: item.merchantNormalized,
-            amount: item.amount,
-            currency: item.currency,
-            amountInBaseCurrency: baseAmount,
-            type: type,
-            category: item.suggestedCategory,
-            date: item.transactionDate,
-            notes: notes,
-            merchant: item.merchantNormalized,
-            paymentMethod: item.cardLast4 != nil ? .debitCard : .bankTransfer,
-            tags: item.suggestedTags,
-            isVerified: true
-        )
-
-        // Link to the account whose stored last-4 digits match the card in the email
-        if let last4 = item.cardLast4,
-           let account = accounts.first(where: { !$0.isArchived && ($0.accountNumber?.hasSuffix(last4) ?? false) }) {
-            tx.account = account
-            let delta = CurrencyService.shared.convert(item.amount, from: item.currency, to: account.currency)
-            switch type {
-            case .income:  account.balance += delta
-            case .expense: account.balance -= delta
-            default: break
-            }
-        }
-
-        context.insert(tx)
-        item.status = .approved
-        item.reviewedAt = Date()
-        item.approvedTransactionId = tx.id
-
-        // Learning: final category + tags become the suggestion next time
-        CategoryLearningService.shared.recordCorrection(
-            merchant: item.merchantNormalized, category: item.suggestedCategory)
-        ImportLearningService.shared.recordApprovedTags(
-            rawMerchant: item.merchantRaw, tags: item.suggestedTags)
-
-        AuditLogService.log(context: context,
-            "Approved email import: \(item.merchantNormalized) \(item.currency) \(String(format: "%.2f", item.amount)) from \(item.bankName)")
-        try? context.save()
+        EmailSyncService.shared.approveToLedger(item: item, context: context)
     }
 
     // MARK: - Reject

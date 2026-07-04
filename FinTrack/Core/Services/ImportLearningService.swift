@@ -5,6 +5,8 @@ import Foundation
 struct DuplicateVerdict {
     let isDuplicate: Bool
     let reason: String?
+    /// Weighted confidence 0...1 that this is a duplicate (1 = certain)
+    var score: Double = 0
 }
 
 // MARK: - ImportLearningService
@@ -120,11 +122,15 @@ final class ImportLearningService {
         rejectionCounts[Self.merchantKey(rawMerchant), default: 0] >= 3
     }
 
-    // MARK: - Duplicate detection
+    // MARK: - Duplicate detection (weighted confidence scoring)
+
+    /// Score at/above which a candidate is treated as a duplicate.
+    static let duplicateThreshold = 0.6
 
     /// Checks a parsed candidate against the permanent ledger and the pending
-    /// queue. Combines exact fingerprint identity, reference-number match,
-    /// and fuzzy amount+date+merchant matching.
+    /// queue. Instead of exact matching, each existing record gets a weighted
+    /// similarity score — amount, currency, time delta, merchant similarity,
+    /// card digits, reference number — and the best score decides.
     func duplicateCheck(
         fingerprint: String,
         amount: Double,
@@ -136,35 +142,84 @@ final class ImportLearningService {
         existingTransactions: [Transaction],
         pendingItems: [PendingEmailTransaction]
     ) -> DuplicateVerdict {
-        // 1. Same fingerprint already in the queue (re-parse of the same email)
+        // Identity short-circuits: same fingerprint in queue, or reference
+        // number already recorded in the ledger → certain duplicate.
         if pendingItems.contains(where: { $0.fingerprint == fingerprint && $0.status != .rejected }) {
-            return DuplicateVerdict(isDuplicate: true, reason: "Identical email already in the review queue")
+            return DuplicateVerdict(isDuplicate: true,
+                                    reason: "Identical email already in the review queue", score: 1.0)
         }
-
-        // 2. Reference number seen in ledger notes (approved imports store it)
         if let reference, !reference.isEmpty {
             if existingTransactions.contains(where: { $0.notes?.contains(reference) == true }) {
-                return DuplicateVerdict(isDuplicate: true, reason: "Reference \(reference) already exists in your transactions")
+                return DuplicateVerdict(isDuplicate: true,
+                                        reason: "Reference \(reference) already exists in your transactions", score: 1.0)
+            }
+            if pendingItems.contains(where: { $0.referenceNumber == reference && $0.status != .rejected }) {
+                return DuplicateVerdict(isDuplicate: true,
+                                        reason: "Reference \(reference) already in the review queue", score: 1.0)
             }
         }
 
-        // 3. Fuzzy: same amount & currency within ±36h with overlapping merchant tokens
-        let merchantKey = Self.merchantKey(merchant)
+        // Weighted scoring against the ledger
+        var bestScore = 0.0
+        var bestMatch: Transaction?
         for tx in existingTransactions {
-            guard tx.currency == currency, abs(tx.amount - amount) < 0.01 else { continue }
-            guard abs(tx.date.timeIntervalSince(date)) < 36 * 3600 else { continue }
-            let txKey = Self.merchantKey(tx.merchant ?? tx.title)
-            if !merchantKey.isEmpty && !txKey.isEmpty
-                && (txKey.contains(merchantKey) || merchantKey.contains(txKey)
-                    || Self.tokenOverlap(merchant, tx.merchant ?? tx.title) >= 0.5) {
-                return DuplicateVerdict(
-                    isDuplicate: true,
-                    reason: "Matches “\(tx.title)” (\(currency) \(String(format: "%.2f", amount))) on \(tx.date.formatted(date: .abbreviated, time: .omitted))"
-                )
+            let score = Self.similarityScore(
+                amount: amount, currency: currency, date: date,
+                cardLast4: cardLast4, merchant: merchant,
+                against: tx)
+            if score > bestScore {
+                bestScore = score
+                bestMatch = tx
             }
         }
 
-        return DuplicateVerdict(isDuplicate: false, reason: nil)
+        if bestScore >= Self.duplicateThreshold, let match = bestMatch {
+            return DuplicateVerdict(
+                isDuplicate: true,
+                reason: "\(Int(bestScore * 100))% match with “\(match.title)” (\(currency) \(String(format: "%.2f", amount))) on \(match.date.formatted(date: .abbreviated, time: .omitted))",
+                score: bestScore
+            )
+        }
+        return DuplicateVerdict(isDuplicate: false, reason: nil, score: bestScore)
+    }
+
+    /// Weighted similarity between a parsed candidate and one ledger
+    /// transaction: amount 0.35, time proximity up to 0.25, merchant
+    /// similarity up to 0.25, currency 0.05, card digits 0.10.
+    static func similarityScore(
+        amount: Double, currency: String, date: Date,
+        cardLast4: String?, merchant: String,
+        against tx: Transaction
+    ) -> Double {
+        // Amount is the gate: >1% difference means not the same transaction
+        let amountDelta = abs(tx.amount - amount)
+        guard amountDelta < max(0.01, amount * 0.01) else { return 0 }
+        var score = 0.35
+
+        if tx.currency == currency { score += 0.05 }
+
+        let hours = abs(tx.date.timeIntervalSince(date)) / 3600
+        if hours <= 2 { score += 0.25 }
+        else if hours <= 12 { score += 0.20 }
+        else if hours <= 36 { score += 0.12 }
+        else if hours > 72 { return 0 }   // too far apart to be the same event
+
+        let txMerchant = tx.merchant ?? tx.title
+        let candidateKey = merchantKey(merchant)
+        let txKey = merchantKey(txMerchant)
+        if !candidateKey.isEmpty && !txKey.isEmpty {
+            if candidateKey == txKey { score += 0.25 }
+            else if txKey.contains(candidateKey) || candidateKey.contains(txKey) { score += 0.20 }
+            else { score += tokenOverlap(merchant, txMerchant) * 0.20 }
+        }
+
+        if let last4 = cardLast4,
+           let accountNumber = tx.account?.accountNumber,
+           accountNumber.hasSuffix(last4) {
+            score += 0.10
+        }
+
+        return min(1.0, score)
     }
 
     /// Jaccard word-token overlap between two merchant strings, 0...1.

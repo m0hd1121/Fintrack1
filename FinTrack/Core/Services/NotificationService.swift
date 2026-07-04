@@ -280,6 +280,22 @@ final class NotificationService {
         UNUserNotificationCenter.current().add(request)
     }
 
+    // MARK: – Email Import Alert
+
+    func sendEmailImportAlert(merchant: String, amount: Double, currency: String,
+                              category: String, autoApproved: Bool) {
+        let content = UNMutableNotificationContent()
+        content.title = autoApproved ? "Transaction Imported" : "Transaction Needs Review"
+        content.body = autoApproved
+            ? "\(merchant): \(amount.formatted(as: currency)) · \(category) — added automatically"
+            : "\(merchant): \(amount.formatted(as: currency)) · \(category) — waiting in your review queue"
+        content.sound = .default
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
+        let id = "email_import_\(UUID().uuidString)"
+        let request = UNNotificationRequest(identifier: id, content: content, trigger: trigger)
+        UNUserNotificationCenter.current().add(request)
+    }
+
     // MARK: – Helpers
     func cancelNotification(id: String) {
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [id])

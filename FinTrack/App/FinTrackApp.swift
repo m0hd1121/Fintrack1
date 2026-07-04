@@ -14,7 +14,7 @@ struct FinTrackApp: App {
         // without a versioned SchemaMigrationPlan. SwiftData's lightweight migrator
         // cannot fill non-optional columns on existing rows, so we wipe the dev store
         // and start fresh. In production you would write a proper MigrationPlan instead.
-        let currentSchemaVersion = "v23"
+        let currentSchemaVersion = "v24"
         let versionKey = "fintrack_schema_version"
 
         if UserDefaults.standard.string(forKey: versionKey) != currentSchemaVersion {
@@ -74,6 +74,7 @@ struct FinTrackApp: App {
             ImportedFile.self,
             EmailAccount.self,
             PendingEmailTransaction.self,
+            BankEmailRule.self,
             AuditLogEntry.self,
             RemittanceRecord.self,
             InsurancePolicy.self,
@@ -88,6 +89,10 @@ struct FinTrackApp: App {
             fatalError("Could not create ModelContainer: \(error)")
         }
     }()
+
+    init() {
+        EmailSyncService.registerBackgroundSync(container: modelContainer)
+    }
 
     var body: some Scene {
         WindowGroup {

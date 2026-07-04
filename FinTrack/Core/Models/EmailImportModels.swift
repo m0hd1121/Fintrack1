@@ -83,6 +83,93 @@ final class EmailAccount {
     }
 }
 
+// MARK: - BankEmailRule
+
+/// One bank configured in the setup wizard. Drives detection (sender/subject/
+/// keyword matching beyond the built-in UAE whitelist) and automation
+/// (auto-approval above the user's confidence threshold).
+@Model
+final class BankEmailRule {
+    var id: UUID
+    var bankName: String
+    var nickname: String
+    var senderEmail: String          // e.g. alerts@bank.com
+    var senderDomain: String         // e.g. bank.com (optional, broader match)
+    var subjectPattern: String       // optional substring the subject must contain
+    var keywords: [String]           // optional body/subject keywords that boost detection
+    var currency: String
+    var country: String
+    var timezoneIdentifier: String
+    var accountTypeRaw: String
+    /// Ledger account transactions from this bank should post to (overrides card-digit matching)
+    var linkedAccountId: UUID?
+    // Automation
+    var autoApprove: Bool
+    var confidenceThreshold: Double  // 0.5...0.99 — auto-approve at/above this
+    var isEnabled: Bool
+    var createdAt: Date
+    var matchedCount: Int            // how many emails this rule has caught
+
+    var accountType: AccountType {
+        get { AccountType(rawValue: accountTypeRaw) ?? .current }
+        set { accountTypeRaw = newValue.rawValue }
+    }
+
+    var displayName: String { nickname.isEmpty ? bankName : nickname }
+
+    /// True when the given sender matches this rule.
+    func matchesSender(_ sender: String) -> Bool {
+        let lower = sender.lowercased()
+        if !senderEmail.isEmpty, lower.contains(senderEmail.lowercased()) { return true }
+        if !senderDomain.isEmpty, lower.contains(senderDomain.lowercased()) { return true }
+        return false
+    }
+
+    /// Full match: sender + optional subject pattern.
+    func matches(sender: String, subject: String) -> Bool {
+        guard isEnabled, matchesSender(sender) else { return false }
+        if !subjectPattern.isEmpty {
+            return subject.lowercased().contains(subjectPattern.lowercased())
+        }
+        return true
+    }
+
+    init(
+        id: UUID = UUID(),
+        bankName: String,
+        nickname: String = "",
+        senderEmail: String,
+        senderDomain: String = "",
+        subjectPattern: String = "",
+        keywords: [String] = [],
+        currency: String = "AED",
+        country: String = "United Arab Emirates",
+        timezoneIdentifier: String = TimeZone.current.identifier,
+        accountType: AccountType = .current,
+        linkedAccountId: UUID? = nil,
+        autoApprove: Bool = false,
+        confidenceThreshold: Double = 0.9
+    ) {
+        self.id = id
+        self.bankName = bankName
+        self.nickname = nickname
+        self.senderEmail = senderEmail
+        self.senderDomain = senderDomain
+        self.subjectPattern = subjectPattern
+        self.keywords = keywords
+        self.currency = currency
+        self.country = country
+        self.timezoneIdentifier = timezoneIdentifier
+        self.accountTypeRaw = accountType.rawValue
+        self.linkedAccountId = linkedAccountId
+        self.autoApprove = autoApprove
+        self.confidenceThreshold = confidenceThreshold
+        self.isEnabled = true
+        self.createdAt = Date()
+        self.matchedCount = 0
+    }
+}
+
 // MARK: - Pending Import Status
 
 enum PendingImportStatus: String, Codable {
@@ -147,6 +234,9 @@ final class PendingEmailTransaction {
     var statusRaw: String
     var reviewedAt: Date?
     var approvedTransactionId: UUID?
+    var wasAutoApproved: Bool = false
+    /// BankEmailRule that matched this email, if any
+    var matchedRuleId: UUID?
 
     var direction: ParsedDirection {
         get { ParsedDirection(rawValue: directionRaw) ?? .debit }
@@ -223,5 +313,7 @@ final class PendingEmailTransaction {
         self.statusRaw = PendingImportStatus.pending.rawValue
         self.reviewedAt = nil
         self.approvedTransactionId = nil
+        self.wasAutoApproved = false
+        self.matchedRuleId = nil
     }
 }

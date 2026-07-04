@@ -102,8 +102,10 @@ final class BankEmailParser {
 
     /// Gmail search query restricting the scan to whitelisted senders only —
     /// the minimum-scope principle: we never list or read the rest of the mailbox.
-    static var gmailSenderQuery: String {
-        let froms = uaeBanks.flatMap(\.senderDomains).map { "from:\($0)" }.joined(separator: " OR ")
+    /// User-configured bank rules extend the whitelist.
+    static func gmailSenderQuery(extraSenders: [String] = []) -> String {
+        let senders = uaeBanks.flatMap(\.senderDomains) + extraSenders.filter { !$0.isEmpty }
+        let froms = Set(senders).map { "from:\($0)" }.joined(separator: " OR ")
         return "(\(froms)) newer_than:60d"
     }
 

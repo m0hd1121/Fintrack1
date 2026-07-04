@@ -74,6 +74,7 @@ struct RootView: View {
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .background {
+                EmailSyncService.scheduleBackgroundRefresh()
                 if let setting = settings.first,
                    setting.useBiometrics || setting.usePIN,
                    appState.hasCompletedOnboarding {
@@ -86,6 +87,7 @@ struct RootView: View {
                 }
             }
             if phase == .active {
+                Task { await EmailSyncService.shared.runSyncPass(context: context) }
                 processRecurringTransactions()
                 processScheduledTransactions()
                 processBillAlerts()
@@ -111,6 +113,7 @@ struct RootView: View {
             try? context.save()
         }
         .task {
+            EmailSyncService.shared.startAutoSync(context: context)
             await cryptoPriceService.fetchPrices()
             cryptoPriceService.updateHoldings(Array(cryptoHoldings), currencyService: currencyService)
             let symbols = investments.map { $0.symbol }.filter { !$0.isEmpty }

@@ -1,6 +1,7 @@
 import Foundation
 import SwiftData
 import AuthenticationServices
+import BackgroundTasks
 import CryptoKit
 import Observation
 import UIKit
@@ -181,6 +182,55 @@ final class EmailSyncService: NSObject {
         try? context.save()
     }
 
+    // MARK: - Continuous sync
+    //
+    // Triggers sharing one pipeline: app launch, foreground return, a
+    // 15-minute loop while active, manual refresh, and (when the project
+    // enables the Background Modes capability + BGTaskSchedulerPermittedIdentifiers)
+    // a BGAppRefreshTask. A future push backend slots in as another trigger.
+
+    static let backgroundTaskIdentifier = "com.fintrack.email-sync"
+    private var autoSyncTask: Task<Void, Never>?
+
+    /// One sync pass over every connected account.
+    func runSyncPass(context: ModelContext) async {
+        let accounts = (try? context.fetch(FetchDescriptor<EmailAccount>())) ?? []
+        guard !accounts.isEmpty else { return }
+        await syncAll(accounts: accounts, context: context)
+    }
+
+    /// Foreground engine: immediate pass, then every 15 minutes while the app lives.
+    func startAutoSync(context: ModelContext) {
+        guard autoSyncTask == nil else { return }
+        autoSyncTask = Task {
+            while !Task.isCancelled {
+                await runSyncPass(context: context)
+                try? await Task.sleep(for: .seconds(900))
+            }
+        }
+    }
+
+    /// Registers the background refresh handler. Must run before the app
+    /// finishes launching. Safe no-op if the identifier isn't declared in
+    /// Info.plist (registration simply returns false).
+    static func registerBackgroundSync(container: ModelContainer) {
+        BGTaskScheduler.shared.register(forTaskWithIdentifier: backgroundTaskIdentifier, using: nil) { task in
+            let syncWork = Task { @MainActor in
+                await EmailSyncService.shared.runSyncPass(context: container.mainContext)
+                Self.scheduleBackgroundRefresh()
+                task.setTaskCompleted(success: true)
+            }
+            task.expirationHandler = { syncWork.cancel() }
+        }
+    }
+
+    /// Asks iOS for a wake-up in ~15 minutes. Call when entering background.
+    static func scheduleBackgroundRefresh() {
+        let request = BGAppRefreshTaskRequest(identifier: backgroundTaskIdentifier)
+        request.earliestBeginDate = Date(timeIntervalSinceNow: 15 * 60)
+        try? BGTaskScheduler.shared.submit(request)
+    }
+
     // MARK: - Sync
 
     func syncAll(accounts: [EmailAccount], context: ModelContext) async {
@@ -205,10 +255,17 @@ final class EmailSyncService: NSObject {
 
     private func sync(account: EmailAccount, context: ModelContext) async throws -> (scanned: Int, imported: Int) {
         let token = try await validAccessToken(for: account)
+
+        // User bank rules extend the sender whitelist for fetching
+        let rules = (try? context.fetch(FetchDescriptor<BankEmailRule>())) ?? []
+        let ruleSenders = rules.filter(\.isEnabled)
+            .flatMap { [$0.senderEmail, $0.senderDomain] }
+            .filter { !$0.isEmpty }
+
         let emails: [FetchedEmail]
         switch account.provider {
-        case .gmail:   emails = try await fetchGmailMessages(accessToken: token, seen: account.seenMessageIds)
-        case .outlook: emails = try await fetchOutlookMessages(accessToken: token, seen: account.seenMessageIds)
+        case .gmail:   emails = try await fetchGmailMessages(accessToken: token, seen: account.seenMessageIds, extraSenders: ruleSenders)
+        case .outlook: emails = try await fetchOutlookMessages(accessToken: token, seen: account.seenMessageIds, extraSenders: ruleSenders)
         default:       return (0, 0)
         }
 
@@ -235,16 +292,37 @@ final class EmailSyncService: NSObject {
         let receivedAt: Date
     }
 
-    /// Classify → parse → learn → categorize → dedup → enqueue.
-    /// Returns true when a pending item was created.
+    /// Classify → parse → learn → categorize → dedup → enqueue → auto-approve.
+    /// Detection accepts either the built-in UAE whitelist or a user-defined
+    /// BankEmailRule from the setup wizard. Returns true when a pending item
+    /// was created.
     @discardableResult
     func processEmail(_ email: FetchedEmail, accountId: UUID?, context: ModelContext) -> Bool {
         let parser = BankEmailParser.shared
-        guard parser.isLikelyBankTransactionEmail(sender: email.sender, subject: email.subject) else { return false }
-        guard let parsed = parser.parse(
+        let rules = (try? context.fetch(FetchDescriptor<BankEmailRule>())) ?? []
+        let matchedRule = rules.first { $0.matches(sender: email.sender, subject: email.subject) }
+
+        let builtInMatch = parser.isLikelyBankTransactionEmail(sender: email.sender, subject: email.subject)
+        guard builtInMatch || matchedRule != nil else { return false }
+
+        guard var parsed = parser.parse(
             sender: email.sender, subject: email.subject,
             body: email.body, receivedAt: email.receivedAt
         ) else { return false }
+
+        // A user-configured rule enriches the parse result
+        if let rule = matchedRule {
+            if parsed.bankName == "Unknown Bank" { parsed.bankName = rule.displayName }
+            parsed.explanationLines.append("Matched your “\(rule.displayName)” bank rule")
+            parsed.confidence = min(0.99, parsed.confidence + 0.1)
+            if !rule.keywords.isEmpty {
+                let haystack = (email.subject + " " + email.body).lowercased()
+                if rule.keywords.contains(where: { haystack.contains($0.lowercased()) }) {
+                    parsed.explanationLines.append("Contains your configured keywords")
+                    parsed.confidence = min(0.99, parsed.confidence + 0.03)
+                }
+            }
+        }
 
         let learning = ImportLearningService.shared
         let normalized = learning.normalizedMerchant(for: parsed.merchant)
@@ -306,8 +384,96 @@ final class EmailSyncService: NSObject {
             isPossibleDuplicate: verdict.isDuplicate,
             duplicateReason: verdict.reason
         )
+        item.matchedRuleId = matchedRule?.id
         context.insert(item)
+        matchedRule?.matchedCount += 1
+
+        // Auto-approval: only via an explicit per-bank opt-in, and never for
+        // duplicates or suspicious parses — those always require human eyes.
+        if let rule = matchedRule,
+           rule.autoApprove,
+           !verdict.isDuplicate,
+           !parsed.isSuspicious,
+           item.confidence >= rule.confidenceThreshold {
+            approveToLedger(item: item, context: context, autoApproved: true)
+        }
+
+        NotificationService.shared.sendEmailImportAlert(
+            merchant: item.merchantNormalized,
+            amount: item.amount,
+            currency: item.currency,
+            category: item.suggestedCategory.rawValue,
+            autoApproved: item.status == .approved
+        )
         return true
+    }
+
+    // MARK: - Ledger posting (shared by auto-approval and the review queue)
+
+    /// Creates the permanent Transaction for a queue item, links the right
+    /// account (bank rule's linked account first, then card last-4 match),
+    /// adjusts its balance, and feeds the learning loops.
+    func approveToLedger(item: PendingEmailTransaction, context: ModelContext, autoApproved: Bool = false) {
+        guard item.status == .pending else { return }
+
+        let type = item.direction.transactionType
+        let baseCurrency = UserDefaults.standard.string(forKey: "base_currency") ?? "AED"
+        let baseAmount = CurrencyService.shared.convert(item.amount, from: item.currency, to: baseCurrency)
+
+        var notes = "Imported from \(item.bankName) email"
+        if let reference = item.referenceNumber { notes += " · Ref: \(reference)" }
+        if autoApproved { notes += " · Auto-approved at \(item.confidencePercent)% confidence" }
+
+        let tx = Transaction(
+            title: item.merchantNormalized,
+            amount: item.amount,
+            currency: item.currency,
+            amountInBaseCurrency: baseAmount,
+            type: type,
+            category: item.suggestedCategory,
+            date: item.transactionDate,
+            notes: notes,
+            merchant: item.merchantNormalized,
+            paymentMethod: item.cardLast4 != nil ? .debitCard : .bankTransfer,
+            tags: item.suggestedTags,
+            isVerified: true
+        )
+
+        // Account resolution: bank rule's linked account wins, else card last-4
+        let accounts = (try? context.fetch(FetchDescriptor<Account>())) ?? []
+        var target: Account?
+        if let ruleId = item.matchedRuleId,
+           let rules = try? context.fetch(FetchDescriptor<BankEmailRule>()),
+           let linkedId = rules.first(where: { $0.id == ruleId })?.linkedAccountId {
+            target = accounts.first { $0.id == linkedId && !$0.isArchived }
+        }
+        if target == nil, let last4 = item.cardLast4 {
+            target = accounts.first { !$0.isArchived && ($0.accountNumber?.hasSuffix(last4) ?? false) }
+        }
+        if let account = target {
+            tx.account = account
+            let delta = CurrencyService.shared.convert(item.amount, from: item.currency, to: account.currency)
+            switch type {
+            case .income:  account.balance += delta
+            case .expense: account.balance -= delta
+            default: break
+            }
+        }
+
+        context.insert(tx)
+        item.status = .approved
+        item.reviewedAt = Date()
+        item.approvedTransactionId = tx.id
+        item.wasAutoApproved = autoApproved
+
+        CategoryLearningService.shared.recordCorrection(
+            merchant: item.merchantNormalized, category: item.suggestedCategory)
+        ImportLearningService.shared.recordApprovedTags(
+            rawMerchant: item.merchantRaw, tags: item.suggestedTags)
+
+        AuditLogService.log(context: context,
+            "\(autoApproved ? "Auto-approved" : "Approved") email import: \(item.merchantNormalized) \(item.currency) \(String(format: "%.2f", item.amount)) from \(item.bankName)\(autoApproved ? " (\(item.confidencePercent)% ≥ threshold)" : "")")
+        try? context.save()
     }
 
     // MARK: - Manual paste import (works for iCloud / IMAP / any provider)
@@ -397,8 +563,9 @@ final class EmailSyncService: NSObject {
 
     // MARK: - Gmail REST
 
-    private func fetchGmailMessages(accessToken: String, seen: Set<String>) async throws -> [FetchedEmail] {
-        let query = BankEmailParser.gmailSenderQuery.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+    private func fetchGmailMessages(accessToken: String, seen: Set<String>, extraSenders: [String] = []) async throws -> [FetchedEmail] {
+        let query = BankEmailParser.gmailSenderQuery(extraSenders: extraSenders)
+            .addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
         let listURL = URL(string: "https://gmail.googleapis.com/gmail/v1/users/me/messages?q=\(query)&maxResults=50")!
         let listData = try await authorizedGet(listURL, token: accessToken)
 
@@ -475,7 +642,7 @@ final class EmailSyncService: NSObject {
 
     // MARK: - Microsoft Graph
 
-    private func fetchOutlookMessages(accessToken: String, seen: Set<String>) async throws -> [FetchedEmail] {
+    private func fetchOutlookMessages(accessToken: String, seen: Set<String>, extraSenders: [String] = []) async throws -> [FetchedEmail] {
         let url = URL(string: "https://graph.microsoft.com/v1.0/me/messages?$top=50&$select=id,subject,from,receivedDateTime,body&$orderby=receivedDateTime desc")!
         let data = try await authorizedGet(url, token: accessToken)
 
@@ -502,7 +669,9 @@ final class EmailSyncService: NSObject {
         return messages.compactMap { message in
             guard !seen.contains(message.id) else { return nil }
             let sender = message.from?.emailAddress?.address ?? ""
-            guard BankEmailParser.shared.bankName(forSender: sender) != nil else { return nil }
+            let lower = sender.lowercased()
+            let matchesRule = extraSenders.contains { lower.contains($0.lowercased()) }
+            guard BankEmailParser.shared.bankName(forSender: sender) != nil || matchesRule else { return nil }
             return FetchedEmail(
                 messageId: message.id,
                 sender: sender,
