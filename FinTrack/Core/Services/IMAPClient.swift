@@ -1,5 +1,6 @@
 import Foundation
 import Network
+import os
 
 // MARK: - IMAPClient
 // Minimal IMAP4rev1 client over TLS (port 993) built on Network.framework —
@@ -54,20 +55,30 @@ final class IMAPClient: @unchecked Sendable {
     }
 
     private func waitForReady() async throws {
-        final class Resumed: @unchecked Sendable { var done = false }
-        let resumed = Resumed()
+        // The state handler can fire multiple times; the lock guarantees the
+        // continuation resumes exactly once, without actor-isolation issues
+        // inside the Sendable network callback.
+        let resumed = OSAllocatedUnfairLock(initialState: false)
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             connection.stateUpdateHandler = { state in
-                guard !resumed.done else { return }
+                let isFinal: Bool
+                switch state {
+                case .ready, .failed, .cancelled: isFinal = true
+                default: isFinal = false
+                }
+                guard isFinal else { return }
+                let shouldResume = resumed.withLock { done -> Bool in
+                    if done { return false }
+                    done = true
+                    return true
+                }
+                guard shouldResume else { return }
                 switch state {
                 case .ready:
-                    resumed.done = true
                     continuation.resume()
                 case .failed(let error):
-                    resumed.done = true
                     continuation.resume(throwing: IMAPError.connectionFailed(error.localizedDescription))
                 case .cancelled:
-                    resumed.done = true
                     continuation.resume(throwing: IMAPError.connectionClosed)
                 default:
                     break
