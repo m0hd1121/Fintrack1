@@ -810,19 +810,16 @@ struct DebtManagementView: View {
                                 LoanDebtCard(loan: loan, baseCurrency: baseCurrency, currencyService: currencyService)
                             }
                             .buttonStyle(.plain)
-                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            .contextMenu {
+                                Button { editingLoan = loan } label: {
+                                    Label("Edit", systemImage: "pencil")
+                                }
                                 Button(role: .destructive) {
                                     context.delete(loan)
                                     try? context.save()
                                 } label: {
                                     Label("Delete", systemImage: "trash")
                                 }
-                            }
-                            .swipeActions(edge: .leading) {
-                                Button { editingLoan = loan } label: {
-                                    Label("Edit", systemImage: "pencil")
-                                }
-                                .tint(FTColor.accent)
                             }
                             .padding(.horizontal, FTSpacing.screen)
                         }
@@ -884,19 +881,16 @@ struct DebtManagementView: View {
                                     selectedLent = item
                                 }
                             }
-                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            .contextMenu {
+                                Button { editingLent = item } label: {
+                                    Label("Edit", systemImage: "pencil")
+                                }
                                 Button(role: .destructive) {
                                     context.delete(item)
                                     try? context.save()
                                 } label: {
                                     Label("Delete", systemImage: "trash")
                                 }
-                            }
-                            .swipeActions(edge: .leading) {
-                                Button { editingLent = item } label: {
-                                    Label("Edit", systemImage: "pencil")
-                                }
-                                .tint(FTColor.accent)
                             }
                             .padding(.horizontal, FTSpacing.screen)
                         }
@@ -958,19 +952,16 @@ struct DebtManagementView: View {
                                     selectedBorrowed = item
                                 }
                             }
-                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            .contextMenu {
+                                Button { editingBorrowed = item } label: {
+                                    Label("Edit", systemImage: "pencil")
+                                }
                                 Button(role: .destructive) {
                                     context.delete(item)
                                     try? context.save()
                                 } label: {
                                     Label("Delete", systemImage: "trash")
                                 }
-                            }
-                            .swipeActions(edge: .leading) {
-                                Button { editingBorrowed = item } label: {
-                                    Label("Edit", systemImage: "pencil")
-                                }
-                                .tint(FTColor.accent)
                             }
                             .padding(.horizontal, FTSpacing.screen)
                         }
@@ -1028,7 +1019,7 @@ struct DebtManagementView: View {
                     VStack(spacing: FTSpacing.sm) {
                         ForEach(bnplPlans.sorted { $0.nextPaymentDate < $1.nextPaymentDate }, id: \.id) { plan in
                             BNPLDebtCard(plan: plan, baseCurrency: baseCurrency, currencyService: currencyService)
-                                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                .contextMenu {
                                     Button(role: .destructive) {
                                         context.delete(plan)
                                         try? context.save()
