@@ -2031,7 +2031,7 @@ private struct RecordSaleSheet: View {
     @State private var estimatedPnL: Double? = nil
 
     private var quantity: Double { Double(quantityText.replacingOccurrences(of: ",", with: ".")) ?? 0 }
-    private var salePrice: Double { Double(salePriceText.replacingOccurrences(of: ",", with: ".")) ?? 0 }
+    private var salePrice: Double { AmountTextField.double(from: salePriceText) }
     private var method: CostBasisMethod { CostBasisMethod.allCases[methodIndex] }
     private var isValid: Bool { quantity > 0 && quantity <= investment.quantity && salePrice > 0 }
 
@@ -2051,10 +2051,8 @@ private struct RecordSaleSheet: View {
                             }
                             Divider().padding(.leading, FTSpacing.screen)
                             saleRow("Sale Price (\(investment.currency))") {
-                                TextField("0.00", text: $salePriceText)
-                                    .keyboardType(.decimalPad)
-                                    .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
-                                    .multilineTextAlignment(.trailing)
+                                AmountTextField("0.00", text: $salePriceText, font: .ftBodySemibold)
+                                    .foregroundStyle(FTColor.textPrimary)
                                     .onChange(of: salePriceText) { _, _ in recomputePnL() }
                             }
                             Divider().padding(.leading, FTSpacing.screen)

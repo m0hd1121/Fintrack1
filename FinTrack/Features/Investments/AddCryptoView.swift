@@ -333,11 +333,8 @@ struct AddCryptoView: View {
                 divider
 
                 fieldRow(label: "Avg Cost per Token") {
-                    TextField("0.00", text: $averageCostText)
-                        .font(.ftBody)
+                    AmountTextField("0.00", text: $averageCostText, font: .ftBody)
                         .foregroundStyle(FTColor.textPrimary)
-                        .multilineTextAlignment(.trailing)
-                        .keyboardType(.decimalPad)
                 }
 
                 divider
@@ -526,11 +523,8 @@ struct AddCryptoView: View {
             divider
 
             fieldRow(label: "Cost per Token") {
-                TextField("0.00", text: $lotCostText)
-                    .font(.ftBody)
+                AmountTextField("0.00", text: $lotCostText, font: .ftBody)
                     .foregroundStyle(FTColor.textPrimary)
-                    .multilineTextAlignment(.trailing)
-                    .keyboardType(.decimalPad)
             }
 
             divider
@@ -651,7 +645,7 @@ struct AddCryptoView: View {
         exchangeLabel   = item.exchange ?? ""
         walletAddress   = item.walletAddress ?? ""
         quantityText    = item.quantity > 0 ? String(format: "%g", item.quantity) : ""
-        averageCostText = item.averageCost > 0 ? String(format: "%.2f", item.averageCost) : ""
+        averageCostText = item.averageCost > 0 ? AmountTextField.format(String(format: "%.2f", item.averageCost)) : ""
         currency        = item.currency
         purchaseDate    = item.purchaseDate
         notes           = item.notes ?? ""
@@ -664,7 +658,7 @@ struct AddCryptoView: View {
 
     private func commitLot() {
         let qty  = Double(lotQtyText.replacingOccurrences(of: ",", with: ".")) ?? 0
-        let cost = Double(lotCostText.replacingOccurrences(of: ",", with: ".")) ?? 0
+        let cost = AmountTextField.double(from: lotCostText)
         guard qty > 0, cost > 0 else { return }
         let lot = PurchaseLot(
             quantity: qty,
@@ -680,7 +674,7 @@ struct AddCryptoView: View {
 
     private func save() {
         let qty          = Double(quantityText.replacingOccurrences(of: ",", with: ".")) ?? 0
-        let avgCost      = Double(averageCostText.replacingOccurrences(of: ",", with: ".")) ?? 0
+        let avgCost      = AmountTextField.double(from: averageCostText)
         let curPrice     = livePrice ?? 0
         let trimmedName  = cryptoName.trimmingCharacters(in: .whitespaces)
         let trimmedSym   = cryptoSymbol.trimmingCharacters(in: .whitespaces).uppercased()

@@ -317,10 +317,8 @@ struct EditRuleView: View {
                     HStack(spacing: FTSpacing.md) {
                         Text("Min Amount").font(.ftBody).foregroundStyle(FTColor.textSecondary)
                         Spacer()
-                        TextField("0", text: $amountMin)
-                            .keyboardType(.decimalPad)
-                            .multilineTextAlignment(.trailing)
-                            .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                        AmountTextField("0", text: $amountMin, font: .ftBodySemibold)
+                            .foregroundStyle(FTColor.textPrimary)
                             .frame(maxWidth: 100)
                     }
                     .padding(.vertical, 13)
@@ -329,10 +327,8 @@ struct EditRuleView: View {
                     HStack(spacing: FTSpacing.md) {
                         Text("Max Amount").font(.ftBody).foregroundStyle(FTColor.textSecondary)
                         Spacer()
-                        TextField("∞", text: $amountMax)
-                            .keyboardType(.decimalPad)
-                            .multilineTextAlignment(.trailing)
-                            .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                        AmountTextField("∞", text: $amountMax, font: .ftBodySemibold)
+                            .foregroundStyle(FTColor.textPrimary)
                             .frame(maxWidth: 100)
                     }
                     .padding(.vertical, 13)
@@ -443,8 +439,8 @@ struct EditRuleView: View {
         name           = r.name
         conditionType  = r.conditionType
         conditionValue = r.conditionValue
-        amountMin      = r.amountMin.map { String($0) } ?? ""
-        amountMax      = r.amountMax.map { String($0) } ?? ""
+        amountMin      = r.amountMin.map { AmountTextField.format(String($0)) } ?? ""
+        amountMax      = r.amountMax.map { AmountTextField.format(String($0)) } ?? ""
         targetCategory = r.targetCategory
         priority       = r.priority
         autoTags       = r.autoTags
@@ -456,8 +452,8 @@ struct EditRuleView: View {
         let trimmedValue = conditionValue.trimmingCharacters(in: .whitespaces)
         guard !trimmedName.isEmpty else { return }
 
-        let minAmt = Double(amountMin.trimmingCharacters(in: .whitespaces))
-        let maxAmt = Double(amountMax.trimmingCharacters(in: .whitespaces))
+        let minAmt: Double? = amountMin.trimmingCharacters(in: .whitespaces).isEmpty ? nil : AmountTextField.double(from: amountMin)
+        let maxAmt: Double? = amountMax.trimmingCharacters(in: .whitespaces).isEmpty ? nil : AmountTextField.double(from: amountMax)
 
         if let r = rule {
             r.name = trimmedName

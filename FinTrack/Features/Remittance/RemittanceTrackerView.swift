@@ -201,10 +201,10 @@ struct AddRemittanceView: View {
     @State private var customProvider = ""
     @State private var recipientName = ""
     @State private var recipientCountry = ""
-    @State private var sentAmount = 0.0
-    @State private var receivedAmount = 0.0
+    @State private var sentAmountText = ""
+    @State private var receivedAmountText = ""
     @State private var exchangeRate = 0.0
-    @State private var fee = 0.0
+    @State private var feeText = ""
     @State private var senderCurrency: String = "AED"
     @State private var receiverCurrency: String = "INR"
     @State private var referenceNumber = ""
@@ -241,14 +241,12 @@ struct AddRemittanceView: View {
                     HStack {
                         Text("Amount Sent")
                         Spacer()
-                        TextField("0", value: $sentAmount, format: .number)
-                            .keyboardType(.decimalPad).multilineTextAlignment(.trailing)
+                        AmountTextField("0", text: $sentAmountText)
                     }
                     HStack {
                         Text("Amount Received")
                         Spacer()
-                        TextField("0", value: $receivedAmount, format: .number)
-                            .keyboardType(.decimalPad).multilineTextAlignment(.trailing)
+                        AmountTextField("0", text: $receivedAmountText)
                     }
                     HStack {
                         Text("Exchange Rate")
@@ -259,8 +257,7 @@ struct AddRemittanceView: View {
                     HStack {
                         Text("Fee")
                         Spacer()
-                        TextField("0", value: $fee, format: .number)
-                            .keyboardType(.decimalPad).multilineTextAlignment(.trailing)
+                        AmountTextField("0", text: $feeText)
                     }
                     TextField("Reference Number (optional)", text: $referenceNumber)
                 }
@@ -274,7 +271,7 @@ struct AddRemittanceView: View {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Save") { save() }
                         .foregroundStyle(FTColor.accent)
-                        .disabled(recipientName.isEmpty || sentAmount == 0)
+                        .disabled(recipientName.isEmpty || AmountTextField.double(from: sentAmountText) == 0)
                 }
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") { dismiss() }.foregroundStyle(FTColor.textSecondary)
@@ -291,10 +288,10 @@ struct AddRemittanceView: View {
             customProviderName: provider == .custom ? customProvider : nil,
             senderCurrency: senderCurrency,
             receiverCurrency: receiverCurrency,
-            sentAmount: sentAmount,
-            receivedAmount: receivedAmount,
+            sentAmount: AmountTextField.double(from: sentAmountText),
+            receivedAmount: AmountTextField.double(from: receivedAmountText),
             exchangeRate: exchangeRate,
-            fee: fee,
+            fee: AmountTextField.double(from: feeText),
             recipientName: recipientName,
             recipientCountry: recipientCountry,
             referenceNumber: referenceNumber.isEmpty ? nil : referenceNumber,

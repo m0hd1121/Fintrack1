@@ -61,7 +61,7 @@ struct AddSalaryRecordView: View {
     }
 
     private var parsedAmount: Double {
-        Double(expectedAmount.replacingOccurrences(of: ",", with: ".")) ?? 0
+        AmountTextField.double(from: expectedAmount)
     }
 
     // MARK: Body
@@ -143,11 +143,8 @@ struct AddSalaryRecordView: View {
                 HStack(spacing: FTSpacing.md) {
                     fieldLabel("Expected Amount")
                     Spacer()
-                    TextField("0.00", text: $expectedAmount)
-                        .keyboardType(.decimalPad)
-                        .font(.ftBodySemibold)
+                    AmountTextField("0.00", text: $expectedAmount, font: .ftBodySemibold)
                         .foregroundStyle(FTColor.textPrimary)
-                        .multilineTextAlignment(.trailing)
                         .frame(maxWidth: 160)
                 }
                 .padding(.vertical, FTSpacing.md)
@@ -453,7 +450,7 @@ struct AddSalaryRecordView: View {
         employerName       = record.employerName
         jobTitle           = record.jobTitle
         currency           = record.currency
-        expectedAmount     = record.expectedAmount > 0 ? String(format: "%.2f", record.expectedAmount) : ""
+        expectedAmount     = record.expectedAmount > 0 ? AmountTextField.format(String(format: "%.2f", record.expectedAmount)) : ""
         expectedPaymentDay = record.expectedPaymentDay
         selectedFrequency  = record.paymentFrequency
         colorName          = record.colorName

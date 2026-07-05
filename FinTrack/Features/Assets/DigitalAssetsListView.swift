@@ -268,8 +268,8 @@ struct AddDigitalAssetView: View {
     private var isEditing: Bool { editingAsset != nil }
     private var canSave: Bool {
         !name.trimmingCharacters(in: .whitespaces).isEmpty
-            && Double(currentValue) != nil
-            && Double(acquisitionValue) != nil
+            && Double(currentValue.replacingOccurrences(of: ",", with: "")) != nil
+            && Double(acquisitionValue.replacingOccurrences(of: ",", with: "")) != nil
     }
 
     var body: some View {
@@ -378,7 +378,7 @@ struct AddDigitalAssetView: View {
                 }
                 Divider().overlay(Color.white.opacity(0.08)).padding(.leading, FTSpacing.lg)
                 formField(label: "Acquisition Value") {
-                    TextField("0.00", text: $acquisitionValue).keyboardType(.decimalPad)
+                    AmountTextField("0.00", text: $acquisitionValue)
                 }
                 Divider().overlay(Color.white.opacity(0.08)).padding(.leading, FTSpacing.lg)
                 formField(label: "Acquisition Date") {
@@ -386,12 +386,12 @@ struct AddDigitalAssetView: View {
                 }
                 Divider().overlay(Color.white.opacity(0.08)).padding(.leading, FTSpacing.lg)
                 formField(label: "Current Value") {
-                    TextField("0.00", text: $currentValue).keyboardType(.decimalPad)
+                    AmountTextField("0.00", text: $currentValue)
                 }
             }
             .ftGlass()
 
-            if let acq = Double(acquisitionValue), let cur = Double(currentValue), acq > 0 {
+            if let acq = Double(acquisitionValue.replacingOccurrences(of: ",", with: "")), let cur = Double(currentValue.replacingOccurrences(of: ",", with: "")), acq > 0 {
                 let gl = cur - acq
                 let pct = gl / acq * 100
                 HStack {
@@ -471,9 +471,9 @@ struct AddDigitalAssetView: View {
         selectedType = a.assetType
         platform = a.platform ?? ""
         identifier = a.identifier ?? ""
-        acquisitionValue = String(a.acquisitionValue)
+        acquisitionValue = AmountTextField.format(String(a.acquisitionValue))
         acquisitionDate = a.acquisitionDate
-        currentValue = String(a.currentValue)
+        currentValue = AmountTextField.format(String(a.currentValue))
         currency = a.currency
         hasExpiry = a.expiryDate != nil
         if let exp = a.expiryDate { expiryDate = exp }
@@ -481,7 +481,7 @@ struct AddDigitalAssetView: View {
     }
 
     private func save() {
-        guard let acq = Double(acquisitionValue), let cur = Double(currentValue) else { return }
+        guard let acq = Double(acquisitionValue.replacingOccurrences(of: ",", with: "")), let cur = Double(currentValue.replacingOccurrences(of: ",", with: "")) else { return }
         if let a = editingAsset {
             a.name = name.trimmingCharacters(in: .whitespaces)
             a.assetType = selectedType

@@ -691,7 +691,7 @@ struct AddTenancySheet: View {
             }
             .onAppear {
                 if monthlyRentText.isEmpty {
-                    monthlyRentText = String(format: "%.2f", property.monthlyRentExpected)
+                    monthlyRentText = AmountTextField.format(String(format: "%.2f", property.monthlyRentExpected))
                 }
             }
         }
@@ -730,22 +730,16 @@ struct AddTenancySheet: View {
                 formRow {
                     fieldLabel("Monthly Rent")
                     Spacer()
-                    TextField("0.00", text: $monthlyRentText)
-                        .keyboardType(.decimalPad)
-                        .font(.ftBodySemibold)
+                    AmountTextField("0.00", text: $monthlyRentText, font: .ftBodySemibold)
                         .foregroundStyle(FTColor.textPrimary)
-                        .multilineTextAlignment(.trailing)
                         .frame(maxWidth: 140)
                 }
                 rowDivider
                 formRow {
                     fieldLabel("Deposit Amount")
                     Spacer()
-                    TextField("0.00", text: $depositText)
-                        .keyboardType(.decimalPad)
-                        .font(.ftBody)
+                    AmountTextField("0.00", text: $depositText, font: .ftBody)
                         .foregroundStyle(FTColor.textPrimary)
-                        .multilineTextAlignment(.trailing)
                         .frame(maxWidth: 140)
                 }
             }
@@ -795,8 +789,8 @@ struct AddTenancySheet: View {
 
     private func save() {
         let trimmedName = tenantName.trimmingCharacters(in: .whitespaces)
-        let monthlyRent = Double(monthlyRentText.replacingOccurrences(of: ",", with: ".")) ?? 0
-        let deposit = Double(depositText.replacingOccurrences(of: ",", with: ".")) ?? 0
+        let monthlyRent = AmountTextField.double(from: monthlyRentText)
+        let deposit = AmountTextField.double(from: depositText)
 
         guard !trimmedName.isEmpty else {
             validationMessage = "Tenant name is required"
@@ -902,7 +896,7 @@ struct RecordRentPaymentSheet: View {
                 }
             }
             .onAppear {
-                amountText = String(format: "%.2f", property.currentMonthlyRent)
+                amountText = AmountTextField.format(String(format: "%.2f", property.currentMonthlyRent))
             }
         }
     }
@@ -954,11 +948,8 @@ struct RecordRentPaymentSheet: View {
                         .foregroundStyle(FTColor.textSecondary)
                         .fixedSize()
                     Spacer()
-                    TextField("0.00", text: $amountText)
-                        .keyboardType(.decimalPad)
-                        .font(.ftBodySemibold)
+                    AmountTextField("0.00", text: $amountText, font: .ftBodySemibold)
                         .foregroundStyle(FTColor.textPrimary)
-                        .multilineTextAlignment(.trailing)
                         .frame(maxWidth: 140)
                 }
                 .padding(.vertical, FTSpacing.md)
@@ -1025,7 +1016,7 @@ struct RecordRentPaymentSheet: View {
     }
 
     private func save() {
-        let amount = Double(amountText.replacingOccurrences(of: ",", with: ".")) ?? 0
+        let amount = AmountTextField.double(from: amountText)
         guard amount > 0 else {
             withAnimation { showValidationError = true }
             return

@@ -356,7 +356,9 @@ struct AddPersonalAssetView: View {
             }
             .ftGlass(FTRadius.lg)
             // Gain/loss preview
-            if let pp = Double(purchasePrice), let mv = Double(estimatedMarketValue), pp > 0 {
+            let pp = AmountTextField.double(from: purchasePrice)
+            let mv = AmountTextField.double(from: estimatedMarketValue)
+            if pp > 0 {
                 let gain = mv - pp
                 HStack {
                     Image(systemName: gain >= 0 ? "arrow.up.right" : "arrow.down.right")
@@ -419,8 +421,8 @@ struct AddPersonalAssetView: View {
         HStack {
             Text(label).font(.ftBody).foregroundStyle(FTColor.textSecondary)
             Spacer()
-            TextField(placeholder, text: text).keyboardType(.decimalPad)
-                .multilineTextAlignment(.trailing).font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+            AmountTextField(placeholder, text: text, font: .ftBodySemibold)
+                .foregroundStyle(FTColor.textPrimary)
                 .frame(width: 140)
         }
         .padding(.horizontal, FTSpacing.lg).padding(.vertical, FTSpacing.md)
@@ -428,8 +430,8 @@ struct AddPersonalAssetView: View {
 
     private func validate() -> Bool {
         !name.trimmingCharacters(in: .whitespaces).isEmpty &&
-        Double(purchasePrice) != nil &&
-        Double(estimatedMarketValue) != nil
+        !purchasePrice.isEmpty &&
+        !estimatedMarketValue.isEmpty
     }
 
     private func prefill() {
@@ -437,19 +439,19 @@ struct AddPersonalAssetView: View {
         name = item.name
         brand = item.brand ?? ""
         selectedCategory = item.category
-        purchasePrice = String(item.purchasePrice)
+        purchasePrice = AmountTextField.format(String(item.purchasePrice))
         purchaseDate = item.purchaseDate
-        estimatedMarketValue = String(item.estimatedMarketValue)
-        insuranceValue = item.insuranceValue > 0 ? String(item.insuranceValue) : ""
+        estimatedMarketValue = AmountTextField.format(String(item.estimatedMarketValue))
+        insuranceValue = item.insuranceValue > 0 ? AmountTextField.format(String(item.insuranceValue)) : ""
         serialNumber = item.serialNumber ?? ""
         currency = item.currency
         notes = item.notes ?? ""
     }
 
     private func save() {
-        let pp  = Double(purchasePrice) ?? 0
-        let mv  = Double(estimatedMarketValue) ?? 0
-        let ins = Double(insuranceValue) ?? 0
+        let pp  = AmountTextField.double(from: purchasePrice)
+        let mv  = AmountTextField.double(from: estimatedMarketValue)
+        let ins = AmountTextField.double(from: insuranceValue)
 
         if let item = editingItem {
             item.name = name.trimmingCharacters(in: .whitespaces)

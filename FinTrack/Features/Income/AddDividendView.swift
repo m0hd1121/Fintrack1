@@ -41,11 +41,11 @@ struct AddDividendView: View {
     // MARK: Computed
 
     private var grossAmount: Double {
-        Double(grossAmountText.replacingOccurrences(of: ",", with: ".")) ?? 0
+        AmountTextField.double(from: grossAmountText)
     }
 
     private var taxWithholding: Double {
-        Double(taxWithholdingText.replacingOccurrences(of: ",", with: ".")) ?? 0
+        AmountTextField.double(from: taxWithholdingText)
     }
 
     private var netAmount: Double {
@@ -143,11 +143,8 @@ struct AddDividendView: View {
                 formRow {
                     fieldLabel("Gross Amount")
                     Spacer()
-                    TextField("0.00", text: $grossAmountText)
-                        .keyboardType(.decimalPad)
-                        .font(.ftBodySemibold)
+                    AmountTextField("0.00", text: $grossAmountText, font: .ftBodySemibold)
                         .foregroundStyle(FTColor.textPrimary)
-                        .multilineTextAlignment(.trailing)
                         .frame(maxWidth: 140)
                 }
                 rowDivider
@@ -225,11 +222,8 @@ struct AddDividendView: View {
                 formRow {
                     fieldLabel("Tax Withholding")
                     Spacer()
-                    TextField("0.00", text: $taxWithholdingText)
-                        .keyboardType(.decimalPad)
-                        .font(.ftBody)
+                    AmountTextField("0.00", text: $taxWithholdingText, font: .ftBody)
                         .foregroundStyle(FTColor.textPrimary)
-                        .multilineTextAlignment(.trailing)
                         .frame(maxWidth: 140)
                 }
 
@@ -358,12 +352,12 @@ struct AddDividendView: View {
     private func populateIfEditing() {
         guard let dividend = editingDividend else { return }
         securityName        = dividend.securityName ?? ""
-        grossAmountText     = dividend.amount > 0 ? String(format: "%.2f", dividend.amount) : ""
+        grossAmountText     = dividend.amount > 0 ? AmountTextField.format(String(format: "%.2f", dividend.amount)) : ""
         currency            = dividend.currency
         paymentDate         = dividend.date
         hasExDividendDate   = dividend.exDividendDate != nil
         exDividendDate      = dividend.exDividendDate ?? Calendar.current.date(byAdding: .day, value: -30, to: dividend.date) ?? Date()
-        taxWithholdingText  = dividend.taxWithholding > 0 ? String(format: "%.2f", dividend.taxWithholding) : "0"
+        taxWithholdingText  = dividend.taxWithholding > 0 ? AmountTextField.format(String(format: "%.2f", dividend.taxWithholding)) : "0"
         notes               = dividend.notes ?? ""
     }
 

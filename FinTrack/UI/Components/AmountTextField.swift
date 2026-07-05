@@ -89,9 +89,10 @@ struct AmountTextField: View {
 // MARK: – Convenience init with label
 
 extension AmountTextField {
-    init(_ placeholder: String, text: Binding<String>, alignment: TextAlignment = .trailing) {
+    init(_ placeholder: String, text: Binding<String>, alignment: TextAlignment = .trailing, font: Font = .body) {
         self.placeholder = placeholder
         self._text = text
         self.alignment = alignment
+        self.font = font
     }
 }

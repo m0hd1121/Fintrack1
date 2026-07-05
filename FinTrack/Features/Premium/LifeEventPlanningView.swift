@@ -322,8 +322,8 @@ struct AddLifeEventView: View {
     @State private var eventType: LifeEventType = .other
     @State private var title = ""
     @State private var targetDate = Calendar.current.date(byAdding: .year, value: 1, to: Date()) ?? Date()
-    @State private var estimatedCost = 0.0
-    @State private var savedAmount = 0.0
+    @State private var estimatedCostText = ""
+    @State private var savedAmountText = ""
     @State private var notes = ""
 
     var body: some View {
@@ -336,7 +336,9 @@ struct AddLifeEventView: View {
                         }
                     }
                     .onChange(of: eventType) { _, t in
-                        if estimatedCost == 0 { estimatedCost = t.defaultBudget }
+                        if AmountTextField.double(from: estimatedCostText) == 0 {
+                            estimatedCostText = AmountTextField.format(String(t.defaultBudget))
+                        }
                     }
                 }
                 Section("Details") {
@@ -347,14 +349,12 @@ struct AddLifeEventView: View {
                     HStack {
                         Text("Estimated Cost")
                         Spacer()
-                        TextField("0", value: $estimatedCost, format: .number)
-                            .keyboardType(.decimalPad).multilineTextAlignment(.trailing)
+                        AmountTextField("0", text: $estimatedCostText)
                     }
                     HStack {
                         Text("Already Saved")
                         Spacer()
-                        TextField("0", value: $savedAmount, format: .number)
-                            .keyboardType(.decimalPad).multilineTextAlignment(.trailing)
+                        AmountTextField("0", text: $savedAmountText)
                     }
                 }
                 Section("Notes") {
@@ -380,12 +380,14 @@ struct AddLifeEventView: View {
         eventType = e.eventType
         title = e.title
         targetDate = e.targetDate
-        estimatedCost = e.estimatedCost
-        savedAmount = e.savedAmount
+        estimatedCostText = AmountTextField.format(String(e.estimatedCost))
+        savedAmountText = AmountTextField.format(String(e.savedAmount))
         notes = e.notes ?? ""
     }
 
     private func save() {
+        let estimatedCost = AmountTextField.double(from: estimatedCostText)
+        let savedAmount = AmountTextField.double(from: savedAmountText)
         if let e = editing {
             e.eventTypeRaw = eventType.rawValue
             e.title = title

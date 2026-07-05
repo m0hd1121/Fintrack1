@@ -19,7 +19,7 @@ struct ContributeToGoalView: View {
     private var baseCurrency: String { appState.baseCurrency }
     private var activeAccounts: [Account] { accounts.filter { !$0.isArchived } }
 
-    private var parsedAmount: Double { Double(amount) ?? 0 }
+    private var parsedAmount: Double { AmountTextField.double(from: amount) }
     private var newBalance: Double {
         isWithdrawal ? max(0, goal.currentAmount - parsedAmount) : goal.currentAmount + parsedAmount
     }
@@ -53,10 +53,8 @@ struct ContributeToGoalView: View {
                                 Text("Amount").font(.ftBody).foregroundStyle(FTColor.textSecondary)
                                 Spacer()
                                 Text(goal.currency).font(.ftBody).foregroundStyle(FTColor.textMuted)
-                                TextField("0.00", text: $amount)
-                                    .keyboardType(.decimalPad)
-                                    .multilineTextAlignment(.trailing)
-                                    .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                                AmountTextField("0.00", text: $amount, font: .ftBodySemibold)
+                                    .foregroundStyle(FTColor.textPrimary)
                                     .frame(maxWidth: 140)
                             }.padding(.vertical, 13)
 

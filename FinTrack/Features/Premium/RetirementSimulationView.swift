@@ -229,6 +229,11 @@ struct RetirementEditView: View {
     @Environment(\.modelContext) private var context
     @Bindable var plan: RetirementPlan
 
+    @State private var currentSavingsText: String = ""
+    @State private var monthlyContributionText: String = ""
+    @State private var monthlyBasicSalaryText: String = ""
+    @State private var targetMonthlyIncomeText: String = ""
+
     var body: some View {
         NavigationStack {
             Form {
@@ -241,28 +246,24 @@ struct RetirementEditView: View {
                     HStack {
                         Text("Current Savings")
                         Spacer()
-                        TextField("0", value: $plan.currentSavings, format: .number)
-                            .keyboardType(.decimalPad).multilineTextAlignment(.trailing)
+                        AmountTextField("0", text: $currentSavingsText)
                     }
                     HStack {
                         Text("Monthly Contribution")
                         Spacer()
-                        TextField("0", value: $plan.monthlyContribution, format: .number)
-                            .keyboardType(.decimalPad).multilineTextAlignment(.trailing)
+                        AmountTextField("0", text: $monthlyContributionText)
                     }
                     HStack {
                         Text("Basic Monthly Salary")
                         Spacer()
-                        TextField("0", value: $plan.monthlyBasicSalary, format: .number)
-                            .keyboardType(.decimalPad).multilineTextAlignment(.trailing)
+                        AmountTextField("0", text: $monthlyBasicSalaryText)
                     }
                 }
                 Section("Target") {
                     HStack {
                         Text("Monthly Income in Retirement")
                         Spacer()
-                        TextField("0", value: $plan.targetMonthlyIncome, format: .number)
-                            .keyboardType(.decimalPad).multilineTextAlignment(.trailing)
+                        AmountTextField("0", text: $targetMonthlyIncomeText)
                     }
                 }
                 Section("Assumptions") {
@@ -285,6 +286,10 @@ struct RetirementEditView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Save") {
+                        plan.currentSavings = AmountTextField.double(from: currentSavingsText)
+                        plan.monthlyContribution = AmountTextField.double(from: monthlyContributionText)
+                        plan.monthlyBasicSalary = AmountTextField.double(from: monthlyBasicSalaryText)
+                        plan.targetMonthlyIncome = AmountTextField.double(from: targetMonthlyIncomeText)
                         plan.lastUpdated = Date()
                         try? context.save()
                         dismiss()
@@ -294,6 +299,12 @@ struct RetirementEditView: View {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") { dismiss() }.foregroundStyle(FTColor.textSecondary)
                 }
+            }
+            .onAppear {
+                currentSavingsText = AmountTextField.format(String(plan.currentSavings))
+                monthlyContributionText = AmountTextField.format(String(plan.monthlyContribution))
+                monthlyBasicSalaryText = AmountTextField.format(String(plan.monthlyBasicSalary))
+                targetMonthlyIncomeText = AmountTextField.format(String(plan.targetMonthlyIncome))
             }
         }
     }

@@ -379,10 +379,8 @@ private struct EditPendingEmailSheet: View {
                             }
                             Divider().opacity(0.4)
                             fieldRow("Amount (\(item.currency))") {
-                                TextField("0.00", text: $amountText)
-                                    .keyboardType(.decimalPad)
-                                    .multilineTextAlignment(.trailing)
-                                    .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                                AmountTextField("0.00", text: $amountText, font: .ftBodySemibold)
+                                    .foregroundStyle(FTColor.textPrimary)
                                     .frame(maxWidth: 120)
                             }
                             Divider().opacity(0.4)
@@ -521,7 +519,7 @@ private struct EditPendingEmailSheet: View {
                 }
             }
             .onAppear {
-                amountText = String(format: "%.2f", item.amount)
+                amountText = AmountTextField.format(String(format: "%.2f", item.amount))
                 tagsText = item.suggestedTags.joined(separator: ", ")
                 originalMerchant = item.merchantNormalized
             }

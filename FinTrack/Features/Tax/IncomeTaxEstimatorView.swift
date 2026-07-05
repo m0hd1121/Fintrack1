@@ -105,9 +105,8 @@ struct IncomeTaxEstimatorView: View {
                     HStack {
                         Text(config?.currency ?? appState.baseCurrency)
                             .font(.ftBody).foregroundStyle(FTColor.textSecondary)
-                        TextField("Annual income", text: $manualAnnualIncome)
-                            .keyboardType(.decimalPad)
-                            .font(.ftHeadline).foregroundStyle(FTColor.textPrimary)
+                        AmountTextField("Annual income", text: $manualAnnualIncome, alignment: .leading, font: .ftHeadline)
+                            .foregroundStyle(FTColor.textPrimary)
                     }
                     .padding()
                     .ftGlass(FTRadius.lg)

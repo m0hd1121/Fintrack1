@@ -1523,10 +1523,8 @@ struct AddBudgetView: View {
                             Text("Amount Limit").font(.ftBody).foregroundStyle(FTColor.textSecondary)
                             Spacer()
                             Text(appState.baseCurrency).font(.ftBody).foregroundStyle(FTColor.textMuted)
-                            TextField("0.00", text: $amount)
-                                .keyboardType(.decimalPad)
-                                .multilineTextAlignment(.trailing)
-                                .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                            AmountTextField("0.00", text: $amount, font: .ftBodySemibold)
+                                .foregroundStyle(FTColor.textPrimary)
                                 .frame(maxWidth: 120)
                         }
                     }
@@ -1646,7 +1644,7 @@ struct AddBudgetView: View {
         guard let b = editingBudget else { return }
         name = b.name
         category = b.category
-        amount = String(b.amount)
+        amount = AmountTextField.format(String(b.amount))
         period = b.period
         alertThreshold = b.alertThreshold
         isRollover = b.isRollover
@@ -1666,7 +1664,7 @@ struct AddBudgetView: View {
         if let b = editingBudget {
             b.name = name
             b.category = category
-            b.amount = Double(amount) ?? 0
+            b.amount = AmountTextField.double(from: amount)
             b.period = period
             b.alertThreshold = alertThreshold
             b.isRollover = isRollover
@@ -1679,7 +1677,7 @@ struct AddBudgetView: View {
             let budget = Budget(
                 name: name,
                 category: category,
-                amount: Double(amount) ?? 0,
+                amount: AmountTextField.double(from: amount),
                 currency: appState.baseCurrency,
                 period: period,
                 endDate: hasExpiration ? expirationDate : nil,
@@ -1766,8 +1764,8 @@ struct AddEnvelopeView: View {
                                 Text("Funded Amount").font(.ftBody).foregroundStyle(FTColor.textSecondary)
                                 Spacer()
                                 Text(appState.baseCurrency).font(.ftBody).foregroundStyle(FTColor.textMuted)
-                                TextField("0.00", text: $amount).keyboardType(.decimalPad)
-                                    .multilineTextAlignment(.trailing).font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                                AmountTextField("0.00", text: $amount, font: .ftBodySemibold)
+                                    .foregroundStyle(FTColor.textPrimary)
                                     .frame(maxWidth: 120)
                             }.padding(.vertical, 13)
                         }
@@ -1831,7 +1829,7 @@ struct AddEnvelopeView: View {
             name: name,
             icon: selectedIcon,
             colorHex: selectedColorHex,
-            allocatedAmount: Double(amount) ?? 0,
+            allocatedAmount: AmountTextField.double(from: amount),
             category: category,
             currency: appState.baseCurrency,
             sortOrder: existingEnvelopes.count
@@ -2027,8 +2025,8 @@ struct EnvelopeDetailView: View {
                         HStack {
                             Text("Amount").font(.ftBody).foregroundStyle(FTColor.textSecondary)
                             Spacer()
-                            TextField("0.00", text: $transferAmount).keyboardType(.decimalPad)
-                                .multilineTextAlignment(.trailing).font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                            AmountTextField("0.00", text: $transferAmount, font: .ftBodySemibold)
+                                .foregroundStyle(FTColor.textPrimary)
                                 .frame(maxWidth: 120)
                         }.padding(.vertical, 13)
                     }
@@ -2037,7 +2035,7 @@ struct EnvelopeDetailView: View {
                     Spacer()
 
                     Button {
-                        if let target = transferTarget, let a = Double(transferAmount), a > 0 {
+                        if let target = transferTarget, let a = Double(transferAmount.replacingOccurrences(of: ",", with: "")), a > 0 {
                             envelope.allocatedAmount -= a
                             target.allocatedAmount += a
                             try? context.save()
@@ -2201,13 +2199,12 @@ struct ApplyTemplateView: View {
                                     }
                                     Spacer()
                                     Text(appState.baseCurrency).font(.ftBody).foregroundStyle(FTColor.textMuted)
-                                    TextField(
+                                    AmountTextField(
                                         String(format: "%.0f", item.suggestedAmount),
-                                        text: binding(for: item)
+                                        text: binding(for: item),
+                                        font: .ftBodySemibold
                                     )
-                                    .keyboardType(.decimalPad)
-                                    .multilineTextAlignment(.trailing)
-                                    .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                                    .foregroundStyle(FTColor.textPrimary)
                                     .frame(maxWidth: 100)
                                 }
                                 .padding(.vertical, 13)
@@ -2239,7 +2236,7 @@ struct ApplyTemplateView: View {
             .onAppear {
                 // Pre-fill amounts from template suggestions
                 for item in template.items {
-                    amounts[item.id] = String(format: "%.0f", item.suggestedAmount)
+                    amounts[item.id] = AmountTextField.format(String(format: "%.0f", item.suggestedAmount))
                 }
             }
         }
@@ -2247,7 +2244,7 @@ struct ApplyTemplateView: View {
 
     private func binding(for item: TemplateItem) -> Binding<String> {
         Binding(
-            get: { amounts[item.id] ?? String(format: "%.0f", item.suggestedAmount) },
+            get: { amounts[item.id] ?? AmountTextField.format(String(format: "%.0f", item.suggestedAmount)) },
             set: { amounts[item.id] = $0 }
         )
     }
@@ -2256,7 +2253,7 @@ struct ApplyTemplateView: View {
         let budgetedCats = Set(existingBudgets.filter { $0.isActive }.map { $0.category })
         for item in template.items {
             guard !budgetedCats.contains(item.category) else { continue }
-            let amount = Double(amounts[item.id] ?? "") ?? item.suggestedAmount
+            let amount = Double((amounts[item.id] ?? "").replacingOccurrences(of: ",", with: "")) ?? item.suggestedAmount
             guard amount > 0 else { continue }
             let budget = Budget(
                 name: item.category.rawValue,

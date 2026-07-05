@@ -215,12 +215,11 @@ struct ZakatCalculatorView: View {
             if r.useManualOverride {
                 HStack {
                     Text(appState.baseCurrency).font(.ftBody).foregroundStyle(FTColor.textSecondary)
-                    TextField("Manual zakat amount", text: Binding(
-                        get: { r.manualZakatAmount > 0 ? String(r.manualZakatAmount) : "" },
-                        set: { r.manualZakatAmount = Double($0) ?? 0; try? context.save() }
-                    ))
-                    .keyboardType(.decimalPad)
-                    .font(.ftHeadline).foregroundStyle(FTColor.textPrimary)
+                    AmountTextField("Manual zakat amount", text: Binding(
+                        get: { r.manualZakatAmount > 0 ? AmountTextField.format(String(format: "%.2f", r.manualZakatAmount)) : "" },
+                        set: { r.manualZakatAmount = AmountTextField.double(from: $0); try? context.save() }
+                    ), alignment: .leading, font: .ftHeadline)
+                    .foregroundStyle(FTColor.textPrimary)
                 }
             }
         }
@@ -312,11 +311,12 @@ struct ZakatCalculatorView: View {
             Image(systemName: icon).foregroundStyle(color).font(.ftCallout).frame(width: 24)
             Text(label).font(.ftBody).foregroundStyle(FTColor.textSecondary)
             Spacer()
-            TextField("0", value: value, format: .number)
-                .keyboardType(.decimalPad)
-                .multilineTextAlignment(.trailing)
-                .font(.ftCallout).foregroundStyle(FTColor.textPrimary)
-                .frame(width: 100)
+            AmountTextField("0", text: Binding(
+                get: { value.wrappedValue > 0 ? AmountTextField.format(String(format: "%.2f", value.wrappedValue)) : "" },
+                set: { value.wrappedValue = AmountTextField.double(from: $0) }
+            ), font: .ftCallout)
+            .foregroundStyle(FTColor.textPrimary)
+            .frame(width: 100)
         }
         .padding(.vertical, 10)
         Divider().opacity(0.2)
@@ -383,10 +383,10 @@ struct ZakatPaymentSheet: View {
                     VStack(spacing: FTSpacing.sm) {
                         HStack {
                             Text(appState.baseCurrency).font(.ftBody).foregroundStyle(FTColor.textSecondary)
-                            TextField("Amount paid", text: $amount).keyboardType(.decimalPad)
-                                .font(.ftHeadline).foregroundStyle(FTColor.textPrimary)
+                            AmountTextField("Amount paid", text: $amount, alignment: .leading, font: .ftHeadline)
+                                .foregroundStyle(FTColor.textPrimary)
                             Button("Full") {
-                                amount = String(format: "%.2f", record.remainingZakat)
+                                amount = AmountTextField.format(String(format: "%.2f", record.remainingZakat))
                             }
                             .font(.ftCallout).foregroundStyle(FTColor.accent)
                         }

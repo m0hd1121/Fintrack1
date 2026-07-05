@@ -303,17 +303,12 @@ struct AddTransactionView: View {
                 .glassEffect(.regular, in: .capsule)
             }
 
-            TextField("0.00", text: $amount)
-                .keyboardType(.decimalPad)
-                .multilineTextAlignment(.center)
-                .font(.ftDisplay)
+            AmountTextField("0.00", text: $amount, alignment: .center, font: .ftDisplay)
                 .foregroundStyle(FTColor.textPrimary)
                 .focused($amountFocused)
                 .accessibilityLabel("Amount")
                 .accessibilityHint("Enter the transaction amount")
-                .onChange(of: amount) { _, newValue in
-                    let formatted = AmountTextField.format(newValue)
-                    if formatted != newValue { amount = formatted }
+                .onChange(of: amount) { _, _ in
                     // Auto-sync split total when amount changes
                     if isSplitEnabled, let total = amountDouble, splitItems.count == 1 {
                         splitItems[0].amount = total
@@ -401,10 +396,7 @@ struct AddTransactionView: View {
                 HStack(spacing: FTSpacing.md) {
                     Text("Fee Amount").font(.ftBody).foregroundStyle(FTColor.textSecondary)
                     Spacer()
-                    TextField("0.00", text: $transferFee)
-                        .keyboardType(.decimalPad)
-                        .multilineTextAlignment(.trailing)
-                        .font(.ftBodySemibold)
+                    AmountTextField("0.00", text: $transferFee, font: .ftBodySemibold)
                         .foregroundStyle(FTColor.expense)
                         .frame(maxWidth: 120)
                     Text(currency).font(.ftCaption).foregroundStyle(FTColor.textMuted)
@@ -1915,16 +1907,11 @@ private struct SplitItemRow: View {
             }
 
             // Amount field
-            TextField("0.00", text: $amountText)
-                .keyboardType(.decimalPad)
-                .font(.ftBodySemibold)
+            AmountTextField("0.00", text: $amountText, font: .ftBodySemibold)
                 .foregroundStyle(FTColor.textPrimary)
                 .frame(maxWidth: 100)
-                .multilineTextAlignment(.trailing)
                 .onAppear { amountText = AmountTextField.string(from: item.amount) }
                 .onChange(of: amountText) { _, new in
-                    let formatted = AmountTextField.format(new)
-                    if formatted != new { amountText = formatted }
                     item.amount = AmountTextField.double(from: new)
                 }
 

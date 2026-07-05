@@ -145,11 +145,8 @@ struct AddFreelanceProjectView: View {
                 HStack(spacing: FTSpacing.md) {
                     fieldLabel("Contract Value")
                     Spacer()
-                    TextField("0.00", text: $contractValueText)
-                        .keyboardType(.decimalPad)
-                        .font(.ftBodySemibold)
+                    AmountTextField("0.00", text: $contractValueText, font: .ftBodySemibold)
                         .foregroundStyle(FTColor.textPrimary)
-                        .multilineTextAlignment(.trailing)
                         .frame(maxWidth: 140)
                 }
                 .padding(.vertical, FTSpacing.md)
@@ -423,7 +420,7 @@ struct AddFreelanceProjectView: View {
         projectName        = proj.projectName
         clientName         = proj.clientName
         projectDescription = proj.projectDescription ?? ""
-        contractValueText  = proj.totalValue > 0 ? String(format: "%.2f", proj.totalValue) : ""
+        contractValueText  = proj.totalValue > 0 ? AmountTextField.format(String(format: "%.2f", proj.totalValue)) : ""
         currency           = proj.currency
         startDate          = proj.startDate
         hasEndDate         = proj.endDate != nil
@@ -436,7 +433,7 @@ struct AddFreelanceProjectView: View {
     private func save() {
         let trimmedName   = projectName.trimmingCharacters(in: .whitespaces)
         let trimmedClient = clientName.trimmingCharacters(in: .whitespaces)
-        let contractValue = Double(contractValueText.replacingOccurrences(of: ",", with: ".")) ?? 0
+        let contractValue = AmountTextField.double(from: contractValueText)
 
         guard !trimmedName.isEmpty else {
             validationMessage = "Project name is required"

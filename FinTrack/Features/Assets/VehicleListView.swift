@@ -363,7 +363,7 @@ struct AddVehicleView: View {
     // MARK: Computed
 
     private var baseCurrency: String { appState.baseCurrency }
-    private var purchasePrice: Double { Double(purchasePriceText.replacingOccurrences(of: ",", with: ".")) ?? 0 }
+    private var purchasePrice: Double { AmountTextField.double(from: purchasePriceText) }
     private var isEditing: Bool { editingItem != nil }
 
     private var estimatedCurrentValue: Double {
@@ -381,8 +381,8 @@ struct AddVehicleView: View {
     }
 
     private var displayValue: Double {
-        if useManualValue, let mv = Double(manualValueText.replacingOccurrences(of: ",", with: ".")) {
-            return mv
+        if useManualValue, manualValueText.isEmpty == false {
+            return AmountTextField.double(from: manualValueText)
         }
         return estimatedCurrentValue
     }
@@ -749,11 +749,8 @@ struct AddVehicleView: View {
         HStack(spacing: FTSpacing.md) {
             fieldLabel(label)
             Spacer()
-            TextField("0.00", text: text)
-                .keyboardType(.decimalPad)
-                .font(.ftBodySemibold)
+            AmountTextField("0.00", text: text, font: .ftBodySemibold)
                 .foregroundStyle(FTColor.textPrimary)
-                .multilineTextAlignment(.trailing)
                 .frame(maxWidth: 160)
         }
         .padding(.vertical, FTSpacing.md)
@@ -780,13 +777,13 @@ struct AddVehicleView: View {
         model                  = item.model
         year                   = item.year
         vehicleColor           = item.color ?? ""
-        purchasePriceText      = item.purchasePrice > 0 ? String(format: "%.2f", item.purchasePrice) : ""
+        purchasePriceText      = item.purchasePrice > 0 ? AmountTextField.format(String(format: "%.2f", item.purchasePrice)) : ""
         purchaseDate           = item.purchaseDate
         currency               = item.currency
         depreciationRate       = item.depreciationRate
         depreciationMethod     = item.depreciationMethod
         useManualValue         = item.manualCurrentValue != nil
-        manualValueText        = item.manualCurrentValue.map { String(format: "%.2f", $0) } ?? ""
+        manualValueText        = item.manualCurrentValue.map { AmountTextField.format(String(format: "%.2f", $0)) } ?? ""
         registrationNumber     = item.registrationNumber ?? ""
         hasRegistrationExpiry  = item.registrationExpiry != nil
         registrationExpiry     = item.registrationExpiry ?? Date()
@@ -819,7 +816,7 @@ struct AddVehicleView: View {
         let trimmedRegNum   = registrationNumber.trimmingCharacters(in: .whitespaces)
         let trimmedProvider = insuranceProvider.trimmingCharacters(in: .whitespaces)
         let trimmedColor    = vehicleColor.trimmingCharacters(in: .whitespaces)
-        let manualValue     = useManualValue ? Double(manualValueText.replacingOccurrences(of: ",", with: ".")) : nil
+        let manualValue     = useManualValue && !manualValueText.isEmpty ? AmountTextField.double(from: manualValueText) : nil
 
         if let item = editingItem {
             item.make                 = trimmedMake

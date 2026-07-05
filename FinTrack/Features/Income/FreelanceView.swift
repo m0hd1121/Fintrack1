@@ -638,11 +638,8 @@ struct AddInvoiceSheet: View {
                 formRow {
                     fieldLabel("Amount")
                     Spacer()
-                    TextField("0.00", text: $amountText)
-                        .keyboardType(.decimalPad)
-                        .font(.ftBodySemibold)
+                    AmountTextField("0.00", text: $amountText, font: .ftBodySemibold)
                         .foregroundStyle(FTColor.textPrimary)
-                        .multilineTextAlignment(.trailing)
                         .frame(maxWidth: 140)
                 }
                 rowDivider
@@ -699,7 +696,7 @@ struct AddInvoiceSheet: View {
     }
 
     private func save() {
-        let amount = Double(amountText.replacingOccurrences(of: ",", with: ".")) ?? 0
+        let amount = AmountTextField.double(from: amountText)
         let trimmedDesc = description.trimmingCharacters(in: .whitespaces)
         guard !trimmedDesc.isEmpty, amount > 0 else {
             withAnimation { showValidationError = true }
@@ -794,7 +791,7 @@ struct RecordInvoicePaymentSheet: View {
                 }
             }
             .onAppear {
-                paidAmountText = String(format: "%.2f", invoice.amount)
+                paidAmountText = AmountTextField.format(String(format: "%.2f", invoice.amount))
             }
         }
     }
@@ -849,11 +846,8 @@ struct RecordInvoicePaymentSheet: View {
                         .foregroundStyle(FTColor.textSecondary)
                         .fixedSize()
                     Spacer()
-                    TextField("0.00", text: $paidAmountText)
-                        .keyboardType(.decimalPad)
-                        .font(.ftBodySemibold)
+                    AmountTextField("0.00", text: $paidAmountText, font: .ftBodySemibold)
                         .foregroundStyle(FTColor.textPrimary)
-                        .multilineTextAlignment(.trailing)
                         .frame(maxWidth: 140)
                 }
                 .padding(.vertical, FTSpacing.md)
@@ -875,7 +869,8 @@ struct RecordInvoicePaymentSheet: View {
                 .padding(.vertical, FTSpacing.sm)
 
                 // Variance hint
-                if let paid = Double(paidAmountText.replacingOccurrences(of: ",", with: ".")), paid > 0 {
+                let paid = AmountTextField.double(from: paidAmountText)
+                if paid > 0 {
                     Rectangle()
                         .fill(FTColor.textPrimary.opacity(0.06))
                         .frame(height: 0.5)
@@ -922,7 +917,7 @@ struct RecordInvoicePaymentSheet: View {
     }
 
     private func save() {
-        let paid = Double(paidAmountText.replacingOccurrences(of: ",", with: ".")) ?? 0
+        let paid = AmountTextField.double(from: paidAmountText)
         guard paid > 0 else {
             withAnimation { showValidationError = true }
             return

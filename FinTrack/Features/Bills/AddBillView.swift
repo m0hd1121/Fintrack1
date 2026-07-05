@@ -182,11 +182,8 @@ struct AddBillView: View {
                 HStack(spacing: FTSpacing.md) {
                     fieldLabel("Amount")
                     Spacer()
-                    TextField("0.00", text: $amountText)
-                        .keyboardType(.decimalPad)
-                        .font(.ftBodySemibold)
+                    AmountTextField("0.00", text: $amountText, font: .ftBodySemibold)
                         .foregroundStyle(FTColor.textPrimary)
-                        .multilineTextAlignment(.trailing)
                         .frame(maxWidth: 140)
                 }
                 .padding(.vertical, FTSpacing.md)
@@ -585,7 +582,7 @@ struct AddBillView: View {
         isSubscription     = bill.isSubscription
         name               = bill.name
         provider           = bill.provider ?? ""
-        amountText         = bill.amount > 0 ? String(format: "%.2f", bill.amount) : ""
+        amountText         = bill.amount > 0 ? AmountTextField.format(String(format: "%.2f", bill.amount)) : ""
         billingCycle       = bill.billingCycle
         currency           = bill.currency
         nextDueDate        = bill.nextDueDate
@@ -611,7 +608,7 @@ struct AddBillView: View {
 
     private func save() {
         // Validation
-        let amount = Double(amountText.replacingOccurrences(of: ",", with: ".")) ?? 0
+        let amount = AmountTextField.double(from: amountText)
         guard !name.trimmingCharacters(in: .whitespaces).isEmpty, amount > 0 else {
             withAnimation { showValidationError = true }
             return

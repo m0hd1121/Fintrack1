@@ -322,9 +322,11 @@ struct LineItemRow: View {
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Unit Price").font(.ftCaption).foregroundStyle(FTColor.textMuted)
-                    TextField("0.00", value: $item.unitPrice, format: .number)
-                        .font(.ftCallout).foregroundStyle(FTColor.textPrimary)
-                        .keyboardType(.decimalPad)
+                    AmountTextField("0.00", text: Binding(
+                        get: { item.unitPrice > 0 ? AmountTextField.format(String(format: "%.2f", item.unitPrice)) : "" },
+                        set: { item.unitPrice = AmountTextField.double(from: $0) }
+                    ), alignment: .leading, font: .ftCallout)
+                    .foregroundStyle(FTColor.textPrimary)
                 }
                 if vatIncluded {
                     VStack(alignment: .leading, spacing: 2) {
@@ -665,8 +667,7 @@ struct InvoiceDetailSheet: View {
                 VStack(spacing: FTSpacing.sm) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Amount").font(.ftCaption).foregroundStyle(FTColor.textMuted)
-                        TextField("0.00", text: $paymentAmount)
-                            .keyboardType(.decimalPad).font(.ftBody)
+                        AmountTextField("0.00", text: $paymentAmount, alignment: .leading, font: .ftBody)
                             .padding(FTSpacing.md).ftGlass(FTRadius.sm)
                     }
                     VStack(alignment: .leading, spacing: 4) {
@@ -703,13 +704,13 @@ struct InvoiceDetailSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
-                        guard let amt = Double(paymentAmount), amt > 0 else { return }
+                        guard let amt = Double(paymentAmount.replacingOccurrences(of: ",", with: "")), amt > 0 else { return }
                         invoice.recordPayment(amount: amt, method: paymentMethod, notes: paymentNotes.isEmpty ? nil : paymentNotes)
                         try? context.save()
                         showingPayment = false
                     }
                     .font(.ftBodySemibold).foregroundStyle(FTColor.accent)
-                    .disabled(Double(paymentAmount) == nil || paymentAmount.isEmpty)
+                    .disabled(Double(paymentAmount.replacingOccurrences(of: ",", with: "")) == nil || paymentAmount.isEmpty)
                 }
             }
         }

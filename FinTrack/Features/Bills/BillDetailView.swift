@@ -672,13 +672,13 @@ private struct RecordPaymentSheet: View {
 
     let bill: Bill
 
-    @State private var amount: Double
+    @State private var amountText: String
     @State private var paymentDate = Date()
     @State private var isProcessing = false
 
     init(bill: Bill) {
         self.bill = bill
-        self._amount = State(initialValue: bill.amount)
+        self._amountText = State(initialValue: bill.amount > 0 ? AmountTextField.format(String(format: "%.2f", bill.amount)) : "")
     }
 
     var body: some View {
@@ -718,11 +718,8 @@ private struct RecordPaymentSheet: View {
                             Text(bill.currency)
                                 .font(.ftBodySemibold)
                                 .foregroundStyle(FTColor.textSecondary)
-                            TextField("0.00", value: $amount, format: .number)
-                                .font(.ftAmount)
+                            AmountTextField("0.00", text: $amountText, font: .ftAmount)
                                 .foregroundStyle(FTColor.textPrimary)
-                                .keyboardType(.decimalPad)
-                                .multilineTextAlignment(.trailing)
                         }
                         .padding(FTSpacing.lg)
                         .ftGlass(FTRadius.md)
@@ -763,7 +760,7 @@ private struct RecordPaymentSheet: View {
                         }
                     }
                     .buttonStyle(.ftPrimary)
-                    .disabled(amount <= 0 || isProcessing)
+                    .disabled(AmountTextField.double(from: amountText) <= 0 || isProcessing)
                 }
                 .padding(.horizontal, FTSpacing.screen)
                 .padding(.top, FTSpacing.lg)
@@ -782,7 +779,7 @@ private struct RecordPaymentSheet: View {
 
     private func recordPayment() {
         isProcessing = true
-        BillService.shared.recordPayment(bill: bill, amount: amount, date: paymentDate)
+        BillService.shared.recordPayment(bill: bill, amount: AmountTextField.double(from: amountText), date: paymentDate)
         try? context.save()
         isProcessing = false
         dismiss()

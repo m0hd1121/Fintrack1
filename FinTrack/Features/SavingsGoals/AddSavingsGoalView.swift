@@ -82,8 +82,8 @@ struct AddSavingsGoalView: View {
                     Text(editingGoal == nil ? "Add Goal" : "Save Changes")
                 }
                 .buttonStyle(.ftPrimary)
-                .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty || Double(targetAmount) == nil)
-                .opacity(name.trimmingCharacters(in: .whitespaces).isEmpty || Double(targetAmount) == nil ? 0.55 : 1)
+                .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty || AmountTextField.double(from: targetAmount) <= 0)
+                .opacity(name.trimmingCharacters(in: .whitespaces).isEmpty || AmountTextField.double(from: targetAmount) <= 0 ? 0.55 : 1)
                 .padding(.horizontal, FTSpacing.screen)
                 .padding(.bottom, FTSpacing.sm)
             }
@@ -155,15 +155,15 @@ struct AddSavingsGoalView: View {
                 divider
                 formRow("Target Amount") {
                     Text(currency).font(.ftBody).foregroundStyle(FTColor.textMuted)
-                    TextField("0.00", text: $targetAmount).keyboardType(.decimalPad)
-                        .multilineTextAlignment(.trailing).font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                    AmountTextField("0.00", text: $targetAmount, font: .ftBodySemibold)
+                        .foregroundStyle(FTColor.textPrimary)
                         .frame(maxWidth: 120)
                 }
                 divider
                 formRow("Current Savings") {
                     Text(currency).font(.ftBody).foregroundStyle(FTColor.textMuted)
-                    TextField("0.00", text: $currentAmount).keyboardType(.decimalPad)
-                        .multilineTextAlignment(.trailing).font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                    AmountTextField("0.00", text: $currentAmount, font: .ftBodySemibold)
+                        .foregroundStyle(FTColor.textPrimary)
                         .frame(maxWidth: 120)
                 }
                 divider
@@ -334,8 +334,8 @@ struct AddSavingsGoalView: View {
             VStack(spacing: 0) {
                 formRow("Property Price") {
                     Text(currency).font(.ftBody).foregroundStyle(FTColor.textMuted)
-                    TextField("e.g. 1,500,000", text: $propertyTargetPrice).keyboardType(.decimalPad)
-                        .multilineTextAlignment(.trailing).font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                    AmountTextField("e.g. 1,500,000", text: $propertyTargetPrice, font: .ftBodySemibold)
+                        .foregroundStyle(FTColor.textPrimary)
                         .frame(maxWidth: 140)
                 }
                 divider
@@ -350,7 +350,8 @@ struct AddSavingsGoalView: View {
                     .pickerStyle(.menu)
                     .accentColor(FTColor.accent)
                 }
-                if let price = Double(propertyTargetPrice), price > 0, let pct = Double(downPaymentPercent) {
+                let price = AmountTextField.double(from: propertyTargetPrice)
+                if price > 0, let pct = Double(downPaymentPercent) {
                     divider
                     let dp = price * (pct / 100)
                     let mortgage = price - dp
@@ -520,8 +521,8 @@ struct AddSavingsGoalView: View {
                     divider
                     formRow("Amount per Period") {
                         Text(currency).font(.ftBody).foregroundStyle(FTColor.textMuted)
-                        TextField("0.00", text: $autoContribAmount).keyboardType(.decimalPad)
-                            .multilineTextAlignment(.trailing).font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                        AmountTextField("0.00", text: $autoContribAmount, font: .ftBodySemibold)
+                            .foregroundStyle(FTColor.textPrimary)
                             .frame(maxWidth: 120)
                     }
                     divider
@@ -557,11 +558,12 @@ struct AddSavingsGoalView: View {
                             .frame(maxWidth: 80)
                         Text("%").font(.ftBody).foregroundStyle(FTColor.textMuted)
                     }
-                    if let amount = Double(autoContribAmount), amount > 0,
-                       let target = Double(targetAmount), target > 0 {
+                    let amount = AmountTextField.double(from: autoContribAmount)
+                    let target = AmountTextField.double(from: targetAmount)
+                    if amount > 0, target > 0 {
                         divider
                         let monthly = amount * autoContribFreq.periodsPerMonth
-                        let current = Double(currentAmount) ?? 0
+                        let current = AmountTextField.double(from: currentAmount)
                         let remaining = max(target - current, 0)
                         let monthsNeeded = monthly > 0 ? Int(ceil(remaining / monthly)) : 0
                         let projected = Calendar.current.date(byAdding: .month, value: monthsNeeded, to: Date())
@@ -643,8 +645,8 @@ struct AddSavingsGoalView: View {
         guard let goal = editingGoal else { return }
         selectedType = goal.goalType
         name = goal.name
-        targetAmount = String(format: "%.2f", goal.targetAmount)
-        currentAmount = goal.currentAmount > 0 ? String(format: "%.2f", goal.currentAmount) : ""
+        targetAmount = AmountTextField.format(String(format: "%.2f", goal.targetAmount))
+        currentAmount = goal.currentAmount > 0 ? AmountTextField.format(String(format: "%.2f", goal.currentAmount)) : ""
         currency = goal.currency
         if let date = goal.targetDate { hasTargetDate = true; targetDate = date }
         selectedIcon = goal.icon
@@ -653,12 +655,12 @@ struct AddSavingsGoalView: View {
         linkedAccountId = goal.linkedAccountId
         conflictPriority = goal.conflictPriority
         autoContribEnabled = goal.autoContributionEnabled
-        autoContribAmount = goal.autoContributionAmount > 0 ? String(format: "%.2f", goal.autoContributionAmount) : ""
+        autoContribAmount = goal.autoContributionAmount > 0 ? AmountTextField.format(String(format: "%.2f", goal.autoContributionAmount)) : ""
         autoContribFreq = goal.autoContributionFrequency
         autoContribDay = goal.autoContributionDay
         roundUpEnabled = goal.roundUpEnabled
         salaryPercentage = goal.salaryPercentage > 0 ? String(format: "%.1f", goal.salaryPercentage) : ""
-        propertyTargetPrice = goal.propertyTargetPrice > 0 ? String(format: "%.0f", goal.propertyTargetPrice) : ""
+        propertyTargetPrice = goal.propertyTargetPrice > 0 ? AmountTextField.format(String(format: "%.0f", goal.propertyTargetPrice)) : ""
         downPaymentPercent = String(format: "%.0f", goal.downPaymentPercent)
         educationInstitution = goal.educationInstitution
         hajjTravelYear = goal.hajjTravelYear > 0 ? goal.hajjTravelYear : Calendar.current.component(.year, from: Date()) + 1
@@ -666,9 +668,9 @@ struct AddSavingsGoalView: View {
     }
 
     private func save() {
-        let targetAmt = Double(targetAmount) ?? 0
-        let currentAmt = Double(currentAmount) ?? 0
-        let contribAmt = Double(autoContribAmount) ?? 0
+        let targetAmt = AmountTextField.double(from: targetAmount)
+        let currentAmt = AmountTextField.double(from: currentAmount)
+        let contribAmt = AmountTextField.double(from: autoContribAmount)
         let salaryPct = Double(salaryPercentage) ?? 0
 
         if let goal = editingGoal {
@@ -689,7 +691,7 @@ struct AddSavingsGoalView: View {
             goal.roundUpEnabled = roundUpEnabled
             goal.salaryPercentage = salaryPct
             goal.goalType = selectedType
-            goal.propertyTargetPrice = Double(propertyTargetPrice) ?? 0
+            goal.propertyTargetPrice = AmountTextField.double(from: propertyTargetPrice)
             goal.downPaymentPercent = Double(downPaymentPercent) ?? 20
             goal.educationInstitution = educationInstitution
             goal.hajjTravelYear = hajjTravelYear
@@ -715,7 +717,7 @@ struct AddSavingsGoalView: View {
                 roundUpEnabled: roundUpEnabled,
                 salaryPercentage: salaryPct,
                 conflictPriority: conflictPriority,
-                propertyTargetPrice: Double(propertyTargetPrice) ?? 0,
+                propertyTargetPrice: AmountTextField.double(from: propertyTargetPrice),
                 downPaymentPercent: Double(downPaymentPercent) ?? 20,
                 educationInstitution: educationInstitution,
                 hajjTravelYear: selectedType == .hajj ? hajjTravelYear : 0,

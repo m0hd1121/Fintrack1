@@ -2117,11 +2117,8 @@ private struct RecordLentRepaymentSheet: View {
                     VStack(spacing: FTSpacing.lg) {
                         VStack(spacing: 0) {
                             formRow(label: "Amount (\(item.currency))") {
-                                TextField("0.00", text: $amount)
-                                    .keyboardType(.decimalPad)
-                                    .font(.ftBodySemibold)
+                                AmountTextField("0.00", text: $amount, font: .ftBodySemibold)
                                     .foregroundStyle(FTColor.textPrimary)
-                                    .multilineTextAlignment(.trailing)
                             }
                             Divider().padding(.leading, FTSpacing.screen)
                             formRow(label: "Date") {
@@ -2173,7 +2170,7 @@ private struct RecordLentRepaymentSheet: View {
                         Button("Save Repayment") { save() }
                             .buttonStyle(.ftPrimary)
                             .padding(.horizontal, FTSpacing.screen)
-                            .disabled(Double(amount) == nil || (Double(amount) ?? 0) <= 0)
+                            .disabled(AmountTextField.double(from: amount) <= 0)
                     }
                     .padding(.top, FTSpacing.lg)
                 }
@@ -2188,7 +2185,7 @@ private struct RecordLentRepaymentSheet: View {
                 }
             }
             .onAppear {
-                amount = String(format: "%.2f", item.remainingBalance)
+                amount = AmountTextField.format(String(format: "%.2f", item.remainingBalance))
                 selectedAccountId = activeAccounts.first(where: { $0.isDefault })?.id
                     ?? activeAccounts.first?.id
             }
@@ -2208,7 +2205,8 @@ private struct RecordLentRepaymentSheet: View {
     }
 
     private func save() {
-        guard let amountValue = Double(amount), amountValue > 0 else { return }
+        let amountValue = AmountTextField.double(from: amount)
+        guard amountValue > 0 else { return }
         let record = RepaymentRecord(
             date: date,
             amount: amountValue,
@@ -2540,11 +2538,8 @@ private struct RecordBorrowedRepaymentSheet: View {
                     VStack(spacing: FTSpacing.lg) {
                         VStack(spacing: 0) {
                             formRow(label: "Amount (\(item.currency))") {
-                                TextField("0.00", text: $amount)
-                                    .keyboardType(.decimalPad)
-                                    .font(.ftBodySemibold)
+                                AmountTextField("0.00", text: $amount, font: .ftBodySemibold)
                                     .foregroundStyle(FTColor.textPrimary)
-                                    .multilineTextAlignment(.trailing)
                             }
                             Divider().padding(.leading, FTSpacing.screen)
                             formRow(label: "Date") {
@@ -2596,7 +2591,7 @@ private struct RecordBorrowedRepaymentSheet: View {
                         Button("Save Repayment") { save() }
                             .buttonStyle(.ftPrimary)
                             .padding(.horizontal, FTSpacing.screen)
-                            .disabled(Double(amount) == nil || (Double(amount) ?? 0) <= 0)
+                            .disabled(AmountTextField.double(from: amount) <= 0)
                     }
                     .padding(.top, FTSpacing.lg)
                 }
@@ -2611,7 +2606,7 @@ private struct RecordBorrowedRepaymentSheet: View {
                 }
             }
             .onAppear {
-                amount = String(format: "%.2f", item.remainingBalance)
+                amount = AmountTextField.format(String(format: "%.2f", item.remainingBalance))
                 selectedAccountId = activeAccounts.first(where: { $0.isDefault })?.id
                     ?? activeAccounts.first?.id
             }
@@ -2631,7 +2626,8 @@ private struct RecordBorrowedRepaymentSheet: View {
     }
 
     private func save() {
-        guard let amountValue = Double(amount), amountValue > 0 else { return }
+        let amountValue = AmountTextField.double(from: amount)
+        guard amountValue > 0 else { return }
         let record = RepaymentRecord(
             date: date,
             amount: amountValue,
@@ -2699,10 +2695,7 @@ private struct AddMoneyLentSheet: View {
                             }
                             Divider().padding(.leading, FTSpacing.screen)
                             formRow(label: "Amount") {
-                                TextField("0.00", text: $amount)
-                                    .keyboardType(.decimalPad)
-                                    .multilineTextAlignment(.trailing)
-                                    .font(.ftBodySemibold)
+                                AmountTextField("0.00", text: $amount, font: .ftBodySemibold)
                                     .foregroundStyle(FTColor.textPrimary)
                             }
                             Divider().padding(.leading, FTSpacing.screen)
@@ -2786,7 +2779,7 @@ private struct AddMoneyLentSheet: View {
                         Button(editing == nil ? "Add Record" : "Save Changes") { save() }
                             .buttonStyle(.ftPrimary)
                             .padding(.horizontal, FTSpacing.screen)
-                            .disabled(borrowerName.isEmpty || Double(amount) == nil)
+                            .disabled(borrowerName.isEmpty || Double(amount.replacingOccurrences(of: ",", with: "")) == nil)
                     }
                     .padding(.top, FTSpacing.lg)
                     .padding(.bottom, FTSpacing.xxl)
@@ -2822,7 +2815,7 @@ private struct AddMoneyLentSheet: View {
     private func populateIfEditing() {
         guard let e = editing else { return }
         borrowerName = e.borrowerName
-        amount = String(format: "%.2f", e.amount)
+        amount = AmountTextField.format(String(format: "%.2f", e.amount))
         currency = e.currency
         lendingDate = e.lendingDate
         hasDueDate = e.dueDate != nil
@@ -2833,7 +2826,7 @@ private struct AddMoneyLentSheet: View {
     }
 
     private func save() {
-        guard let amountValue = Double(amount), !borrowerName.isEmpty else { return }
+        guard let amountValue = Double(amount.replacingOccurrences(of: ",", with: "")), !borrowerName.isEmpty else { return }
         if let e = editing {
             e.borrowerName = borrowerName
             e.amount = amountValue
@@ -2897,10 +2890,7 @@ private struct AddMoneyBorrowedSheet: View {
                             }
                             Divider().padding(.leading, FTSpacing.screen)
                             formRow(label: "Amount") {
-                                TextField("0.00", text: $amount)
-                                    .keyboardType(.decimalPad)
-                                    .multilineTextAlignment(.trailing)
-                                    .font(.ftBodySemibold)
+                                AmountTextField("0.00", text: $amount, font: .ftBodySemibold)
                                     .foregroundStyle(FTColor.textPrimary)
                             }
                             Divider().padding(.leading, FTSpacing.screen)
@@ -2983,7 +2973,7 @@ private struct AddMoneyBorrowedSheet: View {
                         Button(editing == nil ? "Add Record" : "Save Changes") { save() }
                             .buttonStyle(.ftPrimary)
                             .padding(.horizontal, FTSpacing.screen)
-                            .disabled(lenderName.isEmpty || Double(amount) == nil)
+                            .disabled(lenderName.isEmpty || Double(amount.replacingOccurrences(of: ",", with: "")) == nil)
                     }
                     .padding(.top, FTSpacing.lg)
                     .padding(.bottom, FTSpacing.xxl)
@@ -3019,7 +3009,7 @@ private struct AddMoneyBorrowedSheet: View {
     private func populateIfEditing() {
         guard let e = editing else { return }
         lenderName = e.lenderName
-        amount = String(format: "%.2f", e.amount)
+        amount = AmountTextField.format(String(format: "%.2f", e.amount))
         currency = e.currency
         borrowDate = e.borrowDate
         hasDueDate = e.dueDate != nil
@@ -3030,7 +3020,7 @@ private struct AddMoneyBorrowedSheet: View {
     }
 
     private func save() {
-        guard let amountValue = Double(amount), !lenderName.isEmpty else { return }
+        guard let amountValue = Double(amount.replacingOccurrences(of: ",", with: "")), !lenderName.isEmpty else { return }
         if let e = editing {
             e.lenderName = lenderName
             e.amount = amountValue
@@ -3080,11 +3070,8 @@ private struct EditDebtRepaymentSheet: View {
                     VStack(spacing: FTSpacing.lg) {
                         VStack(spacing: 0) {
                             formRow(label: "Amount (\(currency))") {
-                                TextField("0.00", text: $amount)
-                                    .keyboardType(.decimalPad)
-                                    .font(.ftBodySemibold)
+                                AmountTextField("0.00", text: $amount, font: .ftBodySemibold)
                                     .foregroundStyle(FTColor.textPrimary)
-                                    .multilineTextAlignment(.trailing)
                             }
                             Divider().padding(.leading, FTSpacing.screen)
                             formRow(label: "Date") {
@@ -3104,13 +3091,14 @@ private struct EditDebtRepaymentSheet: View {
                         .padding(.horizontal, FTSpacing.screen)
 
                         Button("Save Changes") {
-                            guard let amountValue = Double(amount), amountValue > 0 else { return }
+                            let amountValue = AmountTextField.double(from: amount)
+                            guard amountValue > 0 else { return }
                             onSave(amountValue, date, notes.isEmpty ? nil : notes)
                             dismiss()
                         }
                         .buttonStyle(.ftPrimary)
                         .padding(.horizontal, FTSpacing.screen)
-                        .disabled(Double(amount) == nil || (Double(amount) ?? 0) <= 0)
+                        .disabled(AmountTextField.double(from: amount) <= 0)
                     }
                     .padding(.top, FTSpacing.lg)
                 }
@@ -3125,7 +3113,7 @@ private struct EditDebtRepaymentSheet: View {
                 }
             }
             .onAppear {
-                amount = String(format: "%.2f", repayment.amount)
+                amount = AmountTextField.format(String(format: "%.2f", repayment.amount))
                 date = repayment.date
                 notes = repayment.notes ?? ""
             }

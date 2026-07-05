@@ -479,11 +479,8 @@ struct ThresholdEditorSheet: View {
 
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
                     Text(currency).font(.ftTitle).foregroundStyle(FTColor.textMuted)
-                    TextField("0", text: $inputText)
-                        .font(.ftAmount)
+                    AmountTextField("0", text: $inputText, alignment: .center, font: .ftAmount)
                         .foregroundStyle(FTColor.textPrimary)
-                        .keyboardType(.decimalPad)
-                        .multilineTextAlignment(.center)
                         .frame(maxWidth: 200)
                 }
 
@@ -523,7 +520,7 @@ struct ThresholdEditorSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
-                        guard let amount = Double(inputText), amount > 0 else {
+                        guard let amount = Double(inputText.replacingOccurrences(of: ",", with: "")), amount > 0 else {
                             showError = true; return
                         }
                         value = amount
@@ -533,7 +530,7 @@ struct ThresholdEditorSheet: View {
                 }
             }
             .onAppear {
-                inputText = value == 0 ? "" : String(Int(value))
+                inputText = value == 0 ? "" : AmountTextField.format(String(Int(value)))
             }
         }
     }

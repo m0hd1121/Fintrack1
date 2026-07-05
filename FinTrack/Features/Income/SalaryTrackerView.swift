@@ -554,11 +554,11 @@ struct RecordSalaryPaymentSheet: View {
 
     init(record: SalaryRecord) {
         self.record = record
-        _amountText = State(initialValue: String(format: "%.2f", record.expectedAmount))
+        _amountText = State(initialValue: AmountTextField.format(String(format: "%.2f", record.expectedAmount)))
     }
 
     private var parsedAmount: Double {
-        Double(amountText.replacingOccurrences(of: ",", with: ".")) ?? 0
+        AmountTextField.double(from: amountText)
     }
 
     var body: some View {
@@ -598,11 +598,8 @@ struct RecordSalaryPaymentSheet: View {
                                     .foregroundStyle(FTColor.textSecondary)
                                     .frame(width: 40, alignment: .leading)
 
-                                TextField("0.00", text: $amountText)
-                                    .keyboardType(.decimalPad)
-                                    .font(.ftAmount)
+                                AmountTextField("0.00", text: $amountText, font: .ftAmount)
                                     .foregroundStyle(FTColor.textPrimary)
-                                    .multilineTextAlignment(.trailing)
                             }
                             .padding(FTSpacing.lg)
                             .ftGlass(FTRadius.md)
@@ -1050,11 +1047,8 @@ private struct EditSalaryPaymentSheet: View {
                     VStack(spacing: FTSpacing.lg) {
                         VStack(spacing: 0) {
                             formRow(label: "Amount (\(currency))") {
-                                TextField("0.00", text: $amount)
-                                    .keyboardType(.decimalPad)
-                                    .font(.ftBodySemibold)
+                                AmountTextField("0.00", text: $amount, font: .ftBodySemibold)
                                     .foregroundStyle(FTColor.textPrimary)
-                                    .multilineTextAlignment(.trailing)
                             }
                             Divider().padding(.leading, FTSpacing.screen)
                             formRow(label: "Received Date") {
@@ -1074,13 +1068,14 @@ private struct EditSalaryPaymentSheet: View {
                         .padding(.horizontal, FTSpacing.screen)
 
                         Button("Save Changes") {
-                            guard let amountValue = Double(amount), amountValue > 0 else { return }
+                            let amountValue = AmountTextField.double(from: amount)
+                            guard amountValue > 0 else { return }
                             onSave(amountValue, date, notes.isEmpty ? nil : notes)
                             dismiss()
                         }
                         .buttonStyle(.ftPrimary)
                         .padding(.horizontal, FTSpacing.screen)
-                        .disabled(Double(amount) == nil || (Double(amount) ?? 0) <= 0)
+                        .disabled(AmountTextField.double(from: amount) <= 0)
                     }
                     .padding(.top, FTSpacing.lg)
                 }
@@ -1095,7 +1090,7 @@ private struct EditSalaryPaymentSheet: View {
                 }
             }
             .onAppear {
-                amount = String(format: "%.2f", payment.receivedAmount ?? payment.expectedAmount)
+                amount = AmountTextField.format(String(format: "%.2f", payment.receivedAmount ?? payment.expectedAmount))
                 date = payment.receivedDate ?? Date()
                 notes = payment.notes ?? ""
             }

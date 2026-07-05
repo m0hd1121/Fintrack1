@@ -169,10 +169,8 @@ struct AddAccountView: View {
                                 Text("Balance").font(.ftBody).foregroundStyle(FTColor.textSecondary)
                                 Spacer()
                                 Text(currency).font(.ftBody).foregroundStyle(FTColor.textMuted)
-                                TextField("0.00", text: $balance)
-                                    .keyboardType(.decimalPad)
-                                    .multilineTextAlignment(.trailing)
-                                    .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                                AmountTextField("0.00", text: $balance, font: .ftBodySemibold)
+                                    .foregroundStyle(FTColor.textPrimary)
                                     .frame(maxWidth: 120)
                             }
                             .padding(.vertical, 13)
@@ -210,10 +208,8 @@ struct AddAccountView: View {
                                 HStack(spacing: FTSpacing.md) {
                                     Text("Amount (\(currency))").font(.ftBody).foregroundStyle(FTColor.textSecondary)
                                     Spacer()
-                                    TextField("0.00", text: $minimumBalance)
-                                        .keyboardType(.decimalPad)
-                                        .multilineTextAlignment(.trailing)
-                                        .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                                    AmountTextField("0.00", text: $minimumBalance, font: .ftBodySemibold)
+                                        .foregroundStyle(FTColor.textPrimary)
                                         .frame(maxWidth: 120)
                                 }
                                 .padding(.vertical, 13)
@@ -342,7 +338,7 @@ struct AddAccountView: View {
         if let custom = acc.customBankName { customBankName = custom }
         accountType = acc.type
         currency = acc.currency
-        balance = String(acc.balance)
+        balance = acc.balance != 0 ? AmountTextField.format(String(format: "%.2f", acc.balance)) : ""
         accountNumber = acc.accountNumber ?? ""
         selectedColor = acc.color
         notes = acc.notes ?? ""
@@ -350,7 +346,7 @@ struct AddAccountView: View {
         isHidden = acc.isHidden
         isBusiness = acc.isBusiness
         minimumBalanceEnabled = acc.minimumBalanceEnabled
-        minimumBalance = acc.minimumBalance > 0 ? String(acc.minimumBalance) : ""
+        minimumBalance = acc.minimumBalance > 0 ? AmountTextField.format(String(format: "%.2f", acc.minimumBalance)) : ""
         if let wp = acc.walletProvider, let p = WalletProvider(rawValue: wp) { walletProvider = p }
         if let rt = acc.retirementType { retirementType = rt }
         sharedMembersText = acc.sharedMembers.joined(separator: ", ")
@@ -366,7 +362,7 @@ struct AddAccountView: View {
             bankLabel = isOtherBank ? "Other" : selectedBank
             customLabel = isOtherBank ? customBankName : nil
         }
-        let balanceVal = Double(balance) ?? 0
+        let balanceVal = AmountTextField.double(from: balance)
         let members = sharedMembersText
             .split(separator: ",")
             .map { $0.trimmingCharacters(in: .whitespaces) }
@@ -390,7 +386,7 @@ struct AddAccountView: View {
             acc.sharedMembers = members
             acc.notes = notes.isEmpty ? nil : notes
             acc.minimumBalanceEnabled = minimumBalanceEnabled
-            acc.minimumBalance = Double(minimumBalance) ?? 0
+            acc.minimumBalance = AmountTextField.double(from: minimumBalance)
             acc.updatedAt = Date()
         } else {
             let account = Account(
@@ -411,7 +407,7 @@ struct AddAccountView: View {
                 sharedMembers: members,
                 notes: notes.isEmpty ? nil : notes,
                 minimumBalanceEnabled: minimumBalanceEnabled,
-                minimumBalance: Double(minimumBalance) ?? 0
+                minimumBalance: AmountTextField.double(from: minimumBalance)
             )
             context.insert(account)
         }
@@ -509,9 +505,8 @@ struct AddCreditCardView: View {
                             HStack(spacing: FTSpacing.md) {
                                 Text("Credit Limit").font(.ftBody).foregroundStyle(FTColor.textSecondary)
                                 Spacer()
-                                TextField("0.00", text: $creditLimit)
-                                    .keyboardType(.decimalPad).multilineTextAlignment(.trailing)
-                                    .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary).frame(maxWidth: 120)
+                                AmountTextField("0.00", text: $creditLimit, font: .ftBodySemibold)
+                                    .foregroundStyle(FTColor.textPrimary).frame(maxWidth: 120)
                             }
                             .padding(.vertical, 13)
 
@@ -520,9 +515,8 @@ struct AddCreditCardView: View {
                             HStack(spacing: FTSpacing.md) {
                                 Text("Outstanding Balance").font(.ftBody).foregroundStyle(FTColor.textSecondary)
                                 Spacer()
-                                TextField("0.00", text: $outstanding)
-                                    .keyboardType(.decimalPad).multilineTextAlignment(.trailing)
-                                    .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary).frame(maxWidth: 120)
+                                AmountTextField("0.00", text: $outstanding, font: .ftBodySemibold)
+                                    .foregroundStyle(FTColor.textPrimary).frame(maxWidth: 120)
                             }
                             .padding(.vertical, 13)
 
@@ -531,9 +525,8 @@ struct AddCreditCardView: View {
                             HStack(spacing: FTSpacing.md) {
                                 Text("Minimum Payment").font(.ftBody).foregroundStyle(FTColor.textSecondary)
                                 Spacer()
-                                TextField("0.00", text: $minimumPayment)
-                                    .keyboardType(.decimalPad).multilineTextAlignment(.trailing)
-                                    .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary).frame(maxWidth: 120)
+                                AmountTextField("0.00", text: $minimumPayment, font: .ftBodySemibold)
+                                    .foregroundStyle(FTColor.textPrimary).frame(maxWidth: 120)
                             }
                             .padding(.vertical, 13)
                         }
@@ -616,9 +609,9 @@ struct AddCreditCardView: View {
             name: name,
             bankName: bankName,
             last4Digits: last4,
-            creditLimit: Double(creditLimit) ?? 0,
-            outstandingBalance: Double(outstanding) ?? 0,
-            minimumPayment: Double(minimumPayment) ?? 0,
+            creditLimit: AmountTextField.double(from: creditLimit),
+            outstandingBalance: AmountTextField.double(from: outstanding),
+            minimumPayment: AmountTextField.double(from: minimumPayment),
             dueDate: dueDate,
             interestRate: Double(interestRate) ?? 0,
             currency: currency,
@@ -762,9 +755,8 @@ struct AddLoanView: View {
                             HStack(spacing: FTSpacing.md) {
                                 Text("Principal Amount").font(.ftBody).foregroundStyle(FTColor.textSecondary)
                                 Spacer()
-                                TextField("0.00", text: $principalAmount)
-                                    .keyboardType(.decimalPad).multilineTextAlignment(.trailing)
-                                    .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary).frame(maxWidth: 120)
+                                AmountTextField("0.00", text: $principalAmount, font: .ftBodySemibold)
+                                    .foregroundStyle(FTColor.textPrimary).frame(maxWidth: 120)
                             }
                             .padding(.vertical, 13)
 
@@ -773,9 +765,8 @@ struct AddLoanView: View {
                             HStack(spacing: FTSpacing.md) {
                                 Text("Outstanding Balance").font(.ftBody).foregroundStyle(FTColor.textSecondary)
                                 Spacer()
-                                TextField("Same as principal", text: $outstandingBalance)
-                                    .keyboardType(.decimalPad).multilineTextAlignment(.trailing)
-                                    .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary).frame(maxWidth: 120)
+                                AmountTextField("Same as principal", text: $outstandingBalance, font: .ftBodySemibold)
+                                    .foregroundStyle(FTColor.textPrimary).frame(maxWidth: 120)
                             }
                             .padding(.vertical, 13)
 
@@ -795,9 +786,8 @@ struct AddLoanView: View {
                             HStack(spacing: FTSpacing.md) {
                                 Text("Monthly EMI").font(.ftBody).foregroundStyle(FTColor.textSecondary)
                                 Spacer()
-                                TextField("0.00", text: $emiAmount)
-                                    .keyboardType(.decimalPad).multilineTextAlignment(.trailing)
-                                    .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary).frame(maxWidth: 120)
+                                AmountTextField("0.00", text: $emiAmount, font: .ftBodySemibold)
+                                    .foregroundStyle(FTColor.textPrimary).frame(maxWidth: 120)
                             }
                             .padding(.vertical, 13)
                         }
@@ -888,10 +878,10 @@ struct AddLoanView: View {
         guard let loan = editingLoan else { return }
         name = loan.name
         loanType = loan.loanType
-        principalAmount = String(loan.principalAmount)
-        outstandingBalance = String(loan.outstandingBalance)
+        principalAmount = AmountTextField.format(String(format: "%.2f", loan.principalAmount))
+        outstandingBalance = AmountTextField.format(String(format: "%.2f", loan.outstandingBalance))
         interestRate = String(loan.interestRate)
-        emiAmount = String(loan.emiAmount)
+        emiAmount = AmountTextField.format(String(format: "%.2f", loan.emiAmount))
         startDate = loan.startDate
         endDate = loan.endDate
         nextPaymentDate = loan.nextPaymentDate
@@ -907,10 +897,11 @@ struct AddLoanView: View {
         if let loan = editingLoan {
             loan.name = name
             loan.loanType = loanType
-            loan.principalAmount = Double(principalAmount) ?? 0
-            loan.outstandingBalance = Double(outstandingBalance).flatMap { $0 > 0 ? $0 : nil } ?? (Double(principalAmount) ?? 0)
+            loan.principalAmount = AmountTextField.double(from: principalAmount)
+            let outstandingVal = AmountTextField.double(from: outstandingBalance)
+            loan.outstandingBalance = outstandingVal > 0 ? outstandingVal : AmountTextField.double(from: principalAmount)
             loan.interestRate = Double(interestRate) ?? 0
-            loan.emiAmount = Double(emiAmount) ?? 0
+            loan.emiAmount = AmountTextField.double(from: emiAmount)
             loan.startDate = startDate
             loan.endDate = endDate
             loan.nextPaymentDate = nextPaymentDate
@@ -924,10 +915,10 @@ struct AddLoanView: View {
             let loan = Loan(
                 name: name,
                 loanType: loanType,
-                principalAmount: Double(principalAmount) ?? 0,
-                outstandingBalance: Double(outstandingBalance).flatMap { $0 > 0 ? $0 : nil },
+                principalAmount: AmountTextField.double(from: principalAmount),
+                outstandingBalance: { let v = AmountTextField.double(from: outstandingBalance); return v > 0 ? v : nil }(),
                 interestRate: Double(interestRate) ?? 0,
-                emiAmount: Double(emiAmount) ?? 0,
+                emiAmount: AmountTextField.double(from: emiAmount),
                 startDate: startDate,
                 endDate: endDate,
                 nextPaymentDate: nextPaymentDate,
@@ -1034,9 +1025,8 @@ struct AddBNPLView: View {
                             HStack(spacing: FTSpacing.md) {
                                 Text("Total Amount").font(.ftBody).foregroundStyle(FTColor.textSecondary)
                                 Spacer()
-                                TextField("0.00", text: $totalAmount)
-                                    .keyboardType(.decimalPad).multilineTextAlignment(.trailing)
-                                    .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary).frame(maxWidth: 120)
+                                AmountTextField("0.00", text: $totalAmount, font: .ftBodySemibold)
+                                    .foregroundStyle(FTColor.textPrimary).frame(maxWidth: 120)
                             }
                             .padding(.vertical, 13)
 
@@ -1045,9 +1035,8 @@ struct AddBNPLView: View {
                             HStack(spacing: FTSpacing.md) {
                                 Text("Per Installment").font(.ftBody).foregroundStyle(FTColor.textSecondary)
                                 Spacer()
-                                TextField("0.00", text: $installmentAmount)
-                                    .keyboardType(.decimalPad).multilineTextAlignment(.trailing)
-                                    .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary).frame(maxWidth: 120)
+                                AmountTextField("0.00", text: $installmentAmount, font: .ftBodySemibold)
+                                    .foregroundStyle(FTColor.textPrimary).frame(maxWidth: 120)
                             }
                             .padding(.vertical, 13)
                         }
@@ -1106,8 +1095,8 @@ struct AddBNPLView: View {
             name: name, provider: provider,
             customProvider: provider == .custom ? customProviderName : nil,
             merchant: merchant,
-            totalAmount: Double(totalAmount) ?? 0, currency: currency,
-            installmentAmount: Double(installmentAmount) ?? 0,
+            totalAmount: AmountTextField.double(from: totalAmount), currency: currency,
+            installmentAmount: AmountTextField.double(from: installmentAmount),
             totalInstallments: totalInstallments,
             paidInstallments: paidInstallments,
             nextPaymentDate: nextPaymentDate
@@ -1184,9 +1173,8 @@ struct AddGiftCardView: View {
                                 Text("Balance").font(.ftBody).foregroundStyle(FTColor.textSecondary)
                                 Spacer()
                                 Text(currency).font(.ftBody).foregroundStyle(FTColor.textMuted)
-                                TextField("0.00", text: $balance)
-                                    .keyboardType(.decimalPad).multilineTextAlignment(.trailing)
-                                    .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary).frame(maxWidth: 120)
+                                AmountTextField("0.00", text: $balance, font: .ftBodySemibold)
+                                    .foregroundStyle(FTColor.textPrimary).frame(maxWidth: 120)
                             }
                             .padding(.vertical, 13)
                         }
@@ -1287,7 +1275,7 @@ struct AddGiftCardView: View {
     private func save() {
         let card = GiftCard(
             merchant: merchant,
-            balance: Double(balance) ?? 0,
+            balance: AmountTextField.double(from: balance),
             currency: currency,
             cardNumber: cardNumber.isEmpty ? nil : cardNumber,
             pinCode: pinCode.isEmpty ? nil : pinCode,
@@ -1300,7 +1288,7 @@ struct AddGiftCardView: View {
         if let expiry = hasExpiry ? expiryDate : nil {
             NotificationService.shared.scheduleGiftCardExpiry(
                 merchant: merchant,
-                balance: Double(balance) ?? 0,
+                balance: AmountTextField.double(from: balance),
                 currency: currency,
                 expiryDate: expiry,
                 id: card.id.uuidString
@@ -1587,16 +1575,14 @@ struct EditInvestmentView: View {
                             HStack {
                                 Text("Avg Cost").font(.ftCaption).foregroundStyle(FTColor.textSecondary)
                                 Spacer()
-                                TextField("0.00", text: $averageCost).keyboardType(.decimalPad)
-                                    .multilineTextAlignment(.trailing).font(.ftBody)
+                                AmountTextField("0.00", text: $averageCost, font: .ftBody)
                             }
                             .padding(.vertical, 13).padding(.horizontal, FTSpacing.lg)
                             Divider().opacity(0.4)
                             HStack {
                                 Text("Current Price").font(.ftCaption).foregroundStyle(FTColor.textSecondary)
                                 Spacer()
-                                TextField("0.00", text: $currentPrice).keyboardType(.decimalPad)
-                                    .multilineTextAlignment(.trailing).font(.ftBody)
+                                AmountTextField("0.00", text: $currentPrice, font: .ftBody)
                             }
                             .padding(.vertical, 13).padding(.horizontal, FTSpacing.lg)
                             Divider().opacity(0.4)
@@ -1622,7 +1608,8 @@ struct EditInvestmentView: View {
             .dismissKeyboardOnTap()
             .onAppear {
                 name = investment.name; quantity = String(investment.quantity)
-                averageCost = String(investment.averageCost); currentPrice = String(investment.currentPrice)
+                averageCost = AmountTextField.format(String(format: "%.2f", investment.averageCost))
+                currentPrice = AmountTextField.format(String(format: "%.2f", investment.currentPrice))
                 exchange = investment.exchange ?? ""
             }
         }
@@ -1630,8 +1617,8 @@ struct EditInvestmentView: View {
     private func save() {
         investment.name = name
         investment.quantity = Double(quantity) ?? investment.quantity
-        investment.averageCost = Double(averageCost) ?? investment.averageCost
-        investment.currentPrice = Double(currentPrice) ?? investment.currentPrice
+        investment.averageCost = Double(averageCost.replacingOccurrences(of: ",", with: "")) ?? investment.averageCost
+        investment.currentPrice = Double(currentPrice.replacingOccurrences(of: ",", with: "")) ?? investment.currentPrice
         investment.exchange = exchange.isEmpty ? nil : exchange
         try? context.save(); dismiss()
     }
@@ -1668,16 +1655,14 @@ struct EditCryptoView: View {
                             HStack {
                                 Text("Avg Cost (USD)").font(.ftCaption).foregroundStyle(FTColor.textSecondary)
                                 Spacer()
-                                TextField("0.00", text: $averageCost).keyboardType(.decimalPad)
-                                    .multilineTextAlignment(.trailing).font(.ftBody)
+                                AmountTextField("0.00", text: $averageCost, font: .ftBody)
                             }
                             .padding(.vertical, 13).padding(.horizontal, FTSpacing.lg)
                             Divider().opacity(0.4)
                             HStack {
                                 Text("Current Price").font(.ftCaption).foregroundStyle(FTColor.textSecondary)
                                 Spacer()
-                                TextField("0.00", text: $currentPrice).keyboardType(.decimalPad)
-                                    .multilineTextAlignment(.trailing).font(.ftBody)
+                                AmountTextField("0.00", text: $currentPrice, font: .ftBody)
                             }
                             .padding(.vertical, 13).padding(.horizontal, FTSpacing.lg)
                             Divider().opacity(0.4)
@@ -1709,16 +1694,17 @@ struct EditCryptoView: View {
             .toolbar { ToolbarItem(placement: .navigationBarLeading) { Button("Cancel") { dismiss() } } }
             .dismissKeyboardOnTap()
             .onAppear {
-                quantity = String(holding.quantity); averageCost = String(holding.averageCost)
-                currentPrice = String(holding.currentPrice)
+                quantity = String(holding.quantity)
+                averageCost = AmountTextField.format(String(format: "%.2f", holding.averageCost))
+                currentPrice = AmountTextField.format(String(format: "%.2f", holding.currentPrice))
                 exchange = holding.exchange ?? ""; walletAddress = holding.walletAddress ?? ""
             }
         }
     }
     private func save() {
         holding.quantity = Double(quantity) ?? holding.quantity
-        holding.averageCost = Double(averageCost) ?? holding.averageCost
-        holding.currentPrice = Double(currentPrice) ?? holding.currentPrice
+        holding.averageCost = Double(averageCost.replacingOccurrences(of: ",", with: "")) ?? holding.averageCost
+        holding.currentPrice = Double(currentPrice.replacingOccurrences(of: ",", with: "")) ?? holding.currentPrice
         holding.exchange = exchange.isEmpty ? nil : exchange
         holding.walletAddress = walletAddress.isEmpty ? nil : walletAddress
         try? context.save(); dismiss()
@@ -1763,16 +1749,14 @@ struct EditGoldHoldingView: View {
                             HStack {
                                 Text("Purchase Price/g").font(.ftCaption).foregroundStyle(FTColor.textSecondary)
                                 Spacer()
-                                TextField("0.00", text: $purchasePricePerGram).keyboardType(.decimalPad)
-                                    .multilineTextAlignment(.trailing).font(.ftBody)
+                                AmountTextField("0.00", text: $purchasePricePerGram, font: .ftBody)
                             }
                             .padding(.vertical, 13).padding(.horizontal, FTSpacing.lg)
                             Divider().opacity(0.4)
                             HStack {
                                 Text("Current Price/g").font(.ftCaption).foregroundStyle(FTColor.textSecondary)
                                 Spacer()
-                                TextField("0.00", text: $currentPricePerGram).keyboardType(.decimalPad)
-                                    .multilineTextAlignment(.trailing).font(.ftBody)
+                                AmountTextField("0.00", text: $currentPricePerGram, font: .ftBody)
                             }
                             .padding(.vertical, 13).padding(.horizontal, FTSpacing.lg)
                             Divider().opacity(0.4)
@@ -1798,8 +1782,8 @@ struct EditGoldHoldingView: View {
             .dismissKeyboardOnTap()
             .onAppear {
                 name = holding.name; weightGrams = String(holding.weightGrams)
-                purchasePricePerGram = String(holding.purchasePricePerGram)
-                currentPricePerGram = String(holding.currentPricePerGram)
+                purchasePricePerGram = AmountTextField.format(String(format: "%.2f", holding.purchasePricePerGram))
+                currentPricePerGram = AmountTextField.format(String(format: "%.2f", holding.currentPricePerGram))
                 storageLocation = holding.storageLocation ?? ""
             }
         }
@@ -1807,8 +1791,8 @@ struct EditGoldHoldingView: View {
     private func save() {
         holding.name = name
         holding.weightGrams = Double(weightGrams) ?? holding.weightGrams
-        holding.purchasePricePerGram = Double(purchasePricePerGram) ?? holding.purchasePricePerGram
-        holding.currentPricePerGram = Double(currentPricePerGram) ?? holding.currentPricePerGram
+        holding.purchasePricePerGram = Double(purchasePricePerGram.replacingOccurrences(of: ",", with: "")) ?? holding.purchasePricePerGram
+        holding.currentPricePerGram = Double(currentPricePerGram.replacingOccurrences(of: ",", with: "")) ?? holding.currentPricePerGram
         holding.storageLocation = storageLocation.isEmpty ? nil : storageLocation
         try? context.save(); dismiss()
     }
@@ -1845,8 +1829,7 @@ struct EditGiftCardView: View {
                             HStack {
                                 Text("Balance").font(.ftCaption).foregroundStyle(FTColor.textSecondary)
                                 Spacer()
-                                TextField("0.00", text: $balance).keyboardType(.decimalPad)
-                                    .multilineTextAlignment(.trailing).font(.ftBody)
+                                AmountTextField("0.00", text: $balance, font: .ftBody)
                             }
                             .padding(.vertical, 13).padding(.horizontal, FTSpacing.lg)
                             Divider().opacity(0.4)
@@ -1881,7 +1864,7 @@ struct EditGiftCardView: View {
             .toolbar { ToolbarItem(placement: .navigationBarLeading) { Button("Cancel") { dismiss() } } }
             .dismissKeyboardOnTap()
             .onAppear {
-                merchant = card.merchant; balance = String(card.balance)
+                merchant = card.merchant; balance = AmountTextField.format(String(format: "%.2f", card.balance))
                 cardNumber = card.cardNumber ?? ""
                 hasExpiry = card.expiryDate != nil
                 expiryDate = card.expiryDate ?? Calendar.current.date(byAdding: .year, value: 1, to: Date()) ?? Date()
@@ -1890,7 +1873,7 @@ struct EditGiftCardView: View {
         }
     }
     private func save() {
-        card.merchant = merchant; card.balance = Double(balance) ?? card.balance
+        card.merchant = merchant; card.balance = Double(balance.replacingOccurrences(of: ",", with: "")) ?? card.balance
         card.cardNumber = cardNumber.isEmpty ? nil : cardNumber
         card.expiryDate = hasExpiry ? expiryDate : nil
         card.notes = notes.isEmpty ? nil : notes

@@ -285,11 +285,8 @@ struct AddGoldHoldingView: View {
                 // Purchase price per gram
                 VStack(spacing: FTSpacing.xs) {
                     fieldRow(label: "Purchase Price / g") {
-                        TextField("0.00", text: $purchasePricePerGramText)
-                            .font(.ftBody)
+                        AmountTextField("0.00", text: $purchasePricePerGramText, font: .ftBody)
                             .foregroundStyle(FTColor.textPrimary)
-                            .multilineTextAlignment(.trailing)
-                            .keyboardType(.decimalPad)
                     }
                     if selectedWeightUnit != .grams {
                         HStack {
@@ -306,11 +303,8 @@ struct AddGoldHoldingView: View {
                 // Current price per gram
                 VStack(spacing: FTSpacing.xs) {
                     fieldRow(label: "Current Price / g") {
-                        TextField("0.00", text: $currentPricePerGramText)
-                            .font(.ftBody)
+                        AmountTextField("0.00", text: $currentPricePerGramText, font: .ftBody)
                             .foregroundStyle(FTColor.textPrimary)
-                            .multilineTextAlignment(.trailing)
-                            .keyboardType(.decimalPad)
                     }
                     HStack {
                         Spacer()
@@ -512,13 +506,13 @@ struct AddGoldHoldingView: View {
         let displayWeight  = unit.fromGrams(item.weightGrams)
         weightText         = displayWeight > 0 ? String(format: "%g", displayWeight) : ""
 
-        purchasePricePerGramText = item.purchasePricePerGram > 0 ? String(format: "%.2f", item.purchasePricePerGram) : ""
-        currentPricePerGramText  = item.currentPricePerGram > 0  ? String(format: "%.2f", item.currentPricePerGram) : ""
+        purchasePricePerGramText = item.purchasePricePerGram > 0 ? AmountTextField.format(String(format: "%.2f", item.purchasePricePerGram)) : ""
+        currentPricePerGramText  = item.currentPricePerGram > 0  ? AmountTextField.format(String(format: "%.2f", item.currentPricePerGram)) : ""
     }
 
     private func save() {
-        let purchasePerGram = Double(purchasePricePerGramText.replacingOccurrences(of: ",", with: ".")) ?? 0
-        let currentPerGram  = Double(currentPricePerGramText.replacingOccurrences(of: ",", with: ".")) ?? 0
+        let purchasePerGram = AmountTextField.double(from: purchasePricePerGramText)
+        let currentPerGram  = AmountTextField.double(from: currentPricePerGramText)
         let trimmedName     = holdingName.trimmingCharacters(in: .whitespaces).isEmpty ? autoName : holdingName.trimmingCharacters(in: .whitespaces)
         let trimmedStorage  = storageLocation.trimmingCharacters(in: .whitespaces)
         let trimmedShop     = dubaiShopName.trimmingCharacters(in: .whitespaces)

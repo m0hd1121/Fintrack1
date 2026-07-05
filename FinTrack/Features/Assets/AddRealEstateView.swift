@@ -52,9 +52,9 @@ struct AddRealEstateView: View {
 
     // MARK: - Computed
 
-    private var purchasePrice: Double { Double(purchasePriceText.replacingOccurrences(of: ",", with: ".")) ?? 0 }
-    private var currentValue: Double { Double(currentValueText.replacingOccurrences(of: ",", with: ".")) ?? 0 }
-    private var mortgageBalance: Double { Double(mortgageBalanceText.replacingOccurrences(of: ",", with: ".")) ?? 0 }
+    private var purchasePrice: Double { AmountTextField.double(from: purchasePriceText) }
+    private var currentValue: Double { AmountTextField.double(from: currentValueText) }
+    private var mortgageBalance: Double { AmountTextField.double(from: mortgageBalanceText) }
     private var ownershipPercentage: Double { Double(ownershipPercentageText.replacingOccurrences(of: ",", with: ".")) ?? 100 }
 
     private var equityPreview: Double {
@@ -365,11 +365,8 @@ struct AddRealEstateView: View {
         HStack(spacing: FTSpacing.md) {
             fieldLabel(label)
             Spacer()
-            TextField("0.00", text: text)
-                .keyboardType(.decimalPad)
-                .font(.ftBodySemibold)
+            AmountTextField("0.00", text: text, font: .ftBodySemibold)
                 .foregroundStyle(FTColor.textPrimary)
-                .multilineTextAlignment(.trailing)
                 .frame(maxWidth: 160)
         }
         .padding(.vertical, FTSpacing.md)
@@ -395,9 +392,9 @@ struct AddRealEstateView: View {
         name                   = item.name
         propertyType           = item.propertyType
         address                = item.address ?? ""
-        purchasePriceText      = item.purchasePrice > 0 ? String(format: "%.2f", item.purchasePrice) : ""
-        currentValueText       = item.currentValue > 0 ? String(format: "%.2f", item.currentValue) : ""
-        mortgageBalanceText    = item.mortgageBalance > 0 ? String(format: "%.2f", item.mortgageBalance) : ""
+        purchasePriceText      = item.purchasePrice > 0 ? AmountTextField.format(String(format: "%.2f", item.purchasePrice)) : ""
+        currentValueText       = item.currentValue > 0 ? AmountTextField.format(String(format: "%.2f", item.currentValue)) : ""
+        mortgageBalanceText    = item.mortgageBalance > 0 ? AmountTextField.format(String(format: "%.2f", item.mortgageBalance)) : ""
         ownershipPercentageText = String(format: "%.0f", item.ownershipPercentage)
         areaText               = item.area.map { String(format: "%.0f", $0) } ?? ""
         areaUnit               = item.areaUnit ?? "sqm"

@@ -185,11 +185,8 @@ struct AddRentalPropertyView: View {
                 formRow {
                     fieldLabel("Expected Monthly Rent")
                     Spacer()
-                    TextField("0.00", text: $monthlyRentText)
-                        .keyboardType(.decimalPad)
-                        .font(.ftBodySemibold)
+                    AmountTextField("0.00", text: $monthlyRentText, font: .ftBodySemibold)
                         .foregroundStyle(FTColor.textPrimary)
-                        .multilineTextAlignment(.trailing)
                         .frame(maxWidth: 140)
                 }
                 rowDivider
@@ -366,7 +363,7 @@ struct AddRentalPropertyView: View {
         propertyName      = prop.propertyName
         propertyType      = prop.propertyType
         address           = prop.address ?? ""
-        monthlyRentText   = prop.monthlyRentExpected > 0 ? String(format: "%.2f", prop.monthlyRentExpected) : ""
+        monthlyRentText   = prop.monthlyRentExpected > 0 ? AmountTextField.format(String(format: "%.2f", prop.monthlyRentExpected)) : ""
         currency          = prop.currency
         selectedColorName = prop.colorName
         notes             = prop.notes ?? ""
@@ -374,7 +371,7 @@ struct AddRentalPropertyView: View {
 
     private func save() {
         let trimmedName    = propertyName.trimmingCharacters(in: .whitespaces)
-        let monthlyRent    = Double(monthlyRentText.replacingOccurrences(of: ",", with: ".")) ?? 0
+        let monthlyRent    = AmountTextField.double(from: monthlyRentText)
         let trimmedAddress = address.trimmingCharacters(in: .whitespaces)
         let trimmedNotes   = notes.trimmingCharacters(in: .whitespaces)
 

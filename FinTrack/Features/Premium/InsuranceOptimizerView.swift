@@ -295,10 +295,10 @@ struct AddInsurancePolicyView: View {
     @State private var policyNumber = ""
     @State private var startDate = Date()
     @State private var endDate = Calendar.current.date(byAdding: .year, value: 1, to: Date()) ?? Date()
-    @State private var premium = 0.0
+    @State private var premiumText = ""
     @State private var frequency: PremiumFrequency = .annual
-    @State private var coverageAmount = 0.0
-    @State private var deductible = 0.0
+    @State private var coverageAmountText = ""
+    @State private var deductibleText = ""
     @State private var beneficiary = ""
     @State private var notes = ""
 
@@ -323,8 +323,7 @@ struct AddInsurancePolicyView: View {
                     HStack {
                         Text("Premium Amount")
                         Spacer()
-                        TextField("0", value: $premium, format: .number)
-                            .keyboardType(.decimalPad).multilineTextAlignment(.trailing)
+                        AmountTextField("0", text: $premiumText)
                     }
                     Picker("Frequency", selection: $frequency) {
                         ForEach(PremiumFrequency.allCases, id: \.self) { f in
@@ -336,14 +335,12 @@ struct AddInsurancePolicyView: View {
                     HStack {
                         Text("Coverage Amount")
                         Spacer()
-                        TextField("0", value: $coverageAmount, format: .number)
-                            .keyboardType(.decimalPad).multilineTextAlignment(.trailing)
+                        AmountTextField("0", text: $coverageAmountText)
                     }
                     HStack {
                         Text("Deductible")
                         Spacer()
-                        TextField("0", value: $deductible, format: .number)
-                            .keyboardType(.decimalPad).multilineTextAlignment(.trailing)
+                        AmountTextField("0", text: $deductibleText)
                     }
                     TextField("Beneficiary", text: $beneficiary)
                 }
@@ -373,15 +370,18 @@ struct AddInsurancePolicyView: View {
         policyNumber = e.policyNumber ?? ""
         startDate = e.startDate
         endDate = e.endDate
-        premium = e.premium
+        premiumText = AmountTextField.format(String(e.premium))
         frequency = e.premiumFrequency
-        coverageAmount = e.coverageAmount
-        deductible = e.deductible
+        coverageAmountText = AmountTextField.format(String(e.coverageAmount))
+        deductibleText = AmountTextField.format(String(e.deductible))
         beneficiary = e.beneficiary ?? ""
         notes = e.notes ?? ""
     }
 
     private func save() {
+        let premium = AmountTextField.double(from: premiumText)
+        let coverageAmount = AmountTextField.double(from: coverageAmountText)
+        let deductible = AmountTextField.double(from: deductibleText)
         if let e = editing {
             e.typeRaw = policyType.rawValue
             e.policyName = policyName

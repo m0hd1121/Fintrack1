@@ -74,7 +74,7 @@ struct AddMoneyLentView: View {
         if let item = editingItem {
             _borrowerName      = State(initialValue: item.borrowerName)
             _contactInfo       = State(initialValue: item.contactInfo ?? "")
-            _amountText        = State(initialValue: item.amount > 0 ? String(format: "%.2f", item.amount) : "")
+            _amountText        = State(initialValue: item.amount > 0 ? AmountTextField.format(String(format: "%.2f", item.amount)) : "")
             _currency          = State(initialValue: item.currency)
             _lendingDate       = State(initialValue: item.lendingDate)
             _dueDateEnabled    = State(initialValue: item.dueDate != nil)
@@ -195,11 +195,8 @@ struct AddMoneyLentView: View {
                         .foregroundStyle(FTColor.textSecondary)
                         .fixedSize()
                     Spacer()
-                    TextField("0.00", text: $amountText)
-                        .keyboardType(.decimalPad)
-                        .font(.ftBodySemibold)
+                    AmountTextField("0.00", text: $amountText, font: .ftBodySemibold)
                         .foregroundStyle(FTColor.textPrimary)
-                        .multilineTextAlignment(.trailing)
                         .frame(maxWidth: 140)
                 }
                 .padding(.vertical, FTSpacing.md)
@@ -529,7 +526,7 @@ struct AddMoneyLentView: View {
     // MARK: - Save Logic
 
     private func save() {
-        let amount = Double(amountText.replacingOccurrences(of: ",", with: ".")) ?? 0
+        let amount = AmountTextField.double(from: amountText)
         guard !borrowerName.trimmingCharacters(in: .whitespaces).isEmpty, amount > 0 else {
             withAnimation { showValidationError = true }
             return

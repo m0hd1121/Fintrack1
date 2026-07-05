@@ -196,22 +196,16 @@ struct AddInvestmentView: View {
 
                 // Average Cost
                 fieldRow(label: "Avg Cost per Unit") {
-                    TextField("0.00", text: $averageCostText)
-                        .font(.ftBody)
+                    AmountTextField("0.00", text: $averageCostText, font: .ftBody)
                         .foregroundStyle(FTColor.textPrimary)
-                        .multilineTextAlignment(.trailing)
-                        .keyboardType(.decimalPad)
                 }
 
                 divider
 
                 // Current Price
                 fieldRow(label: "Current Price") {
-                    TextField("0.00", text: $currentPriceText)
-                        .font(.ftBody)
+                    AmountTextField("0.00", text: $currentPriceText, font: .ftBody)
                         .foregroundStyle(FTColor.textPrimary)
-                        .multilineTextAlignment(.trailing)
-                        .keyboardType(.decimalPad)
                 }
 
                 divider
@@ -407,11 +401,8 @@ struct AddInvestmentView: View {
             divider
 
             fieldRow(label: "Cost per Unit") {
-                TextField("0.00", text: $lotCostText)
-                    .font(.ftBody)
+                AmountTextField("0.00", text: $lotCostText, font: .ftBody)
                     .foregroundStyle(FTColor.textPrimary)
-                    .multilineTextAlignment(.trailing)
-                    .keyboardType(.decimalPad)
             }
 
             divider
@@ -532,8 +523,8 @@ struct AddInvestmentView: View {
         exchange          = item.exchange ?? ""
         investmentType    = item.type
         quantityText      = item.quantity > 0 ? String(format: "%g", item.quantity) : ""
-        averageCostText   = item.averageCost > 0 ? String(format: "%.2f", item.averageCost) : ""
-        currentPriceText  = item.currentPrice > 0 ? String(format: "%.2f", item.currentPrice) : ""
+        averageCostText   = item.averageCost > 0 ? AmountTextField.format(String(format: "%.2f", item.averageCost)) : ""
+        currentPriceText  = item.currentPrice > 0 ? AmountTextField.format(String(format: "%.2f", item.currentPrice)) : ""
         currency          = item.currency
         purchaseDate      = item.purchaseDate
         expenseRatioText  = item.expenseRatio > 0 ? String(format: "%g", item.expenseRatio) : ""
@@ -548,7 +539,7 @@ struct AddInvestmentView: View {
 
     private func commitLot() {
         let qty  = Double(lotQtyText.replacingOccurrences(of: ",", with: ".")) ?? 0
-        let cost = Double(lotCostText.replacingOccurrences(of: ",", with: ".")) ?? 0
+        let cost = AmountTextField.double(from: lotCostText)
         guard qty > 0, cost > 0 else { return }
         let lot = PurchaseLot(
             quantity: qty,
@@ -564,8 +555,8 @@ struct AddInvestmentView: View {
 
     private func save() {
         let qty          = Double(quantityText.replacingOccurrences(of: ",", with: ".")) ?? 0
-        let avgCost      = Double(averageCostText.replacingOccurrences(of: ",", with: ".")) ?? 0
-        let curPrice     = Double(currentPriceText.replacingOccurrences(of: ",", with: ".")) ?? 0
+        let avgCost      = AmountTextField.double(from: averageCostText)
+        let curPrice     = AmountTextField.double(from: currentPriceText)
         let expRatio     = Double(expenseRatioText.replacingOccurrences(of: ",", with: ".")) ?? 0
         let divYield     = Double(dividendYieldText.replacingOccurrences(of: ",", with: ".")) ?? 0
         let trimmedName  = name.trimmingCharacters(in: .whitespaces)
