@@ -23,6 +23,7 @@ struct DebtManagementView: View {
     @State private var showingAddBorrowed = false
     @State private var editingLent: MoneyLent? = nil
     @State private var editingBorrowed: MoneyBorrowed? = nil
+    @State private var editingLoan: Loan? = nil
     @State private var snowballExtra: Double = 100
     @State private var avalancheExtra: Double = 100
     @State private var calculatorSelectedIndex: Int = 0
@@ -34,7 +35,7 @@ struct DebtManagementView: View {
     @State private var selectedLent: MoneyLent? = nil
     @State private var selectedBorrowed: MoneyBorrowed? = nil
 
-    private let tabs = ["Overview", "Snowball", "Avalanche", "Calculator", "Lent", "Borrowed", "BNPL", "Utilization"]
+    private let tabs = ["Overview", "Loans", "Snowball", "Avalanche", "Calculator", "Lent", "Borrowed", "BNPL", "Utilization"]
 
     private var baseCurrency: String { appState.baseCurrency }
 
@@ -54,6 +55,10 @@ struct DebtManagementView: View {
 
     private var totalMinimumPayments: Double {
         debtItems.reduce(0) { $0 + currencyService.convert($1.minimumPayment, from: $1.currency, to: baseCurrency) }
+    }
+
+    private var totalLoans: Double {
+        activeLoans.reduce(0.0) { $0 + currencyService.convert($1.outstandingBalance, from: $1.currency, to: baseCurrency) }
     }
 
     private var activeLentItems: [MoneyLent] { moneyLent.filter { !$0.isFullyRepaid } }
@@ -115,6 +120,9 @@ struct DebtManagementView: View {
             .sheet(isPresented: $showingAddBorrowed) {
                 AddMoneyBorrowedSheet()
             }
+            .sheet(item: $editingLoan) { item in
+                AddLoanView(editingLoan: item)
+            }
             .sheet(item: $editingLent) { item in
                 AddMoneyLentSheet(editing: item)
             }
@@ -158,28 +166,30 @@ struct DebtManagementView: View {
     private func tabIcon(_ i: Int) -> String {
         switch i {
         case 0: return "creditcard.fill"
-        case 1: return "snowflake"
-        case 2: return "chart.line.downtrend.xyaxis"
-        case 3: return "function"
-        case 4: return "hand.raised.fill"
-        case 5: return "hand.point.down.fill"
-        case 6: return "cart.fill"
-        case 7: return "gauge.medium"
+        case 1: return "banknote.fill"
+        case 2: return "snowflake"
+        case 3: return "chart.line.downtrend.xyaxis"
+        case 4: return "function"
+        case 5: return "hand.raised.fill"
+        case 6: return "hand.point.down.fill"
+        case 7: return "cart.fill"
+        case 8: return "gauge.medium"
         default: return "circle"
         }
     }
 
-    // AnyView erases the complex 8-branch _ConditionalContent type that would
+    // AnyView erases the complex 9-branch _ConditionalContent type that would
     // otherwise create deeply nested generic stack frames and overflow on open.
     private func activeTabView() -> AnyView {
         switch selectedTab {
-        case 1: return AnyView(snowballTab)
-        case 2: return AnyView(avalancheTab)
-        case 3: return AnyView(calculatorTab)
-        case 4: return AnyView(lentTab)
-        case 5: return AnyView(borrowedTab)
-        case 6: return AnyView(bnplTab)
-        case 7: return AnyView(utilizationTab)
+        case 1: return AnyView(loansTab)
+        case 2: return AnyView(snowballTab)
+        case 3: return AnyView(avalancheTab)
+        case 4: return AnyView(calculatorTab)
+        case 5: return AnyView(lentTab)
+        case 6: return AnyView(borrowedTab)
+        case 7: return AnyView(bnplTab)
+        case 8: return AnyView(utilizationTab)
         default: return AnyView(overviewTab)
         }
     }
@@ -189,25 +199,25 @@ struct DebtManagementView: View {
     @ViewBuilder
     private var addButton: some View {
         switch selectedTab {
-        case 0:
+        case 0, 1:
             Button { showingAddLoan = true } label: {
                 Image(systemName: "plus")
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(FTColor.accent)
             }
-        case 4:
+        case 5:
             Button { showingAddLent = true } label: {
                 Image(systemName: "plus")
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(FTColor.accent)
             }
-        case 5:
+        case 6:
             Button { showingAddBorrowed = true } label: {
                 Image(systemName: "plus")
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(FTColor.accent)
             }
-        case 6:
+        case 7:
             Button { showingAddBNPL = true } label: {
                 Image(systemName: "plus")
                     .font(.system(size: 17, weight: .semibold))
@@ -435,7 +445,7 @@ struct DebtManagementView: View {
         .shadow(color: Color(hex: 0x8B1A1A).opacity(0.35), radius: 20, y: 8)
     }
 
-    // MARK: - TAB 1: SNOWBALL PLANNER
+    // MARK: - TAB 2: SNOWBALL PLANNER
 
     private var snowballTab: some View {
         VStack(spacing: FTSpacing.lg) {
@@ -481,7 +491,7 @@ struct DebtManagementView: View {
         .padding(.top, FTSpacing.md)
     }
 
-    // MARK: - TAB 2: AVALANCHE PLANNER
+    // MARK: - TAB 3: AVALANCHE PLANNER
 
     private var avalancheTab: some View {
         VStack(spacing: FTSpacing.lg) {
@@ -594,7 +604,7 @@ struct DebtManagementView: View {
         .padding(.horizontal, FTSpacing.screen)
     }
 
-    // MARK: - TAB 3: INTEREST SAVINGS CALCULATOR
+    // MARK: - TAB 4: INTEREST SAVINGS CALCULATOR
 
     private var calculatorTab: some View {
         VStack(spacing: FTSpacing.lg) {
@@ -750,7 +760,80 @@ struct DebtManagementView: View {
         .padding(.top, FTSpacing.md)
     }
 
-    // MARK: - TAB 4: MONEY LENT
+    // MARK: - TAB 1: LOANS
+
+    private var loansTab: some View {
+        VStack(spacing: FTSpacing.lg) {
+            // Summary header
+            HStack(spacing: FTSpacing.md) {
+                FTIconTile(symbol: "banknote.fill", tint: FTColor.expense, size: 42)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Loans Outstanding")
+                        .font(.ftBodySemibold)
+                        .foregroundStyle(FTColor.textPrimary)
+                    Text("\(activeLoans.count) active loans")
+                        .font(.ftCaption)
+                        .foregroundStyle(FTColor.textSecondary)
+                }
+                Spacer()
+                VStack(alignment: .trailing, spacing: 3) {
+                    Text(totalLoans.formatted(as: baseCurrency))
+                        .font(.ftBodySemibold)
+                        .foregroundStyle(FTColor.expense)
+                    Text("remaining")
+                        .font(.ftLabel)
+                        .tracking(0.3)
+                        .foregroundStyle(FTColor.textMuted)
+                }
+            }
+            .padding(FTSpacing.lg)
+            .ftGlass(FTRadius.lg)
+            .padding(.horizontal, FTSpacing.screen)
+
+            if activeLoans.isEmpty {
+                debtEmptyState(
+                    symbol: "banknote",
+                    title: "No Loans",
+                    message: "Track car loans, mortgages, and personal loans here.",
+                    buttonTitle: "Add Loan",
+                    action: { showingAddLoan = true }
+                )
+                .padding(.horizontal, FTSpacing.screen)
+            } else {
+                VStack(alignment: .leading, spacing: FTSpacing.sm) {
+                    debtSectionHeader("All Loans", symbol: "list.bullet", tint: FTColor.expense)
+                        .padding(.horizontal, FTSpacing.screen)
+
+                    VStack(spacing: FTSpacing.sm) {
+                        ForEach(activeLoans.sorted { $0.nextPaymentDate < $1.nextPaymentDate }, id: \.id) { loan in
+                            Button { editingLoan = loan } label: {
+                                LoanDebtCard(loan: loan, baseCurrency: baseCurrency, currencyService: currencyService)
+                            }
+                            .buttonStyle(.plain)
+                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                Button(role: .destructive) {
+                                    context.delete(loan)
+                                    try? context.save()
+                                } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
+                            }
+                            .swipeActions(edge: .leading) {
+                                Button { editingLoan = loan } label: {
+                                    Label("Edit", systemImage: "pencil")
+                                }
+                                .tint(FTColor.accent)
+                            }
+                            .padding(.horizontal, FTSpacing.screen)
+                        }
+                    }
+                }
+            }
+        }
+        .padding(.top, FTSpacing.md)
+    }
+
+    // MARK: - TAB 5: MONEY LENT
 
     private var lentTab: some View {
         VStack(spacing: FTSpacing.lg) {
@@ -824,7 +907,7 @@ struct DebtManagementView: View {
         .padding(.top, FTSpacing.md)
     }
 
-    // MARK: - TAB 5: MONEY BORROWED
+    // MARK: - TAB 6: MONEY BORROWED
 
     private var borrowedTab: some View {
         VStack(spacing: FTSpacing.lg) {
@@ -898,7 +981,7 @@ struct DebtManagementView: View {
         .padding(.top, FTSpacing.md)
     }
 
-    // MARK: - TAB 6: BNPL
+    // MARK: - TAB 7: BNPL
 
     private var bnplTab: some View {
         VStack(spacing: FTSpacing.lg) {
@@ -962,7 +1045,7 @@ struct DebtManagementView: View {
         .padding(.top, FTSpacing.md)
     }
 
-    // MARK: - TAB 7: CREDIT UTILIZATION
+    // MARK: - TAB 8: CREDIT UTILIZATION
 
     private var utilizationTab: some View {
         VStack(spacing: FTSpacing.lg) {
