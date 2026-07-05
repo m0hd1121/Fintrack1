@@ -19,7 +19,10 @@ final class MerchantCategoryService {
 
     /// merchant key → TransactionCategory rawValue ("" = looked up, no result)
     private var cache: [String: String]
-    private let cacheKey = "ft_merchant_maps_category_cache_v1"
+    // v2: a prior bug cached a negative result even when a lookup merely
+    // *failed* (bad key, quota, network) rather than genuinely finding
+    // nothing — bumping this key gives every merchant a clean retry.
+    private let cacheKey = "ft_merchant_maps_category_cache_v2"
 
     private init() {
         cache = (UserDefaults.standard.dictionary(forKey: cacheKey) as? [String: String]) ?? [:]
@@ -39,6 +42,16 @@ final class MerchantCategoryService {
 
     // MARK: - Lookup
 
+    /// Distinguishes a genuine "no place found" from a request failure
+    /// (bad/unbilled key, API not enabled, quota, network hiccup) so a
+    /// transient failure never permanently caches a negative result nor
+    /// blocks the free OpenStreetMap fallback.
+    private enum LookupOutcome {
+        case found(TransactionCategory)
+        case notFound
+        case failed
+    }
+
     func lookupCategory(for merchant: String) async -> (category: TransactionCategory, source: String)? {
         guard isEnabled else { return nil }
         let key = ImportLearningService.merchantKey(merchant)
@@ -50,21 +63,37 @@ final class MerchantCategoryService {
         }
 
         var result: (TransactionCategory, String)?
-        if !googleAPIKey.isEmpty, let fromGoogle = await lookupGooglePlaces(merchant: merchant) {
-            result = (fromGoogle, "Google Maps")
-        } else if let fromOSM = await lookupNominatim(merchant: merchant) {
-            result = (fromOSM, "OpenStreetMap")
+        var definitive = true   // false when every attempt failed rather than genuinely finding nothing
+
+        if !googleAPIKey.isEmpty {
+            switch await lookupGooglePlaces(merchant: merchant) {
+            case .found(let category): result = (category, "Google Maps")
+            case .notFound: break
+            case .failed: definitive = false
+            }
         }
 
-        cache[key] = result?.0.rawValue ?? ""
-        UserDefaults.standard.set(cache, forKey: cacheKey)
+        if result == nil {
+            switch await lookupNominatim(merchant: merchant) {
+            case .found(let category): result = (category, "OpenStreetMap")
+            case .notFound: break
+            case .failed: definitive = false
+            }
+        }
+
+        // Only cache a negative result when every source we tried gave an
+        // authoritative "not found" — a failure should be retried next sync.
+        if result != nil || definitive {
+            cache[key] = result?.0.rawValue ?? ""
+            UserDefaults.standard.set(cache, forKey: cacheKey)
+        }
         return result.map { (category: $0.0, source: $0.1) }
     }
 
     // MARK: - Google Places (Text Search, New API)
 
-    private func lookupGooglePlaces(merchant: String) async -> TransactionCategory? {
-        guard let url = URL(string: "https://places.googleapis.com/v1/places:searchText") else { return nil }
+    private func lookupGooglePlaces(merchant: String) async -> LookupOutcome {
+        guard let url = URL(string: "https://places.googleapis.com/v1/places:searchText") else { return .failed }
         var request = URLRequest(url: url, timeoutInterval: 10)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -77,38 +106,43 @@ final class MerchantCategoryService {
         ])
 
         guard let (data, response) = try? await URLSession.shared.data(for: request),
-              (response as? HTTPURLResponse)?.statusCode == 200,
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let http = response as? HTTPURLResponse else { return .failed }
+        guard http.statusCode == 200 else { return .failed }
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let places = json["places"] as? [[String: Any]],
-              let types = places.first?["types"] as? [String] else { return nil }
+              let types = places.first?["types"] as? [String] else { return .notFound }
 
         for type in types {
-            if let category = Self.category(forPlaceType: type) { return category }
+            if let category = Self.category(forPlaceType: type) { return .found(category) }
         }
-        return nil
+        return .notFound
     }
 
     // MARK: - OpenStreetMap Nominatim (keyless fallback)
 
-    private func lookupNominatim(merchant: String) async -> TransactionCategory? {
+    private func lookupNominatim(merchant: String) async -> LookupOutcome {
         let query = merchant.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? merchant
         guard let url = URL(string: "https://nominatim.openstreetmap.org/search?q=\(query)&format=jsonv2&limit=1") else {
-            return nil
+            return .failed
         }
         var request = URLRequest(url: url, timeoutInterval: 10)
         request.setValue("FinTrack-iOS/1.0 (personal finance app)", forHTTPHeaderField: "User-Agent")
         request.setValue("en", forHTTPHeaderField: "Accept-Language")
 
         guard let (data, response) = try? await URLSession.shared.data(for: request),
-              (response as? HTTPURLResponse)?.statusCode == 200,
-              let results = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]],
-              let first = results.first else { return nil }
+              let http = response as? HTTPURLResponse else { return .failed }
+        guard http.statusCode == 200 else { return .failed }
+        guard let results = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { return .failed }
+        guard let first = results.first else { return .notFound }
 
         // Nominatim tags places as class/type pairs, e.g. amenity/restaurant,
         // shop/supermarket — both slot into the same mapping table.
         let osmClass = first["class"] as? String ?? ""
         let osmType = first["type"] as? String ?? ""
-        return Self.category(forPlaceType: osmType) ?? Self.category(forPlaceType: osmClass)
+        guard let category = Self.category(forPlaceType: osmType) ?? Self.category(forPlaceType: osmClass) else {
+            return .notFound
+        }
+        return .found(category)
     }
 
     // MARK: - Place type → TransactionCategory
