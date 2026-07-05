@@ -325,8 +325,22 @@ struct DebtManagementView: View {
 
                     VStack(spacing: FTSpacing.sm) {
                         ForEach(activeLoans, id: \.id) { loan in
-                            LoanDebtCard(loan: loan, baseCurrency: baseCurrency, currencyService: currencyService)
-                                .padding(.horizontal, FTSpacing.screen)
+                            Button { editingLoan = loan } label: {
+                                LoanDebtCard(loan: loan, baseCurrency: baseCurrency, currencyService: currencyService)
+                            }
+                            .buttonStyle(.plain)
+                            .contextMenu {
+                                Button { editingLoan = loan } label: {
+                                    Label("Edit", systemImage: "pencil")
+                                }
+                                Button(role: .destructive) {
+                                    context.delete(loan)
+                                    try? context.save()
+                                } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
+                            }
+                            .padding(.horizontal, FTSpacing.screen)
                         }
                     }
                 }
