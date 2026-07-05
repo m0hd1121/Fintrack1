@@ -242,6 +242,11 @@ struct SettingsView: View {
                                        title: "iCloud Backup", chevron: true)
                         }
                         rowDivider
+                        NavigationLink(destination: LazyView { GoogleDriveBackupView() }) {
+                            settingRow(symbol: "doc.badge.gearshape.fill", tint: FTColor.income,
+                                       title: "Google Drive Backup", chevron: true)
+                        }
+                        rowDivider
                         Button { exportBackup() } label: {
                             settingRow(symbol: "arrow.up.doc.fill", tint: FTColor.accent,
                                        title: "Export Backup", chevron: true)
