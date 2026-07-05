@@ -431,8 +431,11 @@ final class EmailSyncService: NSObject {
         let existingTxs = (try? context.fetch(FetchDescriptor<Transaction>())) ?? []
         let pendingItems = (try? context.fetch(FetchDescriptor<PendingEmailTransaction>())) ?? []
 
-        // Exact re-parse of an email that was already queued/approved → skip silently
-        if pendingItems.contains(where: { $0.messageId == email.messageId }) { return false }
+        // Exact re-parse of an email that was already queued/approved → skip silently.
+        // Scoped to the same account: IMAP UIDs (messageId "imap-<uid>") are
+        // assigned independently per mailbox, so two different accounts can
+        // share the same UID for two completely unrelated emails.
+        if pendingItems.contains(where: { $0.messageId == email.messageId && $0.accountId == accountId }) { return false }
 
         let verdict = learning.duplicateCheck(
             fingerprint: fingerprint, amount: parsed.amount, currency: parsed.currency,
