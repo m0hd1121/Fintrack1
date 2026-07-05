@@ -72,6 +72,7 @@ struct RootView: View {
                 iCloudBackupService.shared.scheduleAutomaticBackupIfNeeded(context: context, wifiOnly: wifiOnly)
             }
             GoogleDriveBackupService.shared.syncIfDue(context: context)
+            EmailBackupService.shared.scheduleAutomaticBackupIfNeeded(context: context)
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .background {
@@ -87,6 +88,7 @@ struct RootView: View {
                     iCloudBackupService.shared.scheduleAutomaticBackupIfNeeded(context: context, wifiOnly: wifiOnly)
                 }
                 GoogleDriveBackupService.shared.syncIfDue(context: context)
+                EmailBackupService.shared.scheduleAutomaticBackupIfNeeded(context: context)
             }
             if phase == .active {
                 Task { await EmailSyncService.shared.runSyncPass(context: context) }
@@ -102,6 +104,7 @@ struct RootView: View {
                     iCloudBackupService.shared.scheduleAutomaticBackupIfNeeded(context: context, wifiOnly: wifiOnly)
                 }
                 GoogleDriveBackupService.shared.syncIfDue(context: context)
+                EmailBackupService.shared.scheduleAutomaticBackupIfNeeded(context: context)
             }
         }
         .onContinueUserActivity(CSSearchableItemActionType) { activity in

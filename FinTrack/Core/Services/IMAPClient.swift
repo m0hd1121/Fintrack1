@@ -142,6 +142,17 @@ final class IMAPClient: @unchecked Sendable {
         return (message, "")
     }
 
+    /// Fetches one full message's raw bytes (headers + body, untouched) — for
+    /// callers that need to pull a binary attachment out themselves rather
+    /// than the readable-text extraction `fetchMessage` does.
+    func fetchRawMessage(uid: Int) async throws -> Data {
+        let transcript = try await command("UID FETCH \(uid) (BODY.PEEK[])")
+        guard let raw = Self.extractFirstLiteral(from: transcript) else {
+            throw IMAPError.commandFailed("No message data for UID \(uid)")
+        }
+        return raw
+    }
+
     func logout() async throws {
         _ = try? await command("LOGOUT")
         close()
@@ -266,6 +277,34 @@ enum MIMEDecoder {
             if let htmlFallback { return htmlFallback }
         }
         return decodeTransferEncoding(rawBody, headers: headers.lowercased())
+    }
+
+    /// Pulls the first binary attachment whose filename contains `needle`
+    /// (case-insensitive) out of a raw RFC822 message, base64-decoded to raw
+    /// bytes. Unlike `readableBody`, this never forces the payload through
+    /// UTF-8 — attachment content (an encrypted backup file, for instance)
+    /// isn't necessarily text.
+    static func extractAttachment(from rawMessage: Data, filenameContains needle: String) -> Data? {
+        let text = String(data: rawMessage, encoding: .isoLatin1) ?? ""
+        guard let headerEnd = text.range(of: "\r\n\r\n") ?? text.range(of: "\n\n") else { return nil }
+        let headers = String(text[..<headerEnd.lowerBound])
+        guard let boundary = boundary(in: headers) else { return nil }
+
+        let parts = text.components(separatedBy: "--" + boundary)
+        let lowerNeedle = needle.lowercased()
+        for part in parts {
+            guard let separator = part.range(of: "\r\n\r\n") ?? part.range(of: "\n\n") else { continue }
+            let partHeaders = String(part[..<separator.lowerBound])
+            let lowerHeaders = partHeaders.lowercased()
+            guard lowerHeaders.contains("attachment") || lowerHeaders.contains("filename") else { continue }
+            guard lowerHeaders.contains(lowerNeedle) else { continue }
+            guard lowerHeaders.contains("base64") else { continue }
+
+            let partBody = String(part[separator.upperBound...])
+            let compact = partBody.components(separatedBy: .whitespacesAndNewlines).joined()
+            if let data = Data(base64Encoded: compact) { return data }
+        }
+        return nil
     }
 
     private static func boundary(in text: String) -> String? {

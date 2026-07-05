@@ -253,6 +253,11 @@ struct SettingsView: View {
                                        title: "Google Drive Backup", chevron: true)
                         }
                         rowDivider
+                        NavigationLink(destination: LazyView { EmailBackupView() }) {
+                            settingRow(symbol: "envelope.badge.shield.half.filled.fill", tint: FTColor.catCoral,
+                                       title: "Email Backup", chevron: true)
+                        }
+                        rowDivider
                         Button { exportBackup() } label: {
                             settingRow(symbol: "arrow.up.doc.fill", tint: FTColor.accent,
                                        title: "Export Backup", chevron: true)
