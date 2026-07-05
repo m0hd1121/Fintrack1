@@ -32,7 +32,11 @@ enum BackupEncryptionError: LocalizedError {
     }
 }
 
-enum BackupEncryptionService {
+// Pure computation (Keychain + crypto), no UI — explicitly opted out of this
+// project's default MainActor isolation so the Task.detached blocks below
+// (which keep the PBKDF2 pass off the main thread) can access these members
+// without needing to hop back onto the main actor.
+nonisolated enum BackupEncryptionService {
     // 5-byte header identifying an encrypted FinTrack backup, so imports can
     // tell an encrypted file from a plain legacy export without guessing.
     private static let magic = Data("FTBK1".utf8)
