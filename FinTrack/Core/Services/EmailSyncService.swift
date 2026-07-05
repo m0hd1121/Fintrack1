@@ -1068,8 +1068,11 @@ extension EmailSyncService: ASWebAuthenticationPresentationContextProviding {
 // MARK: - KeychainStore
 
 /// Minimal Keychain wrapper for OAuth tokens (kSecClassGenericPassword,
-/// device-only, not synced to iCloud).
-enum KeychainStore {
+/// device-only, not synced to iCloud). Pure Security-framework calls, no UI
+/// dependency — explicitly nonisolated so it can be called synchronously
+/// from nonisolated code (e.g. BackupEncryptionService's detached crypto
+/// work) as well as from this project's default-MainActor-isolated types.
+nonisolated enum KeychainStore {
     static func save<T: Codable>(_ value: T, key: String) throws {
         let data = try JSONEncoder().encode(value)
         let query: [String: Any] = [
