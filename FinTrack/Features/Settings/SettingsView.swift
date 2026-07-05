@@ -237,6 +237,12 @@ struct SettingsView: View {
                     }
 
                     sectionCard("Data & Privacy") {
+                        NavigationLink(destination: LazyView { BackupEncryptionSettingsView() }) {
+                            settingRow(symbol: "lock.doc.fill", tint: FTColor.catPurple,
+                                       title: "Backup Encryption",
+                                       value: BackupEncryptionService.isEnabled ? "On" : "Off", chevron: true)
+                        }
+                        rowDivider
                         NavigationLink(destination: LazyView { iCloudSyncView() }) {
                             settingRow(symbol: "icloud.fill", tint: FTColor.catBlue,
                                        title: "iCloud Backup", chevron: true)
@@ -487,16 +493,25 @@ struct SettingsView: View {
     // Full-fidelity backup (.fintrack JSON) — round-trips with Import.
 
     private func exportBackup() {
-        do {
-            let url = try DataTransferService.shared.exportBackup(context: context)
-            presentShareSheet(for: url)
-        } catch {
-            resultMessage = "Export failed: \(error.localizedDescription)"
-            showingResult = true
+        Task {
+            do {
+                let url = try DataTransferService.shared.exportBackup(context: context)
+                let data = try Data(contentsOf: url)
+                let finalData = try await BackupEncryptionService.encryptIfEnabled(data)
+                try finalData.write(to: url, options: .atomic)
+                presentShareSheet(for: url)
+            } catch {
+                resultMessage = "Export failed: \(error.localizedDescription)"
+                showingResult = true
+            }
         }
     }
 
     private func runImport(mode: DataTransferService.ImportMode) {
+        Task { await runImportAsync(mode: mode) }
+    }
+
+    private func runImportAsync(mode: DataTransferService.ImportMode) async {
         guard let url = pendingImportURL else { return }
         defer { pendingImportURL = nil }
 
@@ -505,7 +520,13 @@ struct SettingsView: View {
         defer { if scoped { url.stopAccessingSecurityScopedResource() } }
 
         do {
-            let summary = try DataTransferService.shared.importBackup(from: url, context: context, mode: mode)
+            let rawData = try Data(contentsOf: url)
+            let plainData = try await BackupEncryptionService.decryptIfNeeded(rawData)
+            let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("FinTrack_Import_\(UUID().uuidString).fintrack")
+            try plainData.write(to: tempURL, options: .atomic)
+            defer { try? FileManager.default.removeItem(at: tempURL) }
+
+            let summary = try DataTransferService.shared.importBackup(from: tempURL, context: context, mode: mode)
             resultMessage = summary.total > 0 ? "Imported \(summary.description)." : "Nothing new to import."
         } catch {
             resultMessage = "Import failed. Make sure this is a FinTrack backup file.\n\n\(error.localizedDescription)"

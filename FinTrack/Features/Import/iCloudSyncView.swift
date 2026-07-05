@@ -23,13 +23,6 @@ struct iCloudSyncView: View {
         )
     }
 
-    private var encryptionBinding: Binding<Bool> {
-        Binding(
-            get: { settings?.encryptionEnabled ?? true },
-            set: { settings?.encryptionEnabled = $0; try? context.save() }
-        )
-    }
-
     @State private var showingRestoreConfirm = false
     @State private var resultMessage = ""
     @State private var showingResult = false
@@ -272,9 +265,18 @@ struct iCloudSyncView: View {
                         title: "Sync on Wi-Fi only",
                         isOn: wifiOnlyBinding)
             Divider().background(FTColor.textMuted.opacity(0.3))
-            FTToggleRow(symbol: "lock.fill", tint: FTColor.catPurple,
-                        title: "End-to-end encryption",
-                        isOn: encryptionBinding)
+            NavigationLink(destination: BackupEncryptionSettingsView()) {
+                HStack(spacing: FTSpacing.md) {
+                    FTIconTile(symbol: "lock.fill", tint: FTColor.catPurple, size: 36)
+                    Text("Backup Encryption").font(.ftBody).foregroundStyle(FTColor.textPrimary)
+                    Spacer()
+                    Text(BackupEncryptionService.isEnabled ? "On" : "Off")
+                        .font(.ftBody).foregroundStyle(FTColor.textSecondary)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold)).foregroundStyle(FTColor.textMuted)
+                }
+            }
+            .buttonStyle(.plain)
         }
         .padding()
         .ftGlass(FTRadius.xl)
@@ -305,10 +307,15 @@ struct iCloudSyncView: View {
 
     private var encryptionCard: some View {
         HStack(spacing: FTSpacing.md) {
-            Image(systemName: "checkmark.shield.fill").font(.ftCallout).foregroundStyle(FTColor.income)
+            Image(systemName: BackupEncryptionService.isEnabled ? "checkmark.shield.fill" : "shield.slash.fill")
+                .font(.ftCallout)
+                .foregroundStyle(BackupEncryptionService.isEnabled ? FTColor.income : FTColor.gold)
             VStack(alignment: .leading, spacing: 4) {
-                Text("Encrypted at Rest & In Transit").font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
-                Text("Your financial data is encrypted using AES-256 before being stored in iCloud. Apple cannot read your data.")
+                Text(BackupEncryptionService.isEnabled ? "Encrypted Before Upload" : "Not Encrypted Yet")
+                    .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                Text(BackupEncryptionService.isEnabled
+                     ? "Your backup is encrypted with AES-256 using your Backup Encryption passphrase before it's written to iCloud — Apple only ever sees ciphertext."
+                     : "This backup is plain, readable data once it reaches iCloud. Set a Backup Encryption passphrase above to protect it.")
                     .font(.ftCaption).foregroundStyle(FTColor.textMuted)
             }
         }

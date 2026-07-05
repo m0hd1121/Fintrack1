@@ -211,9 +211,10 @@ final class GoogleDriveBackupService: NSObject {
             let exportURL = try DataTransferService.shared.exportBackup(context: context)
             let data = try Data(contentsOf: exportURL)
             try? FileManager.default.removeItem(at: exportURL)
+            let finalData = try await BackupEncryptionService.encryptIfEnabled(data)
 
             let token = try await validAccessToken()
-            let fileId = try await uploadOrUpdate(fileId: storedFileId, data: data, token: token)
+            let fileId = try await uploadOrUpdate(fileId: storedFileId, data: finalData, token: token)
             storedFileId = fileId
             lastBackupDate = Date()
             return true
@@ -235,10 +236,11 @@ final class GoogleDriveBackupService: NSObject {
                 return "No backup found in Google Drive."
             }
             storedFileId = fileId
-            let data = try await downloadFile(fileId: fileId, token: token)
+            let rawData = try await downloadFile(fileId: fileId, token: token)
+            let plainData = try await BackupEncryptionService.decryptIfNeeded(rawData)
 
             let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(backupFileName)
-            try data.write(to: tempURL, options: .atomic)
+            try plainData.write(to: tempURL, options: .atomic)
             defer { try? FileManager.default.removeItem(at: tempURL) }
 
             let summary = try DataTransferService.shared.importBackup(from: tempURL, context: context, mode: mode)

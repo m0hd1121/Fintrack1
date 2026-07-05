@@ -76,8 +76,9 @@ final class iCloudBackupService {
         do {
             let exportURL = try DataTransferService.shared.exportBackup(context: context)
             let data = try Data(contentsOf: exportURL)
+            let finalData = try await BackupEncryptionService.encryptIfEnabled(data)
             let dest = cloudURL.appendingPathComponent(backupFileName)
-            try data.write(to: dest, options: .atomic)
+            try finalData.write(to: dest, options: .atomic)
             try? FileManager.default.removeItem(at: exportURL)
 
             await MainActor.run {
@@ -99,7 +100,13 @@ final class iCloudBackupService {
         await MainActor.run { isRestoring = true; lastError = nil }
 
         do {
-            let summary = try DataTransferService.shared.importBackup(from: url, context: context, mode: mode)
+            let rawData = try Data(contentsOf: url)
+            let plainData = try await BackupEncryptionService.decryptIfNeeded(rawData)
+            let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("FinTrack_iCloud_\(UUID().uuidString).fintrack")
+            try plainData.write(to: tempURL, options: .atomic)
+            defer { try? FileManager.default.removeItem(at: tempURL) }
+
+            let summary = try DataTransferService.shared.importBackup(from: tempURL, context: context, mode: mode)
             await MainActor.run { isRestoring = false }
             return summary.total > 0 ? "Restored \(summary.description) successfully." : "Backup imported — nothing new to add."
         } catch {
