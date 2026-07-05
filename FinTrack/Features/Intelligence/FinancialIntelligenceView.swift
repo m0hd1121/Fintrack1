@@ -28,6 +28,11 @@ struct FinancialIntelligenceView: View {
             VStack(spacing: FTSpacing.xxl) {
                 if let score {
                     healthScoreCard(score)
+                } else {
+                    EmptyStateView(
+                        icon: "heart.text.square",
+                        title: "Not Enough Data Yet",
+                        message: "Add an account or a couple of transactions to get your financial health score.")
                 }
 
                 if !predictionList.isEmpty {

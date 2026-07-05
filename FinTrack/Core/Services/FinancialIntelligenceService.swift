@@ -113,7 +113,12 @@ final class FinancialIntelligenceService {
         budgets: [Budget],
         goals: [SavingsGoal],
         loans: [Loan]
-    ) -> FinancialHealthScore {
+    ) -> FinancialHealthScore? {
+        // With no transactions and no accounts there's nothing real to
+        // measure — every component would fall back to its "no data"
+        // default and produce a misleadingly specific score/grade.
+        guard !transactions.isEmpty || !accounts.isEmpty else { return nil }
+
         var components: [HealthScoreComponent] = []
 
         let income = monthlyIncome(transactions, monthsBack: 1) + monthlyIncome(transactions, monthsBack: 2)
