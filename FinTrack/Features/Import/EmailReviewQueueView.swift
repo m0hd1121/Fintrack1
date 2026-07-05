@@ -21,6 +21,8 @@ struct EmailReviewQueueView: View {
 
     @State private var editingItem: PendingEmailTransaction? = nil
     @State private var showRejected = false
+    @State private var showClearHistoryConfirm = false
+    @State private var showRejectAllConfirm = false
 
     private var pendingItems: [PendingEmailTransaction] {
         allItems.filter { $0.status == .pending }
@@ -117,6 +119,11 @@ struct EmailReviewQueueView: View {
                                 .listRowBackground(Color.clear)
                                 .listRowSeparator(.hidden)
                                 .listRowInsets(EdgeInsets(top: 4, leading: FTSpacing.screen, bottom: 4, trailing: FTSpacing.screen))
+                                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                    Button(role: .destructive) { delete(item) } label: {
+                                        Label("Delete", systemImage: "trash")
+                                    }
+                                }
                         }
                     }
                 }
@@ -130,6 +137,41 @@ struct EmailReviewQueueView: View {
         }
         .navigationTitle("Review Queue")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    if !reviewedItems.isEmpty {
+                        Button(role: .destructive) {
+                            showClearHistoryConfirm = true
+                        } label: {
+                            Label("Clear Reviewed History", systemImage: "trash")
+                        }
+                    }
+                    if !pendingItems.isEmpty {
+                        Button(role: .destructive) {
+                            showRejectAllConfirm = true
+                        } label: {
+                            Label("Reject All Pending", systemImage: "xmark.circle")
+                        }
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+                .disabled(pendingItems.isEmpty && reviewedItems.isEmpty)
+            }
+        }
+        .confirmationDialog("Clear reviewed history?", isPresented: $showClearHistoryConfirm, titleVisibility: .visible) {
+            Button("Clear \(reviewedItems.count) Reviewed Items", role: .destructive) { clearReviewedHistory() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This removes approved and rejected entries from this list. It does not affect any transactions already added to your ledger.")
+        }
+        .confirmationDialog("Reject all pending?", isPresented: $showRejectAllConfirm, titleVisibility: .visible) {
+            Button("Reject \(pendingItems.count) Pending Items", role: .destructive) { rejectAllPending() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("None of these will be added to your transactions. This can't be undone.")
+        }
         .sheet(item: $editingItem) { item in
             EditPendingEmailSheet(
                 item: item,
@@ -180,6 +222,30 @@ struct EmailReviewQueueView: View {
         ImportLearningService.shared.recordRejection(rawMerchant: item.merchantRaw)
         AuditLogService.log(context: context,
             "Rejected email import: \(item.merchantNormalized) from \(item.bankName)")
+        try? context.save()
+    }
+
+    // MARK: - Clear / Delete
+
+    private func delete(_ item: PendingEmailTransaction) {
+        context.delete(item)
+        try? context.save()
+    }
+
+    private func clearReviewedHistory() {
+        let items = reviewedItems
+        for item in items { context.delete(item) }
+        AuditLogService.log(context: context, "Cleared \(items.count) reviewed email imports")
+        try? context.save()
+    }
+
+    private func rejectAllPending() {
+        for item in pendingItems {
+            item.status = .rejected
+            item.reviewedAt = Date()
+            ImportLearningService.shared.recordRejection(rawMerchant: item.merchantRaw)
+        }
+        AuditLogService.log(context: context, "Rejected all pending email imports in bulk")
         try? context.save()
     }
 }
