@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import Observation
+import UserNotifications
 
 @main
 struct FinTrackApp: App {
@@ -14,7 +15,7 @@ struct FinTrackApp: App {
         // without a versioned SchemaMigrationPlan. SwiftData's lightweight migrator
         // cannot fill non-optional columns on existing rows, so we wipe the dev store
         // and start fresh. In production you would write a proper MigrationPlan instead.
-        let currentSchemaVersion = "v27"
+        let currentSchemaVersion = "v28"
         let versionKey = "fintrack_schema_version"
 
         if UserDefaults.standard.string(forKey: versionKey) != currentSchemaVersion {
@@ -25,6 +26,12 @@ struct FinTrackApp: App {
                 }
             }
             UserDefaults.standard.set(currentSchemaVersion, forKey: versionKey)
+            // A wipe deletes every record, but previously scheduled local
+            // notifications (bill/BNPL/loan reminders, etc.) live in the
+            // system notification center, not the store — they'd otherwise
+            // keep firing for entities that no longer exist.
+            UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
+            UNUserNotificationCenter.current().removeAllDeliveredNotifications()
         }
 
         let schema = Schema([
