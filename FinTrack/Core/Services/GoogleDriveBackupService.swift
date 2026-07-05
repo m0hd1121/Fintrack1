@@ -250,14 +250,52 @@ final class GoogleDriveBackupService: NSObject {
         }
     }
 
-    /// Triggers a backup if auto-backup is due (24-hour interval) and enabled.
-    /// Mirrors iCloudBackupService's scheduling so both can be wired into the
-    /// same scene-phase change handler.
-    func scheduleAutomaticBackupIfNeeded(context: ModelContext) {
+    /// Two-way "gossip" sync: pull in whatever new records other devices
+    /// have already pushed (merge — never touches or removes anything
+    /// already local), then push this device's current state so other
+    /// devices can pick it up next. Because merge only ever *adds* records
+    /// it doesn't already have (matched by stable UUID), running this
+    /// repeatedly is always safe — it can never create duplicates.
+    ///
+    /// Important limitation: this only propagates new records. Editing or
+    /// deleting a record that already exists on another device does not
+    /// sync — only the create side does. There's no per-field conflict
+    /// resolution here (that's what CloudKit exists for, which needs the
+    /// paid Apple Developer Program this app doesn't have).
+    func syncNow(context: ModelContext) async {
+        guard isConnected else { await set(error: DriveBackupError.notConnected.localizedDescription); return }
+        _ = await restoreFromDrive(context: context, mode: .merge)
+        await performBackup(context: context)
+    }
+
+    private var syncTask: Task<Void, Never>?
+    private let minSyncInterval: TimeInterval = 120   // 2 minutes — a floor, not a target
+
+    /// Runs an immediate sync if enough time has passed, then keeps syncing
+    /// every couple of minutes for as long as the app stays in the
+    /// foreground. Call once when the app becomes active.
+    func startAutoSync(context: ModelContext) {
+        guard syncTask == nil else { return }
+        syncTask = Task {
+            while !Task.isCancelled {
+                syncIfDue(context: context)
+                try? await Task.sleep(for: .seconds(minSyncInterval))
+            }
+        }
+    }
+
+    func stopAutoSync() {
+        syncTask?.cancel()
+        syncTask = nil
+    }
+
+    /// Triggers a sync if due (respects the minimum interval) and enabled.
+    /// Safe to call from any scene-phase change handler.
+    func syncIfDue(context: ModelContext) {
         guard backupEnabled, isConnected else { return }
         let last = lastBackupDate ?? .distantPast
-        guard Date().timeIntervalSince(last) >= 24 * 3600 else { return }
-        Task { await performBackup(context: context) }
+        guard Date().timeIntervalSince(last) >= minSyncInterval else { return }
+        Task { await syncNow(context: context) }
     }
 
     // MARK: - Drive REST

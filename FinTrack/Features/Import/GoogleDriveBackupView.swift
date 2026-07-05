@@ -19,6 +19,7 @@ struct GoogleDriveBackupView: View {
                 statusCard
                 if backup.isConnected {
                     settingsCard
+                    limitationCard
                 }
                 privacyCard
             }
@@ -66,10 +67,10 @@ struct GoogleDriveBackupView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("GOOGLE DRIVE").font(.ftLabel).tracking(1.4).foregroundStyle(FTColor.textMuted)
-                    if backup.isBackingUp {
+                    if backup.isBackingUp || backup.isRestoring {
                         HStack(spacing: FTSpacing.sm) {
                             ProgressView().scaleEffect(0.7).tint(FTColor.income)
-                            Text("Backing up…").font(.ftHeadline).foregroundStyle(FTColor.income)
+                            Text("Syncing…").font(.ftHeadline).foregroundStyle(FTColor.income)
                         }
                     } else if backup.isConnected {
                         Text(backup.connectedEmail ?? "Connected").font(.ftHeadline).foregroundStyle(FTColor.income)
@@ -77,9 +78,9 @@ struct GoogleDriveBackupView: View {
                         Text("Not Connected").font(.ftHeadline).foregroundStyle(FTColor.textMuted)
                     }
                     if let last = backup.lastBackupDate {
-                        Text("Last backup: \(last.relativeFormatted)").font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                        Text("Last synced: \(last.relativeFormatted)").font(.ftCaption).foregroundStyle(FTColor.textSecondary)
                     } else {
-                        Text("No backup found").font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                        Text("No sync yet").font(.ftCaption).foregroundStyle(FTColor.textSecondary)
                     }
                 }
                 Spacer()
@@ -102,23 +103,23 @@ struct GoogleDriveBackupView: View {
                 HStack(spacing: FTSpacing.md) {
                     Button {
                         Task {
-                            let ok = await backup.performBackup(context: context)
-                            if !ok {
-                                resultMessage = backup.lastError ?? "Backup failed."
+                            await backup.syncNow(context: context)
+                            if let err = backup.lastError {
+                                resultMessage = err
                                 showingResult = true
                             }
                         }
                     } label: {
-                        Label(backup.isBackingUp ? "Backing Up…" : "Back Up Now",
-                              systemImage: backup.isBackingUp ? "arrow.clockwise" : "icloud.and.arrow.up")
+                        Label((backup.isBackingUp || backup.isRestoring) ? "Syncing…" : "Sync Now",
+                              systemImage: (backup.isBackingUp || backup.isRestoring) ? "arrow.clockwise" : "arrow.triangle.2.circlepath")
                             .font(.ftBodySemibold)
-                            .foregroundStyle(backup.isBackingUp ? FTColor.textMuted : .white)
+                            .foregroundStyle((backup.isBackingUp || backup.isRestoring) ? FTColor.textMuted : .white)
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .background(backup.isBackingUp ? FTColor.income.opacity(0.1) : FTColor.income,
+                            .background((backup.isBackingUp || backup.isRestoring) ? FTColor.income.opacity(0.1) : FTColor.income,
                                         in: RoundedRectangle(cornerRadius: FTRadius.md))
                     }
-                    .disabled(backup.isBackingUp)
+                    .disabled(backup.isBackingUp || backup.isRestoring)
 
                     Button {
                         showingRestoreConfirm = true
@@ -163,14 +164,17 @@ struct GoogleDriveBackupView: View {
     // MARK: - Settings Card
 
     private var settingsCard: some View {
-        VStack(spacing: FTSpacing.sm) {
-            FTToggleRow(symbol: "clock.arrow.circlepath", tint: FTColor.income,
-                        title: "Automatic Daily Backup",
+        VStack(alignment: .leading, spacing: FTSpacing.sm) {
+            FTToggleRow(symbol: "arrow.triangle.2.circlepath.circle.fill", tint: FTColor.income,
+                        title: "Automatic Sync",
                         isOn: Binding(
                             get: { backup.backupEnabled },
                             set: { backup.backupEnabled = $0 }
                         ))
-            Divider().background(FTColor.textMuted.opacity(0.3))
+            Text("While this device and another connected device are both open, new accounts, transactions, budgets, etc. added on either one appear on the other within a couple of minutes.")
+                .font(.ftCaption).foregroundStyle(FTColor.textMuted)
+                .padding(.horizontal, FTSpacing.md)
+            Divider().background(FTColor.textMuted.opacity(0.3)).padding(.top, FTSpacing.xs)
             FTToggleRow(symbol: "wifi", tint: FTColor.catTeal,
                         title: "Sync on Wi-Fi only",
                         isOn: Binding(
@@ -180,6 +184,21 @@ struct GoogleDriveBackupView: View {
         }
         .padding()
         .ftGlass(FTRadius.xl)
+    }
+
+    // MARK: - Limitation Card
+
+    private var limitationCard: some View {
+        HStack(alignment: .top, spacing: FTSpacing.md) {
+            Image(systemName: "exclamationmark.triangle.fill").font(.ftCallout).foregroundStyle(FTColor.gold)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("New Records Only").font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                Text("Sync only adds records your other devices don't have yet. Editing or deleting something that already exists on another device won't change it there — you'd need to make the same edit on each device, or use Restore \u{2192} Replace to force one device's data to fully overwrite another's.")
+                    .font(.ftCaption).foregroundStyle(FTColor.textMuted)
+            }
+        }
+        .padding()
+        .ftGlass(FTRadius.lg)
     }
 
     // MARK: - Privacy Card
@@ -193,7 +212,7 @@ struct GoogleDriveBackupView: View {
             }
             privacyRow("key.fill", "OAuth only — the app never sees your Google password")
             privacyRow("doc.fill", "Uses the narrow \u{201c}drive.file\u{201d} scope: only the single backup file this app creates is ever visible to it — nothing else in your Drive")
-            privacyRow("arrow.triangle.2.circlepath", "Each backup overwrites the same file — no clutter, no duplicates")
+            privacyRow("arrow.triangle.2.circlepath", "Each sync overwrites the same file — no clutter, no duplicates")
             privacyRow("key.icloud.fill", "Tokens live in the iOS Keychain, wiped instantly on disconnect")
         }
         .padding()
