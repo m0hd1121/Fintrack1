@@ -1426,12 +1426,14 @@ struct AddBudgetView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
     @Environment(AppState.self) private var appState
+    @Environment(CurrencyService.self) private var currencyService
 
     var editingBudget: Budget? = nil
 
     @State private var name = ""
     @State private var category: TransactionCategory = .food
     @State private var amount = ""
+    @State private var currency = ""
     @State private var period: BudgetPeriod = .monthly
     @State private var alertThreshold = 0.8
     @State private var hasExpiration = false
@@ -1522,7 +1524,19 @@ struct AddBudgetView: View {
                         formRow {
                             Text("Amount Limit").font(.ftBody).foregroundStyle(FTColor.textSecondary)
                             Spacer()
-                            Text(appState.baseCurrency).font(.ftBody).foregroundStyle(FTColor.textMuted)
+                            Menu {
+                                Picker("Currency", selection: $currency) {
+                                    ForEach(currencyService.supportedCurrencies) { info in
+                                        Text("\(info.flag) \(info.code)").tag(info.code)
+                                    }
+                                }
+                            } label: {
+                                HStack(spacing: 2) {
+                                    Text(currency).font(.ftBody).foregroundStyle(FTColor.textMuted)
+                                    Image(systemName: "chevron.up.chevron.down")
+                                        .font(.system(size: 9, weight: .semibold)).foregroundStyle(FTColor.textMuted)
+                                }
+                            }
                             AmountTextField("0.00", text: $amount, font: .ftBodySemibold)
                                 .foregroundStyle(FTColor.textPrimary)
                                 .frame(maxWidth: 120)
@@ -1641,10 +1655,11 @@ struct AddBudgetView: View {
     }
 
     private func loadEditing() {
-        guard let b = editingBudget else { return }
+        guard let b = editingBudget else { currency = appState.baseCurrency; return }
         name = b.name
         category = b.category
         amount = AmountTextField.format(String(b.amount))
+        currency = b.currency
         period = b.period
         alertThreshold = b.alertThreshold
         isRollover = b.isRollover
@@ -1665,6 +1680,7 @@ struct AddBudgetView: View {
             b.name = name
             b.category = category
             b.amount = AmountTextField.double(from: amount)
+            b.currency = currency
             b.period = period
             b.alertThreshold = alertThreshold
             b.isRollover = isRollover
@@ -1678,7 +1694,7 @@ struct AddBudgetView: View {
                 name: name,
                 category: category,
                 amount: AmountTextField.double(from: amount),
-                currency: appState.baseCurrency,
+                currency: currency,
                 period: period,
                 endDate: hasExpiration ? expirationDate : nil,
                 alertThreshold: alertThreshold,

@@ -7,6 +7,7 @@ struct AddSavingsGoalView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
     @Environment(AppState.self) private var appState
+    @Environment(CurrencyService.self) private var currencyService
     @Query(sort: \Account.name) private var accounts: [Account]
     @Query private var transactions: [Transaction]
 
@@ -169,7 +170,9 @@ struct AddSavingsGoalView: View {
                 divider
                 formRow("Currency") {
                     Picker("", selection: $currency) {
-                        ForEach(["AED", "USD", "EUR", "GBP", "SAR", "KWD"], id: \.self) { Text($0).tag($0) }
+                        ForEach(currencyService.supportedCurrencies) { info in
+                            Text("\(info.flag) \(info.code)").tag(info.code)
+                        }
                     }
                     .pickerStyle(.menu)
                     .accentColor(FTColor.accent)
