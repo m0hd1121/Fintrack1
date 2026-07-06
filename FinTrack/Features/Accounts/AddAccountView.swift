@@ -148,7 +148,7 @@ struct AddAccountView: View {
                         VStack(spacing: 0) {
                             Menu {
                                 Picker("Currency", selection: $currency) {
-                                    ForEach(currencyService.supportedCurrencies.prefix(15)) { info in
+                                    ForEach(currencyService.supportedCurrencies) { info in
                                         Text("\(info.flag) \(info.code) — \(info.name)").tag(info.code)
                                     }
                                 }
@@ -485,7 +485,7 @@ struct AddCreditCardView: View {
                         VStack(spacing: 0) {
                             Menu {
                                 Picker("Currency", selection: $currency) {
-                                    ForEach(currencyService.supportedCurrencies.prefix(10)) { info in
+                                    ForEach(currencyService.supportedCurrencies) { info in
                                         Text("\(info.flag) \(info.code)").tag(info.code)
                                     }
                                 }
@@ -735,7 +735,7 @@ struct AddLoanView: View {
                         VStack(spacing: 0) {
                             Menu {
                                 Picker("Currency", selection: $currency) {
-                                    ForEach(currencyService.supportedCurrencies.prefix(10)) { info in
+                                    ForEach(currencyService.supportedCurrencies) { info in
                                         Text("\(info.flag) \(info.code)").tag(info.code)
                                     }
                                 }
@@ -1152,7 +1152,7 @@ struct AddGiftCardView: View {
 
                             Menu {
                                 Picker("Currency", selection: $currency) {
-                                    ForEach(currencyService.supportedCurrencies.prefix(10)) { info in
+                                    ForEach(currencyService.supportedCurrencies) { info in
                                         Text("\(info.flag) \(info.code)").tag(info.code)
                                     }
                                 }
@@ -1387,7 +1387,7 @@ struct AddLoyaltyProgramView: View {
 
                             Menu {
                                 Picker("Currency", selection: $currency) {
-                                    ForEach(currencyService.supportedCurrencies.prefix(10)) { info in
+                                    ForEach(currencyService.supportedCurrencies) { info in
                                         Text("\(info.flag) \(info.code)").tag(info.code)
                                     }
                                 }

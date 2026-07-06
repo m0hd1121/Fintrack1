@@ -118,7 +118,7 @@ struct BankSetupWizardView: View {
             Divider().opacity(0.4)
             wizardField("Currency") {
                 Picker("", selection: $currency) {
-                    ForEach(CurrencyService.shared.supportedCurrencies.prefix(15)) { info in
+                    ForEach(CurrencyService.shared.supportedCurrencies) { info in
                         Text("\(info.flag) \(info.code)").tag(info.code)
                     }
                 }

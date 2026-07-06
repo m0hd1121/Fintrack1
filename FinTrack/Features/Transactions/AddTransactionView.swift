@@ -289,7 +289,7 @@ struct AddTransactionView: View {
         VStack(spacing: FTSpacing.md) {
             Menu {
                 Picker("Currency", selection: $currency) {
-                    ForEach(currencyService.supportedCurrencies.prefix(12)) { info in
+                    ForEach(currencyService.supportedCurrencies) { info in
                         Text("\(info.flag) \(info.code)").tag(info.code)
                     }
                 }
