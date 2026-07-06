@@ -230,6 +230,7 @@ struct RegularLoanDetailView: View {
     let loan: Loan
     @State private var showingAmortization = false
     @State private var showingEdit = false
+    @State private var showingRecordPayment = false
 
     var body: some View {
         List {
@@ -277,6 +278,10 @@ struct RegularLoanDetailView: View {
             }
 
             Section {
+                Button { showingRecordPayment = true } label: {
+                    Label("Record Payment", systemImage: "banknote.fill")
+                        .foregroundStyle(FTColor.income)
+                }
                 Button { showingAmortization = true } label: {
                     Label("View Amortization Schedule", systemImage: "tablecells")
                         .foregroundStyle(FTColor.accent)
@@ -300,6 +305,7 @@ struct RegularLoanDetailView: View {
         }
         .sheet(isPresented: $showingAmortization) { AmortizationScheduleView(loan: loan) }
         .sheet(isPresented: $showingEdit) { AddLoanView(editingLoan: loan) }
+        .sheet(isPresented: $showingRecordPayment) { RecordLoanPaymentSheet(loan: loan) }
     }
 }
 
@@ -311,6 +317,8 @@ struct LoanPaymentHistorySection: View {
     let category: TransactionCategory
     var title: String = "Payment History"
 
+    @Environment(\.modelContext) private var context
+    @Environment(CurrencyService.self) private var currencyService
     @Query(sort: \Transaction.date, order: .reverse) private var allTransactions: [Transaction]
 
     private var payments: [Transaction] {
@@ -322,19 +330,201 @@ struct LoanPaymentHistorySection: View {
             Section(title) {
                 ForEach(payments) { tx in
                     HStack(spacing: FTSpacing.md) {
-                        FTIconTile(symbol: "arrow.down.circle.fill", tint: FTColor.income, size: 36)
+                        FTIconTile(symbol: "arrow.up.circle.fill", tint: FTColor.expense, size: 36)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(tx.title).font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
                             Text(tx.date.formatted).font(.ftCaption).foregroundStyle(FTColor.textSecondary)
                         }
                         Spacer()
-                        Text("+" + tx.amount.formatted(as: tx.currency))
-                            .font(.ftBodySemibold).foregroundStyle(FTColor.income)
+                        Text("-" + tx.amount.formatted(as: tx.currency))
+                            .font(.ftBodySemibold).foregroundStyle(FTColor.expense)
                     }
                     .padding(.vertical, 4)
+                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                        Button(role: .destructive) { deletePayment(tx) } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
+                    }
                 }
             }
         }
+    }
+
+    /// Reverses the account deduction and undoes this payment's progress on
+    /// the loan. Doesn't attempt to re-derive the original principal/interest
+    /// amortization split — the full amount goes back onto the outstanding
+    /// balance, same simplified reversal model used for money lent/borrowed.
+    private func deletePayment(_ tx: Transaction) {
+        if let account = tx.account {
+            let delta = currencyService.convert(tx.amount, from: tx.currency, to: account.currency)
+            account.balance += delta
+        }
+        loan.outstandingBalance += tx.amount
+        loan.paidInstallments = max(0, loan.paidInstallments - 1)
+        if !loan.isActive { loan.isActive = true }
+        context.delete(tx)
+        try? context.save()
+    }
+}
+
+// MARK: - RecordLoanPaymentSheet
+// Records an EMI/installment payment against a Loan: creates the ledger
+// transaction, deducts the paying account, and advances the loan's
+// outstanding balance, installment count, and next due date — the feature
+// Loans were missing entirely (Money Lent/Borrowed/BNPL already had it).
+
+struct RecordLoanPaymentSheet: View {
+    @Environment(\.modelContext) private var context
+    @Environment(\.dismiss) private var dismiss
+    @Environment(CurrencyService.self) private var currencyService
+    @Query(sort: \Account.name) private var accounts: [Account]
+
+    let loan: Loan
+
+    @State private var amount: String = ""
+    @State private var date = Date()
+    @State private var notes = ""
+    @State private var selectedAccountId: UUID? = nil
+
+    private var activeAccounts: [Account] { accounts.filter { !$0.isArchived } }
+    private var selectedAccount: Account? { activeAccounts.first { $0.id == selectedAccountId } }
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                FTBackdrop()
+
+                ScrollView {
+                    VStack(spacing: FTSpacing.lg) {
+                        VStack(spacing: 0) {
+                            formRow(label: "Amount (\(loan.currency))") {
+                                AmountTextField("0.00", text: $amount, font: .ftBodySemibold)
+                                    .foregroundStyle(FTColor.textPrimary)
+                            }
+                            Divider().padding(.leading, FTSpacing.screen)
+                            formRow(label: "Date") {
+                                DatePicker("", selection: $date, displayedComponents: .date)
+                                    .labelsHidden()
+                                    .tint(FTColor.accent)
+                            }
+                            Divider().padding(.leading, FTSpacing.screen)
+                            formRow(label: "Paid From") {
+                                Picker("", selection: $selectedAccountId) {
+                                    Text("None").tag(Optional<UUID>(nil))
+                                    ForEach(activeAccounts) { acc in
+                                        Text(acc.name).tag(Optional(acc.id))
+                                    }
+                                }
+                                .pickerStyle(.menu)
+                                .accentColor(FTColor.accent)
+                            }
+                            Divider().padding(.leading, FTSpacing.screen)
+                            formRow(label: "Notes") {
+                                TextField("Optional notes", text: $notes)
+                                    .font(.ftBody)
+                                    .foregroundStyle(FTColor.textPrimary)
+                                    .multilineTextAlignment(.trailing)
+                            }
+                        }
+                        .ftGlass(FTRadius.lg)
+                        .padding(.horizontal, FTSpacing.screen)
+
+                        if let acc = selectedAccount {
+                            HStack(spacing: FTSpacing.xs) {
+                                Image(systemName: "info.circle")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(FTColor.expense)
+                                Text("Balance of \(acc.name) will decrease by \(amount) \(loan.currency)")
+                                    .font(.ftCaption)
+                                    .foregroundStyle(FTColor.textSecondary)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, FTSpacing.screen)
+                        }
+
+                        Text("Outstanding: \(loan.outstandingBalance.formatted(as: loan.currency))")
+                            .font(.ftCaption)
+                            .foregroundStyle(FTColor.textSecondary)
+                            .frame(maxWidth: .infinity, alignment: .trailing)
+                            .padding(.horizontal, FTSpacing.screen)
+
+                        Button("Save Payment") { save() }
+                            .buttonStyle(.ftPrimary)
+                            .padding(.horizontal, FTSpacing.screen)
+                            .disabled(AmountTextField.double(from: amount) <= 0)
+                    }
+                    .padding(.top, FTSpacing.lg)
+                }
+            }
+            .navigationTitle("Record Payment")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") { dismiss() }
+                        .foregroundStyle(FTColor.accent)
+                }
+            }
+            .onAppear {
+                let defaultAmount = loan.emiAmount > 0 ? loan.emiAmount : loan.outstandingBalance
+                amount = AmountTextField.format(String(format: "%.2f", defaultAmount))
+                selectedAccountId = activeAccounts.first(where: { $0.isDefault })?.id
+                    ?? activeAccounts.first?.id
+            }
+        }
+    }
+
+    private func formRow<Content: View>(label: String, @ViewBuilder content: () -> Content) -> some View {
+        HStack {
+            Text(label).font(.ftBody).foregroundStyle(FTColor.textSecondary)
+            Spacer()
+            content()
+        }
+        .padding(.horizontal, FTSpacing.screen)
+        .padding(.vertical, FTSpacing.md)
+    }
+
+    private func save() {
+        let amountValue = AmountTextField.double(from: amount)
+        guard amountValue > 0 else { return }
+
+        // Same amortization model as Loan.amortizationSchedule: split the
+        // payment into interest (on the current outstanding balance) and
+        // principal, so outstandingBalance tracks the real remaining debt
+        // rather than just the raw payment total.
+        let monthlyRate = loan.interestRate / 100.0 / 12.0
+        let interestPortion = loan.outstandingBalance * monthlyRate
+        let principalPortion = min(max(amountValue - interestPortion, 0), loan.outstandingBalance)
+
+        let tx = Transaction(
+            title: "\(loan.name) Payment",
+            amount: amountValue,
+            currency: loan.currency,
+            type: .expense,
+            category: .loanRepayment,
+            date: date,
+            notes: notes.isEmpty ? nil : notes
+        )
+        tx.linkedLoan = loan
+        if let account = selectedAccount {
+            tx.account = account
+            let delta = currencyService.convert(amountValue, from: loan.currency, to: account.currency)
+            account.balance -= delta
+        }
+        context.insert(tx)
+
+        loan.outstandingBalance = max(0, loan.outstandingBalance - principalPortion)
+        loan.paidInstallments += 1
+        let fullyPaid = loan.outstandingBalance <= 0.01
+            || (loan.totalInstallments > 0 && loan.paidInstallments >= loan.totalInstallments)
+        if fullyPaid {
+            loan.isActive = false
+        } else {
+            loan.nextPaymentDate = Calendar.current.date(byAdding: .month, value: 1, to: loan.nextPaymentDate) ?? loan.nextPaymentDate
+        }
+
+        try? context.save()
+        dismiss()
     }
 }
 

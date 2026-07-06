@@ -24,6 +24,7 @@ struct DebtManagementView: View {
     @State private var editingLent: MoneyLent? = nil
     @State private var editingBorrowed: MoneyBorrowed? = nil
     @State private var editingLoan: Loan? = nil
+    @State private var recordingPaymentLoan: Loan? = nil
     @State private var snowballExtra: Double = 100
     @State private var avalancheExtra: Double = 100
     @State private var calculatorSelectedIndex: Int = 0
@@ -122,6 +123,9 @@ struct DebtManagementView: View {
             }
             .sheet(item: $editingLoan) { item in
                 AddLoanView(editingLoan: item)
+            }
+            .sheet(item: $recordingPaymentLoan) { item in
+                RecordLoanPaymentSheet(loan: item)
             }
             .sheet(item: $editingLent) { item in
                 AddMoneyLentSheet(editing: item)
@@ -295,6 +299,23 @@ struct DebtManagementView: View {
         try? context.save()
     }
 
+    /// Same cleanup as deleteLentItem/deleteBorrowedItem — a loan's recorded
+    /// payments are real linked Transactions, so deleting the loan without
+    /// reversing them would leave their account deductions in place forever.
+    private func deleteLoan(_ loan: Loan) {
+        let linkedId = loan.id
+        let allTx = (try? context.fetch(FetchDescriptor<Transaction>())) ?? []
+        for tx in allTx where tx.linkedLoan?.id == linkedId {
+            if let account = tx.account {
+                let delta = currencyService.convert(tx.amount, from: tx.currency, to: account.currency)
+                account.balance += delta
+            }
+            context.delete(tx)
+        }
+        context.delete(loan)
+        try? context.save()
+    }
+
     // MARK: - Section Header Helper
 
     private func debtSectionHeader(_ title: String, symbol: String, tint: Color = FTColor.textSecondary) -> some View {
@@ -361,16 +382,18 @@ struct DebtManagementView: View {
                         ForEach(activeLoans, id: \.id) { loan in
                             SwipeToDeleteRow(
                                 onTap: { editingLoan = loan },
-                                onDelete: { context.delete(loan); try? context.save() }
+                                onDelete: { deleteLoan(loan) }
                             ) {
                                 LoanDebtCard(loan: loan, baseCurrency: baseCurrency, currencyService: currencyService)
                                     .contextMenu {
+                                        Button { recordingPaymentLoan = loan } label: {
+                                            Label("Record Payment", systemImage: "banknote.fill")
+                                        }
                                         Button { editingLoan = loan } label: {
                                             Label("Edit", systemImage: "pencil")
                                         }
                                         Button(role: .destructive) {
-                                            context.delete(loan)
-                                            try? context.save()
+                                            deleteLoan(loan)
                                         } label: {
                                             Label("Delete", systemImage: "trash")
                                         }
@@ -858,16 +881,18 @@ struct DebtManagementView: View {
                         ForEach(activeLoans.sorted { $0.nextPaymentDate < $1.nextPaymentDate }, id: \.id) { loan in
                             SwipeToDeleteRow(
                                 onTap: { editingLoan = loan },
-                                onDelete: { context.delete(loan); try? context.save() }
+                                onDelete: { deleteLoan(loan) }
                             ) {
                                 LoanDebtCard(loan: loan, baseCurrency: baseCurrency, currencyService: currencyService)
                                     .contextMenu {
+                                        Button { recordingPaymentLoan = loan } label: {
+                                            Label("Record Payment", systemImage: "banknote.fill")
+                                        }
                                         Button { editingLoan = loan } label: {
                                             Label("Edit", systemImage: "pencil")
                                         }
                                         Button(role: .destructive) {
-                                            context.delete(loan)
-                                            try? context.save()
+                                            deleteLoan(loan)
                                         } label: {
                                             Label("Delete", systemImage: "trash")
                                         }
