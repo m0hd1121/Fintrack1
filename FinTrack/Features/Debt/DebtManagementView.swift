@@ -261,6 +261,40 @@ struct DebtManagementView: View {
         utilSummary = DebtService.shared.utilizationSummary(creditCards: Array(creditCards))
     }
 
+    // MARK: - Delete lent/borrowed records (with repayment cleanup)
+    //
+    // Deleting the record itself must also undo every repayment posted
+    // against it — otherwise the account balance keeps whatever was
+    // deducted/credited by transactions that now point at nothing.
+
+    private func deleteLentItem(_ item: MoneyLent) {
+        let linkedId = item.id
+        let allTx = (try? context.fetch(FetchDescriptor<Transaction>())) ?? []
+        for tx in allTx where tx.linkedMoneyLentId == linkedId {
+            if let account = tx.account {
+                let delta = currencyService.convert(tx.amount, from: tx.currency, to: account.currency)
+                account.balance -= delta   // reverse the income each repayment credited
+            }
+            context.delete(tx)
+        }
+        context.delete(item)
+        try? context.save()
+    }
+
+    private func deleteBorrowedItem(_ item: MoneyBorrowed) {
+        let linkedId = item.id
+        let allTx = (try? context.fetch(FetchDescriptor<Transaction>())) ?? []
+        for tx in allTx where tx.linkedMoneyBorrowedId == linkedId {
+            if let account = tx.account {
+                let delta = currencyService.convert(tx.amount, from: tx.currency, to: account.currency)
+                account.balance += delta   // reverse the expense each repayment deducted
+            }
+            context.delete(tx)
+        }
+        context.delete(item)
+        try? context.save()
+    }
+
     // MARK: - Section Header Helper
 
     private func debtSectionHeader(_ title: String, symbol: String, tint: Color = FTColor.textSecondary) -> some View {
@@ -904,8 +938,7 @@ struct DebtManagementView: View {
                                     Label("Edit", systemImage: "pencil")
                                 }
                                 Button(role: .destructive) {
-                                    context.delete(item)
-                                    try? context.save()
+                                    deleteLentItem(item)
                                 } label: {
                                     Label("Delete", systemImage: "trash")
                                 }
@@ -975,8 +1008,7 @@ struct DebtManagementView: View {
                                     Label("Edit", systemImage: "pencil")
                                 }
                                 Button(role: .destructive) {
-                                    context.delete(item)
-                                    try? context.save()
+                                    deleteBorrowedItem(item)
                                 } label: {
                                     Label("Delete", systemImage: "trash")
                                 }
@@ -1845,6 +1877,7 @@ struct MoneyLentDetailSheet: View {
 
     let item: MoneyLent
     @Query private var allTransactions: [Transaction]
+    @Query(sort: \Account.name) private var accounts: [Account]
     @State private var showingRepaymentSheet = false
     @State private var showingEdit = false
     @State private var showingDeleteConfirm = false
@@ -2026,17 +2059,20 @@ struct MoneyLentDetailSheet: View {
                 AddMoneyLentSheet(editing: item)
             }
             .sheet(item: $editingRepayment) { repayment in
-                EditDebtRepaymentSheet(repayment: repayment, currency: item.currency) { amount, date, notes in
-                    updateRepayment(repayment, amount: amount, date: date, notes: notes)
+                let linkedAccountId = allTransactions.first(where: { $0.linkedDebtRepaymentId == repayment.id })?.account?.id
+                EditDebtRepaymentSheet(repayment: repayment, currency: item.currency,
+                                       accounts: accounts, currentAccountId: linkedAccountId) { amount, date, notes, accountId in
+                    updateRepayment(repayment, amount: amount, date: date, notes: notes, accountId: accountId)
                 }
             }
             .confirmationDialog("Delete this record?", isPresented: $showingDeleteConfirm, titleVisibility: .visible) {
                 Button("Delete", role: .destructive) {
-                    context.delete(item)
-                    try? context.save()
+                    deleteEntireRecord()
                     dismiss()
                 }
                 Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This also reverses any repayments already recorded against it, so the linked account's balance isn't left off.")
             }
         }
     }
@@ -2083,14 +2119,43 @@ struct MoneyLentDetailSheet: View {
         try? context.save()
     }
 
-    private func updateRepayment(_ old: RepaymentRecord, amount: Double, date: Date, notes: String?) {
+    /// Deleting the whole record must also undo every repayment posted
+    /// against it — otherwise its account keeps whatever those
+    /// transactions credited even after the record they belonged to is gone.
+    private func deleteEntireRecord() {
+        for tx in allTransactions where tx.linkedMoneyLentId == item.id {
+            if let account = tx.account {
+                let delta = currencyService.convert(tx.amount, from: tx.currency, to: account.currency)
+                account.balance -= delta
+            }
+            context.delete(tx)
+        }
+        context.delete(item)
+        try? context.save()
+    }
+
+    private func updateRepayment(_ old: RepaymentRecord, amount: Double, date: Date, notes: String?, accountId: UUID?) {
         if let tx = allTransactions.first(where: { $0.linkedDebtRepaymentId == old.id }) {
-            if let account = tx.account, amount != old.amount {
+            let oldAccount = tx.account
+            let newAccount = accountId.flatMap { id in accounts.first { $0.id == id } }
+            if oldAccount?.id != newAccount?.id {
+                // Payment method changed — reverse the whole old-account
+                // effect and apply the new amount to the new account.
+                if let oldAccount {
+                    let oldDelta = currencyService.convert(old.amount, from: item.currency, to: oldAccount.currency)
+                    oldAccount.balance -= oldDelta
+                }
+                if let newAccount {
+                    let newDelta = currencyService.convert(amount, from: item.currency, to: newAccount.currency)
+                    newAccount.balance += newDelta
+                }
+            } else if let account = oldAccount, amount != old.amount {
                 let oldDelta = currencyService.convert(old.amount, from: item.currency, to: account.currency)
                 let newDelta = currencyService.convert(amount, from: item.currency, to: account.currency)
                 account.balance -= oldDelta  // reverse old income
                 account.balance += newDelta  // apply new income
             }
+            tx.account = newAccount
             tx.amount = amount
             tx.amountInBaseCurrency = currencyService.convert(amount, from: item.currency, to: baseCurrency)
             tx.date = date
@@ -2267,6 +2332,7 @@ struct MoneyBorrowedDetailSheet: View {
 
     let item: MoneyBorrowed
     @Query private var allTransactions: [Transaction]
+    @Query(sort: \Account.name) private var accounts: [Account]
     @State private var showingRepaymentSheet = false
     @State private var showingEdit = false
     @State private var showingDeleteConfirm = false
@@ -2447,17 +2513,20 @@ struct MoneyBorrowedDetailSheet: View {
                 AddMoneyBorrowedSheet(editing: item)
             }
             .sheet(item: $editingRepayment) { repayment in
-                EditDebtRepaymentSheet(repayment: repayment, currency: item.currency) { amount, date, notes in
-                    updateRepayment(repayment, amount: amount, date: date, notes: notes)
+                let linkedAccountId = allTransactions.first(where: { $0.linkedDebtRepaymentId == repayment.id })?.account?.id
+                EditDebtRepaymentSheet(repayment: repayment, currency: item.currency,
+                                       accounts: accounts, currentAccountId: linkedAccountId) { amount, date, notes, accountId in
+                    updateRepayment(repayment, amount: amount, date: date, notes: notes, accountId: accountId)
                 }
             }
             .confirmationDialog("Delete this record?", isPresented: $showingDeleteConfirm, titleVisibility: .visible) {
                 Button("Delete", role: .destructive) {
-                    context.delete(item)
-                    try? context.save()
+                    deleteEntireRecord()
                     dismiss()
                 }
                 Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This also reverses any repayments already recorded against it, so the linked account's balance isn't left off.")
             }
         }
     }
@@ -2504,14 +2573,43 @@ struct MoneyBorrowedDetailSheet: View {
         try? context.save()
     }
 
-    private func updateRepayment(_ old: RepaymentRecord, amount: Double, date: Date, notes: String?) {
+    /// Deleting the whole record must also undo every repayment posted
+    /// against it — otherwise its account keeps whatever those
+    /// transactions deducted even after the record they belonged to is gone.
+    private func deleteEntireRecord() {
+        for tx in allTransactions where tx.linkedMoneyBorrowedId == item.id {
+            if let account = tx.account {
+                let delta = currencyService.convert(tx.amount, from: tx.currency, to: account.currency)
+                account.balance += delta
+            }
+            context.delete(tx)
+        }
+        context.delete(item)
+        try? context.save()
+    }
+
+    private func updateRepayment(_ old: RepaymentRecord, amount: Double, date: Date, notes: String?, accountId: UUID?) {
         if let tx = allTransactions.first(where: { $0.linkedDebtRepaymentId == old.id }) {
-            if let account = tx.account, amount != old.amount {
+            let oldAccount = tx.account
+            let newAccount = accountId.flatMap { id in accounts.first { $0.id == id } }
+            if oldAccount?.id != newAccount?.id {
+                // Payment method changed — reverse the whole old-account
+                // effect and apply the new amount to the new account.
+                if let oldAccount {
+                    let oldDelta = currencyService.convert(old.amount, from: item.currency, to: oldAccount.currency)
+                    oldAccount.balance += oldDelta
+                }
+                if let newAccount {
+                    let newDelta = currencyService.convert(amount, from: item.currency, to: newAccount.currency)
+                    newAccount.balance -= newDelta
+                }
+            } else if let account = oldAccount, amount != old.amount {
                 let oldDelta = currencyService.convert(old.amount, from: item.currency, to: account.currency)
                 let newDelta = currencyService.convert(amount, from: item.currency, to: account.currency)
                 account.balance += oldDelta  // reverse old
                 account.balance -= newDelta  // apply new
             }
+            tx.account = newAccount
             tx.amount = amount
             tx.amountInBaseCurrency = currencyService.convert(amount, from: item.currency, to: baseCurrency)
             tx.date = date
@@ -3074,11 +3172,16 @@ private struct EditDebtRepaymentSheet: View {
 
     let repayment: RepaymentRecord
     let currency: String
-    let onSave: (Double, Date, String?) -> Void
+    let accounts: [Account]
+    let currentAccountId: UUID?
+    let onSave: (Double, Date, String?, UUID?) -> Void
 
     @State private var amount: String = ""
     @State private var date = Date()
     @State private var notes = ""
+    @State private var selectedAccountId: UUID? = nil
+
+    private var activeAccounts: [Account] { accounts.filter { !$0.isArchived } }
 
     var body: some View {
         NavigationStack {
@@ -3098,6 +3201,17 @@ private struct EditDebtRepaymentSheet: View {
                                     .tint(FTColor.accent)
                             }
                             Divider().padding(.leading, FTSpacing.screen)
+                            formRow(label: "Payment Method") {
+                                Picker("", selection: $selectedAccountId) {
+                                    Text("None").tag(Optional<UUID>(nil))
+                                    ForEach(activeAccounts) { acc in
+                                        Text(acc.name).tag(Optional(acc.id))
+                                    }
+                                }
+                                .pickerStyle(.menu)
+                                .accentColor(FTColor.accent)
+                            }
+                            Divider().padding(.leading, FTSpacing.screen)
                             formRow(label: "Notes") {
                                 TextField("Optional notes", text: $notes)
                                     .font(.ftBody)
@@ -3108,10 +3222,16 @@ private struct EditDebtRepaymentSheet: View {
                         .ftGlass(FTRadius.lg)
                         .padding(.horizontal, FTSpacing.screen)
 
+                        Text("Changing the payment method moves this repayment's effect to the new account and reverses it on the old one.")
+                            .font(.ftCaption)
+                            .foregroundStyle(FTColor.textMuted)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, FTSpacing.screen)
+
                         Button("Save Changes") {
                             let amountValue = AmountTextField.double(from: amount)
                             guard amountValue > 0 else { return }
-                            onSave(amountValue, date, notes.isEmpty ? nil : notes)
+                            onSave(amountValue, date, notes.isEmpty ? nil : notes, selectedAccountId)
                             dismiss()
                         }
                         .buttonStyle(.ftPrimary)
@@ -3134,6 +3254,7 @@ private struct EditDebtRepaymentSheet: View {
                 amount = AmountTextField.format(String(format: "%.2f", repayment.amount))
                 date = repayment.date
                 notes = repayment.notes ?? ""
+                selectedAccountId = currentAccountId
             }
         }
     }
