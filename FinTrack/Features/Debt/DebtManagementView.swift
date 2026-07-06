@@ -36,6 +36,9 @@ struct DebtManagementView: View {
     @State private var interestResult: InterestSavingsResult? = nil
     @State private var selectedLent: MoneyLent? = nil
     @State private var selectedBorrowed: MoneyBorrowed? = nil
+    @State private var selectedBNPL: BNPLPlan? = nil
+    @State private var editingBNPL: BNPLPlan? = nil
+    @State private var recordingPaymentBNPL: BNPLPlan? = nil
 
     private let tabs = ["Overview", "Loans", "Snowball", "Avalanche", "Calculator", "Lent", "Borrowed", "BNPL", "Utilization"]
 
@@ -142,6 +145,15 @@ struct DebtManagementView: View {
             }
             .sheet(item: $selectedBorrowed) { item in
                 MoneyBorrowedDetailSheet(item: item)
+            }
+            .sheet(item: $selectedBNPL) { item in
+                BNPLDetailSheet(plan: item)
+            }
+            .sheet(item: $editingBNPL) { item in
+                AddBNPLView(editingPlan: item)
+            }
+            .sheet(item: $recordingPaymentBNPL) { item in
+                RecordBNPLPaymentSheet(plan: item)
             }
         }
         .onAppear { recomputeAll() }
@@ -320,6 +332,23 @@ struct DebtManagementView: View {
         try? context.save()
     }
 
+    /// Same cleanup as deleteLoan — recorded BNPL installment payments are real
+    /// linked Transactions, so deleting the plan without reversing them would
+    /// leave their account deductions in place forever.
+    private func deleteBNPLPlan(_ plan: BNPLPlan) {
+        let linkedId = plan.id
+        let allTx = (try? context.fetch(FetchDescriptor<Transaction>())) ?? []
+        for tx in allTx where tx.linkedBNPL?.id == linkedId {
+            if let account = tx.account {
+                let delta = currencyService.convert(tx.amount, from: tx.currency, to: account.currency)
+                account.balance += delta
+            }
+            context.delete(tx)
+        }
+        context.delete(plan)
+        try? context.save()
+    }
+
     // MARK: - Section Header Helper
 
     private func debtSectionHeader(_ title: String, symbol: String, tint: Color = FTColor.textSecondary) -> some View {
@@ -430,8 +459,24 @@ struct DebtManagementView: View {
 
                     VStack(spacing: FTSpacing.sm) {
                         ForEach(activeBNPLItems.sorted { $0.nextPaymentDate < $1.nextPaymentDate }, id: \.id) { plan in
-                            BNPLDebtCard(plan: plan, baseCurrency: baseCurrency, currencyService: currencyService)
-                                .padding(.horizontal, FTSpacing.screen)
+                            Button { selectedBNPL = plan } label: {
+                                BNPLDebtCard(plan: plan, baseCurrency: baseCurrency, currencyService: currencyService)
+                            }
+                            .buttonStyle(.plain)
+                            .contextMenu {
+                                Button { recordingPaymentBNPL = plan } label: {
+                                    Label("Record Payment", systemImage: "cart.fill")
+                                }
+                                Button { editingBNPL = plan } label: {
+                                    Label("Edit", systemImage: "pencil")
+                                }
+                                Button(role: .destructive) {
+                                    deleteBNPLPlan(plan)
+                                } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
+                            }
+                            .padding(.horizontal, FTSpacing.screen)
                         }
                     }
                 }
@@ -1093,16 +1138,24 @@ struct DebtManagementView: View {
 
                     VStack(spacing: FTSpacing.sm) {
                         ForEach(bnplPlans.sorted { $0.nextPaymentDate < $1.nextPaymentDate }, id: \.id) { plan in
-                            BNPLDebtCard(plan: plan, baseCurrency: baseCurrency, currencyService: currencyService)
-                                .contextMenu {
-                                    Button(role: .destructive) {
-                                        context.delete(plan)
-                                        try? context.save()
-                                    } label: {
-                                        Label("Delete", systemImage: "trash")
-                                    }
+                            Button { selectedBNPL = plan } label: {
+                                BNPLDebtCard(plan: plan, baseCurrency: baseCurrency, currencyService: currencyService)
+                            }
+                            .buttonStyle(.plain)
+                            .contextMenu {
+                                Button { recordingPaymentBNPL = plan } label: {
+                                    Label("Record Payment", systemImage: "cart.fill")
                                 }
-                                .padding(.horizontal, FTSpacing.screen)
+                                Button { editingBNPL = plan } label: {
+                                    Label("Edit", systemImage: "pencil")
+                                }
+                                Button(role: .destructive) {
+                                    deleteBNPLPlan(plan)
+                                } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
+                            }
+                            .padding(.horizontal, FTSpacing.screen)
                         }
                     }
                 }
@@ -1480,6 +1533,386 @@ private struct BNPLDebtCard: View {
         }
         .padding(FTSpacing.lg)
         .ftGlassInteractive(FTRadius.lg)
+    }
+}
+
+// MARK: - RecordBNPLPaymentSheet
+
+struct RecordBNPLPaymentSheet: View {
+    @Environment(\.modelContext) private var context
+    @Environment(\.dismiss) private var dismiss
+    @Environment(CurrencyService.self) private var currencyService
+    @Query(sort: \Account.name) private var accounts: [Account]
+
+    let plan: BNPLPlan
+
+    @State private var amount: String = ""
+    @State private var date = Date()
+    @State private var notes = ""
+    @State private var selectedAccountId: UUID? = nil
+
+    private var activeAccounts: [Account] { accounts.filter { !$0.isArchived } }
+    private var selectedAccount: Account? { activeAccounts.first { $0.id == selectedAccountId } }
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                FTBackdrop()
+
+                ScrollView {
+                    VStack(spacing: FTSpacing.lg) {
+                        VStack(spacing: 0) {
+                            formRow(label: "Amount (\(plan.currency))") {
+                                AmountTextField("0.00", text: $amount, font: .ftBodySemibold)
+                                    .foregroundStyle(FTColor.textPrimary)
+                            }
+                            Divider().padding(.leading, FTSpacing.screen)
+                            formRow(label: "Date") {
+                                DatePicker("", selection: $date, displayedComponents: .date)
+                                    .labelsHidden()
+                                    .tint(FTColor.accent)
+                            }
+                            Divider().padding(.leading, FTSpacing.screen)
+                            formRow(label: "Paid From") {
+                                Picker("", selection: $selectedAccountId) {
+                                    Text("None").tag(Optional<UUID>(nil))
+                                    ForEach(activeAccounts) { acc in
+                                        Text(acc.name).tag(Optional(acc.id))
+                                    }
+                                }
+                                .pickerStyle(.menu)
+                                .accentColor(FTColor.accent)
+                            }
+                            Divider().padding(.leading, FTSpacing.screen)
+                            formRow(label: "Notes") {
+                                TextField("Optional notes", text: $notes)
+                                    .font(.ftBody)
+                                    .foregroundStyle(FTColor.textPrimary)
+                                    .multilineTextAlignment(.trailing)
+                            }
+                        }
+                        .ftGlass(FTRadius.lg)
+                        .padding(.horizontal, FTSpacing.screen)
+
+                        if let acc = selectedAccount {
+                            HStack(spacing: FTSpacing.xs) {
+                                Image(systemName: "info.circle")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(FTColor.expense)
+                                Text("Balance of \(acc.name) will decrease by \(amount) \(plan.currency)")
+                                    .font(.ftCaption)
+                                    .foregroundStyle(FTColor.textSecondary)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, FTSpacing.screen)
+                        }
+
+                        Text("Remaining: \(plan.remainingAmount.formatted(as: plan.currency))")
+                            .font(.ftCaption)
+                            .foregroundStyle(FTColor.textSecondary)
+                            .frame(maxWidth: .infinity, alignment: .trailing)
+                            .padding(.horizontal, FTSpacing.screen)
+
+                        Button("Save Payment") { save() }
+                            .buttonStyle(.ftPrimary)
+                            .padding(.horizontal, FTSpacing.screen)
+                            .disabled(AmountTextField.double(from: amount) <= 0)
+                    }
+                    .padding(.top, FTSpacing.lg)
+                }
+            }
+            .navigationTitle("Record Payment")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") { dismiss() }
+                        .foregroundStyle(FTColor.accent)
+                }
+            }
+            .onAppear {
+                let defaultAmount = plan.installmentAmount > 0 ? plan.installmentAmount : plan.remainingAmount
+                amount = AmountTextField.format(String(format: "%.2f", defaultAmount))
+                selectedAccountId = activeAccounts.first(where: { $0.isDefault })?.id
+                    ?? activeAccounts.first?.id
+            }
+        }
+    }
+
+    private func formRow<Content: View>(label: String, @ViewBuilder content: () -> Content) -> some View {
+        HStack {
+            Text(label).font(.ftBody).foregroundStyle(FTColor.textSecondary)
+            Spacer()
+            content()
+        }
+        .padding(.horizontal, FTSpacing.screen)
+        .padding(.vertical, FTSpacing.md)
+    }
+
+    private func save() {
+        let amountValue = AmountTextField.double(from: amount)
+        guard amountValue > 0 else { return }
+
+        let tx = Transaction(
+            title: "\(plan.name) Installment",
+            amount: amountValue,
+            currency: plan.currency,
+            type: .expense,
+            category: .bnplRepayment,
+            date: date,
+            notes: notes.isEmpty ? nil : notes,
+            paymentMethod: .bnpl
+        )
+        tx.linkedBNPL = plan
+        if let account = selectedAccount {
+            tx.account = account
+            let delta = currencyService.convert(amountValue, from: plan.currency, to: account.currency)
+            account.balance -= delta
+        }
+        context.insert(tx)
+
+        plan.paidInstallments = min(plan.paidInstallments + 1, plan.totalInstallments)
+        if plan.paidInstallments >= plan.totalInstallments {
+            plan.isCompleted = true
+        } else {
+            plan.nextPaymentDate = Calendar.current.date(byAdding: .month, value: 1, to: plan.nextPaymentDate) ?? plan.nextPaymentDate
+        }
+
+        try? context.save()
+        dismiss()
+    }
+}
+
+// MARK: - BNPLDetailSheet
+
+struct BNPLDetailSheet: View {
+    @Environment(\.modelContext) private var context
+    @Environment(\.dismiss) private var dismiss
+    @Environment(CurrencyService.self) private var currencyService
+
+    let plan: BNPLPlan
+    @Query(sort: \Transaction.date, order: .reverse) private var allTransactions: [Transaction]
+    @State private var showingRecordPayment = false
+    @State private var showingEdit = false
+    @State private var showingDeleteConfirm = false
+
+    private var payments: [Transaction] {
+        allTransactions.filter { $0.linkedBNPL?.id == plan.id }
+    }
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                FTBackdrop()
+
+                ScrollView {
+                    VStack(spacing: FTSpacing.lg) {
+                        // Header
+                        VStack(spacing: FTSpacing.md) {
+                            FTIconTile(symbol: "cart.fill", tint: Color.fromString(plan.provider.color), size: 60)
+                            Text(plan.name)
+                                .font(.ftTitle)
+                                .foregroundStyle(FTColor.textPrimary)
+                            Text("\(plan.provider.rawValue) • \(plan.merchant)")
+                                .font(.ftCallout)
+                                .foregroundStyle(FTColor.accentBright)
+                                .padding(.horizontal, FTSpacing.md)
+                                .padding(.vertical, FTSpacing.xs + 2)
+                                .background(FTColor.accentBright.opacity(0.14), in: .capsule)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, FTSpacing.lg)
+
+                        // Amount summary
+                        VStack(spacing: FTSpacing.md) {
+                            HStack {
+                                amountMetric(label: "Total", value: plan.totalAmount.formatted(as: plan.currency), tint: FTColor.textPrimary)
+                                Spacer()
+                                amountMetric(label: "Paid", value: max(0, plan.totalAmount - plan.remainingAmount).formatted(as: plan.currency), tint: FTColor.income)
+                                Spacer()
+                                amountMetric(label: "Remaining", value: plan.remainingAmount.formatted(as: plan.currency), tint: FTColor.accentBright)
+                            }
+
+                            if plan.totalInstallments > 0 {
+                                FTProgressBar(
+                                    value: min(max(plan.progress, 0), 1),
+                                    color: FTColor.accentBright,
+                                    height: 10
+                                )
+                                Text("\(plan.paidInstallments) of \(plan.totalInstallments) installments paid")
+                                    .font(.ftCaption)
+                                    .foregroundStyle(FTColor.textSecondary)
+                                    .frame(maxWidth: .infinity, alignment: .trailing)
+                            }
+                        }
+                        .padding(FTSpacing.lg)
+                        .ftGlass(FTRadius.lg)
+                        .padding(.horizontal, FTSpacing.screen)
+
+                        // Details
+                        VStack(spacing: 0) {
+                            detailRow(label: "Per Installment", value: plan.installmentAmount.formatted(as: plan.currency))
+                            Divider().padding(.leading, FTSpacing.screen)
+                            detailRow(label: "Next Payment", value: plan.nextPaymentDate.formatted)
+                            if let notes = plan.notes, !notes.isEmpty {
+                                Divider().padding(.leading, FTSpacing.screen)
+                                detailRow(label: "Notes", value: notes)
+                            }
+                        }
+                        .ftGlass(FTRadius.lg)
+                        .padding(.horizontal, FTSpacing.screen)
+
+                        // Payment history
+                        if !payments.isEmpty {
+                            VStack(alignment: .leading, spacing: FTSpacing.sm) {
+                                HStack(spacing: FTSpacing.xs) {
+                                    Image(systemName: "clock.fill")
+                                        .font(.system(size: 13, weight: .semibold))
+                                        .foregroundStyle(FTColor.textSecondary)
+                                    Text("PAYMENT HISTORY")
+                                        .font(.ftLabel)
+                                        .tracking(1.4)
+                                        .foregroundStyle(FTColor.textSecondary)
+                                }
+                                .padding(.horizontal, FTSpacing.screen)
+
+                                VStack(spacing: 1) {
+                                    ForEach(payments) { tx in
+                                        HStack(spacing: FTSpacing.md) {
+                                            FTIconTile(symbol: "arrow.up.circle.fill", tint: FTColor.expense, size: 36)
+                                            VStack(alignment: .leading, spacing: 3) {
+                                                Text(tx.amount.formatted(as: tx.currency))
+                                                    .font(.ftBodySemibold)
+                                                    .foregroundStyle(FTColor.expense)
+                                                Text(tx.date.formatted)
+                                                    .font(.ftCaption)
+                                                    .foregroundStyle(FTColor.textSecondary)
+                                                if let notes = tx.notes, !notes.isEmpty {
+                                                    Text(notes)
+                                                        .font(.ftCaption)
+                                                        .foregroundStyle(FTColor.textMuted)
+                                                        .lineLimit(1)
+                                                }
+                                            }
+                                            Spacer()
+                                            Button { deletePayment(tx) } label: {
+                                                Image(systemName: "trash")
+                                                    .font(.system(size: 12, weight: .semibold))
+                                                    .foregroundStyle(FTColor.expense)
+                                                    .frame(width: 28, height: 28)
+                                                    .background(.regularMaterial, in: .circle)
+                                            }
+                                            .buttonStyle(.plain)
+                                        }
+                                        .padding(.horizontal, FTSpacing.screen)
+                                        .padding(.vertical, FTSpacing.sm)
+                                    }
+                                }
+                                .ftGlass(FTRadius.lg)
+                                .padding(.horizontal, FTSpacing.screen)
+                            }
+                        }
+
+                        // Record payment button
+                        if !plan.isCompleted {
+                            Button {
+                                showingRecordPayment = true
+                            } label: {
+                                Label("Record Payment", systemImage: "plus.circle.fill")
+                            }
+                            .buttonStyle(.ftPrimary)
+                            .padding(.horizontal, FTSpacing.screen)
+                        }
+
+                        Spacer(minLength: FTSpacing.xxl)
+                    }
+                }
+            }
+            .navigationTitle("BNPL Plan")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button { showingDeleteConfirm = true } label: {
+                        Image(systemName: "trash")
+                            .foregroundStyle(FTColor.expense)
+                    }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    HStack(spacing: FTSpacing.md) {
+                        Button("Edit") { showingEdit = true }
+                            .font(.ftBodySemibold)
+                            .foregroundStyle(FTColor.accent)
+                        Button("Done") { dismiss() }
+                            .font(.ftBodySemibold)
+                            .foregroundStyle(FTColor.accent)
+                    }
+                }
+            }
+            .sheet(isPresented: $showingRecordPayment) { RecordBNPLPaymentSheet(plan: plan) }
+            .sheet(isPresented: $showingEdit) { AddBNPLView(editingPlan: plan) }
+            .confirmationDialog("Delete this BNPL plan?", isPresented: $showingDeleteConfirm, titleVisibility: .visible) {
+                Button("Delete", role: .destructive) {
+                    deletePlanWithCleanup()
+                    dismiss()
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This also reverses any payments already recorded against it, so the linked account's balance isn't left off.")
+            }
+        }
+    }
+
+    private func amountMetric(label: String, value: String, tint: Color) -> some View {
+        VStack(spacing: 3) {
+            Text(label)
+                .font(.ftLabel)
+                .tracking(0.5)
+                .foregroundStyle(FTColor.textSecondary)
+            Text(value)
+                .font(.ftCallout)
+                .foregroundStyle(tint)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+        }
+    }
+
+    private func detailRow(label: String, value: String) -> some View {
+        HStack {
+            Text(label)
+                .font(.ftBody)
+                .foregroundStyle(FTColor.textSecondary)
+            Spacer()
+            Text(value)
+                .font(.ftBodySemibold)
+                .foregroundStyle(FTColor.textPrimary)
+                .multilineTextAlignment(.trailing)
+        }
+        .padding(.horizontal, FTSpacing.screen)
+        .padding(.vertical, FTSpacing.md)
+    }
+
+    private func deletePayment(_ tx: Transaction) {
+        if let account = tx.account {
+            let delta = currencyService.convert(tx.amount, from: tx.currency, to: account.currency)
+            account.balance += delta
+        }
+        plan.paidInstallments = max(0, plan.paidInstallments - 1)
+        if plan.isCompleted { plan.isCompleted = false }
+        context.delete(tx)
+        try? context.save()
+    }
+
+    private func deletePlanWithCleanup() {
+        for tx in payments {
+            if let account = tx.account {
+                let delta = currencyService.convert(tx.amount, from: tx.currency, to: account.currency)
+                account.balance += delta
+            }
+            context.delete(tx)
+        }
+        context.delete(plan)
+        try? context.save()
     }
 }
 

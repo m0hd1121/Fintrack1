@@ -121,6 +121,7 @@ final class Transaction {
     var account: Account?
     var toAccount: Account?
     var linkedLoan: Loan?
+    var linkedBNPL: BNPLPlan?
 
     // Document attachments (cascade-deleted with the transaction)
     @Relationship(deleteRule: .cascade) var documents: [DocumentAttachment]
@@ -314,6 +315,7 @@ enum TransactionCategory: String, Codable, CaseIterable {
     // Shared
     case transfer       = "Transfer"
     case loanRepayment  = "Loan Repayment"
+    case bnplRepayment  = "BNPL Repayment"
     case creditCard     = "Credit Card"
     case other          = "Other"
 
@@ -351,6 +353,7 @@ enum TransactionCategory: String, Codable, CaseIterable {
         case .cashbackIncome:    return "arrow.down.left.circle.fill"
         case .transfer:          return "arrow.left.arrow.right"
         case .loanRepayment:     return "creditcard"
+        case .bnplRepayment:     return "cart.fill"
         case .personalLent:             return "hand.raised.fill"
         case .personalLentRepayment:    return "hand.thumbsup.fill"
         case .loyaltyEarned:            return "star.fill"

@@ -945,6 +945,9 @@ struct AddLoanView: View {
 struct AddBNPLView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
+    @Environment(CurrencyService.self) private var currencyService
+
+    var editingPlan: BNPLPlan? = nil
 
     @State private var name = ""
     @State private var provider: BNPLProvider = .tabby
@@ -956,6 +959,8 @@ struct AddBNPLView: View {
     @State private var paidInstallments = 0
     @State private var nextPaymentDate = Calendar.current.date(byAdding: .month, value: 1, to: Date()) ?? Date()
     @State private var currency = "AED"
+
+    private var isEditing: Bool { editingPlan != nil }
 
     var body: some View {
         NavigationStack {
@@ -1022,6 +1027,25 @@ struct AddBNPLView: View {
 
                         // Amounts
                         VStack(spacing: 0) {
+                            Menu {
+                                Picker("Currency", selection: $currency) {
+                                    ForEach(currencyService.supportedCurrencies) { info in
+                                        Text("\(info.flag) \(info.code)").tag(info.code)
+                                    }
+                                }
+                            } label: {
+                                HStack(spacing: FTSpacing.md) {
+                                    Text("Currency").font(.ftBody).foregroundStyle(FTColor.textSecondary)
+                                    Spacer()
+                                    Text(currency).font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                                    Image(systemName: "chevron.up.chevron.down")
+                                        .font(.system(size: 11, weight: .semibold)).foregroundStyle(FTColor.textMuted)
+                                }
+                                .padding(.vertical, 13)
+                            }
+
+                            Divider().opacity(0.4)
+
                             HStack(spacing: FTSpacing.md) {
                                 Text("Total Amount").font(.ftBody).foregroundStyle(FTColor.textSecondary)
                                 Spacer()
@@ -1074,38 +1098,70 @@ struct AddBNPLView: View {
                 .scrollContentBackground(.hidden)
                 .scrollDismissesKeyboard(.interactively)
 
-                Button { save() } label: { Text("Add BNPL Plan") }
+                Button { save() } label: { Text(isEditing ? "Update BNPL Plan" : "Add BNPL Plan") }
                     .buttonStyle(.ftPrimary)
                     .disabled(name.isEmpty || merchant.isEmpty || (provider == .custom && customProviderName.isEmpty))
                     .opacity(name.isEmpty || merchant.isEmpty || (provider == .custom && customProviderName.isEmpty) ? 0.55 : 1)
                     .padding(.horizontal, FTSpacing.screen)
                     .padding(.bottom, FTSpacing.sm)
             }
-            .navigationTitle("Add BNPL Plan")
+            .navigationTitle(isEditing ? "Edit BNPL Plan" : "Add BNPL Plan")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) { Button("Cancel") { dismiss() } }
             }
+            .onAppear(perform: loadEditing)
             .dismissKeyboardOnTap()
         }
     }
 
+    private func loadEditing() {
+        guard let plan = editingPlan else { return }
+        name = plan.name
+        provider = plan.provider
+        customProviderName = plan.customProvider ?? ""
+        merchant = plan.merchant
+        totalAmount = AmountTextField.format(String(format: "%.2f", plan.totalAmount))
+        installmentAmount = AmountTextField.format(String(format: "%.2f", plan.installmentAmount))
+        totalInstallments = plan.totalInstallments
+        paidInstallments = plan.paidInstallments
+        nextPaymentDate = plan.nextPaymentDate
+        currency = plan.currency
+    }
+
     private func save() {
-        let plan = BNPLPlan(
-            name: name, provider: provider,
-            customProvider: provider == .custom ? customProviderName : nil,
-            merchant: merchant,
-            totalAmount: AmountTextField.double(from: totalAmount), currency: currency,
-            installmentAmount: AmountTextField.double(from: installmentAmount),
-            totalInstallments: totalInstallments,
-            paidInstallments: paidInstallments,
-            nextPaymentDate: nextPaymentDate
-        )
-        context.insert(plan)
-        NotificationService.shared.scheduleBNPLReminder(
-            planName: name, amount: plan.installmentAmount,
-            currency: currency, dueDate: nextPaymentDate, id: plan.id.uuidString
-        )
+        if let plan = editingPlan {
+            plan.name = name
+            plan.provider = provider
+            plan.customProvider = provider == .custom ? customProviderName : nil
+            plan.merchant = merchant
+            plan.totalAmount = AmountTextField.double(from: totalAmount)
+            plan.currency = currency
+            plan.installmentAmount = AmountTextField.double(from: installmentAmount)
+            plan.totalInstallments = totalInstallments
+            plan.paidInstallments = paidInstallments
+            plan.nextPaymentDate = nextPaymentDate
+            NotificationService.shared.scheduleBNPLReminder(
+                planName: name, amount: plan.installmentAmount,
+                currency: currency, dueDate: nextPaymentDate, id: plan.id.uuidString
+            )
+        } else {
+            let plan = BNPLPlan(
+                name: name, provider: provider,
+                customProvider: provider == .custom ? customProviderName : nil,
+                merchant: merchant,
+                totalAmount: AmountTextField.double(from: totalAmount), currency: currency,
+                installmentAmount: AmountTextField.double(from: installmentAmount),
+                totalInstallments: totalInstallments,
+                paidInstallments: paidInstallments,
+                nextPaymentDate: nextPaymentDate
+            )
+            context.insert(plan)
+            NotificationService.shared.scheduleBNPLReminder(
+                planName: name, amount: plan.installmentAmount,
+                currency: currency, dueDate: nextPaymentDate, id: plan.id.uuidString
+            )
+        }
         try? context.save()
         dismiss()
     }
