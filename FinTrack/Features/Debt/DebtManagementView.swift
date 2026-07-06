@@ -325,20 +325,22 @@ struct DebtManagementView: View {
 
                     VStack(spacing: FTSpacing.sm) {
                         ForEach(activeLoans, id: \.id) { loan in
-                            Button { editingLoan = loan } label: {
+                            SwipeToDeleteRow(
+                                onTap: { editingLoan = loan },
+                                onDelete: { context.delete(loan); try? context.save() }
+                            ) {
                                 LoanDebtCard(loan: loan, baseCurrency: baseCurrency, currencyService: currencyService)
-                            }
-                            .buttonStyle(.plain)
-                            .contextMenu {
-                                Button { editingLoan = loan } label: {
-                                    Label("Edit", systemImage: "pencil")
-                                }
-                                Button(role: .destructive) {
-                                    context.delete(loan)
-                                    try? context.save()
-                                } label: {
-                                    Label("Delete", systemImage: "trash")
-                                }
+                                    .contextMenu {
+                                        Button { editingLoan = loan } label: {
+                                            Label("Edit", systemImage: "pencil")
+                                        }
+                                        Button(role: .destructive) {
+                                            context.delete(loan)
+                                            try? context.save()
+                                        } label: {
+                                            Label("Delete", systemImage: "trash")
+                                        }
+                                    }
                             }
                             .padding(.horizontal, FTSpacing.screen)
                         }
@@ -820,20 +822,22 @@ struct DebtManagementView: View {
 
                     VStack(spacing: FTSpacing.sm) {
                         ForEach(activeLoans.sorted { $0.nextPaymentDate < $1.nextPaymentDate }, id: \.id) { loan in
-                            Button { editingLoan = loan } label: {
+                            SwipeToDeleteRow(
+                                onTap: { editingLoan = loan },
+                                onDelete: { context.delete(loan); try? context.save() }
+                            ) {
                                 LoanDebtCard(loan: loan, baseCurrency: baseCurrency, currencyService: currencyService)
-                            }
-                            .buttonStyle(.plain)
-                            .contextMenu {
-                                Button { editingLoan = loan } label: {
-                                    Label("Edit", systemImage: "pencil")
-                                }
-                                Button(role: .destructive) {
-                                    context.delete(loan)
-                                    try? context.save()
-                                } label: {
-                                    Label("Delete", systemImage: "trash")
-                                }
+                                    .contextMenu {
+                                        Button { editingLoan = loan } label: {
+                                            Label("Edit", systemImage: "pencil")
+                                        }
+                                        Button(role: .destructive) {
+                                            context.delete(loan)
+                                            try? context.save()
+                                        } label: {
+                                            Label("Delete", systemImage: "trash")
+                                        }
+                                    }
                             }
                             .padding(.horizontal, FTSpacing.screen)
                         }
@@ -3148,6 +3152,70 @@ private struct EditDebtRepaymentSheet: View {
 }
 
 // MARK: - Preview
+
+// MARK: - SwipeToDeleteRow
+// A custom slide-left-to-delete gesture for rows that live in a plain
+// ScrollView rather than a List — SwiftUI's native .swipeActions only
+// attaches to List rows, which this screen's tabs don't use.
+
+private struct SwipeToDeleteRow<Content: View>: View {
+    let onTap: () -> Void
+    let onDelete: () -> Void
+    @ViewBuilder var content: () -> Content
+
+    @State private var offset: CGFloat = 0
+    @State private var isOpen = false
+    private let revealWidth: CGFloat = 84
+
+    var body: some View {
+        content()
+            .contentShape(Rectangle())
+            .onTapGesture {
+                if isOpen {
+                    withAnimation(.snappy(duration: 0.2)) { offset = 0; isOpen = false }
+                } else {
+                    onTap()
+                }
+            }
+            .offset(x: offset)
+            .background(alignment: .trailing) {
+                Button(role: .destructive, action: onDelete) {
+                    VStack(spacing: 4) {
+                        Image(systemName: "trash").font(.system(size: 18, weight: .semibold))
+                        Text("Delete").font(.ftCaption)
+                    }
+                    .foregroundStyle(.white)
+                    .frame(width: revealWidth)
+                    .frame(maxHeight: .infinity)
+                    .background(FTColor.expense)
+                }
+                .buttonStyle(.plain)
+                .opacity(isOpen ? 1 : 0)
+                .allowsHitTesting(isOpen)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: FTRadius.lg))
+            .gesture(
+                DragGesture(minimumDistance: 20)
+                    .onChanged { value in
+                        guard abs(value.translation.width) > abs(value.translation.height) * 1.5 else { return }
+                        let base: CGFloat = isOpen ? -revealWidth : 0
+                        offset = min(0, max(-revealWidth, base + value.translation.width))
+                    }
+                    .onEnded { value in
+                        guard abs(value.translation.width) > abs(value.translation.height) * 1.5 else { return }
+                        withAnimation(.snappy(duration: 0.2)) {
+                            if offset < -revealWidth / 2 {
+                                offset = -revealWidth
+                                isOpen = true
+                            } else {
+                                offset = 0
+                                isOpen = false
+                            }
+                        }
+                    }
+            )
+    }
+}
 
 #Preview {
     ZStack {
