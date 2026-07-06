@@ -284,7 +284,8 @@ struct AddSavingsGoalView: View {
     }
 
     private var emergencyFundTemplate: some View {
-        let monthly = SavingsGoalService.shared.estimatedMonthlyExpenses(transactions: transactions)
+        let monthlyBase = SavingsGoalService.shared.estimatedMonthlyExpenses(transactions: transactions)
+        let monthly = currencyService.convert(monthlyBase, from: appState.baseCurrency, to: currency)
         let suggested = monthly > 0 ? monthly * Double(emergencyMonths) : (emergencyMonths == 3 ? 15_000.0 : 30_000.0)
 
         return VStack(alignment: .leading, spacing: FTSpacing.sm) {
@@ -325,7 +326,8 @@ struct AddSavingsGoalView: View {
             .ftGlass(FTRadius.md)
         }
         .onChange(of: emergencyMonths) { _, months in
-            let monthly2 = SavingsGoalService.shared.estimatedMonthlyExpenses(transactions: transactions)
+            let monthly2Base = SavingsGoalService.shared.estimatedMonthlyExpenses(transactions: transactions)
+            let monthly2 = currencyService.convert(monthly2Base, from: appState.baseCurrency, to: currency)
             let s = monthly2 > 0 ? monthly2 * Double(months) : (months == 3 ? 15_000.0 : 30_000.0)
             targetAmount = String(format: "%.0f", s)
         }
@@ -633,7 +635,8 @@ struct AddSavingsGoalView: View {
         if selectedColor.isEmpty { selectedColor = type.color }
         switch type {
         case .emergencyFund:
-            let monthly = SavingsGoalService.shared.estimatedMonthlyExpenses(transactions: transactions)
+            let monthlyBase = SavingsGoalService.shared.estimatedMonthlyExpenses(transactions: transactions)
+            let monthly = currencyService.convert(monthlyBase, from: appState.baseCurrency, to: currency)
             let suggested = monthly > 0 ? monthly * Double(emergencyMonths) : 15_000.0
             if targetAmount.isEmpty { targetAmount = String(format: "%.0f", suggested) }
         case .hajj:
@@ -645,7 +648,10 @@ struct AddSavingsGoalView: View {
     }
 
     private func populateIfEditing() {
-        guard let goal = editingGoal else { return }
+        guard let goal = editingGoal else {
+            currency = appState.baseCurrency
+            return
+        }
         selectedType = goal.goalType
         name = goal.name
         targetAmount = AmountTextField.format(String(format: "%.2f", goal.targetAmount))

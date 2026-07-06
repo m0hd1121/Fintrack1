@@ -3,6 +3,7 @@ import SwiftData
 
 struct SmartCashAllocationView: View {
     @Environment(AppState.self) private var appState
+    @Environment(CurrencyService.self) private var currencyService
     @Query private var accounts: [Account]
     @Query private var goals: [SavingsGoal]
     @Query(filter: #Predicate<Loan> { $0.outstandingBalance > 0 }) private var loans: [Loan]
@@ -182,7 +183,10 @@ struct SmartCashAllocationView: View {
 
         let underfundedGoals = goals.filter { $0.progress < 0.5 }
         if !underfundedGoals.isEmpty && idleCash > 5000 {
-            let goalAmount = min(idleCash * 0.3, underfundedGoals.reduce(0) { $0 + ($1.targetAmount - $1.currentAmount) })
+            let underfundedTotal = underfundedGoals.reduce(0) {
+                $0 + currencyService.convert($1.targetAmount - $1.currentAmount, from: $1.currency, to: currency)
+            }
+            let goalAmount = min(idleCash * 0.3, underfundedTotal)
             recs.append(CashAllocation(
                 icon: "star.fill", color: FTColor.catPurple, priority: 3,
                 title: "Fund Your Goals",

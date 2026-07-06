@@ -6,6 +6,7 @@ import Charts
 
 struct BudgetView: View {
     @Environment(AppState.self) private var appState
+    @Environment(CurrencyService.self) private var currencyService
     @Environment(\.modelContext) private var context
     @Query(sort: \Budget.name) private var budgets: [Budget]
     @Query(sort: \SavingsGoal.name) private var savingsGoals: [SavingsGoal]
@@ -171,8 +172,27 @@ struct BudgetView: View {
         activeMonthlyBudgets.map { ($0, spending(for: $0, in: selectedMonth)) }
     }
 
+    /// Converts a budget's own-currency amount into the app's base currency.
+    private func converted(_ value: Double, from currency: String) -> Double {
+        currencyService.convert(value, from: currency, to: baseCurrency)
+    }
+
+    private func convertedBudgetAmount(_ budget: Budget) -> Double {
+        converted(budget.amount, from: budget.currency)
+    }
+
+    private func convertedRollover(_ budget: Budget) -> Double {
+        converted(budget.rolloverAmount, from: budget.currency)
+    }
+
+    /// Budget limit + rollover, converted into the base currency so it can be compared against
+    /// base-currency spending (Transaction.spendingPairs).
+    private func effectiveBudgetAmount(_ budget: Budget) -> Double {
+        convertedBudgetAmount(budget) + convertedRollover(budget)
+    }
+
     private var totalMonthlyBudgeted: Double {
-        activeMonthlyBudgets.reduce(0) { $0 + $1.amount + $1.rolloverAmount }
+        activeMonthlyBudgets.reduce(0) { $0 + effectiveBudgetAmount($1) }
     }
 
     private var totalMonthlySpent: Double {
@@ -266,7 +286,7 @@ struct BudgetView: View {
                 DebtManagementView()
             }
             .onAppear {
-                BudgetService.shared.processRollovers(budgets: budgets, transactions: transactions)
+                BudgetService.shared.processRollovers(budgets: budgets, transactions: transactions, baseCurrency: baseCurrency)
                 recommendations = BudgetService.shared.generateRecommendations(
                     transactions: transactions, budgets: budgets
                 )
@@ -327,7 +347,7 @@ struct BudgetView: View {
 
             // Forecasts for over-budget projected categories
             let forecasts = monthlyBudgetsWithSpending.compactMap { (budget, spent) -> BudgetForecast? in
-                let f = BudgetService.shared.forecastEndOfMonth(for: budget, spent: spent, transactions: transactions)
+                let f = BudgetService.shared.forecastEndOfMonth(for: budget, spent: spent, transactions: transactions, baseCurrency: baseCurrency)
                 return f.isProjectedOverBudget ? f : nil
             }
             if !forecasts.isEmpty {
@@ -350,8 +370,10 @@ struct BudgetView: View {
                         EnhancedBudgetRow(
                             budget: budget,
                             spent: spent,
+                            effectiveBudget: effectiveBudgetAmount(budget),
+                            convertedRollover: convertedRollover(budget),
                             currency: baseCurrency,
-                            forecast: BudgetService.shared.forecastEndOfMonth(for: budget, spent: spent, transactions: transactions)
+                            forecast: BudgetService.shared.forecastEndOfMonth(for: budget, spent: spent, transactions: transactions, baseCurrency: baseCurrency)
                         )
                         .contentShape(RoundedRectangle(cornerRadius: FTRadius.md))
                         .onTapGesture { detailBudget = budget }
@@ -460,11 +482,12 @@ struct BudgetView: View {
     }
 
     private func annualTarget(for budget: Budget) -> Double {
+        let amount = convertedBudgetAmount(budget)
         switch budget.period {
-        case .weekly:    return budget.amount * 52
-        case .monthly:   return budget.amount * 12
-        case .quarterly: return budget.amount * 4
-        case .yearly:    return budget.amount
+        case .weekly:    return amount * 52
+        case .monthly:   return amount * 12
+        case .quarterly: return amount * 4
+        case .yearly:    return amount
         }
     }
 
@@ -527,7 +550,7 @@ struct BudgetView: View {
             sectionHeader("Allocations", action: "Add Category", onAction: { showingAddBudget = true })
 
             let income = currentMonthIncome
-            let totalAllocated = activeMonthlyBudgets.reduce(0) { $0 + $1.amount }
+            let totalAllocated = activeMonthlyBudgets.reduce(0) { $0 + convertedBudgetAmount($1) }
             let unallocated = income - totalAllocated
 
             if activeMonthlyBudgets.isEmpty {
@@ -541,7 +564,7 @@ struct BudgetView: View {
             } else {
                 VStack(spacing: FTSpacing.sm) {
                     ForEach(activeMonthlyBudgets, id: \.id) { budget in
-                        ZeroBasedAllocationRow(budget: budget, currency: baseCurrency)
+                        ZeroBasedAllocationRow(budget: budget, amount: convertedBudgetAmount(budget), currency: baseCurrency)
                             .swipeActions(edge: .leading) {
                                 Button { editingBudget = budget } label: {
                                     Label("Edit", systemImage: "pencil")
@@ -763,7 +786,7 @@ struct BudgetView: View {
 
     private var zeroBasedHeroCard: some View {
         let income = currentMonthIncome
-        let totalAllocated = activeMonthlyBudgets.reduce(0) { $0 + $1.amount }
+        let totalAllocated = activeMonthlyBudgets.reduce(0) { $0 + convertedBudgetAmount($1) }
         let unallocated = income - totalAllocated
         let allAllocated = abs(unallocated) < 1
         let isOver = unallocated < -1
@@ -988,10 +1011,13 @@ struct BudgetView: View {
 struct EnhancedBudgetRow: View {
     let budget: Budget
     let spent: Double
+    /// budget.amount + budget.rolloverAmount, already converted from budget.currency to `currency`.
+    let effectiveBudget: Double
+    /// budget.rolloverAmount, already converted from budget.currency to `currency`.
+    let convertedRollover: Double
     let currency: String
     let forecast: BudgetForecast
 
-    private var effectiveBudget: Double { budget.amount + budget.rolloverAmount }
     private var progress: Double { effectiveBudget > 0 ? min(spent / effectiveBudget, 1.0) : 0 }
     private var isOverBudget: Bool { spent > effectiveBudget }
     private var isNearLimit: Bool { progress >= budget.alertThreshold && !isOverBudget }
@@ -1009,8 +1035,8 @@ struct EnhancedBudgetRow: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(budget.name).font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
                     HStack(spacing: 4) {
-                        if budget.isRollover && budget.rolloverAmount > 0 {
-                            badge(text: "+\(budget.rolloverAmount.formatted(as: currency))", color: FTColor.income)
+                        if budget.isRollover && convertedRollover > 0 {
+                            badge(text: "+\(convertedRollover.formatted(as: currency))", color: FTColor.income)
                         }
                         if budget.isShared {
                             badge(text: "Shared", color: FTColor.catPurple)
@@ -1176,6 +1202,8 @@ struct EnvelopeRow: View {
 
 struct ZeroBasedAllocationRow: View {
     let budget: Budget
+    /// budget.amount converted from budget.currency into `currency` (the app's base currency).
+    let amount: Double
     let currency: String
 
     var body: some View {
@@ -1184,7 +1212,7 @@ struct ZeroBasedAllocationRow: View {
                        tint: Color.fromString(budget.category.color), size: 36)
             Text(budget.name).font(.ftBody).foregroundStyle(FTColor.textPrimary)
             Spacer()
-            Text(budget.amount.formatted(as: currency))
+            Text(amount.formatted(as: currency))
                 .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
         }
         .padding(FTSpacing.md)
@@ -1254,8 +1282,11 @@ struct BudgetDetailView: View {
     let transactions: [Transaction]
     @Environment(\.dismiss) private var dismiss
     @Environment(AppState.self) private var appState
+    @Environment(CurrencyService.self) private var currencyService
 
     private var currency: String { appState.baseCurrency }
+    private var convertedAmount: Double { currencyService.convert(budget.amount, from: budget.currency, to: currency) }
+    private var convertedRollover: Double { currencyService.convert(budget.rolloverAmount, from: budget.currency, to: currency) }
 
     private var relatedTransactions: [Transaction] {
         transactions
@@ -1288,7 +1319,7 @@ struct BudgetDetailView: View {
                     VStack(spacing: FTSpacing.lg) {
                         // Header card
                         let currentSpent = monthlyHistory.last?.spent ?? 0
-                        let effective = budget.amount + budget.rolloverAmount
+                        let effective = convertedAmount + convertedRollover
                         let progress = effective > 0 ? min(currentSpent / effective, 1.0) : 0
                         let tint = currentSpent > effective ? FTColor.expense : Color.fromString(budget.category.color)
 
@@ -1311,8 +1342,8 @@ struct BudgetDetailView: View {
                             FTProgressBar(value: progress, color: .white.opacity(0.9))
                                 .frame(height: 9)
                             HStack {
-                                if budget.isRollover && budget.rolloverAmount > 0 {
-                                    Text("Rollover: +\(budget.rolloverAmount.formatted(as: currency))")
+                                if budget.isRollover && convertedRollover > 0 {
+                                    Text("Rollover: +\(convertedRollover.formatted(as: currency))")
                                         .font(.ftCaption).foregroundStyle(.white.opacity(0.8))
                                 }
                                 Spacer()
@@ -1349,7 +1380,7 @@ struct BudgetDetailView: View {
                                 )
                                 .cornerRadius(4)
 
-                                RuleMark(y: .value("Budget", budget.amount))
+                                RuleMark(y: .value("Budget", convertedAmount))
                                     .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [4]))
                                     .foregroundStyle(.white.opacity(0.6))
                             }

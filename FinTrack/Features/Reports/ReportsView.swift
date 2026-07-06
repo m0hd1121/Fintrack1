@@ -1601,13 +1601,18 @@ struct SavingsGoalsReport: View {
     let goals: [SavingsGoal]
     let transactions: [Transaction]
     let currency: String
+    @Environment(CurrencyService.self) private var currencyService
 
     private var activeGoals: [SavingsGoal] { goals.filter { !$0.isArchived && !$0.isCompleted } }
     private var completedGoals: [SavingsGoal] { goals.filter { $0.isCompleted } }
     private var archivedGoals: [SavingsGoal] { goals.filter { $0.isArchived && !$0.isCompleted } }
 
-    private var totalSaved: Double { activeGoals.reduce(0) { $0 + $1.currentAmount } }
-    private var totalTarget: Double { activeGoals.reduce(0) { $0 + $1.targetAmount } }
+    private var totalSaved: Double {
+        activeGoals.reduce(0) { $0 + currencyService.convert($1.currentAmount, from: $1.currency, to: currency) }
+    }
+    private var totalTarget: Double {
+        activeGoals.reduce(0) { $0 + currencyService.convert($1.targetAmount, from: $1.currency, to: currency) }
+    }
     private var overallProgress: Double { totalTarget > 0 ? min(totalSaved / totalTarget, 1.0) : 0 }
     private var svc = SavingsGoalService.shared
 

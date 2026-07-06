@@ -75,7 +75,8 @@ final class BudgetService {
     func forecastEndOfMonth(
         for budget: Budget,
         spent: Double,
-        transactions: [Transaction]
+        transactions: [Transaction],
+        baseCurrency: String
     ) -> BudgetForecast {
         let cal = Calendar.current
         let now = Date()
@@ -113,8 +114,9 @@ final class BudgetService {
             confidence = min(Double(dayOfMonth) / 30.0, 0.5)
         }
 
-        // Include rollover in effective budget
-        let effectiveBudget = budget.amount + budget.rolloverAmount
+        // Include rollover in effective budget, converted to the currency `spent` is expressed in
+        let effectiveBudget = CurrencyService.shared.convert(budget.amount, from: budget.currency, to: baseCurrency)
+            + CurrencyService.shared.convert(budget.rolloverAmount, from: budget.currency, to: baseCurrency)
 
         return BudgetForecast(
             budgetID: budget.id,
@@ -130,7 +132,8 @@ final class BudgetService {
     // MARK: Feature 8 — Multi-Threshold Budget Alerts
 
     func checkAndSendAlerts(budget: Budget, spent: Double, currency: String) {
-        let effectiveBudget = budget.amount + budget.rolloverAmount
+        let effectiveBudget = CurrencyService.shared.convert(budget.amount, from: budget.currency, to: currency)
+            + CurrencyService.shared.convert(budget.rolloverAmount, from: budget.currency, to: currency)
         guard effectiveBudget > 0 else { return }
         let progress = spent / effectiveBudget
 
@@ -168,19 +171,21 @@ final class BudgetService {
 
     // MARK: Feature 5 — Rollover Processing
 
-    func processRollovers(budgets: [Budget], transactions: [Transaction]) {
+    func processRollovers(budgets: [Budget], transactions: [Transaction], baseCurrency: String) {
         let cal = Calendar.current
         let now = Date()
         guard let lastMonthStart = cal.date(byAdding: .month, value: -1, to: now.startOfMonth) else { return }
 
         for budget in budgets where budget.isRollover && budget.isActive && budget.period == .monthly {
-            // Sum last month's spending for this budget's category
-            var lastMonthSpent: Double = 0
+            // Sum last month's spending for this budget's category (spendingPairs is base-currency)
+            var lastMonthSpentBase: Double = 0
             for tx in transactions where tx.date.isSameMonth(as: lastMonthStart) {
                 for (cat, amount) in tx.spendingPairs where cat == budget.category {
-                    lastMonthSpent += amount
+                    lastMonthSpentBase += amount
                 }
             }
+            // Convert into the budget's own currency before comparing against budget.amount
+            let lastMonthSpent = CurrencyService.shared.convert(lastMonthSpentBase, from: baseCurrency, to: budget.currency)
             let unused = max(budget.amount - lastMonthSpent, 0)
             budget.rolloverAmount = unused
         }
