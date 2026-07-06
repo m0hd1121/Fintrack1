@@ -121,6 +121,7 @@ struct RootView: View {
         .task {
             EmailSyncService.shared.startAutoSync(context: context)
             GoogleDriveBackupService.shared.startAutoSync(context: context)
+            EmailBackupService.shared.startAutoBackup(context: context)
             await cryptoPriceService.fetchPrices()
             cryptoPriceService.updateHoldings(Array(cryptoHoldings), currencyService: currencyService)
             let symbols = investments.map { $0.symbol }.filter { !$0.isEmpty }

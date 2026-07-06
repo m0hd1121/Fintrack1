@@ -217,13 +217,36 @@ final class EmailBackupService {
         }
     }
 
-    /// Triggers a backup if auto-backup is due (24-hour interval) and enabled.
+    private let autoBackupInterval: TimeInterval = 3600   // hourly
+
+    /// Triggers a backup if auto-backup is due (hourly interval) and enabled.
     /// Safe to call from any scene-phase change handler.
     func scheduleAutomaticBackupIfNeeded(context: ModelContext) {
         guard backupEnabled, isConnected else { return }
         let last = lastBackupDate ?? .distantPast
-        guard Date().timeIntervalSince(last) >= 24 * 3600 else { return }
+        guard Date().timeIntervalSince(last) >= autoBackupInterval else { return }
         Task { await performBackup(context: context) }
+    }
+
+    private var autoBackupTask: Task<Void, Never>?
+
+    /// Scene-phase transitions alone (launch/background/resume) may not fire
+    /// for hours if the app just stays open — this keeps checking every few
+    /// minutes so an hourly interval is actually honored while the app is in
+    /// the foreground, not just at transition points. Call once on launch.
+    func startAutoBackup(context: ModelContext) {
+        guard autoBackupTask == nil else { return }
+        autoBackupTask = Task {
+            while !Task.isCancelled {
+                scheduleAutomaticBackupIfNeeded(context: context)
+                try? await Task.sleep(for: .seconds(300))
+            }
+        }
+    }
+
+    func stopAutoBackup() {
+        autoBackupTask?.cancel()
+        autoBackupTask = nil
     }
 
     @MainActor func clearError() { lastError = nil }

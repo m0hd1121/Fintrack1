@@ -160,7 +160,7 @@ struct EmailBackupView: View {
     private var settingsCard: some View {
         VStack(alignment: .leading, spacing: FTSpacing.sm) {
             FTToggleRow(symbol: "clock.arrow.circlepath", tint: FTColor.catCoral,
-                        title: "Automatic Daily Backup",
+                        title: "Automatic Hourly Backup",
                         isOn: Binding(
                             get: { backup.backupEnabled },
                             set: { backup.backupEnabled = $0 }
