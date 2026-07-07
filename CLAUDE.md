@@ -6,12 +6,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is an Xcode project — open `FinTrack.xcodeproj` in Xcode and run on simulator or device. There are no CLI build commands, no Package.swift, and no test targets.
 
+## PROJECT_MAP.md
+
+A compressed navigation index lives at `PROJECT_MAP.md` (root), with per-module detail in `docs/maps/MAP_Models.md`, `MAP_Services.md`, `MAP_Features.md`. It's a navigation/orientation tool, not a substitute for source code.
+
+- **At the start of every session, read `PROJECT_MAP.md` first** to orient and locate relevant files before searching the codebase.
+- Use it to answer "where is X / how do parts relate" without scanning everything.
+- **Always read the actual source file before modifying it.** Never base a change on the map's compressed notation alone — it omits implementation detail by design.
+- For bug fixes, debugging, and refactors, treat the map as a starting index only; the source code is ground truth.
+- **At the end of any task that changes the codebase**, update `PROJECT_MAP.md`/the relevant `docs/maps/MAP_*.md` file if the change affects it: new/deleted/renamed file → directory structure + core features; model property/relationship change → `MAP_Models.md`; new/changed public service method → `MAP_Services.md`; new convention/constraint discovered → §8 of the root map; feature completed/started → §9 (STATE). Update only the affected section, refresh the `Last verified` header (date + commit hash), and state in your final message which section(s) you updated (or "no map update needed").
+- **Drift detection**: if a file you open contradicts the map (different structure, missing method, changed relationship), the source code wins — fix the map immediately and flag the discrepancy in your response. If `Last verified`'s commit hash is more than ~20 commits behind HEAD (`git rev-list <hash>..HEAD --count`), warn that the map may be stale and offer a quick re-verification pass.
+
 ## Schema Versioning
 
 The app uses **wipe-and-recreate** (not migrations). In `FinTrack/App/FinTrackApp.swift`:
 
 ```swift
-let currentSchemaVersion = "v15"   // ← bump this string
+let currentSchemaVersion = "v28"   // ← bump this string
 ```
 
 Bump whenever adding new `@Model` classes or non-optional properties to existing ones. Also register every new `@Model` in the `Schema([...])` array in `FinTrackApp.swift`. Failing to bump causes a crash on launch.
@@ -153,7 +164,7 @@ Use `@Attribute(.externalStorage)` on large `Data` properties (receipt images, i
 ## Platform Extensions
 
 ### Widgets (FinTrackWidget/)
-Three widget types in a `WidgetBundle`: `FinTrackBalanceWidget` (sm/md/lg + all accessory lock screen families), `FinTrackBudgetWidget` (sm/md/lg), `FinTrackBillsWidget` (md/lg). Live Activity UI (`BudgetLiveActivityAttributes`) is also rendered here. All data comes from `UserDefaults(suiteName: "group.com.fintrack.shared")` via the keys written by `WidgetDataService`.
+Five widget types in a `WidgetBundle`: `FinTrackBalanceWidget` (sm/md/lg + all accessory lock screen families), `FinTrackBudgetWidget` (sm/md/lg), `FinTrackBillsWidget` (md/lg), `FinTrackPaymentsWidget` (lg only — BNPL/bill/scheduled payments merged), plus the Live Activity configuration (`BudgetLiveActivityAttributes`, iOS 16.1+). All data comes from `UserDefaults(suiteName: "group.com.fintrack.shared")` via the keys written by `WidgetDataService`.
 
 ### App Intents / Siri (FinTrack/Features/AppIntents/)
 `FinTrackIntents.swift` — `LogExpenseIntent`, `LogIncomeIntent`, `GetBalanceIntent`, `GetBudgetStatusIntent`, `FinTrackShortcuts: AppShortcutsProvider`. Intents enqueue a `PendingWidgetTransaction` into the shared App Group; `RootView` drains the queue via `drainPendingIntentQueue()` on `onAppear` and `.active` scene phase.
