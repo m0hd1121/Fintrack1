@@ -377,15 +377,12 @@ struct BudgetView: View {
                         )
                         .contentShape(RoundedRectangle(cornerRadius: FTRadius.md))
                         .onTapGesture { detailBudget = budget }
-                        .swipeActions(edge: .leading) {
+                        .contextMenu {
                             Button { editingBudget = budget } label: {
                                 Label("Edit", systemImage: "pencil")
-                            }.tint(FTColor.accent)
-                        }
-                        .swipeActions(edge: .trailing) {
+                            }
                             Button(role: .destructive) {
-                                context.delete(budget)
-                                try? context.save()
+                                deleteBudget(budget)
                             } label: { Label("Delete", systemImage: "trash") }
                         }
                     }
@@ -417,22 +414,21 @@ struct BudgetView: View {
                             .ftGlassInteractive(FTRadius.md)
                             .contentShape(RoundedRectangle(cornerRadius: FTRadius.md))
                             .onTapGesture { detailGoal = goal }
-                            .swipeActions(edge: .leading) {
+                            .contextMenu {
                                 Button { detailGoal = goal } label: {
                                     Label("View", systemImage: "eye")
-                                }.tint(FTColor.accent)
-                            }
-                            .swipeActions(edge: .trailing) {
+                                }
+                                Button {
+                                    goal.isArchived.toggle()
+                                    goal.updatedAt = Date()
+                                    try? context.save()
+                                } label: {
+                                    Label(goal.isArchived ? "Unarchive" : "Archive", systemImage: "archivebox")
+                                }
                                 Button(role: .destructive) {
                                     context.delete(goal)
                                     try? context.save()
                                 } label: { Label("Delete", systemImage: "trash") }
-                                Button {
-                                    goal.isArchived = true
-                                    goal.updatedAt = Date()
-                                    try? context.save()
-                                } label: { Label("Archive", systemImage: "archivebox") }
-                                .tint(FTColor.gold)
                             }
                     }
                 }
@@ -517,17 +513,14 @@ struct BudgetView: View {
                         )
                         .contentShape(RoundedRectangle(cornerRadius: FTRadius.md))
                         .onTapGesture { detailEnvelope = envelope }
-                        .swipeActions(edge: .trailing) {
+                        .contextMenu {
+                            Button {
+                                detailEnvelope = envelope
+                            } label: { Label("Fund", systemImage: "plus.circle") }
                             Button(role: .destructive) {
                                 context.delete(envelope)
                                 try? context.save()
                             } label: { Label("Delete", systemImage: "trash") }
-                        }
-                        .swipeActions(edge: .leading) {
-                            Button {
-                                detailEnvelope = envelope
-                            } label: { Label("Fund", systemImage: "plus.circle") }
-                            .tint(FTColor.income)
                         }
                     }
                 }
@@ -565,10 +558,13 @@ struct BudgetView: View {
                 VStack(spacing: FTSpacing.sm) {
                     ForEach(activeMonthlyBudgets, id: \.id) { budget in
                         ZeroBasedAllocationRow(budget: budget, amount: convertedBudgetAmount(budget), currency: baseCurrency)
-                            .swipeActions(edge: .leading) {
+                            .contextMenu {
                                 Button { editingBudget = budget } label: {
                                     Label("Edit", systemImage: "pencil")
-                                }.tint(FTColor.accent)
+                                }
+                                Button(role: .destructive) {
+                                    deleteBudget(budget)
+                                } label: { Label("Delete", systemImage: "trash") }
                             }
                     }
                 }
@@ -975,6 +971,11 @@ struct BudgetView: View {
         .ftGlassInteractive(FTRadius.md)
     }
 
+    private func deleteBudget(_ budget: Budget) {
+        context.delete(budget)
+        try? context.save()
+    }
+
     private func checkBudgetAlerts() {
         for budget in activeMonthlyBudgets {
             let budgetSpent = spending(for: budget, in: selectedMonth)
@@ -1281,8 +1282,10 @@ struct BudgetDetailView: View {
     @Bindable var budget: Budget
     let transactions: [Transaction]
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var context
     @Environment(AppState.self) private var appState
     @Environment(CurrencyService.self) private var currencyService
+    @State private var showingDeleteConfirm = false
 
     private var currency: String { appState.baseCurrency }
     private var convertedAmount: Double { currencyService.convert(budget.amount, from: budget.currency, to: currency) }
@@ -1442,10 +1445,24 @@ struct BudgetDetailView: View {
                     Button("Done") { dismiss() }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    NavigationLink(destination: LazyView { AddBudgetView(editingBudget: budget) }) {
-                        Image(systemName: "pencil")
+                    HStack(spacing: FTSpacing.md) {
+                        Button(role: .destructive) { showingDeleteConfirm = true } label: {
+                            Image(systemName: "trash")
+                                .foregroundStyle(FTColor.expense)
+                        }
+                        NavigationLink(destination: LazyView { AddBudgetView(editingBudget: budget) }) {
+                            Image(systemName: "pencil")
+                        }
                     }
                 }
+            }
+            .confirmationDialog("Delete this budget?", isPresented: $showingDeleteConfirm, titleVisibility: .visible) {
+                Button("Delete", role: .destructive) {
+                    context.delete(budget)
+                    try? context.save()
+                    dismiss()
+                }
+                Button("Cancel", role: .cancel) {}
             }
         }
     }
@@ -1902,6 +1919,7 @@ struct EnvelopeDetailView: View {
     @State private var fundAmount = ""
     @State private var transferTarget: BudgetEnvelope? = nil
     @State private var transferAmount = ""
+    @State private var showingDeleteConfirm = false
 
     private var currency: String { appState.baseCurrency }
 
@@ -2012,6 +2030,20 @@ struct EnvelopeDetailView: View {
             .navigationTitle("Envelope").navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) { Button("Done") { dismiss() } }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(role: .destructive) { showingDeleteConfirm = true } label: {
+                        Image(systemName: "trash")
+                            .foregroundStyle(FTColor.expense)
+                    }
+                }
+            }
+            .confirmationDialog("Delete this envelope?", isPresented: $showingDeleteConfirm, titleVisibility: .visible) {
+                Button("Delete", role: .destructive) {
+                    context.delete(envelope)
+                    try? context.save()
+                    dismiss()
+                }
+                Button("Cancel", role: .cancel) {}
             }
             .alert("Add Funds", isPresented: $showingFund) {
                 TextField("Amount", text: $fundAmount).keyboardType(.decimalPad)
