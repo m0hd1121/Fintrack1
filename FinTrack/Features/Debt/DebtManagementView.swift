@@ -1547,6 +1547,7 @@ struct RecordBNPLPaymentSheet: View {
     let plan: BNPLPlan
 
     @State private var amount: String = ""
+    @State private var paymentCurrency: String = ""
     @State private var date = Date()
     @State private var notes = ""
     @State private var selectedAccountId: UUID? = nil
@@ -1562,9 +1563,26 @@ struct RecordBNPLPaymentSheet: View {
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
                         VStack(spacing: 0) {
-                            formRow(label: "Amount (\(plan.currency))") {
+                            formRow(label: "Amount") {
                                 AmountTextField("0.00", text: $amount, font: .ftBodySemibold)
                                     .foregroundStyle(FTColor.textPrimary)
+                                    .frame(maxWidth: 110)
+                            }
+                            Divider().padding(.leading, FTSpacing.screen)
+                            formRow(label: "Currency") {
+                                Menu {
+                                    Picker("Currency", selection: $paymentCurrency) {
+                                        ForEach(currencyService.supportedCurrencies) { info in
+                                            Text("\(info.flag) \(info.code)").tag(info.code)
+                                        }
+                                    }
+                                } label: {
+                                    HStack(spacing: 4) {
+                                        Text(paymentCurrency).font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                                        Image(systemName: "chevron.up.chevron.down")
+                                            .font(.system(size: 11, weight: .semibold)).foregroundStyle(FTColor.textMuted)
+                                    }
+                                }
                             }
                             Divider().padding(.leading, FTSpacing.screen)
                             formRow(label: "Date") {
@@ -1599,7 +1617,7 @@ struct RecordBNPLPaymentSheet: View {
                                 Image(systemName: "info.circle")
                                     .font(.system(size: 12))
                                     .foregroundStyle(FTColor.expense)
-                                Text("Balance of \(acc.name) will decrease by \(amount) \(plan.currency)")
+                                Text("Balance of \(acc.name) will decrease by \(amount) \(paymentCurrency)")
                                     .font(.ftCaption)
                                     .foregroundStyle(FTColor.textSecondary)
                             }
@@ -1633,6 +1651,7 @@ struct RecordBNPLPaymentSheet: View {
             .onAppear {
                 let defaultAmount = plan.installmentAmount > 0 ? plan.installmentAmount : plan.remainingAmount
                 amount = AmountTextField.format(String(format: "%.2f", defaultAmount))
+                paymentCurrency = plan.currency
                 selectedAccountId = activeAccounts.first(where: { $0.isDefault })?.id
                     ?? activeAccounts.first?.id
             }
@@ -1656,7 +1675,7 @@ struct RecordBNPLPaymentSheet: View {
         let tx = Transaction(
             title: "\(plan.name) Installment",
             amount: amountValue,
-            currency: plan.currency,
+            currency: paymentCurrency,
             type: .expense,
             category: .bnplRepayment,
             date: date,
@@ -1666,7 +1685,7 @@ struct RecordBNPLPaymentSheet: View {
         tx.linkedBNPL = plan
         if let account = selectedAccount {
             tx.account = account
-            let delta = currencyService.convert(amountValue, from: plan.currency, to: account.currency)
+            let delta = currencyService.convert(amountValue, from: paymentCurrency, to: account.currency)
             account.balance -= delta
         }
         context.insert(tx)
@@ -3318,7 +3337,10 @@ struct LoanDetailSheet: View {
             let delta = currencyService.convert(tx.amount, from: tx.currency, to: account.currency)
             account.balance += delta
         }
-        loan.outstandingBalance += tx.amount
+        // tx.amount may have been entered in a different currency than the loan
+        // (e.g. paid from an AED account against a USD loan) — convert before
+        // adding back, since outstandingBalance is tracked in loan.currency.
+        loan.outstandingBalance += currencyService.convert(tx.amount, from: tx.currency, to: loan.currency)
         loan.paidInstallments = max(0, loan.paidInstallments - 1)
         if !loan.isActive { loan.isActive = true }
         context.delete(tx)

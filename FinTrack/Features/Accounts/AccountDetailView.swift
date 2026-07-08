@@ -382,6 +382,7 @@ struct RecordLoanPaymentSheet: View {
     let loan: Loan
 
     @State private var amount: String = ""
+    @State private var paymentCurrency: String = ""
     @State private var date = Date()
     @State private var notes = ""
     @State private var selectedAccountId: UUID? = nil
@@ -397,9 +398,26 @@ struct RecordLoanPaymentSheet: View {
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
                         VStack(spacing: 0) {
-                            formRow(label: "Amount (\(loan.currency))") {
+                            formRow(label: "Amount") {
                                 AmountTextField("0.00", text: $amount, font: .ftBodySemibold)
                                     .foregroundStyle(FTColor.textPrimary)
+                                    .frame(maxWidth: 110)
+                            }
+                            Divider().padding(.leading, FTSpacing.screen)
+                            formRow(label: "Currency") {
+                                Menu {
+                                    Picker("Currency", selection: $paymentCurrency) {
+                                        ForEach(currencyService.supportedCurrencies) { info in
+                                            Text("\(info.flag) \(info.code)").tag(info.code)
+                                        }
+                                    }
+                                } label: {
+                                    HStack(spacing: 4) {
+                                        Text(paymentCurrency).font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                                        Image(systemName: "chevron.up.chevron.down")
+                                            .font(.system(size: 11, weight: .semibold)).foregroundStyle(FTColor.textMuted)
+                                    }
+                                }
                             }
                             Divider().padding(.leading, FTSpacing.screen)
                             formRow(label: "Date") {
@@ -434,7 +452,7 @@ struct RecordLoanPaymentSheet: View {
                                 Image(systemName: "info.circle")
                                     .font(.system(size: 12))
                                     .foregroundStyle(FTColor.expense)
-                                Text("Balance of \(acc.name) will decrease by \(amount) \(loan.currency)")
+                                Text("Balance of \(acc.name) will decrease by \(amount) \(paymentCurrency)")
                                     .font(.ftCaption)
                                     .foregroundStyle(FTColor.textSecondary)
                             }
@@ -468,6 +486,7 @@ struct RecordLoanPaymentSheet: View {
             .onAppear {
                 let defaultAmount = loan.emiAmount > 0 ? loan.emiAmount : loan.outstandingBalance
                 amount = AmountTextField.format(String(format: "%.2f", defaultAmount))
+                paymentCurrency = loan.currency
                 selectedAccountId = activeAccounts.first(where: { $0.isDefault })?.id
                     ?? activeAccounts.first?.id
             }
@@ -488,18 +507,24 @@ struct RecordLoanPaymentSheet: View {
         let amountValue = AmountTextField.double(from: amount)
         guard amountValue > 0 else { return }
 
+        // The payment can be entered in any currency (e.g. paid from an AED
+        // account against a USD loan) — convert into the loan's own currency
+        // before running the amortization split, so outstandingBalance stays
+        // in loan.currency like every other loan field.
+        let amountInLoanCurrency = currencyService.convert(amountValue, from: paymentCurrency, to: loan.currency)
+
         // Same amortization model as Loan.amortizationSchedule: split the
         // payment into interest (on the current outstanding balance) and
         // principal, so outstandingBalance tracks the real remaining debt
         // rather than just the raw payment total.
         let monthlyRate = loan.interestRate / 100.0 / 12.0
         let interestPortion = loan.outstandingBalance * monthlyRate
-        let principalPortion = min(max(amountValue - interestPortion, 0), loan.outstandingBalance)
+        let principalPortion = min(max(amountInLoanCurrency - interestPortion, 0), loan.outstandingBalance)
 
         let tx = Transaction(
             title: "\(loan.name) Payment",
             amount: amountValue,
-            currency: loan.currency,
+            currency: paymentCurrency,
             type: .expense,
             category: .loanRepayment,
             date: date,
@@ -508,7 +533,7 @@ struct RecordLoanPaymentSheet: View {
         tx.linkedLoan = loan
         if let account = selectedAccount {
             tx.account = account
-            let delta = currencyService.convert(amountValue, from: loan.currency, to: account.currency)
+            let delta = currencyService.convert(amountValue, from: paymentCurrency, to: account.currency)
             account.balance -= delta
         }
         context.insert(tx)
