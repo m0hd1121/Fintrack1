@@ -583,7 +583,7 @@ struct AccountsView: View {
     private var assetsTabContent: some View {
         Group {
             if activeGoldHoldings.isEmpty && activeGiftCards.isEmpty && activeLoyaltyPrograms.isEmpty {
-                EmptyStateView(icon: "vault.fill", title: "No Other Assets Yet",
+                EmptyStateView(icon: "archivebox.fill", title: "No Other Assets Yet",
                                message: "Add gold, gift cards or loyalty points to track everything in one place.")
                     .ftGlass(FTRadius.lg)
             } else {
