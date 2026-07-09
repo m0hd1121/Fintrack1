@@ -5,6 +5,7 @@ struct AccountsView: View {
     @Environment(AppState.self) private var appState
     @Environment(CurrencyService.self) private var currencyService
     @Environment(\.modelContext) private var context
+
     @Query(sort: \Account.name) private var accounts: [Account]
     @Query private var creditCards: [CreditCard]
     @Query private var investments: [Investment]
@@ -15,7 +16,19 @@ struct AccountsView: View {
     @Query private var loans: [Loan]
     @Query private var bnplPlans: [BNPLPlan]
     @Query private var moneyBorrowed: [MoneyBorrowed]
+    @Query private var moneyLent: [MoneyLent]
+    @Query private var transactions: [Transaction]
+    @Query private var netWorthMilestones: [NetWorthMilestone]
+    @Query(filter: #Predicate<SalaryRecord> { $0.isActive }) private var salaryRecords: [SalaryRecord]
+    @Query(filter: #Predicate<FreelanceProject> { $0.isArchived == false }) private var freelanceProjects: [FreelanceProject]
+    @Query(filter: #Predicate<RentalProperty> { $0.isActive }) private var rentalProperties: [RentalProperty]
+    @Query(filter: #Predicate<SavingsGoal> { $0.isArchived == false && $0.isCompleted == false }) private var activeGoals: [SavingsGoal]
+    @Query(filter: #Predicate<RealEstateProperty> { $0.isArchived == false }) private var realEstateProperties: [RealEstateProperty]
+    @Query(filter: #Predicate<Vehicle> { $0.isArchived == false }) private var vehicles: [Vehicle]
+    @Query(filter: #Predicate<PersonalAsset> { $0.isArchived == false }) private var personalAssets: [PersonalAsset]
+    @Query(filter: #Predicate<DigitalAsset> { $0.isArchived == false }) private var digitalAssets: [DigitalAsset]
 
+    @State private var tab = 0
     @State private var showingAddAccount = false
     @State private var showingAddCreditCard = false
     @State private var showingAddInvestment = false
@@ -32,10 +45,27 @@ struct AccountsView: View {
     @State private var editingGiftCard: GiftCard? = nil
     @State private var editingLoyalty: LoyaltyProgram? = nil
 
+    // Module destinations (relocated from Dashboard)
+    @State private var showingIncome = false
+    @State private var showingPortfolio = false
+    @State private var showingGoals = false
+    @State private var showingAssetsLiabilities = false
+    @State private var showingDebt = false
+    @State private var showingNetWorth = false
+    @State private var showingNotifications = false
+
+    private let tabs = ["Accounts", "Investments", "Crypto", "Assets"]
     private var baseCurrency: String { appState.baseCurrency }
 
     private var activeAccounts: [Account] { accounts.filter { !$0.isArchived } }
     private var visibleAccounts: [Account] { activeAccounts.filter { !$0.isHidden } }
+    private var activeCreditCards: [CreditCard] { creditCards.filter { $0.isActive } }
+    private var activeGoldHoldings: [GoldHolding] { goldHoldings.filter { !$0.isArchived } }
+    private var activeGiftCards: [GiftCard] { giftCards.filter { !$0.isUsedUp } }
+    private var activeLoyaltyPrograms: [LoyaltyProgram] { loyaltyPrograms.filter { !$0.isExpired } }
+    private var activeLoans: [Loan] { loans.filter { $0.isActive } }
+    private var activeBNPL: [BNPLPlan] { bnplPlans.filter { !$0.isCompleted } }
+    private var activeBorrowed: [MoneyBorrowed] { moneyBorrowed.filter { $0.computedStatus != .repaid && $0.computedStatus != .writtenOff } }
 
     private var totalBalance: Double {
         visibleAccounts.reduce(0) {
@@ -44,13 +74,13 @@ struct AccountsView: View {
     }
 
     private var totalDebt: Double {
-        let creditCardDebt = creditCards.filter { $0.isActive }
+        let creditCardDebt = activeCreditCards
             .reduce(0) { $0 + currencyService.convert($1.outstandingBalance, from: $1.currency, to: baseCurrency) }
-        let loanDebt = loans.filter { $0.isActive }
+        let loanDebt = activeLoans
             .reduce(0) { $0 + currencyService.convert($1.outstandingBalance, from: $1.currency, to: baseCurrency) }
-        let bnplDebt = bnplPlans.filter { !$0.isCompleted }
+        let bnplDebt = activeBNPL
             .reduce(0) { $0 + currencyService.convert($1.remainingAmount, from: $1.currency, to: baseCurrency) }
-        let borrowedDebt = moneyBorrowed.filter { $0.computedStatus != .repaid && $0.computedStatus != .writtenOff }
+        let borrowedDebt = activeBorrowed
             .reduce(0) { $0 + currencyService.convert($1.remainingBalance, from: $1.currency, to: baseCurrency) }
         return creditCardDebt + loanDebt + bnplDebt + borrowedDebt
     }
@@ -62,219 +92,125 @@ struct AccountsView: View {
         let crypto = cryptoHoldings.reduce(0) {
             $0 + currencyService.convert($1.currentValue, from: $1.currency, to: baseCurrency)
         }
-        let gold = goldHoldings.filter { !$0.isArchived }.reduce(0) {
+        let gold = activeGoldHoldings.reduce(0) {
             $0 + currencyService.convert($1.currentValue, from: $1.currency, to: baseCurrency)
         }
         return stocks + crypto + gold
     }
 
     private var giftCardValue: Double {
-        giftCards.filter { !$0.isUsedUp && !$0.isExpired }.reduce(0) {
+        activeGiftCards.filter { !$0.isExpired }.reduce(0) {
             $0 + currencyService.convert($1.balance, from: $1.currency, to: baseCurrency)
         }
     }
 
     private var loyaltyValue: Double {
-        loyaltyPrograms.filter { !$0.isExpired }.reduce(0) {
+        activeLoyaltyPrograms.reduce(0) {
             $0 + currencyService.convert($1.estimatedValue, from: $1.currency, to: baseCurrency)
         }
     }
 
     private var netWorth: Double { totalBalance + investmentValue + giftCardValue - totalDebt }
 
+    // MARK: Module metrics (relocated from DashboardView)
+
+    private var activeIncomeStreams: Int {
+        (salaryRecords.isEmpty ? 0 : 1) + (freelanceProjects.isEmpty ? 0 : 1) + (rentalProperties.isEmpty ? 0 : 1)
+    }
+    private var monthlyIncome: Double {
+        transactions
+            .filter { $0.type == .income && !$0.isPending && !$0.isScheduled && $0.date.isSameMonth(as: Date()) }
+            .reduce(0) { $0 + $1.amountInBaseCurrency }
+    }
+    private var overdueIncomeCount: Int {
+        freelanceProjects.flatMap { $0.overdueInvoices }.count + rentalProperties.flatMap { $0.overduePayments }.count
+    }
+
+    private var portfolioTotalValue: Double {
+        InvestmentService.shared.totalValue(
+            investments: investments, cryptos: cryptoHoldings, golds: goldHoldings,
+            currencyService: currencyService, baseCurrency: baseCurrency)
+    }
+    private var portfolioPnL: Double {
+        InvestmentService.shared.unrealizedPnL(
+            investments: investments, cryptos: cryptoHoldings, golds: goldHoldings,
+            currencyService: currencyService, baseCurrency: baseCurrency)
+    }
+    private var portfolioAssetCount: Int {
+        investments.count + cryptoHoldings.count + activeGoldHoldings.count
+    }
+
+    private var goalConflict: SavingsGoalService.GoalConflict {
+        SavingsGoalService.shared.analyzeConflicts(
+            goals: activeGoals, transactions: transactions, currencyService: currencyService, base: baseCurrency)
+    }
+    private var goalsSaved: Double {
+        activeGoals.reduce(0) { $0 + currencyService.convert($1.currentAmount, from: $1.currency, to: baseCurrency) }
+    }
+    private var goalsTarget: Double {
+        activeGoals.reduce(0) { $0 + currencyService.convert($1.targetAmount, from: $1.currency, to: baseCurrency) }
+    }
+    private var goalsProgress: Double { goalsTarget > 0 ? min(goalsSaved / goalsTarget, 1.0) : 0 }
+
+    private var hardAssetsTotal: Double {
+        let svc = NetWorthService.shared
+        return svc.realEstateTotal(realEstate: realEstateProperties, currencyService: currencyService, base: baseCurrency)
+            + svc.vehicleTotal(vehicles: vehicles, currencyService: currencyService, base: baseCurrency)
+            + svc.personalAssetTotal(assets: personalAssets, currencyService: currencyService, base: baseCurrency)
+            + svc.digitalAssetTotal(assets: digitalAssets, currencyService: currencyService, base: baseCurrency)
+    }
+    private var hardAssetsCount: Int {
+        realEstateProperties.count + vehicles.count + personalAssets.count + digitalAssets.count
+    }
+
+    private var debtCount: Int { activeLoans.count + activeCreditCards.count }
+    private var debtOverdueCount: Int {
+        let overdueLoans = activeLoans.filter { $0.nextPaymentDate < Date() }.count
+        let overdueLent = moneyLent.filter { !$0.isFullyRepaid && ($0.dueDate ?? .distantFuture) < Date() }.count
+        return overdueLoans + overdueLent
+    }
+
+    private var unacknowledgedMilestones: [NetWorthMilestone] {
+        netWorthMilestones.filter { !$0.isAcknowledged }
+    }
+
     var body: some View {
         NavigationStack {
-            List {
-                summarySection
+            ZStack {
+                FTBackdrop()
+                ScrollView {
+                    VStack(spacing: FTSpacing.lg) {
+                        header
+                        netWorthHero
+                        moduleGrid
 
-                // #9 – Unified Accounts section (bank + cash + credit cards)
-                Section {
-                    ForEach(visibleAccounts) { account in
-                        AccountRow(account: account, baseCurrency: baseCurrency)
-                            .contentShape(Rectangle())
-                            .onTapGesture { selectedAccount = account }
-                            .accountRowStyle()
-                            .swipeActions(edge: .trailing) {
-                                Button(role: .destructive) {
-                                    context.delete(account); try? context.save()
-                                } label: { Label("Delete", systemImage: "trash") }
+                        VStack(spacing: FTSpacing.md) {
+                            FTSegmentedControl(options: tabs, selection: .init(
+                                get: { tab },
+                                set: { newValue in withAnimation(.snappy(duration: 0.25)) { tab = newValue } }
+                            ))
 
-                                Button {
-                                    account.isArchived = true; try? context.save()
-                                } label: { Label("Archive", systemImage: "archivebox") }
-                                .tint(FTColor.gold)
+                            HStack(alignment: .lastTextBaseline) {
+                                Text(currentTabTitle.uppercased())
+                                    .font(.ftLabel).tracking(1.4)
+                                    .foregroundStyle(FTColor.textSecondary)
+                                Spacer()
+                                if !currentTabCountLabel.isEmpty {
+                                    Text(currentTabCountLabel)
+                                        .font(.ftCaption).foregroundStyle(FTColor.textMuted)
+                                }
                             }
-                    }
-                    ForEach(creditCards.filter { $0.isActive }) { card in
-                        CreditCardRow(card: card, baseCurrency: baseCurrency)
-                            .accountRowStyle()
-                            .swipeActions(edge: .trailing) {
-                                Button(role: .destructive) {
-                                    context.delete(card); try? context.save()
-                                } label: { Label("Delete", systemImage: "trash") }
-                            }
-                    }
-                    Menu {
-                        Button { showingAddAccount = true } label: {
-                            Label("Bank / Cash Account", systemImage: "building.columns")
+
+                            tabContent
+                            addButtonForTab
                         }
-                        Button { showingAddCreditCard = true } label: {
-                            Label("Credit Card", systemImage: "creditcard")
-                        }
-                    } label: {
-                        Label("Add Account", systemImage: "plus.circle.fill")
-                            .font(.ftBodySemibold)
-                            .foregroundStyle(FTColor.accent)
-                            .frame(maxWidth: .infinity, alignment: .center)
-                            .padding(.vertical, FTSpacing.sm)
                     }
-                    .listRowBackground(RoundedRectangle(cornerRadius: FTRadius.md).fill(.regularMaterial).overlay(RoundedRectangle(cornerRadius: FTRadius.md).strokeBorder(.white.opacity(0.3), lineWidth: 0.5)).padding(.vertical, FTSpacing.xs))
-                    .listRowSeparator(.hidden)
-                } header: {
-                    Text("Accounts").font(.ftLabel).tracking(1.4).foregroundStyle(FTColor.textSecondary)
+                    .padding(.horizontal, FTSpacing.screen)
+                    .padding(.top, FTSpacing.sm)
+                    .padding(.bottom, 120)
                 }
-
-                // Investments
-                Section {
-                    ForEach(investments) { inv in
-                        InvestmentRow(investment: inv, baseCurrency: baseCurrency)
-                            .accountRowStyle()
-                            .swipeActions(edge: .trailing) {
-                                Button(role: .destructive) {
-                                    context.delete(inv); try? context.save()
-                                } label: { Label("Delete", systemImage: "trash") }
-                                Button { editingInvestment = inv } label: { Label("Edit", systemImage: "pencil") }
-                                    .tint(FTColor.accent)
-                            }
-                    }
-                    Button { showingAddInvestment = true } label: {
-                        Label("Add Investment", systemImage: "plus.circle.fill")
-                            .font(.ftBodySemibold).foregroundStyle(FTColor.accent)
-                            .frame(maxWidth: .infinity, alignment: .center)
-                            .padding(.vertical, FTSpacing.sm)
-                    }
-                    .listRowBackground(RoundedRectangle(cornerRadius: FTRadius.md).fill(.regularMaterial).overlay(RoundedRectangle(cornerRadius: FTRadius.md).strokeBorder(.white.opacity(0.3), lineWidth: 0.5)).padding(.vertical, FTSpacing.xs))
-                    .listRowSeparator(.hidden)
-                } header: {
-                    Text("Investments").font(.ftLabel).tracking(1.4).foregroundStyle(FTColor.textSecondary)
-                }
-
-                // #6 – Renamed from "Crypto" to "Assets"
-                Section {
-                    ForEach(cryptoHoldings) { holding in
-                        CryptoRow(holding: holding, baseCurrency: baseCurrency)
-                            .accountRowStyle()
-                            .swipeActions(edge: .trailing) {
-                                Button(role: .destructive) {
-                                    context.delete(holding); try? context.save()
-                                } label: { Label("Delete", systemImage: "trash") }
-                                Button { editingCrypto = holding } label: { Label("Edit", systemImage: "pencil") }
-                                    .tint(FTColor.accent)
-                            }
-                    }
-                    Button { showingAddCrypto = true } label: {
-                        Label("Add Crypto Asset", systemImage: "plus.circle.fill")
-                            .font(.ftBodySemibold).foregroundStyle(FTColor.accent)
-                            .frame(maxWidth: .infinity, alignment: .center)
-                            .padding(.vertical, FTSpacing.sm)
-                    }
-                    .listRowBackground(RoundedRectangle(cornerRadius: FTRadius.md).fill(.regularMaterial).overlay(RoundedRectangle(cornerRadius: FTRadius.md).strokeBorder(.white.opacity(0.3), lineWidth: 0.5)).padding(.vertical, FTSpacing.xs))
-                    .listRowSeparator(.hidden)
-                } header: {
-                    Text("Crypto Assets").font(.ftLabel).tracking(1.4).foregroundStyle(FTColor.textSecondary)
-                }
-
-                // Gold & Precious Metals
-                Section {
-                    ForEach(goldHoldings.filter { !$0.isArchived }) { holding in
-                        GoldHoldingRow(holding: holding, baseCurrency: baseCurrency)
-                            .accountRowStyle()
-                            .swipeActions(edge: .trailing) {
-                                Button(role: .destructive) {
-                                    context.delete(holding); try? context.save()
-                                } label: { Label("Delete", systemImage: "trash") }
-                                Button { editingGold = holding } label: { Label("Edit", systemImage: "pencil") }
-                                    .tint(FTColor.accent)
-                                Button {
-                                    holding.isArchived = true; try? context.save()
-                                } label: { Label("Archive", systemImage: "archivebox") }
-                                .tint(FTColor.gold)
-                            }
-                    }
-                    Button { showingAddGold = true } label: {
-                        Label("Add Precious Metal", systemImage: "plus.circle.fill")
-                            .font(.ftBodySemibold).foregroundStyle(FTColor.accent)
-                            .frame(maxWidth: .infinity, alignment: .center)
-                            .padding(.vertical, FTSpacing.sm)
-                    }
-                    .listRowBackground(RoundedRectangle(cornerRadius: FTRadius.md).fill(.regularMaterial).overlay(RoundedRectangle(cornerRadius: FTRadius.md).strokeBorder(.white.opacity(0.3), lineWidth: 0.5)).padding(.vertical, FTSpacing.xs))
-                    .listRowSeparator(.hidden)
-                } header: {
-                    Text("Gold & Precious Metals").font(.ftLabel).tracking(1.4).foregroundStyle(FTColor.textSecondary)
-                }
-
-                // Gift Cards
-                Section {
-                    ForEach(giftCards.filter { !$0.isUsedUp }) { card in
-                        GiftCardRow(card: card, baseCurrency: baseCurrency)
-                            .accountRowStyle()
-                            .swipeActions(edge: .trailing) {
-                                Button(role: .destructive) {
-                                    context.delete(card); try? context.save()
-                                } label: { Label("Delete", systemImage: "trash") }
-                                Button { editingGiftCard = card } label: { Label("Edit", systemImage: "pencil") }
-                                    .tint(FTColor.accent)
-                                Button {
-                                    card.isUsedUp = true; try? context.save()
-                                } label: { Label("Mark Used", systemImage: "checkmark.circle") }
-                                .tint(FTColor.income)
-                            }
-                    }
-                    Button { showingAddGiftCard = true } label: {
-                        Label("Add Gift Card", systemImage: "plus.circle.fill")
-                            .font(.ftBodySemibold).foregroundStyle(FTColor.accent)
-                            .frame(maxWidth: .infinity, alignment: .center)
-                            .padding(.vertical, FTSpacing.sm)
-                    }
-                    .listRowBackground(RoundedRectangle(cornerRadius: FTRadius.md).fill(.regularMaterial).overlay(RoundedRectangle(cornerRadius: FTRadius.md).strokeBorder(.white.opacity(0.3), lineWidth: 0.5)).padding(.vertical, FTSpacing.xs))
-                    .listRowSeparator(.hidden)
-                } header: {
-                    Text("Gift Cards").font(.ftLabel).tracking(1.4).foregroundStyle(FTColor.textSecondary)
-                }
-
-                // Loyalty Programs
-                Section {
-                    ForEach(loyaltyPrograms.filter { !$0.isExpired }) { program in
-                        LoyaltyProgramRow(program: program, baseCurrency: baseCurrency)
-                            .accountRowStyle()
-                            .swipeActions(edge: .trailing) {
-                                Button(role: .destructive) {
-                                    context.delete(program); try? context.save()
-                                } label: { Label("Delete", systemImage: "trash") }
-                                Button { editingLoyalty = program } label: { Label("Edit", systemImage: "pencil") }
-                                    .tint(FTColor.accent)
-                            }
-                    }
-                    Button { showingAddLoyalty = true } label: {
-                        Label("Add Loyalty Program", systemImage: "plus.circle.fill")
-                            .font(.ftBodySemibold).foregroundStyle(FTColor.accent)
-                            .frame(maxWidth: .infinity, alignment: .center)
-                            .padding(.vertical, FTSpacing.sm)
-                    }
-                    .listRowBackground(RoundedRectangle(cornerRadius: FTRadius.md).fill(.regularMaterial).overlay(RoundedRectangle(cornerRadius: FTRadius.md).strokeBorder(.white.opacity(0.3), lineWidth: 0.5)).padding(.vertical, FTSpacing.xs))
-                    .listRowSeparator(.hidden)
-                } header: {
-                    Text("Loyalty & Rewards").font(.ftLabel).tracking(1.4).foregroundStyle(FTColor.textSecondary)
-                }
-
             }
-            .listStyle(.plain)
-            .contentMargins(.horizontal, FTSpacing.screen, for: .scrollContent)
-            .contentMargins(.bottom, 100, for: .scrollContent)
-            .scrollContentBackground(.hidden)
-            .background { FTBackdrop() }
-            .navigationTitle("Accounts & Assets")
-            // #5 – NO floating button inside this view; it lives in the tab bar
+            .toolbar(.hidden, for: .navigationBar)
             .sheet(isPresented: $showingAddAccount) { AddAccountView() }
             .sheet(isPresented: $showingAddCreditCard) { AddCreditCardView() }
             .sheet(isPresented: $showingAddInvestment) { AddInvestmentView() }
@@ -288,86 +224,464 @@ struct AccountsView: View {
             .sheet(item: $editingGold) { h in EditGoldHoldingView(holding: h) }
             .sheet(item: $editingGiftCard) { c in EditGiftCardView(card: c) }
             .sheet(item: $editingLoyalty) { p in EditLoyaltyProgramView(program: p) }
+            .sheet(isPresented: $showingIncome) { IncomeManagementView() }
+            .sheet(isPresented: $showingPortfolio) { InvestmentPortfolioView() }
+            .sheet(isPresented: $showingGoals) { SavingsGoalsView() }
+            .sheet(isPresented: $showingAssetsLiabilities) { AssetsLiabilitiesView() }
+            .sheet(isPresented: $showingDebt) { DebtManagementView() }
+            .sheet(isPresented: $showingNetWorth) { NetWorthDashboardView() }
+            .sheet(isPresented: $showingNotifications) { NotificationSettingsView() }
         }
     }
 
-    private var summarySection: some View {
-        VStack(spacing: FTSpacing.md) {
-            // Net worth hero
-            VStack(alignment: .leading, spacing: 8) {
-                Text("NET WORTH")
-                    .font(.ftLabel).tracking(1.6)
-                    .foregroundStyle(.white.opacity(0.8))
-                Text(netWorth.formatted(as: baseCurrency))
-                    .font(.ftAmount)
-                    .foregroundStyle(.white)
-                    .lineLimit(1).minimumScaleFactor(0.5)
+    // MARK: - Header
+
+    private var header: some View {
+        HStack {
+            Text("Accounts & Assets")
+                .font(.ftTitle)
+                .foregroundStyle(FTColor.textPrimary)
+            Spacer()
+            Button { showingNotifications = true } label: {
+                Image(systemName: "bell.fill")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(FTColor.accent)
+                    .frame(width: 44, height: 44)
+                    .ftGlass(FTRadius.md)
             }
-            .padding(FTSpacing.xl)
+            .accessibilityLabel("Notification Settings")
+        }
+    }
+
+    // MARK: - Net Worth Hero
+
+    private var netWorthHero: some View {
+        let isNegative = netWorth < 0
+
+        return Button { showingNetWorth = true } label: {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack {
+                    Text("TOTAL NET WORTH")
+                        .font(.ftLabel).tracking(1.6)
+                        .foregroundStyle(.white.opacity(0.8))
+                    Spacer()
+                    if !unacknowledgedMilestones.isEmpty {
+                        Text("🎉 \(unacknowledgedMilestones.count)")
+                            .font(.ftCaption.weight(.bold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 9).padding(.vertical, 4)
+                            .background(.white.opacity(0.22), in: .capsule)
+                    }
+                }
+
+                Group {
+                    if appState.hideBalances {
+                        Text("••••••").font(.ftDisplay).foregroundStyle(.white)
+                    } else {
+                        Text(netWorth.formatted(as: baseCurrency))
+                            .font(.ftDisplay).foregroundStyle(.white)
+                            .lineLimit(1).minimumScaleFactor(0.5)
+                    }
+                }
+
+                HStack {
+                    HStack(spacing: 5) {
+                        Image(systemName: isNegative ? "arrow.down.right" : "arrow.up.right")
+                            .font(.system(size: 11, weight: .bold))
+                        Text(isNegative ? "Liabilities exceed assets" : "Assets exceed liabilities")
+                            .font(.ftCaption.weight(.bold))
+                    }
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 10).padding(.vertical, 5)
+                    .background(.white.opacity(0.18), in: .capsule)
+
+                    Spacer()
+
+                    HStack(spacing: 4) {
+                        Text("View breakdown").font(.ftCaption)
+                        Image(systemName: "chevron.right").font(.system(size: 10, weight: .bold))
+                    }
+                    .foregroundStyle(.white.opacity(0.75))
+                }
+            }
+            .padding(FTSpacing.xxl)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(FTColor.heroGradient, in: .rect(cornerRadius: FTRadius.xl))
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(appState.hideBalances
+            ? "Total Net Worth, hidden"
+            : "Total Net Worth, \(netWorth.formatted(as: baseCurrency))")
+    }
 
-            HStack(spacing: FTSpacing.md) {
-                SummaryTile(title: "Cash & Banks", amount: totalBalance,
-                            currency: baseCurrency, color: FTColor.accent, icon: "building.columns.fill")
-                SummaryTile(title: "Investments", amount: investmentValue,
-                            currency: baseCurrency, color: FTColor.income, icon: "chart.line.uptrend.xyaxis")
-                SummaryTile(title: "Total Debt", amount: totalDebt,
-                            currency: baseCurrency, color: FTColor.expense, icon: "creditcard.fill")
+    // MARK: - Module Grid
+
+    private struct ModuleCardData {
+        let icon: String
+        let tint: Color
+        let label: String
+        let value: String
+        let valueColor: Color
+        let sub: String
+        let wide: Bool
+        let badge: Bool
+        let action: () -> Void
+    }
+
+    private var moduleCards: [ModuleCardData] {
+        let incomeAlert = overdueIncomeCount > 0
+        let incomeSub = incomeAlert
+            ? "\(overdueIncomeCount) overdue"
+            : activeIncomeStreams > 0
+                ? "\(activeIncomeStreams) active stream\(activeIncomeStreams == 1 ? "" : "s")"
+                : "Track salary, freelance & rental"
+
+        let isGain = portfolioPnL >= 0
+        let portfolioSub = portfolioAssetCount > 0
+            ? "\(portfolioAssetCount) holding\(portfolioAssetCount == 1 ? "" : "s") · \(isGain ? "+" : "")\(portfolioPnL.asCompact(currency: baseCurrency))"
+            : "Track stocks, crypto & gold"
+
+        let goalsSub = activeGoals.isEmpty
+            ? "Set savings goals"
+            : "\(activeGoals.count) goal\(activeGoals.count == 1 ? "" : "s") · \(Int(goalsProgress * 100))% funded"
+
+        let assetsSub = hardAssetsCount > 0
+            ? "\(hardAssetsCount) asset\(hardAssetsCount == 1 ? "" : "s")"
+            : "Real estate, vehicles & valuables"
+
+        let debtAlert = debtOverdueCount > 0
+        let debtSub = debtAlert
+            ? "\(debtOverdueCount) overdue"
+            : debtCount > 0
+                ? "\(debtCount) active debt\(debtCount == 1 ? "" : "s")"
+                : "Loans, cards & personal debts"
+
+        return [
+            ModuleCardData(
+                icon: incomeAlert ? "exclamationmark.triangle.fill" : "arrow.down.left.circle.fill",
+                tint: incomeAlert ? FTColor.expense : FTColor.income,
+                label: "Income Management",
+                value: monthlyIncome.asCompact(currency: baseCurrency),
+                valueColor: FTColor.textPrimary, sub: incomeSub, wide: false, badge: false,
+                action: { showingIncome = true }
+            ),
+            ModuleCardData(
+                icon: "chart.line.uptrend.xyaxis.circle.fill",
+                tint: isGain ? FTColor.income : FTColor.expense,
+                label: "Investment Portfolio",
+                value: portfolioTotalValue.asCompact(currency: baseCurrency),
+                valueColor: FTColor.textPrimary, sub: portfolioSub, wide: false, badge: false,
+                action: { showingPortfolio = true }
+            ),
+            ModuleCardData(
+                icon: "star.fill", tint: FTColor.catTeal,
+                label: "Savings Goals",
+                value: goalsSaved.asCompact(currency: baseCurrency),
+                valueColor: FTColor.textPrimary, sub: goalsSub, wide: false, badge: goalConflict.hasConflict,
+                action: { showingGoals = true }
+            ),
+            ModuleCardData(
+                icon: "building.columns.fill", tint: FTColor.catBlue,
+                label: "Assets & Liabilities",
+                value: hardAssetsTotal.asCompact(currency: baseCurrency),
+                valueColor: FTColor.textPrimary, sub: assetsSub, wide: false, badge: false,
+                action: { showingAssetsLiabilities = true }
+            ),
+            ModuleCardData(
+                icon: debtAlert ? "creditcard.trianglebadge.exclamationmark" : "creditcard.fill",
+                tint: FTColor.expense,
+                label: "Debt Management",
+                value: totalDebt.asCompact(currency: baseCurrency),
+                valueColor: FTColor.textPrimary, sub: debtSub, wide: true, badge: false,
+                action: { showingDebt = true }
+            ),
+        ]
+    }
+
+    // LazyVGrid's `.gridCellColumns` only works inside the newer `Grid` container, not
+    // `LazyVGrid` — so the "wide" (Debt Management) card is rendered full-width below
+    // the 2-column grid instead, rather than relying on a modifier that would silently
+    // no-op here.
+    private var moduleGrid: some View {
+        let regular = moduleCards.filter { !$0.wide }
+        let wide = moduleCards.first { $0.wide }
+
+        return VStack(spacing: FTSpacing.sm) {
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: FTSpacing.sm), GridItem(.flexible(), spacing: FTSpacing.sm)], spacing: FTSpacing.sm) {
+                ForEach(regular.indices, id: \.self) { i in
+                    moduleCardView(regular[i])
+                }
             }
+            if let wide {
+                moduleCardView(wide)
+            }
+        }
+    }
 
-            if giftCardValue > 0 || loyaltyValue > 0 {
-                HStack(spacing: FTSpacing.md) {
-                    if giftCardValue > 0 {
-                        SummaryTile(title: "Gift Cards", amount: giftCardValue,
-                                    currency: baseCurrency, color: FTColor.catTeal, icon: "gift.fill")
+    private func moduleCardView(_ m: ModuleCardData) -> some View {
+        Button(action: m.action) {
+            VStack(alignment: .leading, spacing: 9) {
+                HStack {
+                    FTIconTile(symbol: m.icon, tint: m.tint, size: 38)
+                    Spacer()
+                    ZStack(alignment: .topTrailing) {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(FTColor.textMuted)
+                        if m.badge {
+                            Circle().fill(FTColor.gold).frame(width: 8, height: 8).offset(x: 6, y: -6)
+                        }
                     }
-                    if loyaltyValue > 0 {
-                        SummaryTile(title: "Rewards", amount: loyaltyValue,
-                                    currency: baseCurrency, color: FTColor.catPurple, icon: "star.fill")
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(m.label)
+                        .font(.system(size: 12.5, weight: .semibold))
+                        .foregroundStyle(FTColor.textSecondary)
+                        .lineLimit(1)
+                    Text(m.value)
+                        .font(.ftHeadline)
+                        .foregroundStyle(m.valueColor)
+                        .lineLimit(1).minimumScaleFactor(0.7)
+                    Text(m.sub)
+                        .font(.ftLabel)
+                        .foregroundStyle(FTColor.textMuted)
+                        .lineLimit(1)
+                }
+            }
+            .padding(FTSpacing.md)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .ftGlassInteractive(FTRadius.lg)
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Tab list
+
+    private var currentTabTitle: String {
+        switch tab {
+        case 0:  return "Bank & Cash Accounts"
+        case 1:  return "Investments"
+        case 2:  return "Crypto Assets"
+        default: return "Other Assets"
+        }
+    }
+
+    private var currentTabItemCount: Int {
+        switch tab {
+        case 0:  return visibleAccounts.count + activeCreditCards.count
+        case 1:  return investments.count
+        case 2:  return cryptoHoldings.count
+        default: return activeGoldHoldings.count + activeGiftCards.count + activeLoyaltyPrograms.count
+        }
+    }
+
+    private var currentTabCountLabel: String {
+        guard currentTabItemCount > 0 else { return "" }
+        return "\(currentTabItemCount) \(tab == 2 ? "coins" : "items")"
+    }
+
+    @ViewBuilder
+    private var tabContent: some View {
+        switch tab {
+        case 0:  accountsTabContent
+        case 1:  investmentsTabContent
+        case 2:  cryptoTabContent
+        default: assetsTabContent
+        }
+    }
+
+    private func rowCard<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        content()
+            .padding(FTSpacing.md)
+            .ftGlassInteractive(FTRadius.lg)
+    }
+
+    private var accountsTabContent: some View {
+        Group {
+            if visibleAccounts.isEmpty && activeCreditCards.isEmpty {
+                EmptyStateView(icon: "building.columns", title: "No Accounts Yet",
+                               message: "Add a bank, cash wallet, or credit card to start tracking your money.")
+                    .ftGlass(FTRadius.lg)
+            } else {
+                VStack(spacing: FTSpacing.sm) {
+                    ForEach(visibleAccounts) { account in
+                        rowCard { AccountRow(account: account, baseCurrency: baseCurrency) }
+                            .contentShape(Rectangle())
+                            .onTapGesture { selectedAccount = account }
+                            .contextMenu {
+                                Button { selectedAccount = account } label: { Label("View", systemImage: "eye") }
+                                Button(role: .destructive) {
+                                    context.delete(account); try? context.save()
+                                } label: { Label("Delete", systemImage: "trash") }
+                                Button {
+                                    account.isArchived = true; try? context.save()
+                                } label: { Label("Archive", systemImage: "archivebox") }
+                            }
+                    }
+                    ForEach(activeCreditCards) { card in
+                        rowCard { CreditCardRow(card: card, baseCurrency: baseCurrency) }
+                            .contextMenu {
+                                Button(role: .destructive) {
+                                    context.delete(card); try? context.save()
+                                } label: { Label("Delete", systemImage: "trash") }
+                            }
                     }
                 }
             }
         }
-        .listRowBackground(Color.clear)
-        .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: FTSpacing.sm, trailing: 0))
     }
-}
 
-// MARK: – Helpers
+    private var investmentsTabContent: some View {
+        Group {
+            if investments.isEmpty {
+                EmptyStateView(icon: "chart.line.uptrend.xyaxis", title: "No Investments Yet",
+                               message: "Add stocks, funds or other holdings to track performance.")
+                    .ftGlass(FTRadius.lg)
+            } else {
+                VStack(spacing: FTSpacing.sm) {
+                    ForEach(investments) { inv in
+                        rowCard { InvestmentRow(investment: inv, baseCurrency: baseCurrency) }
+                            .contentShape(Rectangle())
+                            .onTapGesture { editingInvestment = inv }
+                            .contextMenu {
+                                Button { editingInvestment = inv } label: { Label("Edit", systemImage: "pencil") }
+                                Button(role: .destructive) {
+                                    context.delete(inv); try? context.save()
+                                } label: { Label("Delete", systemImage: "trash") }
+                            }
+                    }
+                }
+            }
+        }
+    }
 
-private extension View {
-    func accountRowStyle() -> some View {
-        self
-            .listRowBackground(
-                RoundedRectangle(cornerRadius: FTRadius.md)
-                    .fill(.regularMaterial)
-                    .overlay(RoundedRectangle(cornerRadius: FTRadius.md)
-                        .strokeBorder(.white.opacity(0.3), lineWidth: 0.5))
-                    .padding(.vertical, FTSpacing.xs)
-            )
-            .listRowSeparator(.hidden)
+    private var cryptoTabContent: some View {
+        Group {
+            if cryptoHoldings.isEmpty {
+                EmptyStateView(icon: "bitcoinsign.circle", title: "No Crypto Yet",
+                               message: "Add a crypto holding to track its value.")
+                    .ftGlass(FTRadius.lg)
+            } else {
+                VStack(spacing: FTSpacing.sm) {
+                    ForEach(cryptoHoldings) { holding in
+                        rowCard { CryptoRow(holding: holding, baseCurrency: baseCurrency) }
+                            .contentShape(Rectangle())
+                            .onTapGesture { editingCrypto = holding }
+                            .contextMenu {
+                                Button { editingCrypto = holding } label: { Label("Edit", systemImage: "pencil") }
+                                Button(role: .destructive) {
+                                    context.delete(holding); try? context.save()
+                                } label: { Label("Delete", systemImage: "trash") }
+                            }
+                    }
+                }
+            }
+        }
+    }
+
+    private var assetsTabContent: some View {
+        Group {
+            if activeGoldHoldings.isEmpty && activeGiftCards.isEmpty && activeLoyaltyPrograms.isEmpty {
+                EmptyStateView(icon: "vault.fill", title: "No Other Assets Yet",
+                               message: "Add gold, gift cards or loyalty points to track everything in one place.")
+                    .ftGlass(FTRadius.lg)
+            } else {
+                VStack(spacing: FTSpacing.sm) {
+                    ForEach(activeGoldHoldings) { holding in
+                        rowCard { GoldHoldingRow(holding: holding, baseCurrency: baseCurrency) }
+                            .contentShape(Rectangle())
+                            .onTapGesture { editingGold = holding }
+                            .contextMenu {
+                                Button { editingGold = holding } label: { Label("Edit", systemImage: "pencil") }
+                                Button {
+                                    holding.isArchived = true; try? context.save()
+                                } label: { Label("Archive", systemImage: "archivebox") }
+                                Button(role: .destructive) {
+                                    context.delete(holding); try? context.save()
+                                } label: { Label("Delete", systemImage: "trash") }
+                            }
+                    }
+                    ForEach(activeGiftCards) { card in
+                        rowCard { GiftCardRow(card: card, baseCurrency: baseCurrency) }
+                            .contentShape(Rectangle())
+                            .onTapGesture { editingGiftCard = card }
+                            .contextMenu {
+                                Button { editingGiftCard = card } label: { Label("Edit", systemImage: "pencil") }
+                                Button {
+                                    card.isUsedUp = true; try? context.save()
+                                } label: { Label("Mark Used", systemImage: "checkmark.circle") }
+                                Button(role: .destructive) {
+                                    context.delete(card); try? context.save()
+                                } label: { Label("Delete", systemImage: "trash") }
+                            }
+                    }
+                    ForEach(activeLoyaltyPrograms) { program in
+                        rowCard { LoyaltyProgramRow(program: program, baseCurrency: baseCurrency) }
+                            .contentShape(Rectangle())
+                            .onTapGesture { editingLoyalty = program }
+                            .contextMenu {
+                                Button { editingLoyalty = program } label: { Label("Edit", systemImage: "pencil") }
+                                Button(role: .destructive) {
+                                    context.delete(program); try? context.save()
+                                } label: { Label("Delete", systemImage: "trash") }
+                            }
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Add button
+
+    @ViewBuilder
+    private var addButtonForTab: some View {
+        switch tab {
+        case 0:
+            Menu {
+                Button { showingAddAccount = true } label: {
+                    Label("Bank / Cash Account", systemImage: "building.columns")
+                }
+                Button { showingAddCreditCard = true } label: {
+                    Label("Credit Card", systemImage: "creditcard")
+                }
+            } label: { addRowLabel("Add Account") }
+        case 1:
+            Button { showingAddInvestment = true } label: { addRowLabel("Add Investment") }
+        case 2:
+            Button { showingAddCrypto = true } label: { addRowLabel("Add Crypto Asset") }
+        default:
+            Menu {
+                Button { showingAddGold = true } label: {
+                    Label("Precious Metal", systemImage: "circle.hexagongrid.fill")
+                }
+                Button { showingAddGiftCard = true } label: {
+                    Label("Gift Card", systemImage: "gift")
+                }
+                Button { showingAddLoyalty = true } label: {
+                    Label("Loyalty Program", systemImage: "star.circle")
+                }
+            } label: { addRowLabel("Add Asset") }
+        }
+    }
+
+    private func addRowLabel(_ title: String) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: "plus.circle.fill").font(.system(size: 20))
+            Text(title).font(.ftBodySemibold)
+        }
+        .foregroundStyle(FTColor.accent)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, FTSpacing.md)
+        .background(FTColor.accent.opacity(0.05), in: RoundedRectangle(cornerRadius: FTRadius.lg))
+        .overlay(
+            RoundedRectangle(cornerRadius: FTRadius.lg)
+                .strokeBorder(FTColor.accent.opacity(0.35), style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
+        )
     }
 }
 
 // MARK: – Row views
-
-struct SummaryTile: View {
-    let title: String; let amount: Double; let currency: String; let color: Color; let icon: String
-    var body: some View {
-        VStack(alignment: .leading, spacing: FTSpacing.sm) {
-            Image(systemName: icon).foregroundStyle(color).font(.ftCaption)
-            Text(title).font(.ftLabel).foregroundStyle(FTColor.textSecondary).lineLimit(1)
-            Text(amount.asCompact(currency: currency))
-                .font(.ftBodySemibold)
-                .foregroundStyle(FTColor.textPrimary)
-                .lineLimit(1).minimumScaleFactor(0.6)
-        }
-        .padding(FTSpacing.md)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .ftGlass(FTRadius.md)
-    }
-}
 
 struct AccountRow: View {
     let account: Account; let baseCurrency: String
@@ -401,7 +715,6 @@ struct AccountRow: View {
                 }
             }
         }
-        .padding(.vertical, 4)
         .accessibilityElement(children: .combine)
         .accessibilityLabel({
             var label = "\(account.name), \(account.type.rawValue), balance \(account.balance.formatted(as: account.currency))"
@@ -434,7 +747,6 @@ struct CreditCardRow: View {
                     .foregroundStyle(card.utilizationRate > 0.7 ? FTColor.expense : FTColor.textSecondary)
             }
         }
-        .padding(.vertical, 4)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(card.name), credit card, outstanding \(card.outstandingBalance.formatted(as: card.currency)), \(Int(card.utilizationRate * 100)) percent utilized\(card.isPaymentDueSoon ? ", payment due soon" : "")")
     }
@@ -461,7 +773,6 @@ struct InvestmentRow: View {
                 .foregroundStyle(investment.isProfit ? FTColor.income : FTColor.expense)
             }
         }
-        .padding(.vertical, 4)
     }
 }
 
@@ -486,7 +797,6 @@ struct CryptoRow: View {
                 .foregroundStyle(holding.isProfit ? FTColor.income : FTColor.expense)
             }
         }
-        .padding(.vertical, 4)
     }
 }
 
@@ -519,7 +829,6 @@ struct GoldHoldingRow: View {
                 .foregroundStyle(holding.isProfit ? FTColor.income : FTColor.expense)
             }
         }
-        .padding(.vertical, 4)
     }
 }
 
@@ -552,7 +861,6 @@ struct GiftCardRow: View {
                     .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
             }
         }
-        .padding(.vertical, 4)
     }
 }
 
@@ -599,7 +907,5 @@ struct LoyaltyProgramRow: View {
                     .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
             }
         }
-        .padding(.vertical, 4)
     }
 }
-

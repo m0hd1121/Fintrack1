@@ -19,17 +19,6 @@ struct DashboardView: View {
     @Query private var goldHoldings: [GoldHolding]
     @Query private var giftCards: [GiftCard]
     @Query(filter: #Predicate<Bill> { $0.isActive }) private var bills: [Bill]
-    @Query(filter: #Predicate<SalaryRecord> { $0.isActive }) private var salaryRecords: [SalaryRecord]
-    @Query(filter: #Predicate<FreelanceProject> { $0.isArchived == false }) private var freelanceProjects: [FreelanceProject]
-    @Query(filter: #Predicate<RentalProperty> { $0.isActive }) private var rentalProperties: [RentalProperty]
-    @Query private var moneyLent: [MoneyLent]
-    @Query private var moneyBorrowed: [MoneyBorrowed]
-    @Query(filter: #Predicate<RealEstateProperty> { $0.isArchived == false }) private var realEstateProperties: [RealEstateProperty]
-    @Query(filter: #Predicate<Vehicle> { $0.isArchived == false }) private var vehicles: [Vehicle]
-    @Query(filter: #Predicate<PersonalAsset> { $0.isArchived == false }) private var personalAssets: [PersonalAsset]
-    @Query(filter: #Predicate<DigitalAsset> { $0.isArchived == false }) private var digitalAssets: [DigitalAsset]
-    @Query private var netWorthMilestones: [NetWorthMilestone]
-    @Query(filter: #Predicate<SavingsGoal> { $0.isArchived == false && $0.isCompleted == false }) private var activeGoals: [SavingsGoal]
 
     @Query private var dashSettings: [AppSettings]
 
@@ -37,12 +26,6 @@ struct DashboardView: View {
     @State private var showingReports = false
     @State private var showingAI = false
     @State private var showingBills = false
-    @State private var showingIncome = false
-    @State private var showingDebt = false
-    @State private var showingPortfolio = false
-    @State private var showingAssets = false
-    @State private var showingNetWorth = false
-    @State private var showingGoals = false
     @State private var showingUpcomingPayments = false
 
     private var baseCurrency: String { appState.baseCurrency }
@@ -88,9 +71,7 @@ struct DashboardView: View {
         let a = transactions.count &* 31 &+ accounts.count &* 7 &+ loans.count &* 13 &+ creditCards.count &* 17
         let b = investments.count &* 19 &+ cryptoHoldings.count &* 23 &+ bnplPlans.count &* 29
         let c = goldHoldings.count &* 37 &+ giftCards.count &* 41 &+ bills.count &* 43
-        let d = salaryRecords.count &* 47 &+ freelanceProjects.count &* 53 &+ rentalProperties.count &* 59
-            &+ moneyLent.count &* 61 &+ moneyBorrowed.count &* 67
-        return a &+ b &+ c &+ d
+        return a &+ b &+ c
     }
 
     private func computeMetrics() -> DashboardMetrics {
@@ -272,11 +253,8 @@ struct DashboardView: View {
                 FTBackdrop()
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
-                        VStack(spacing: FTSpacing.lg) {
-                            header
-                            netWorthHero
-                        }
-                        .padding(.horizontal, FTSpacing.screen)
+                        header
+                            .padding(.horizontal, FTSpacing.screen)
 
                         if !activeAccounts.isEmpty {
                             accountsRow
@@ -289,24 +267,6 @@ struct DashboardView: View {
 
                             if isWidgetVisible(.bills) && !bills.isEmpty {
                                 billsAlertCard
-                            }
-
-                            if isWidgetVisible(.income) {
-                                incomeOverviewCard
-                            }
-
-                            if isWidgetVisible(.investments) {
-                                portfolioOverviewCard
-                            }
-
-                            if isWidgetVisible(.goals) {
-                                savingsGoalsCard
-                            }
-
-                            assetsOverviewCard
-
-                            if isWidgetVisible(.debt) {
-                                debtOverviewCard
                             }
 
                             if isWidgetVisible(.bills) && !metrics.upcomingPayments.isEmpty {
@@ -346,24 +306,6 @@ struct DashboardView: View {
             }
             .sheet(isPresented: $showingBills) {
                 BillsView()
-            }
-            .sheet(isPresented: $showingIncome) {
-                IncomeManagementView()
-            }
-            .sheet(isPresented: $showingDebt) {
-                DebtManagementView()
-            }
-            .sheet(isPresented: $showingPortfolio) {
-                InvestmentPortfolioView()
-            }
-            .sheet(isPresented: $showingGoals) {
-                SavingsGoalsView()
-            }
-            .sheet(isPresented: $showingAssets) {
-                AssetsLiabilitiesView()
-            }
-            .sheet(isPresented: $showingNetWorth) {
-                NetWorthDashboardView()
             }
             .sheet(isPresented: $showingUpcomingPayments) {
                 UpcomingPaymentsView()
@@ -421,57 +363,6 @@ struct DashboardView: View {
                 .accessibilityLabel("Profile and Settings")
             }
         }
-    }
-
-    // MARK: - Net Worth Hero
-
-    private var netWorthHero: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("TOTAL NET WORTH")
-                .font(.ftLabel).tracking(1.6)
-                .foregroundStyle(.white.opacity(0.8))
-
-            Group {
-                if appState.hideBalances {
-                    Text("••••••")
-                        .font(.ftDisplay)
-                        .foregroundStyle(.white)
-                } else {
-                    Text(metrics.netWorth.formatted(as: baseCurrency))
-                        .font(.ftDisplay)
-                        .foregroundStyle(.white)
-                        .minimumScaleFactor(0.5)
-                        .lineLimit(1)
-                }
-            }
-
-            HStack(spacing: 10) {
-                HStack(spacing: 4) {
-                    Image(systemName: metrics.savingsRate >= 0 ? "arrow.up.right" : "arrow.down.right")
-                        .font(.system(size: 11, weight: .bold))
-                    Text(metrics.savingsRate.asPercentage())
-                        .font(.ftCaption.weight(.bold))
-                }
-                .foregroundStyle(.white)
-                .padding(.horizontal, 10).padding(.vertical, 5)
-                .background(.white.opacity(0.2), in: .capsule)
-
-                if !appState.hideBalances {
-                    Text((metrics.monthlyNet >= 0 ? "+" : "") + metrics.monthlyNet.formatted(as: baseCurrency) + " this month")
-                        .font(.ftCaption)
-                        .foregroundStyle(.white.opacity(0.85))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
-                }
-            }
-        }
-        .padding(FTSpacing.xxl)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(FTColor.heroGradient, in: .rect(cornerRadius: FTRadius.xl))
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(appState.hideBalances
-            ? "Total Net Worth, hidden"
-            : "Total Net Worth, \(metrics.netWorth.formatted(as: baseCurrency)), savings rate \(metrics.savingsRate.asPercentage())")
     }
 
     // MARK: - Accounts Row
@@ -637,289 +528,6 @@ struct DashboardView: View {
             .ftGlassInteractive(FTRadius.lg)
         }
         .buttonStyle(.plain)
-    }
-
-    // MARK: - Income Overview Card
-
-    private var incomeOverviewCard: some View {
-        let activeStreams = (salaryRecords.isEmpty ? 0 : 1)
-            + (freelanceProjects.isEmpty ? 0 : 1)
-            + (rentalProperties.isEmpty ? 0 : 1)
-
-        let monthlyIncome = transactions
-            .filter { $0.type == .income && !$0.isPending && !$0.isScheduled && $0.date.isSameMonth(as: Date()) }
-            .reduce(0) { $0 + $1.amountInBaseCurrency }
-
-        let overdueInvoices = freelanceProjects.flatMap { $0.overdueInvoices }
-        let overdueRent = rentalProperties.flatMap { $0.overduePayments }
-
-        return Button { showingIncome = true } label: {
-            HStack(spacing: FTSpacing.md) {
-                FTIconTile(
-                    symbol: overdueInvoices.isEmpty && overdueRent.isEmpty
-                        ? "banknote.fill"
-                        : "exclamationmark.triangle.fill",
-                    tint: overdueInvoices.isEmpty && overdueRent.isEmpty
-                        ? FTColor.income
-                        : FTColor.expense,
-                    size: 44
-                )
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Income Management")
-                        .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
-                    if !overdueInvoices.isEmpty || !overdueRent.isEmpty {
-                        let count = overdueInvoices.count + overdueRent.count
-                        Text("\(count) overdue · \(monthlyIncome.asCompact(currency: baseCurrency))/mo")
-                            .font(.ftCaption).foregroundStyle(FTColor.expense)
-                    } else if activeStreams > 0 {
-                        Text("\(activeStreams) active stream\(activeStreams == 1 ? "" : "s") · \(monthlyIncome.asCompact(currency: baseCurrency))/mo")
-                            .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
-                    } else {
-                        Text("Track salary, freelance & rental income")
-                            .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
-                    }
-                }
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(FTColor.textMuted)
-            }
-            .padding(FTSpacing.lg)
-            .ftGlassInteractive(FTRadius.lg)
-        }
-        .buttonStyle(.plain)
-    }
-
-    // MARK: - Debt Overview Card
-
-    private var debtOverviewCard: some View {
-        let activeLoans = loans.filter { $0.isActive }
-        let activeCards = creditCards.filter { $0.isActive }
-        let totalDebt = activeLoans.reduce(0) {
-            $0 + currencyService.convert($1.outstandingBalance, from: $1.currency, to: baseCurrency)
-        } + activeCards.reduce(0) {
-            $0 + currencyService.convert($1.outstandingBalance, from: $1.currency, to: baseCurrency)
-        }
-        let overdueLoans = activeLoans.filter { $0.nextPaymentDate < Date() }
-        let overdueLent  = moneyLent.filter { !$0.isFullyRepaid && ($0.dueDate ?? .distantFuture) < Date() }
-        let hasAlert     = !overdueLoans.isEmpty || !overdueLent.isEmpty
-        let debtCount    = activeLoans.count + activeCards.count
-
-        return Button { showingDebt = true } label: {
-            HStack(spacing: FTSpacing.md) {
-                FTIconTile(
-                    symbol: hasAlert ? "creditcard.trianglebadge.exclamationmark" : "creditcard.fill",
-                    tint: hasAlert ? FTColor.expense : FTColor.catPurple,
-                    size: 44
-                )
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Debt Management")
-                        .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
-                    if hasAlert {
-                        Text("\(overdueLoans.count + overdueLent.count) overdue · \(totalDebt.asCompact(currency: baseCurrency)) total")
-                            .font(.ftCaption).foregroundStyle(FTColor.expense)
-                    } else if debtCount > 0 {
-                        Text("\(debtCount) active debt\(debtCount == 1 ? "" : "s") · \(totalDebt.asCompact(currency: baseCurrency)) outstanding")
-                            .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
-                    } else {
-                        Text("Track loans, cards & personal debts")
-                            .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
-                    }
-                }
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(FTColor.textMuted)
-            }
-            .padding(FTSpacing.lg)
-            .ftGlassInteractive(FTRadius.lg)
-        }
-        .buttonStyle(.plain)
-    }
-
-    // MARK: - Portfolio Overview Card
-
-    private var portfolioOverviewCard: some View {
-        let svc = InvestmentService.shared
-        let totalVal = svc.totalValue(
-            investments: investments, cryptos: cryptoHoldings,
-            golds: goldHoldings, currencyService: currencyService,
-            baseCurrency: baseCurrency)
-        let pnl = svc.unrealizedPnL(
-            investments: investments, cryptos: cryptoHoldings,
-            golds: goldHoldings, currencyService: currencyService,
-            baseCurrency: baseCurrency)
-        let isGain = pnl >= 0
-        let assetCount = investments.count + cryptoHoldings.count + goldHoldings.filter { !$0.isArchived }.count
-
-        return Button { showingPortfolio = true } label: {
-            HStack(spacing: FTSpacing.md) {
-                FTIconTile(symbol: "chart.line.uptrend.xyaxis.circle.fill",
-                           tint: isGain ? FTColor.income : FTColor.expense,
-                           size: 44)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Investment Portfolio")
-                        .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
-                    if assetCount > 0 {
-                        Text("\(assetCount) asset\(assetCount == 1 ? "" : "s") · \(totalVal.asCompact(currency: baseCurrency)) · \(isGain ? "+" : "")\(pnl.asCompact(currency: baseCurrency)) P&L")
-                            .font(.ftCaption)
-                            .foregroundStyle(isGain ? FTColor.income : FTColor.expense)
-                    } else {
-                        Text("Track stocks, crypto, gold & more")
-                            .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
-                    }
-                }
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(FTColor.textMuted)
-            }
-            .padding(FTSpacing.lg)
-            .ftGlassInteractive(FTRadius.lg)
-        }
-        .buttonStyle(.plain)
-    }
-
-    // MARK: - Assets Overview Card
-
-    // MARK: - Savings Goals Card
-
-    private var savingsGoalsCard: some View {
-        let totalSaved = activeGoals.reduce(0) {
-            $0 + currencyService.convert($1.currentAmount, from: $1.currency, to: baseCurrency)
-        }
-        let totalTarget = activeGoals.reduce(0) {
-            $0 + currencyService.convert($1.targetAmount, from: $1.currency, to: baseCurrency)
-        }
-        let overallProgress = totalTarget > 0 ? min(totalSaved / totalTarget, 1.0) : 0
-        let goalCount = activeGoals.count
-        let conflict = SavingsGoalService.shared.analyzeConflicts(
-            goals: activeGoals,
-            transactions: transactions,
-            currencyService: currencyService,
-            base: baseCurrency
-        )
-
-        return Button { showingGoals = true } label: {
-            VStack(spacing: FTSpacing.sm) {
-                HStack(spacing: FTSpacing.md) {
-                    ZStack(alignment: .topTrailing) {
-                        FTIconTile(symbol: "star.fill", tint: FTColor.income, size: 44)
-                        if conflict.hasConflict {
-                            Circle()
-                                .fill(FTColor.gold)
-                                .frame(width: 10, height: 10)
-                                .offset(x: 4, y: -4)
-                        }
-                    }
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Savings Goals")
-                            .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
-                        if goalCount > 0 {
-                            Text("\(goalCount) active goal\(goalCount == 1 ? "" : "s") · \(totalSaved.asCompact(currency: baseCurrency)) saved")
-                                .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
-                        } else {
-                            Text("Set savings goals to track your progress")
-                                .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
-                        }
-                    }
-                    Spacer()
-                    if goalCount > 0 {
-                        Text("\(Int(overallProgress * 100))%")
-                            .font(.ftBodySemibold).foregroundStyle(FTColor.income)
-                    }
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(FTColor.textMuted)
-                }
-                if goalCount > 0 {
-                    FTProgressBar(value: overallProgress, color: FTColor.income)
-                }
-                if conflict.hasConflict {
-                    HStack(spacing: FTSpacing.xs) {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .font(.system(size: 11)).foregroundStyle(FTColor.gold)
-                        Text("Goal funding conflict — \(conflict.shortfall.asCompact(currency: baseCurrency))/mo shortfall")
-                            .font(.ftCaption).foregroundStyle(FTColor.gold)
-                    }
-                }
-            }
-            .padding(FTSpacing.lg)
-            .ftGlassInteractive(FTRadius.lg)
-        }
-        .buttonStyle(.plain)
-    }
-
-    // MARK: - Assets Overview Card
-
-    private var assetsOverviewCard: some View {
-        let svc = NetWorthService.shared
-        let reTotal = svc.realEstateTotal(realEstate: realEstateProperties, currencyService: currencyService, base: baseCurrency)
-        let vhTotal = svc.vehicleTotal(vehicles: vehicles, currencyService: currencyService, base: baseCurrency)
-        let paTotal = svc.personalAssetTotal(assets: personalAssets, currencyService: currencyService, base: baseCurrency)
-        let daTotal = svc.digitalAssetTotal(assets: digitalAssets, currencyService: currencyService, base: baseCurrency)
-        let totalHard = reTotal + vhTotal + paTotal + daTotal
-        let assetCount = realEstateProperties.count + vehicles.count + personalAssets.count + digitalAssets.count
-
-        let unacknowledged = netWorthMilestones.filter { !$0.isAcknowledged }
-
-        return VStack(spacing: FTSpacing.sm) {
-            Button { showingAssets = true } label: {
-                HStack(spacing: FTSpacing.md) {
-                    FTIconTile(symbol: "building.columns.fill", tint: FTColor.catTeal, size: 44)
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Assets & Liabilities")
-                            .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
-                        if assetCount > 0 {
-                            Text("\(assetCount) asset\(assetCount == 1 ? "" : "s") · \(totalHard.asCompact(currency: baseCurrency)) total value")
-                                .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
-                        } else {
-                            Text("Track real estate, vehicles & valuables")
-                                .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
-                        }
-                    }
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(FTColor.textMuted)
-                }
-                .padding(FTSpacing.lg)
-                .ftGlassInteractive(FTRadius.lg)
-            }
-            .buttonStyle(.plain)
-
-            Button { showingNetWorth = true } label: {
-                HStack(spacing: FTSpacing.md) {
-                    ZStack(alignment: .topTrailing) {
-                        FTIconTile(symbol: "chart.line.uptrend.xyaxis", tint: FTColor.gold, size: 44)
-                        if !unacknowledged.isEmpty {
-                            Circle()
-                                .fill(FTColor.income)
-                                .frame(width: 10, height: 10)
-                                .offset(x: 4, y: -4)
-                        }
-                    }
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Net Worth")
-                            .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
-                        if !unacknowledged.isEmpty {
-                            Text("🎉 \(unacknowledged.count) milestone\(unacknowledged.count == 1 ? "" : "s") reached!")
-                                .font(.ftCaption).foregroundStyle(FTColor.income)
-                        } else {
-                            Text("Track, forecast & benchmark your wealth")
-                                .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
-                        }
-                    }
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(FTColor.textMuted)
-                }
-                .padding(FTSpacing.lg)
-                .ftGlassInteractive(FTRadius.lg)
-            }
-            .buttonStyle(.plain)
-        }
     }
 
     // MARK: - Upcoming Payments

@@ -5,11 +5,7 @@ import SwiftData
 enum DashboardWidget: String, CaseIterable, Identifiable {
     case hero          = "hero"
     case metrics       = "metrics"
-    case income        = "income"
     case budgets       = "budgets"
-    case goals         = "goals"
-    case debt          = "debt"
-    case investments   = "investments"
     case bills         = "bills"
     case aiInsights    = "aiInsights"
 
@@ -19,11 +15,7 @@ enum DashboardWidget: String, CaseIterable, Identifiable {
         switch self {
         case .hero:        return "Net Worth Summary"
         case .metrics:     return "Monthly Metrics"
-        case .income:      return "Income Sources"
         case .budgets:     return "Budget Overview"
-        case .goals:       return "Savings Goals"
-        case .debt:        return "Debt & BNPL"
-        case .investments: return "Portfolio"
         case .bills:       return "Upcoming Bills"
         case .aiInsights:  return "AI Insights"
         }
@@ -33,11 +25,7 @@ enum DashboardWidget: String, CaseIterable, Identifiable {
         switch self {
         case .hero:        return "chart.line.uptrend.xyaxis"
         case .metrics:     return "arrow.left.arrow.right.circle.fill"
-        case .income:      return "banknote.fill"
         case .budgets:     return "chart.pie.fill"
-        case .goals:       return "star.fill"
-        case .debt:        return "creditcard.fill"
-        case .investments: return "chart.bar.fill"
         case .bills:       return "calendar.badge.clock"
         case .aiInsights:  return "brain.head.profile"
         }
@@ -47,11 +35,7 @@ enum DashboardWidget: String, CaseIterable, Identifiable {
         switch self {
         case .hero:        return FTColor.accent
         case .metrics:     return FTColor.income
-        case .income:      return FTColor.gold
         case .budgets:     return FTColor.catPurple
-        case .goals:       return FTColor.catCoral
-        case .debt:        return FTColor.expense
-        case .investments: return FTColor.catBlue
         case .bills:       return FTColor.catTeal
         case .aiInsights:  return FTColor.catPurple
         }
