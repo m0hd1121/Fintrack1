@@ -539,14 +539,14 @@ extension NetWorthDashboardView {
                     y: .value("Net Worth", snapshot.netWorth)
                 )
                 .foregroundStyle(FTColor.accent.opacity(0.15))
-                .interpolationMethod(.catmullRom)
+                .interpolationMethod(.monotone)
 
                 LineMark(
                     x: .value("Date", snapshot.date),
                     y: .value("Net Worth", snapshot.netWorth)
                 )
                 .foregroundStyle(FTColor.accent)
-                .interpolationMethod(.catmullRom)
+                .interpolationMethod(.monotone)
                 .lineStyle(StrokeStyle(lineWidth: 2.5))
 
                 PointMark(
@@ -712,7 +712,7 @@ extension NetWorthDashboardView {
                 )
                 .foregroundStyle(FTColor.accent)
                 .lineStyle(StrokeStyle(lineWidth: 2.5))
-                .interpolationMethod(.catmullRom)
+                .interpolationMethod(.monotone)
 
                 LineMark(
                     x: .value("Year", point.year),
@@ -720,7 +720,7 @@ extension NetWorthDashboardView {
                 )
                 .foregroundStyle(FTColor.income)
                 .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [5, 3]))
-                .interpolationMethod(.catmullRom)
+                .interpolationMethod(.monotone)
 
                 LineMark(
                     x: .value("Year", point.year),
@@ -728,7 +728,7 @@ extension NetWorthDashboardView {
                 )
                 .foregroundStyle(FTColor.expense)
                 .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [5, 3]))
-                .interpolationMethod(.catmullRom)
+                .interpolationMethod(.monotone)
             }
             .chartYAxis {
                 AxisMarks(values: .automatic(desiredCount: 4)) { value in
