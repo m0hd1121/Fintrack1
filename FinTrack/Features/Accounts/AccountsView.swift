@@ -307,6 +307,7 @@ struct AccountsView: View {
             .padding(FTSpacing.xxl)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(FTColor.heroGradient, in: .rect(cornerRadius: FTRadius.xl))
+            .contentShape(.rect(cornerRadius: FTRadius.xl))
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
@@ -452,6 +453,7 @@ struct AccountsView: View {
             .padding(FTSpacing.md)
             .frame(maxWidth: .infinity, alignment: .leading)
             .ftGlassInteractive(FTRadius.lg)
+            .contentShape(.rect(cornerRadius: FTRadius.lg))
         }
         .buttonStyle(.plain)
     }
@@ -521,6 +523,7 @@ struct AccountsView: View {
                     }
                     ForEach(activeCreditCards) { card in
                         rowCard { CreditCardRow(card: card, baseCurrency: baseCurrency) }
+                            .contentShape(Rectangle())
                             .contextMenu {
                                 Button(role: .destructive) {
                                     context.delete(card); try? context.save()

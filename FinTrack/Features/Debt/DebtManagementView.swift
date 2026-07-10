@@ -417,6 +417,7 @@ struct DebtManagementView: View {
                                 LoanDebtCard(loan: loan, baseCurrency: baseCurrency, currencyService: currencyService)
                             }
                             .buttonStyle(.plain)
+                            .contentShape(Rectangle())
                             .contextMenu {
                                 Button { recordingPaymentLoan = loan } label: {
                                     Label("Record Payment", systemImage: "banknote.fill")
@@ -463,6 +464,7 @@ struct DebtManagementView: View {
                                 BNPLDebtCard(plan: plan, baseCurrency: baseCurrency, currencyService: currencyService)
                             }
                             .buttonStyle(.plain)
+                            .contentShape(Rectangle())
                             .contextMenu {
                                 Button { recordingPaymentBNPL = plan } label: {
                                     Label("Record Payment", systemImage: "cart.fill")
@@ -930,6 +932,7 @@ struct DebtManagementView: View {
                                 LoanDebtCard(loan: loan, baseCurrency: baseCurrency, currencyService: currencyService)
                             }
                             .buttonStyle(.plain)
+                            .contentShape(Rectangle())
                             .contextMenu {
                                 Button { recordingPaymentLoan = loan } label: {
                                     Label("Record Payment", systemImage: "banknote.fill")
@@ -1142,6 +1145,7 @@ struct DebtManagementView: View {
                                 BNPLDebtCard(plan: plan, baseCurrency: baseCurrency, currencyService: currencyService)
                             }
                             .buttonStyle(.plain)
+                            .contentShape(Rectangle())
                             .contextMenu {
                                 Button { recordingPaymentBNPL = plan } label: {
                                     Label("Record Payment", systemImage: "cart.fill")
@@ -2002,6 +2006,7 @@ private struct MoneyLentCard: View {
             .ftGlassInteractive(FTRadius.lg)
         }
         .buttonStyle(.plain)
+        .contentShape(Rectangle())
     }
 }
 
@@ -2072,6 +2077,7 @@ private struct MoneyBorrowedCard: View {
             .ftGlassInteractive(FTRadius.lg)
         }
         .buttonStyle(.plain)
+        .contentShape(Rectangle())
     }
 }
 
