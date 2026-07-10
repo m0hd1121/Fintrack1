@@ -326,52 +326,114 @@ struct AddLifeEventView: View {
     @State private var savedAmountText = ""
     @State private var notes = ""
 
+    private var isEditing: Bool { editing != nil }
+
     var body: some View {
         NavigationStack {
-            Form {
-                Section("Event Type") {
-                    Picker("Type", selection: $eventType) {
-                        ForEach(LifeEventType.allCases, id: \.self) { t in
-                            Label(t.rawValue, systemImage: t.icon).tag(t)
+            ZStack {
+                FTBackdrop()
+                ScrollView {
+                    VStack(spacing: FTSpacing.lg) {
+                        VStack(spacing: 0) {
+                            Menu {
+                                Picker("Type", selection: $eventType) {
+                                    ForEach(LifeEventType.allCases, id: \.self) { t in
+                                        Label(t.rawValue, systemImage: t.icon).tag(t)
+                                    }
+                                }
+                            } label: {
+                                HStack(spacing: FTSpacing.md) {
+                                    Text("Type").font(.ftBody).foregroundStyle(FTColor.textSecondary)
+                                    Spacer()
+                                    Label(eventType.rawValue, systemImage: eventType.icon)
+                                        .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                                    Image(systemName: "chevron.up.chevron.down")
+                                        .font(.system(size: 11, weight: .semibold)).foregroundStyle(FTColor.textMuted)
+                                }
+                                .padding(.vertical, 13)
+                            }
+                            .onChange(of: eventType) { _, t in
+                                if AmountTextField.double(from: estimatedCostText) == 0 {
+                                    estimatedCostText = AmountTextField.format(String(t.defaultBudget))
+                                }
+                            }
                         }
-                    }
-                    .onChange(of: eventType) { _, t in
-                        if AmountTextField.double(from: estimatedCostText) == 0 {
-                            estimatedCostText = AmountTextField.format(String(t.defaultBudget))
+                        .padding(.horizontal, FTSpacing.lg)
+                        .ftGlass(FTRadius.md)
+
+                        VStack(spacing: 0) {
+                            HStack(spacing: FTSpacing.md) {
+                                Text("Custom Name").font(.ftBody).foregroundStyle(FTColor.textSecondary)
+                                Spacer()
+                                TextField("Optional", text: $title)
+                                    .multilineTextAlignment(.trailing)
+                                    .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                            }
+                            .padding(.vertical, 13)
+
+                            Divider().opacity(0.4)
+
+                            HStack {
+                                DatePicker("Target Date", selection: $targetDate, displayedComponents: .date)
+                                    .font(.ftBody).foregroundStyle(FTColor.textSecondary)
+                                    .tint(FTColor.accent)
+                            }
+                            .padding(.vertical, 9)
                         }
+                        .padding(.horizontal, FTSpacing.lg)
+                        .ftGlass(FTRadius.md)
+
+                        VStack(spacing: 0) {
+                            HStack(spacing: FTSpacing.md) {
+                                Text("Estimated Cost").font(.ftBody).foregroundStyle(FTColor.textSecondary)
+                                Spacer()
+                                AmountTextField("0.00", text: $estimatedCostText, font: .ftBodySemibold)
+                                    .foregroundStyle(FTColor.textPrimary).frame(maxWidth: 120)
+                            }
+                            .padding(.vertical, 13)
+
+                            Divider().opacity(0.4)
+
+                            HStack(spacing: FTSpacing.md) {
+                                Text("Already Saved").font(.ftBody).foregroundStyle(FTColor.textSecondary)
+                                Spacer()
+                                AmountTextField("0.00", text: $savedAmountText, font: .ftBodySemibold)
+                                    .foregroundStyle(FTColor.textPrimary).frame(maxWidth: 120)
+                            }
+                            .padding(.vertical, 13)
+                        }
+                        .padding(.horizontal, FTSpacing.lg)
+                        .ftGlass(FTRadius.md)
+
+                        VStack(spacing: 0) {
+                            TextField("Notes (optional)", text: $notes, axis: .vertical)
+                                .lineLimit(3...6)
+                                .font(.ftBody).foregroundStyle(FTColor.textPrimary)
+                                .padding(.vertical, 13)
+                        }
+                        .padding(.horizontal, FTSpacing.lg)
+                        .ftGlass(FTRadius.md)
+
+                        Color.clear.frame(height: 40)
                     }
+                    .padding(.horizontal, FTSpacing.screen)
+                    .padding(.top, FTSpacing.sm)
                 }
-                Section("Details") {
-                    TextField("Custom Name (optional)", text: $title)
-                    DatePicker("Target Date", selection: $targetDate, displayedComponents: .date)
-                }
-                Section("Budget") {
-                    HStack {
-                        Text("Estimated Cost")
-                        Spacer()
-                        AmountTextField("0", text: $estimatedCostText)
-                    }
-                    HStack {
-                        Text("Already Saved")
-                        Spacer()
-                        AmountTextField("0", text: $savedAmountText)
-                    }
-                }
-                Section("Notes") {
-                    TextEditor(text: $notes).frame(minHeight: 80)
-                }
+                .scrollContentBackground(.hidden)
+                .scrollDismissesKeyboard(.interactively)
             }
-            .navigationTitle(editing == nil ? "New Life Event" : "Edit Event")
+            .navigationTitle(isEditing ? "Edit Event" : "New Life Event")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Save") { save() }.foregroundStyle(FTColor.accent)
+                    Button("Save") { save() }.foregroundStyle(FTColor.accent).fontWeight(.semibold)
                 }
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") { dismiss() }.foregroundStyle(FTColor.textSecondary)
                 }
             }
             .onAppear { prefill() }
+            .dismissKeyboardOnTap()
         }
     }
 
