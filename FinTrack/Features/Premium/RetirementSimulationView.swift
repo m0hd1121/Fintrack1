@@ -236,50 +236,105 @@ struct RetirementEditView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("Personal") {
-                    Stepper("Current Age: \(plan.currentAge)", value: $plan.currentAge, in: 18...80)
-                    Stepper("Retirement Age: \(plan.targetRetirementAge)", value: $plan.targetRetirementAge, in: plan.currentAge + 1...80)
-                    Stepper("UAE Service Years: \(plan.yearsOfServiceUAE)", value: $plan.yearsOfServiceUAE, in: 0...50)
+            ZStack {
+                FTBackdrop()
+                ScrollView {
+                    VStack(spacing: FTSpacing.lg) {
+                        VStack(spacing: 0) {
+                            Stepper("Current Age: \(plan.currentAge)", value: $plan.currentAge, in: 18...80)
+                                .font(.ftBody).foregroundStyle(FTColor.textPrimary)
+                                .padding(.vertical, 13)
+
+                            Divider().opacity(0.4)
+
+                            Stepper("Retirement Age: \(plan.targetRetirementAge)", value: $plan.targetRetirementAge, in: plan.currentAge + 1...80)
+                                .font(.ftBody).foregroundStyle(FTColor.textPrimary)
+                                .padding(.vertical, 13)
+
+                            Divider().opacity(0.4)
+
+                            Stepper("UAE Service Years: \(plan.yearsOfServiceUAE)", value: $plan.yearsOfServiceUAE, in: 0...50)
+                                .font(.ftBody).foregroundStyle(FTColor.textPrimary)
+                                .padding(.vertical, 13)
+                        }
+                        .padding(.horizontal, FTSpacing.lg)
+                        .ftGlass(FTRadius.md)
+
+                        VStack(spacing: 0) {
+                            HStack(spacing: FTSpacing.md) {
+                                Text("Current Savings").font(.ftBody).foregroundStyle(FTColor.textSecondary)
+                                Spacer()
+                                AmountTextField("0.00", text: $currentSavingsText, font: .ftBodySemibold)
+                                    .foregroundStyle(FTColor.textPrimary).frame(maxWidth: 120)
+                            }
+                            .padding(.vertical, 13)
+
+                            Divider().opacity(0.4)
+
+                            HStack(spacing: FTSpacing.md) {
+                                Text("Monthly Contribution").font(.ftBody).foregroundStyle(FTColor.textSecondary)
+                                Spacer()
+                                AmountTextField("0.00", text: $monthlyContributionText, font: .ftBodySemibold)
+                                    .foregroundStyle(FTColor.textPrimary).frame(maxWidth: 120)
+                            }
+                            .padding(.vertical, 13)
+
+                            Divider().opacity(0.4)
+
+                            HStack(spacing: FTSpacing.md) {
+                                Text("Basic Monthly Salary").font(.ftBody).foregroundStyle(FTColor.textSecondary)
+                                Spacer()
+                                AmountTextField("0.00", text: $monthlyBasicSalaryText, font: .ftBodySemibold)
+                                    .foregroundStyle(FTColor.textPrimary).frame(maxWidth: 120)
+                            }
+                            .padding(.vertical, 13)
+                        }
+                        .padding(.horizontal, FTSpacing.lg)
+                        .ftGlass(FTRadius.md)
+
+                        VStack(spacing: 0) {
+                            HStack(spacing: FTSpacing.md) {
+                                Text("Monthly Income in Retirement").font(.ftBody).foregroundStyle(FTColor.textSecondary)
+                                Spacer()
+                                AmountTextField("0.00", text: $targetMonthlyIncomeText, font: .ftBodySemibold)
+                                    .foregroundStyle(FTColor.textPrimary).frame(maxWidth: 120)
+                            }
+                            .padding(.vertical, 13)
+                        }
+                        .padding(.horizontal, FTSpacing.lg)
+                        .ftGlass(FTRadius.md)
+
+                        VStack(spacing: 0) {
+                            HStack(spacing: FTSpacing.md) {
+                                Text("Expected Return (%)").font(.ftBody).foregroundStyle(FTColor.textSecondary)
+                                Spacer()
+                                TextField("7.0", value: $plan.expectedReturnRate, format: .number)
+                                    .keyboardType(.decimalPad).multilineTextAlignment(.trailing)
+                                    .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary).frame(maxWidth: 80)
+                            }
+                            .padding(.vertical, 13)
+
+                            Divider().opacity(0.4)
+
+                            HStack(spacing: FTSpacing.md) {
+                                Text("Inflation Rate (%)").font(.ftBody).foregroundStyle(FTColor.textSecondary)
+                                Spacer()
+                                TextField("3.0", value: $plan.expectedInflationRate, format: .number)
+                                    .keyboardType(.decimalPad).multilineTextAlignment(.trailing)
+                                    .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary).frame(maxWidth: 80)
+                            }
+                            .padding(.vertical, 13)
+                        }
+                        .padding(.horizontal, FTSpacing.lg)
+                        .ftGlass(FTRadius.md)
+
+                        Color.clear.frame(height: 40)
+                    }
+                    .padding(.horizontal, FTSpacing.screen)
+                    .padding(.top, FTSpacing.sm)
                 }
-                Section("Savings") {
-                    HStack {
-                        Text("Current Savings")
-                        Spacer()
-                        AmountTextField("0", text: $currentSavingsText)
-                    }
-                    HStack {
-                        Text("Monthly Contribution")
-                        Spacer()
-                        AmountTextField("0", text: $monthlyContributionText)
-                    }
-                    HStack {
-                        Text("Basic Monthly Salary")
-                        Spacer()
-                        AmountTextField("0", text: $monthlyBasicSalaryText)
-                    }
-                }
-                Section("Target") {
-                    HStack {
-                        Text("Monthly Income in Retirement")
-                        Spacer()
-                        AmountTextField("0", text: $targetMonthlyIncomeText)
-                    }
-                }
-                Section("Assumptions") {
-                    HStack {
-                        Text("Expected Return (%)")
-                        Spacer()
-                        TextField("7.0", value: $plan.expectedReturnRate, format: .number)
-                            .keyboardType(.decimalPad).multilineTextAlignment(.trailing)
-                    }
-                    HStack {
-                        Text("Inflation Rate (%)")
-                        Spacer()
-                        TextField("3.0", value: $plan.expectedInflationRate, format: .number)
-                            .keyboardType(.decimalPad).multilineTextAlignment(.trailing)
-                    }
-                }
+                .scrollContentBackground(.hidden)
+                .scrollDismissesKeyboard(.interactively)
             }
             .navigationTitle("Retirement Plan")
             .navigationBarTitleDisplayMode(.inline)
@@ -294,7 +349,7 @@ struct RetirementEditView: View {
                         try? context.save()
                         dismiss()
                     }
-                    .foregroundStyle(FTColor.accent)
+                    .foregroundStyle(FTColor.accent).fontWeight(.semibold)
                 }
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") { dismiss() }.foregroundStyle(FTColor.textSecondary)
@@ -306,6 +361,7 @@ struct RetirementEditView: View {
                 monthlyBasicSalaryText = AmountTextField.format(String(plan.monthlyBasicSalary))
                 targetMonthlyIncomeText = AmountTextField.format(String(plan.targetMonthlyIncome))
             }
+            .dismissKeyboardOnTap()
         }
     }
 }

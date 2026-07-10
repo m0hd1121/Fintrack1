@@ -285,43 +285,99 @@ struct InviteAdvisorView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("Advisor Details") {
-                    TextField("Full Name", text: $name)
-                    TextField("Email Address", text: $email)
-                        .keyboardType(.emailAddress)
-                        .textInputAutocapitalization(.never)
-                }
-                Section("Access Level") {
-                    Picker("Role", selection: $role) {
-                        ForEach(AdvisorRole.allCases, id: \.self) { r in
-                            Label(r.rawValue, systemImage: r.icon).tag(r)
+            ZStack {
+                FTBackdrop()
+                ScrollView {
+                    VStack(spacing: FTSpacing.lg) {
+                        VStack(spacing: 0) {
+                            HStack(spacing: FTSpacing.md) {
+                                Text("Full Name").font(.ftBody).foregroundStyle(FTColor.textSecondary)
+                                Spacer()
+                                TextField("Required", text: $name)
+                                    .multilineTextAlignment(.trailing)
+                                    .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                            }
+                            .padding(.vertical, 13)
+
+                            Divider().opacity(0.4)
+
+                            HStack(spacing: FTSpacing.md) {
+                                Text("Email").font(.ftBody).foregroundStyle(FTColor.textSecondary)
+                                Spacer()
+                                TextField("Required", text: $email)
+                                    .keyboardType(.emailAddress)
+                                    .textInputAutocapitalization(.never)
+                                    .multilineTextAlignment(.trailing)
+                                    .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                            }
+                            .padding(.vertical, 13)
                         }
+                        .padding(.horizontal, FTSpacing.lg)
+                        .ftGlass(FTRadius.md)
+
+                        VStack(alignment: .leading, spacing: 0) {
+                            Menu {
+                                Picker("Role", selection: $role) {
+                                    ForEach(AdvisorRole.allCases, id: \.self) { r in
+                                        Label(r.rawValue, systemImage: r.icon).tag(r)
+                                    }
+                                }
+                            } label: {
+                                HStack(spacing: FTSpacing.md) {
+                                    Text("Role").font(.ftBody).foregroundStyle(FTColor.textSecondary)
+                                    Spacer()
+                                    Label(role.rawValue, systemImage: role.icon)
+                                        .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                                    Image(systemName: "chevron.up.chevron.down")
+                                        .font(.system(size: 11, weight: .semibold)).foregroundStyle(FTColor.textMuted)
+                                }
+                                .padding(.vertical, 13)
+                            }
+
+                            Text(role.description)
+                                .font(.ftCaption)
+                                .foregroundStyle(FTColor.textSecondary)
+                                .padding(.bottom, 13)
+                        }
+                        .padding(.horizontal, FTSpacing.lg)
+                        .ftGlass(FTRadius.md)
+
+                        VStack(spacing: 0) {
+                            FTToggleRow(symbol: "creditcard.fill", tint: FTColor.expense,
+                                        title: "View Debts & Loans", isOn: $canViewDebts)
+                            Divider().opacity(0.4).padding(.leading, 56)
+                            FTToggleRow(symbol: "note.text", tint: FTColor.catBlue,
+                                        title: "Add Notes", isOn: $canAddNotes)
+                        }
+                        .padding(.horizontal, FTSpacing.lg)
+                        .ftGlass(FTRadius.md)
+
+                        Text("The advisor will receive a unique access code to view your data. They cannot make changes. You can revoke access at any time.")
+                            .font(.ftCaption)
+                            .foregroundStyle(FTColor.textSecondary)
+                            .padding(.horizontal, FTSpacing.xs)
+
+                        Color.clear.frame(height: 40)
                     }
-                    Text(role.description).font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                    .padding(.horizontal, FTSpacing.screen)
+                    .padding(.top, FTSpacing.sm)
                 }
-                Section("Additional Permissions") {
-                    Toggle("View Debts & Loans", isOn: $canViewDebts)
-                    Toggle("Add Notes", isOn: $canAddNotes)
-                }
-                Section {
-                    Text("The advisor will receive a unique access code to view your data. They cannot make changes. You can revoke access at any time.")
-                        .font(.ftCaption)
-                        .foregroundStyle(FTColor.textSecondary)
-                }
+                .scrollContentBackground(.hidden)
+                .scrollDismissesKeyboard(.interactively)
             }
             .navigationTitle("Invite Advisor")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Send Invite") { save() }
-                        .foregroundStyle(FTColor.accent)
+                        .foregroundStyle(FTColor.accent).fontWeight(.semibold)
                         .disabled(name.isEmpty || email.isEmpty)
                 }
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") { dismiss() }.foregroundStyle(FTColor.textSecondary)
                 }
             }
+            .dismissKeyboardOnTap()
         }
     }
 
