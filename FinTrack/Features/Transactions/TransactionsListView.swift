@@ -17,6 +17,7 @@ struct TransactionsListView: View {
     @State private var selectedCategory: TransactionCategory? = nil
     @State private var showingFilters = false
     @State private var showingAddTransaction = false
+    @State private var showingEmailReviewFromBanner = false
     @State private var selectedTransaction: Transaction? = nil
     @State private var debouncedSearch = ""
     @State private var groupedCache: [(String, [Transaction])] = []
@@ -255,6 +256,9 @@ struct TransactionsListView: View {
                 .sheet(item: $selectedTransaction, onDismiss: { recomputeGroups() }) { tx in
                     TransactionDetailView(transaction: tx)
                 }
+                .navigationDestination(isPresented: $showingEmailReviewFromBanner) {
+                    EmailReviewQueueView()
+                }
                 .sheet(isPresented: $showingCSVImport, onDismiss: { recomputeGroups() }) {
                     CSVImportView()
                 }
@@ -384,7 +388,7 @@ struct TransactionsListView: View {
     // MARK: - Duplicate Banner
 
     private var pendingImportsBanner: some View {
-        NavigationLink(destination: EmailReviewQueueView()) {
+        Button { showingEmailReviewFromBanner = true } label: {
             HStack(spacing: FTSpacing.md) {
                 ZStack {
                     FTIconTile(symbol: "tray.full.fill", tint: FTColor.accent, size: 40)
