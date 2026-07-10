@@ -3,6 +3,7 @@ import SwiftData
 
 struct EstatePlanningView: View {
     @Environment(AppState.self) private var appState
+    @Environment(CurrencyService.self) private var currencyService
     @Query private var accounts: [Account]
     @Query private var realEstateProps: [RealEstateProperty]
     @Query private var vehicles: [Vehicle]
@@ -18,31 +19,37 @@ struct EstatePlanningView: View {
     private var currency: String { appState.baseCurrency }
     private var profile: UserProfile? { profiles.first }
 
+    /// Every money-holding model carries its own currency; convert before summing
+    /// across records, since a raw sum treats e.g. IRR and AED as interchangeable.
+    private func converted(_ amount: Double, from: String) -> Double {
+        currencyService.convert(amount, from: from, to: currency)
+    }
+
     private var totalAssets: Double {
-        let cash = accounts.reduce(0) { $0 + $1.balance }
-        let reEstate = realEstateProps.reduce(0) { $0 + $1.currentValue }
-        let veh = vehicles.reduce(0) { $0 + $1.currentValue }
-        let personal = personalAssets.reduce(0) { $0 + $1.estimatedMarketValue }
-        let inv = investments.reduce(0) { $0 + $1.currentValue }
-        let crypto = cryptoHoldings.reduce(0) { $0 + $1.currentValue }
-        let gold = goldHoldings.reduce(0) { $0 + $1.currentValue }
-        let lent = moneyLent.filter { !$0.isFullyRepaid }.reduce(0) { $0 + $1.remainingBalance }
+        let cash = accounts.reduce(0) { $0 + converted($1.balance, from: $1.currency) }
+        let reEstate = realEstateProps.reduce(0) { $0 + converted($1.currentValue, from: $1.currency) }
+        let veh = vehicles.reduce(0) { $0 + converted($1.currentValue, from: $1.currency) }
+        let personal = personalAssets.reduce(0) { $0 + converted($1.estimatedMarketValue, from: $1.currency) }
+        let inv = investments.reduce(0) { $0 + converted($1.currentValue, from: $1.currency) }
+        let crypto = cryptoHoldings.reduce(0) { $0 + converted($1.currentValue, from: $1.currency) }
+        let gold = goldHoldings.reduce(0) { $0 + converted($1.currentValue, from: $1.currency) }
+        let lent = moneyLent.filter { !$0.isFullyRepaid }.reduce(0) { $0 + converted($1.remainingBalance, from: $1.currency) }
         return cash + reEstate + veh + personal + inv + crypto + gold + lent
     }
 
     private var totalLiabilities: Double {
-        let loanBal = loans.reduce(0) { $0 + $1.outstandingBalance }
-        let ccBal = creditCards.reduce(0) { $0 + $1.outstandingBalance }
+        let loanBal = loans.reduce(0) { $0 + converted($1.outstandingBalance, from: $1.currency) }
+        let ccBal = creditCards.reduce(0) { $0 + converted($1.outstandingBalance, from: $1.currency) }
         return loanBal + ccBal
     }
 
     private var netEstate: Double { totalAssets - totalLiabilities }
 
     private var zakatableWealth: Double {
-        let cash = accounts.reduce(0) { $0 + $1.balance }
-        let inv = investments.reduce(0) { $0 + $1.currentValue }
-        let crypto = cryptoHoldings.reduce(0) { $0 + $1.currentValue }
-        let gold = goldHoldings.reduce(0) { $0 + $1.currentValue }
+        let cash = accounts.reduce(0) { $0 + converted($1.balance, from: $1.currency) }
+        let inv = investments.reduce(0) { $0 + converted($1.currentValue, from: $1.currency) }
+        let crypto = cryptoHoldings.reduce(0) { $0 + converted($1.currentValue, from: $1.currency) }
+        let gold = goldHoldings.reduce(0) { $0 + converted($1.currentValue, from: $1.currency) }
         return max(0, cash + inv + crypto + gold - totalLiabilities)
     }
 
@@ -105,13 +112,13 @@ struct EstatePlanningView: View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
             Text("Asset Breakdown").font(.ftHeadline).foregroundStyle(FTColor.textPrimary)
 
-            let cashTotal: Double = accounts.reduce(0) { $0 + $1.balance }
-            let realEstateTotal: Double = realEstateProps.reduce(0) { $0 + $1.currentValue }
-            let vehicleTotal: Double = vehicles.reduce(0) { $0 + $1.currentValue }
-            let investTotal: Double = investments.reduce(0) { $0 + $1.currentValue }
-            let cryptoTotal: Double = cryptoHoldings.reduce(0) { $0 + $1.currentValue }
-            let goldTotal: Double = goldHoldings.reduce(0) { $0 + $1.currentValue }
-            let personalTotal: Double = personalAssets.reduce(0) { $0 + $1.estimatedMarketValue }
+            let cashTotal: Double = accounts.reduce(0) { $0 + converted($1.balance, from: $1.currency) }
+            let realEstateTotal: Double = realEstateProps.reduce(0) { $0 + converted($1.currentValue, from: $1.currency) }
+            let vehicleTotal: Double = vehicles.reduce(0) { $0 + converted($1.currentValue, from: $1.currency) }
+            let investTotal: Double = investments.reduce(0) { $0 + converted($1.currentValue, from: $1.currency) }
+            let cryptoTotal: Double = cryptoHoldings.reduce(0) { $0 + converted($1.currentValue, from: $1.currency) }
+            let goldTotal: Double = goldHoldings.reduce(0) { $0 + converted($1.currentValue, from: $1.currency) }
+            let personalTotal: Double = personalAssets.reduce(0) { $0 + converted($1.estimatedMarketValue, from: $1.currency) }
             let items: [(String, String, Double, Color)] = [
                 ("Cash & Accounts", "dollarsign.circle.fill", cashTotal, FTColor.accent),
                 ("Real Estate", "house.fill", realEstateTotal, FTColor.catTeal),
@@ -248,7 +255,7 @@ struct EstatePlanningView: View {
             let items: [(String, Bool)] = [
                 ("Will or Wasiya registered", false),
                 ("Life insurance in place", !investments.isEmpty),
-                ("Emergency fund ≥ 6 months", accounts.reduce(0) { $0 + $1.balance } > 0),
+                ("Emergency fund ≥ 6 months", accounts.reduce(0) { $0 + converted($1.balance, from: $1.currency) } > 0),
                 ("Beneficiaries designated", false),
                 ("Digital assets documented", !cryptoHoldings.isEmpty),
                 ("Debt manageable (<30% of assets)", totalLiabilities < totalAssets * 0.3),
