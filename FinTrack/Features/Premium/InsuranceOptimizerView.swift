@@ -302,63 +302,182 @@ struct AddInsurancePolicyView: View {
     @State private var beneficiary = ""
     @State private var notes = ""
 
+    private var isEditing: Bool { editing != nil }
+
     var body: some View {
         NavigationStack {
-            Form {
-                Section("Policy Details") {
-                    Picker("Type", selection: $policyType) {
-                        ForEach(InsurancePolicyType.allCases, id: \.self) { t in
-                            Label(t.rawValue, systemImage: t.icon).tag(t)
+            ZStack {
+                FTBackdrop()
+                ScrollView {
+                    VStack(spacing: FTSpacing.lg) {
+                        VStack(spacing: 0) {
+                            Menu {
+                                Picker("Type", selection: $policyType) {
+                                    ForEach(InsurancePolicyType.allCases, id: \.self) { t in
+                                        Label(t.rawValue, systemImage: t.icon).tag(t)
+                                    }
+                                }
+                            } label: {
+                                HStack(spacing: FTSpacing.md) {
+                                    Text("Type").font(.ftBody).foregroundStyle(FTColor.textSecondary)
+                                    Spacer()
+                                    Label(policyType.rawValue, systemImage: policyType.icon)
+                                        .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                                    Image(systemName: "chevron.up.chevron.down")
+                                        .font(.system(size: 11, weight: .semibold)).foregroundStyle(FTColor.textMuted)
+                                }
+                                .padding(.vertical, 13)
+                            }
+
+                            Divider().opacity(0.4)
+
+                            HStack(spacing: FTSpacing.md) {
+                                Text("Policy Name").font(.ftBody).foregroundStyle(FTColor.textSecondary)
+                                Spacer()
+                                TextField("Optional", text: $policyName)
+                                    .multilineTextAlignment(.trailing)
+                                    .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                            }
+                            .padding(.vertical, 13)
+
+                            Divider().opacity(0.4)
+
+                            HStack(spacing: FTSpacing.md) {
+                                Text("Provider").font(.ftBody).foregroundStyle(FTColor.textSecondary)
+                                Spacer()
+                                TextField("Insurer name", text: $provider)
+                                    .multilineTextAlignment(.trailing)
+                                    .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                            }
+                            .padding(.vertical, 13)
+
+                            Divider().opacity(0.4)
+
+                            HStack(spacing: FTSpacing.md) {
+                                Text("Policy Number").font(.ftBody).foregroundStyle(FTColor.textSecondary)
+                                Spacer()
+                                TextField("Optional", text: $policyNumber)
+                                    .multilineTextAlignment(.trailing)
+                                    .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                            }
+                            .padding(.vertical, 13)
                         }
-                    }
-                    TextField("Policy Name (optional)", text: $policyName)
-                    TextField("Provider / Insurer", text: $provider)
-                    TextField("Policy Number (optional)", text: $policyNumber)
-                }
-                Section("Dates") {
-                    DatePicker("Start Date", selection: $startDate, displayedComponents: .date)
-                    DatePicker("End / Renewal", selection: $endDate, displayedComponents: .date)
-                }
-                Section("Premium") {
-                    HStack {
-                        Text("Premium Amount")
-                        Spacer()
-                        AmountTextField("0", text: $premiumText)
-                    }
-                    Picker("Frequency", selection: $frequency) {
-                        ForEach(PremiumFrequency.allCases, id: \.self) { f in
-                            Text(f.rawValue).tag(f)
+                        .padding(.horizontal, FTSpacing.lg)
+                        .ftGlass(FTRadius.md)
+
+                        VStack(spacing: 0) {
+                            HStack {
+                                DatePicker("Start Date", selection: $startDate, displayedComponents: .date)
+                                    .font(.ftBody).foregroundStyle(FTColor.textSecondary)
+                                    .tint(FTColor.accent)
+                            }
+                            .padding(.vertical, 9)
+
+                            Divider().opacity(0.4)
+
+                            HStack {
+                                DatePicker("End / Renewal", selection: $endDate, displayedComponents: .date)
+                                    .font(.ftBody).foregroundStyle(FTColor.textSecondary)
+                                    .tint(FTColor.accent)
+                            }
+                            .padding(.vertical, 9)
                         }
+                        .padding(.horizontal, FTSpacing.lg)
+                        .ftGlass(FTRadius.md)
+
+                        VStack(spacing: 0) {
+                            HStack(spacing: FTSpacing.md) {
+                                Text("Premium Amount").font(.ftBody).foregroundStyle(FTColor.textSecondary)
+                                Spacer()
+                                AmountTextField("0.00", text: $premiumText, font: .ftBodySemibold)
+                                    .foregroundStyle(FTColor.textPrimary).frame(maxWidth: 120)
+                            }
+                            .padding(.vertical, 13)
+
+                            Divider().opacity(0.4)
+
+                            Menu {
+                                Picker("Frequency", selection: $frequency) {
+                                    ForEach(PremiumFrequency.allCases, id: \.self) { f in
+                                        Text(f.rawValue).tag(f)
+                                    }
+                                }
+                            } label: {
+                                HStack(spacing: FTSpacing.md) {
+                                    Text("Frequency").font(.ftBody).foregroundStyle(FTColor.textSecondary)
+                                    Spacer()
+                                    Text(frequency.rawValue).font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                                    Image(systemName: "chevron.up.chevron.down")
+                                        .font(.system(size: 11, weight: .semibold)).foregroundStyle(FTColor.textMuted)
+                                }
+                                .padding(.vertical, 13)
+                            }
+                        }
+                        .padding(.horizontal, FTSpacing.lg)
+                        .ftGlass(FTRadius.md)
+
+                        VStack(spacing: 0) {
+                            HStack(spacing: FTSpacing.md) {
+                                Text("Coverage Amount").font(.ftBody).foregroundStyle(FTColor.textSecondary)
+                                Spacer()
+                                AmountTextField("0.00", text: $coverageAmountText, font: .ftBodySemibold)
+                                    .foregroundStyle(FTColor.textPrimary).frame(maxWidth: 120)
+                            }
+                            .padding(.vertical, 13)
+
+                            Divider().opacity(0.4)
+
+                            HStack(spacing: FTSpacing.md) {
+                                Text("Deductible").font(.ftBody).foregroundStyle(FTColor.textSecondary)
+                                Spacer()
+                                AmountTextField("0.00", text: $deductibleText, font: .ftBodySemibold)
+                                    .foregroundStyle(FTColor.textPrimary).frame(maxWidth: 120)
+                            }
+                            .padding(.vertical, 13)
+
+                            Divider().opacity(0.4)
+
+                            HStack(spacing: FTSpacing.md) {
+                                Text("Beneficiary").font(.ftBody).foregroundStyle(FTColor.textSecondary)
+                                Spacer()
+                                TextField("Optional", text: $beneficiary)
+                                    .multilineTextAlignment(.trailing)
+                                    .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                            }
+                            .padding(.vertical, 13)
+                        }
+                        .padding(.horizontal, FTSpacing.lg)
+                        .ftGlass(FTRadius.md)
+
+                        VStack(spacing: 0) {
+                            TextField("Notes (optional)", text: $notes, axis: .vertical)
+                                .lineLimit(3...6)
+                                .font(.ftBody).foregroundStyle(FTColor.textPrimary)
+                                .padding(.vertical, 13)
+                        }
+                        .padding(.horizontal, FTSpacing.lg)
+                        .ftGlass(FTRadius.md)
+
+                        Color.clear.frame(height: 40)
                     }
+                    .padding(.horizontal, FTSpacing.screen)
+                    .padding(.top, FTSpacing.sm)
                 }
-                Section("Coverage") {
-                    HStack {
-                        Text("Coverage Amount")
-                        Spacer()
-                        AmountTextField("0", text: $coverageAmountText)
-                    }
-                    HStack {
-                        Text("Deductible")
-                        Spacer()
-                        AmountTextField("0", text: $deductibleText)
-                    }
-                    TextField("Beneficiary", text: $beneficiary)
-                }
-                Section("Notes") {
-                    TextEditor(text: $notes).frame(minHeight: 60)
-                }
+                .scrollContentBackground(.hidden)
+                .scrollDismissesKeyboard(.interactively)
             }
-            .navigationTitle(editing == nil ? "Add Insurance" : "Edit Policy")
+            .navigationTitle(isEditing ? "Edit Policy" : "Add Insurance")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Save") { save() }.foregroundStyle(FTColor.accent)
+                    Button("Save") { save() }.foregroundStyle(FTColor.accent).fontWeight(.semibold)
                 }
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") { dismiss() }.foregroundStyle(FTColor.textSecondary)
                 }
             }
             .onAppear { prefill() }
+            .dismissKeyboardOnTap()
         }
     }
 
