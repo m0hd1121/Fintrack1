@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import MessageUI
 
 struct CollaborativePlannerView: View {
     @Environment(\.modelContext) private var context
@@ -276,12 +277,20 @@ struct AdvisorDetailView: View {
 struct InviteAdvisorView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
+    @Query private var profiles: [UserProfile]
 
     @State private var name = ""
     @State private var email = ""
     @State private var role: AdvisorRole = .readOnly
     @State private var canViewDebts = false
     @State private var canAddNotes = false
+    @State private var pendingAdvisor: AdvisorAccess?
+    @State private var showingNoMailAlert = false
+
+    private var ownerName: String {
+        let n = profiles.first?.name ?? ""
+        return n.isEmpty ? "A FinTrack user" : n
+    }
 
     var body: some View {
         NavigationStack {
@@ -378,7 +387,33 @@ struct InviteAdvisorView: View {
                 }
             }
             .dismissKeyboardOnTap()
+            .sheet(item: $pendingAdvisor, onDismiss: { dismiss() }) { advisor in
+                MailComposeView(
+                    recipients: [advisor.advisorEmail],
+                    subject: "\(ownerName) invited you on FinTrack",
+                    body: inviteBody(for: advisor)
+                )
+            }
+            .alert("No Mail Account", isPresented: $showingNoMailAlert) {
+                Button("OK") { dismiss() }
+            } message: {
+                Text("This device isn't set up to send mail. \(name) was still added with access code \(pendingAdvisor?.accessCode ?? "—") — you can copy it from their row and share it another way.")
+            }
         }
+    }
+
+    private func inviteBody(for advisor: AdvisorAccess) -> String {
+        """
+        Hi \(name),
+
+        \(ownerName) has added you as a \(role.rawValue.lowercased()) advisor on FinTrack.
+
+        \(role.description).
+
+        Reference code: \(advisor.accessCode)
+
+        — Sent from FinTrack
+        """
     }
 
     private func save() {
@@ -392,6 +427,44 @@ struct InviteAdvisorView: View {
         advisor.canAddNotes = canAddNotes
         context.insert(advisor)
         try? context.save()
-        dismiss()
+
+        if MFMailComposeViewController.canSendMail() {
+            pendingAdvisor = advisor
+        } else {
+            showingNoMailAlert = true
+        }
+    }
+}
+
+// MARK: - Mail Compose
+
+/// Presents the native Mail compose sheet pre-filled with a recipient, subject,
+/// and body. The user reviews and taps Send themselves — no server involved.
+struct MailComposeView: UIViewControllerRepresentable {
+    let recipients: [String]
+    let subject: String
+    let body: String
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    func makeUIViewController(context: Context) -> MFMailComposeViewController {
+        let controller = MFMailComposeViewController()
+        controller.mailComposeDelegate = context.coordinator
+        controller.setToRecipients(recipients)
+        controller.setSubject(subject)
+        controller.setMessageBody(body, isHTML: false)
+        return controller
+    }
+
+    func updateUIViewController(_ uiViewController: MFMailComposeViewController, context: Context) {}
+
+    final class Coordinator: NSObject, MFMailComposeViewControllerDelegate {
+        func mailComposeController(
+            _ controller: MFMailComposeViewController,
+            didFinishWith result: MFMailComposeResult,
+            error: Error?
+        ) {
+            controller.dismiss(animated: true)
+        }
     }
 }
