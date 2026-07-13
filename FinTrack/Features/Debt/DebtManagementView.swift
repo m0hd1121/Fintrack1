@@ -1723,6 +1723,17 @@ struct BNPLDetailSheet: View {
         allTransactions.filter { $0.linkedBNPL?.id == plan.id }
     }
 
+    /// Transactions from before EmailSyncService started setting linkedBNPL — matched by
+    /// the "· BNPL installment X/Y for <plan name>" note it always wrote, so paidInstallments
+    /// already counts them but they never show up in Payment History.
+    private var unlinkedPastPayments: [Transaction] {
+        allTransactions.filter {
+            $0.linkedBNPL == nil
+                && $0.paymentMethod == .bnpl
+                && ($0.notes?.contains("for \(plan.name)") ?? false)
+        }
+    }
+
     var body: some View {
         NavigationStack {
             ZStack {
@@ -1784,6 +1795,21 @@ struct BNPLDetailSheet: View {
                         }
                         .ftGlass(FTRadius.lg)
                         .padding(.horizontal, FTSpacing.screen)
+
+                        // Past payments that predate linkedBNPL tracking
+                        if !unlinkedPastPayments.isEmpty {
+                            Button { relinkPastPayments() } label: {
+                                HStack(spacing: FTSpacing.sm) {
+                                    Image(systemName: "arrow.triangle.2.circlepath")
+                                        .font(.system(size: 14, weight: .semibold))
+                                    Text("Show \(unlinkedPastPayments.count) past payment\(unlinkedPastPayments.count == 1 ? "" : "s") in history")
+                                        .font(.ftCallout)
+                                }
+                                .foregroundStyle(FTColor.accent)
+                            }
+                            .buttonStyle(.plain)
+                            .padding(.horizontal, FTSpacing.screen)
+                        }
 
                         // Payment history
                         if !payments.isEmpty {
@@ -1923,6 +1949,13 @@ struct BNPLDetailSheet: View {
         plan.paidInstallments = max(0, plan.paidInstallments - 1)
         if plan.isCompleted { plan.isCompleted = false }
         context.delete(tx)
+        try? context.save()
+    }
+
+    private func relinkPastPayments() {
+        for tx in unlinkedPastPayments {
+            tx.linkedBNPL = plan
+        }
         try? context.save()
     }
 
