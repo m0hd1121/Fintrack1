@@ -22,6 +22,7 @@ struct AddTransactionView: View {
     @Query(sort: \CategorizationRule.priority)
     private var categorizationRules: [CategorizationRule]
     @Query(sort: \LoyaltyProgram.name) private var loyaltyPrograms: [LoyaltyProgram]
+    @Query(sort: \BNPLPlan.name) private var bnplPlans: [BNPLPlan]
 
     // — Core fields
     @State private var title = ""
@@ -79,6 +80,9 @@ struct AddTransactionView: View {
     @State private var isTaxDeductible = false
     @State private var isVATReclaimable = false
     @State private var customCategoryID: UUID? = nil
+
+    // — BNPL link
+    @State private var linkedBNPLPlan: BNPLPlan? = nil
 
     // — Loyalty points
     @State private var selectedLoyaltyProgram: LoyaltyProgram? = nil
@@ -812,6 +816,17 @@ struct AddTransactionView: View {
                 .padding(.vertical, 9)
             }
 
+            // BNPL plan link
+            if paymentMethod == .bnpl {
+                Divider().opacity(0.4)
+                detailMenuRow(label: "BNPL Plan", value: linkedBNPLPlan?.name ?? "None") {
+                    Button("None") { linkedBNPLPlan = nil }
+                    ForEach(bnplPlans) { plan in
+                        Button(plan.name) { linkedBNPLPlan = plan }
+                    }
+                }
+            }
+
             // Date
             Divider().opacity(0.4)
             HStack(spacing: FTSpacing.md) {
@@ -1414,6 +1429,7 @@ struct AddTransactionView: View {
         if let id = tx.linkedLoyaltyProgramID {
             selectedLoyaltyProgram = loyaltyPrograms.first(where: { $0.id == id })
         }
+        linkedBNPLPlan = tx.linkedBNPL
         if tx.loyaltyPointsAmount > 0 {
             loyaltyPoints = String(format: "%g", tx.loyaltyPointsAmount)
         }
@@ -1505,6 +1521,7 @@ struct AddTransactionView: View {
             tx.customCategoryID = customCategoryID
             tx.linkedLoyaltyProgramID = selectedLoyaltyProgram?.id
             tx.loyaltyPointsAmount = loyaltyPointsDouble
+            tx.linkedBNPL = paymentMethod == .bnpl ? linkedBNPLPlan : nil
             if let img = receiptImage { tx.receiptImageData = img.jpegData(compressionQuality: 0.7) }
 
             // Attach pending documents
@@ -1579,6 +1596,7 @@ struct AddTransactionView: View {
             // Loyalty link: for transfer the main tx links to the destination (earn) program
             tx.linkedLoyaltyProgramID = isLoyaltyTransfer ? toLoyaltyProgram?.id : selectedLoyaltyProgram?.id
             tx.loyaltyPointsAmount = loyaltyPointsDouble
+            tx.linkedBNPL = paymentMethod == .bnpl ? linkedBNPLPlan : nil
             context.insert(tx)
 
             // Attach pending documents

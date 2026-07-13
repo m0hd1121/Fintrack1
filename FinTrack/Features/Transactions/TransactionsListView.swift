@@ -903,6 +903,10 @@ struct TransactionDetailView: View {
                             detailRow(label: "Date", value: transaction.date.formatted, icon: "calendar")
                             Divider().padding(.leading, 52)
                             detailRow(label: "Payment", value: transaction.paymentMethod.rawValue, icon: "creditcard")
+                            if let plan = transaction.linkedBNPL {
+                                Divider().padding(.leading, 52)
+                                detailRow(label: "BNPL Plan", value: plan.name, icon: "cart.fill")
+                            }
                             Divider().padding(.leading, 52)
                             detailRow(label: "Type", value: transaction.type.rawValue, icon: "arrow.left.arrow.right")
                             if let merchant = transaction.merchant, !merchant.isEmpty {

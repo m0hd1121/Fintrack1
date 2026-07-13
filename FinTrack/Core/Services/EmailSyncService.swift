@@ -632,6 +632,7 @@ final class EmailSyncService: NSObject {
 
         // Advance the BNPL plan: one installment paid, next due a month out
         if let plan = linkedPlan, type == .expense {
+            tx.linkedBNPL = plan
             plan.paidInstallments = min(plan.paidInstallments + 1, plan.totalInstallments)
             if plan.paidInstallments >= plan.totalInstallments {
                 plan.isCompleted = true
