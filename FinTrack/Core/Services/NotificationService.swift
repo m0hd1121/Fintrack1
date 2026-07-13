@@ -283,13 +283,16 @@ final class NotificationService {
     // MARK: – Email Import Alert
 
     func sendEmailImportAlert(merchant: String, amount: Double, currency: String,
-                              category: String, autoApproved: Bool) {
+                              category: String, autoApproved: Bool, pendingReviewCount: Int = 0) {
         let content = UNMutableNotificationContent()
         content.title = autoApproved ? "Transaction Imported" : "Transaction Needs Review"
         content.body = autoApproved
             ? "\(merchant): \(amount.formatted(as: currency)) · \(category) — added automatically"
             : "\(merchant): \(amount.formatted(as: currency)) · \(category) — waiting in your review queue"
         content.sound = .default
+        if pendingReviewCount > 0 {
+            content.badge = NSNumber(value: pendingReviewCount)
+        }
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
         let id = "email_import_\(UUID().uuidString)"
         let request = UNNotificationRequest(identifier: id, content: content, trigger: trigger)

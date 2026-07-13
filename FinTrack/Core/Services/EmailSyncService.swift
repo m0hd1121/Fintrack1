@@ -288,6 +288,11 @@ final class EmailSyncService: NSObject {
         }
     }
 
+    func stopAutoSync() {
+        autoSyncTask?.cancel()
+        autoSyncTask = nil
+    }
+
     /// Registers the background refresh handler. Must run before the app
     /// finishes launching. Safe no-op if the identifier isn't declared in
     /// Info.plist (registration simply returns false).
@@ -298,7 +303,10 @@ final class EmailSyncService: NSObject {
                 Self.scheduleBackgroundRefresh()
                 task.setTaskCompleted(success: true)
             }
-            task.expirationHandler = { syncWork.cancel() }
+            task.expirationHandler = {
+                syncWork.cancel()
+                task.setTaskCompleted(success: false)
+            }
         }
     }
 
@@ -506,12 +514,19 @@ final class EmailSyncService: NSObject {
             approveToLedger(item: item, context: context, autoApproved: true)
         }
 
+        let pendingCount = (try? context.fetchCount(
+            FetchDescriptor<PendingEmailTransaction>(
+                predicate: #Predicate { $0.statusRaw == PendingImportStatus.pending.rawValue }
+            )
+        )) ?? 0
+
         NotificationService.shared.sendEmailImportAlert(
             merchant: item.merchantNormalized,
             amount: item.amount,
             currency: item.currency,
             category: item.suggestedCategory.rawValue,
-            autoApproved: item.status == PendingImportStatus.approved
+            autoApproved: item.status == PendingImportStatus.approved,
+            pendingReviewCount: pendingCount
         )
 
         // When rules/learning/keywords all came up empty, ask the maps
