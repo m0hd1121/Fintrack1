@@ -162,7 +162,7 @@ Part of PROJECT_MAP.md (see root for navigation). All folders under `FinTrack/Fe
 **Core features:** remittance/money-transfer tracking with provider filtering and rate/fee comparison.
 
 ### Features/Reports/
-- ReportsView.swift — single large file: `ReportsView` root + every report type as a sibling struct (`CashFlowReport`, `SpendingReport`, `IncomeReport`, `NetWorthReport`, `TrendsReport`, `DebtReport`, `InvestmentReport`, `SavingsGoalsReport`, `TaxSummaryReport`, `VATReport`, `AnnualSummaryReport`, `MerchantSpendReport`); also defines the shared `ftChartPalette`/`.ftChartAxes()` Swift Charts helper used app-wide
+- ReportsView.swift — single large file: `ReportsView` root + every report type as a sibling struct (`CashFlowReport`, `SpendingReport`, `IncomeReport`, `NetWorthReport`, `TrendsReport`, `DebtReport`, `ChequesReport`, `InvestmentReport`, `SavingsGoalsReport`, `TaxSummaryReport`, `VATReport`, `AnnualSummaryReport`, `MerchantSpendReport`); also defines the shared `ftChartPalette`/`.ftChartAxes()` Swift Charts helper used app-wide. `ChequesReport` lists cheque-method transactions grouped Overdue/Today/Week/Month/Later by `chequeDate` (unfiltered by the period selector, like `TrendsReport`/`SavingsGoalsReport`); row tap opens `TransactionDetailView` in a sheet.
 
 **Core features:** one-stop reporting/analytics — every report type switched on by `ReportType` inside `ReportsView`. `SavingsGoalsReport.totalSaved/totalTarget` convert each goal's own currency to base currency before summing (fixed this session).
 
@@ -200,11 +200,10 @@ Part of PROJECT_MAP.md (see root for navigation). All folders under `FinTrack/Fe
 ### Features/Transactions/
 - AddTransactionView.swift — largest add/edit form: core fields, receipt scanning, voice entry, location tagging; defines `LocationHelper`
 - CSVImportView.swift — 3-step CSV import wizard (upload/map/preview)
-- TransactionsListView.swift — main list: search/filter, bulk edit mode, undo snackbar; defines `UndoSnackbar`, `BulkEditBar`, `TransactionDetailView`, `FlowLayout`, etc. Also shows the "Upcoming Cheques" banner (any `.cheque` transaction with a `chequeDate`) that opens `UpcomingChequesView`.
-- UpcomingChequesView.swift — dedicated grouped list (Overdue/Today/Week/Month/Later) of cheque-method transactions by `chequeDate`, mirroring `Dashboard/UpcomingPaymentsView`'s layout; row tap opens `TransactionDetailView`.
+- TransactionsListView.swift — main list: search/filter, bulk edit mode, undo snackbar; defines `UndoSnackbar`, `BulkEditBar`, `TransactionDetailView`, `FlowLayout`, etc.
 - VoiceTransactionView.swift — voice-to-transaction capture UI wrapping `SpeechTransactionService`
 
-**Core features:** transaction CRUD and ingestion — manual entry with receipt/voice/location capture, bulk CSV import, searchable/filterable list + detail, standalone voice capture, cheque-due reminders (configurable lead time per transaction) with a dedicated upcoming-cheques list.
+**Core features:** transaction CRUD and ingestion — manual entry with receipt/voice/location capture, bulk CSV import, searchable/filterable list + detail, standalone voice capture, cheque-due reminders (configurable lead time per transaction; the upcoming-cheques list lives in the Reports tab's `ChequesReport`, not here).
 
 ---
 
