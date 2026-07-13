@@ -514,9 +514,10 @@ final class EmailSyncService: NSObject {
             approveToLedger(item: item, context: context, autoApproved: true)
         }
 
+        let pendingStatusRaw = PendingImportStatus.pending.rawValue
         let pendingCount = (try? context.fetchCount(
             FetchDescriptor<PendingEmailTransaction>(
-                predicate: #Predicate { $0.statusRaw == PendingImportStatus.pending.rawValue }
+                predicate: #Predicate { $0.statusRaw == pendingStatusRaw }
             )
         )) ?? 0
 
