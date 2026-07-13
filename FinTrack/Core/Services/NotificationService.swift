@@ -62,6 +62,19 @@ final class NotificationService {
         )
     }
 
+    // MARK: – Cheque reminder
+    func scheduleChequeReminder(chequeNumber: String?, amount: Double, currency: String,
+                                 chequeDate: Date, daysBefore: Int = 3, id: String) {
+        let label = (chequeNumber?.isEmpty == false) ? "Cheque #\(chequeNumber!)" : "Cheque"
+        schedule(
+            identifier: "cheque_\(id)",
+            title: "Cheque Due Soon",
+            body: "\(label) for \(amount.formatted(as: currency)) is due on \(chequeDate.formatted)",
+            dueDate: chequeDate,
+            daysBefore: daysBefore
+        )
+    }
+
     // MARK: – Budget alert (immediate)
     func scheduleBudgetAlert(categoryName: String, spent: Double, budget: Double, currency: String) {
         let content = UNMutableNotificationContent()

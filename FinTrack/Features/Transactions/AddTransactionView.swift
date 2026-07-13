@@ -37,6 +37,7 @@ struct AddTransactionView: View {
     @State private var paymentMethod: PaymentMethod = .cash
     @State private var chequeNumber = ""
     @State private var chequeDate = Date()
+    @State private var chequeReminderDays = 3
     @State private var isRecurring = false
     @State private var recurringFrequency: RecurringFrequency = .monthly
     @State private var merchant = ""
@@ -814,6 +815,12 @@ struct AddTransactionView: View {
                     DatePicker("", selection: $chequeDate, displayedComponents: .date).labelsHidden()
                 }
                 .padding(.vertical, 9)
+
+                Divider().opacity(0.4)
+                Stepper("Remind \(chequeReminderDays) day\(chequeReminderDays == 1 ? "" : "s") before",
+                        value: $chequeReminderDays, in: 1...30)
+                    .font(.ftBody).foregroundStyle(FTColor.textPrimary)
+                    .padding(.vertical, 13)
             }
 
             // BNPL plan link
@@ -1408,6 +1415,7 @@ struct AddTransactionView: View {
         selectedAccount = tx.account
         chequeNumber = tx.chequeNumber ?? ""
         if let cd = tx.chequeDate { chequeDate = cd }
+        chequeReminderDays = tx.chequeReminderDaysBefore ?? 3
         toAccount = tx.toAccount
         tags = tx.tags
         isPending = tx.isPending
@@ -1468,6 +1476,7 @@ struct AddTransactionView: View {
         let baseCurrency = appState.baseCurrency
         let convertedAmount = currencyService.convert(amountValue, from: currency, to: baseCurrency)
         let effectiveSplitItems = isSplitEnabled ? splitItems : []
+        var savedTx: Transaction!
 
         if let tx = editingTransaction {
             // Reverse old balance effect (only if was previously posted)
@@ -1505,6 +1514,7 @@ struct AddTransactionView: View {
             tx.merchant = merchant.isEmpty ? nil : merchant
             tx.chequeNumber = paymentMethod == .cheque && !chequeNumber.isEmpty ? chequeNumber : nil
             tx.chequeDate   = paymentMethod == .cheque ? chequeDate : nil
+            tx.chequeReminderDaysBefore = paymentMethod == .cheque ? chequeReminderDays : nil
             tx.tags = tags
             tx.account = selectedAccount
             tx.toAccount = type == .transfer ? toAccount : nil
@@ -1549,6 +1559,7 @@ struct AddTransactionView: View {
                 }
             }
 
+            savedTx = tx
         } else {
             // For loyalty categories the user's explicit choice always wins over AI
             let aiCategory = AICategorizationService.shared.suggestCategory(for: title, amount: amountValue, type: type)
@@ -1576,6 +1587,7 @@ struct AddTransactionView: View {
                 paymentMethod: paymentMethod,
                 chequeNumber: paymentMethod == .cheque && !chequeNumber.isEmpty ? chequeNumber : nil,
                 chequeDate:   paymentMethod == .cheque ? chequeDate : nil,
+                chequeReminderDaysBefore: paymentMethod == .cheque ? chequeReminderDays : nil,
                 tags: tags,
                 isPending: isPending,
                 isScheduled: isScheduled,
@@ -1673,9 +1685,24 @@ struct AddTransactionView: View {
                     prog.totalPointsRedeemed += loyaltyPointsDouble
                 }
             }
+            savedTx = tx
         }
 
         try? context.save()
+
+        // Cheque reminder: replace any previously scheduled notification with
+        // one reflecting the current payment method / date / lead time.
+        NotificationService.shared.cancelNotification(id: "cheque_\(savedTx.id.uuidString)")
+        if paymentMethod == .cheque {
+            NotificationService.shared.scheduleChequeReminder(
+                chequeNumber: savedTx.chequeNumber,
+                amount: amountValue,
+                currency: currency,
+                chequeDate: chequeDate,
+                daysBefore: chequeReminderDays,
+                id: savedTx.id.uuidString
+            )
+        }
 
         // Record category & tag learning
         let effectiveMerchant = merchant.trimmingCharacters(in: .whitespacesAndNewlines)

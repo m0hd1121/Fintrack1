@@ -129,6 +129,7 @@ final class Transaction {
     // Cheque-specific fields
     var chequeNumber: String?
     var chequeDate: Date?
+    var chequeReminderDaysBefore: Int?
 
     // Tax flags
     var isTaxDeductible: Bool
@@ -168,6 +169,7 @@ final class Transaction {
         paymentMethod: PaymentMethod = .cash,
         chequeNumber: String? = nil,
         chequeDate: Date? = nil,
+        chequeReminderDaysBefore: Int? = nil,
         tags: [String] = [],
         isVerified: Bool = false,
         isDuplicate: Bool = false,
@@ -202,6 +204,7 @@ final class Transaction {
         self.paymentMethod = paymentMethod
         self.chequeNumber = chequeNumber
         self.chequeDate = chequeDate
+        self.chequeReminderDaysBefore = chequeReminderDaysBefore
         self.tags = tags
         self.isVerified = isVerified
         self.isDuplicate = isDuplicate

@@ -44,8 +44,15 @@ struct TransactionsListView: View {
     // CSV import
     @State private var showingCSVImport = false
 
+    // Upcoming cheques
+    @State private var showingUpcomingCheques = false
+
     private var pendingImportCount: Int {
         pendingEmailItems.filter { $0.status == .pending }.count
+    }
+
+    private var upcomingChequeCount: Int {
+        transactions.filter { $0.paymentMethod == .cheque && $0.chequeDate != nil }.count
     }
 
     private var hasDuplicates: Bool {
@@ -127,6 +134,14 @@ struct TransactionsListView: View {
                             // Duplicate detection banner
                             if hasDuplicates {
                                 duplicateBanner
+                                    .listRowBackground(Color.clear)
+                                    .listRowSeparator(.hidden)
+                                    .listRowInsets(EdgeInsets(top: 4, leading: FTSpacing.screen, bottom: 4, trailing: FTSpacing.screen))
+                            }
+
+                            // Upcoming cheques banner
+                            if upcomingChequeCount > 0 {
+                                upcomingChequesBanner
                                     .listRowBackground(Color.clear)
                                     .listRowSeparator(.hidden)
                                     .listRowInsets(EdgeInsets(top: 4, leading: FTSpacing.screen, bottom: 4, trailing: FTSpacing.screen))
@@ -261,6 +276,9 @@ struct TransactionsListView: View {
                 }
                 .sheet(isPresented: $showingCSVImport, onDismiss: { recomputeGroups() }) {
                     CSVImportView()
+                }
+                .sheet(isPresented: $showingUpcomingCheques, onDismiss: { recomputeGroups() }) {
+                    UpcomingChequesView()
                 }
                 .sheet(isPresented: $showingBulkCategoryPicker) {
                     BulkCategoryPickerSheet(selectedCategory: $bulkNewCategory) {
@@ -414,6 +432,27 @@ struct TransactionsListView: View {
         .buttonStyle(.plain)
     }
 
+    private var upcomingChequesBanner: some View {
+        Button { showingUpcomingCheques = true } label: {
+            HStack(spacing: FTSpacing.md) {
+                FTIconTile(symbol: "signature", tint: FTColor.gold, size: 40)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Upcoming Cheques")
+                        .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                    Text("\(upcomingChequeCount) cheque\(upcomingChequeCount == 1 ? "" : "s") tracked — tap to view the list")
+                        .font(.ftCaption).foregroundStyle(FTColor.textMuted)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.ftCaption).foregroundStyle(FTColor.textMuted)
+            }
+            .padding(FTSpacing.md)
+            .ftGlassInteractive(FTRadius.md)
+        }
+        .buttonStyle(.plain)
+        .contentShape(Rectangle())
+    }
+
     private var duplicateBanner: some View {
         HStack(spacing: FTSpacing.sm) {
             Image(systemName: "doc.on.doc.fill")
@@ -485,6 +524,9 @@ struct TransactionsListView: View {
     }
 
     private func deleteTransaction(_ tx: Transaction) {
+        if tx.paymentMethod == .cheque {
+            NotificationService.shared.cancelNotification(id: "cheque_\(tx.id.uuidString)")
+        }
         if let account = tx.account, !tx.isPending, !tx.isScheduled {
             let delta = currencyService.convert(tx.amount, from: tx.currency, to: account.currency)
             switch tx.type {
