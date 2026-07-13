@@ -200,10 +200,11 @@ Part of PROJECT_MAP.md (see root for navigation). All folders under `FinTrack/Fe
 ### Features/Transactions/
 - AddTransactionView.swift — largest add/edit form: core fields, receipt scanning, voice entry, location tagging; defines `LocationHelper`
 - CSVImportView.swift — 3-step CSV import wizard (upload/map/preview)
-- TransactionsListView.swift — main list: search/filter, bulk edit mode, undo snackbar; defines `UndoSnackbar`, `BulkEditBar`, `TransactionDetailView`, `FlowLayout`, etc.
+- TransactionsListView.swift — main list: search/filter, bulk edit mode, undo snackbar; defines `UndoSnackbar`, `BulkEditBar`, `TransactionDetailView`, `FlowLayout`, etc. Also shows the "Upcoming Cheques" banner (any `.cheque` transaction with a `chequeDate`) that opens `UpcomingChequesView`.
+- UpcomingChequesView.swift — dedicated grouped list (Overdue/Today/Week/Month/Later) of cheque-method transactions by `chequeDate`, mirroring `Dashboard/UpcomingPaymentsView`'s layout; row tap opens `TransactionDetailView`.
 - VoiceTransactionView.swift — voice-to-transaction capture UI wrapping `SpeechTransactionService`
 
-**Core features:** transaction CRUD and ingestion — manual entry with receipt/voice/location capture, bulk CSV import, searchable/filterable list + detail, standalone voice capture.
+**Core features:** transaction CRUD and ingestion — manual entry with receipt/voice/location capture, bulk CSV import, searchable/filterable list + detail, standalone voice capture, cheque-due reminders (configurable lead time per transaction) with a dedicated upcoming-cheques list.
 
 ---
 
