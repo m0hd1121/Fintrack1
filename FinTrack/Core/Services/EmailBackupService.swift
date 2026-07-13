@@ -4,12 +4,18 @@ import Observation
 
 // MARK: - EmailBackupService
 //
-// Automatic backup via plain email — sends the (optionally encrypted)
-// .fintrack backup file to your own inbox over SMTP, and restores it by
-// searching that same inbox over IMAP for the most recent backup email.
-// Signs in with a real email address + app-specific password, exactly like
-// the existing IMAP email-import flow — no OAuth, no developer setup, no
-// Google Cloud Console client ID.
+// Automatic backup via plain email — sends the (compressed, optionally
+// encrypted) .fintrack backup file to your own inbox over SMTP, and restores
+// it by searching that same inbox over IMAP for the most recent backup
+// email. Signs in with a real email address + app-specific password, exactly
+// like the existing IMAP email-import flow — no OAuth, no developer setup,
+// no Google Cloud Console client ID.
+//
+// Pipeline: export JSON → zlib-compress → encrypt (if a Backup Passphrase is
+// set) → attach to an SMTP message. Restore reverses it: decrypt (if
+// encrypted) → decompress (if compressed) → import. Compression always runs
+// on backup; decompression detects a magic header so older, uncompressed
+// backup emails still restore correctly.
 enum EmailBackupError: LocalizedError {
     case notConnected
     case noBackupFound
@@ -154,7 +160,8 @@ final class EmailBackupService {
             let exportURL = try DataTransferService.shared.exportBackup(context: context)
             let data = try Data(contentsOf: exportURL)
             try? FileManager.default.removeItem(at: exportURL)
-            let finalData = try await BackupEncryptionService.encryptIfEnabled(data)
+            let compressedData = try Self.compress(data)
+            let finalData = try await BackupEncryptionService.encryptIfEnabled(compressedData)
 
             let smtp = SMTPClient(host: smtpHost)
             try await smtp.connect()
@@ -202,7 +209,8 @@ final class EmailBackupService {
             guard let rawData = MIMEDecoder.extractAttachment(from: raw, filenameContains: backupFileName) else {
                 return EmailBackupError.attachmentUnreadable.localizedDescription
             }
-            let plainData = try await BackupEncryptionService.decryptIfNeeded(rawData)
+            let decryptedData = try await BackupEncryptionService.decryptIfNeeded(rawData)
+            let plainData = try Self.decompressIfNeeded(decryptedData)
 
             let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(backupFileName)
             try plainData.write(to: tempURL, options: .atomic)
@@ -253,6 +261,25 @@ final class EmailBackupService {
 
     private func set(error msg: String) async {
         await MainActor.run { lastError = msg }
+    }
+
+    // MARK: - Compression
+    //
+    // Runs before encryption (compressing ciphertext gains nothing — AES
+    // output is high-entropy) and is undone after decryption. A magic header
+    // lets restore tell a compressed backup apart from an older, plain one.
+
+    private static let compressionMagic = Data("FTGZ1".utf8)
+
+    private static func compress(_ data: Data) throws -> Data {
+        let compressed = try (data as NSData).compressed(using: .zlib) as Data
+        return compressionMagic + compressed
+    }
+
+    private static func decompressIfNeeded(_ data: Data) throws -> Data {
+        guard data.starts(with: compressionMagic) else { return data }
+        let payload = data.suffix(from: compressionMagic.count)
+        return try (Data(payload) as NSData).decompressed(using: .zlib) as Data
     }
 
     private static func dateStamp(_ date: Date) -> String {

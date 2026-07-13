@@ -82,11 +82,11 @@ Key methods: `debtItems(loans:creditCards:) -> [DebtItem]`, `totalOutstandingDeb
 External APIs: none
 
 ### EmailBackupService.swift
-Purpose: automatic backup-to-self-inbox via plain SMTP/IMAP (app-specific password, no OAuth) — emails the encrypted `.fintrack` file, restores by searching for it.
+Purpose: automatic backup-to-self-inbox via plain SMTP/IMAP (app-specific password, no OAuth) — emails the zlib-compressed, optionally-encrypted `.fintrack` file, restores by searching for it.
 Singleton: `.shared` | Actor: **`@MainActor @Observable`** (explicit)
 Key methods: `connect(email:password:smtpHost:imapHost:) async throws` (verifies SMTP+IMAP up front), `disconnect()`, `performBackup(context:) async -> Bool`, `restoreFromEmail(context:mode:) async -> String`, `scheduleAutomaticBackupIfNeeded/startAutoBackup/stopAutoBackup`
 External APIs: SMTPClient, IMAPClient (custom raw-socket clients), Keychain
-Note: hourly auto-backup interval + a real foreground polling loop (`startAutoBackup`), added this session because scene-phase-only checks weren't reliable.
+Note: hourly auto-backup interval + a real foreground polling loop (`startAutoBackup`), added this session because scene-phase-only checks weren't reliable. Pipeline order is compress (zlib, always) → encrypt (only if `BackupEncryptionService.isEnabled`) on backup, decrypt → decompress on restore; a private `"FTGZ1"` magic header lets restore detect and skip decompression for backup emails sent before compression was added. This compression step is local to `EmailBackupService` — `GoogleDriveBackupService`/iCloud/manual export still send uncompressed (only encryption is shared via `BackupEncryptionService`).
 
 ### EmailSyncService.swift
 Purpose: orchestrates the whole email → pending-transaction pipeline — Gmail/Outlook OAuth2+PKCE, IMAP app-password, background sync, bank-email parsing, dedup, auto-approval to ledger.
