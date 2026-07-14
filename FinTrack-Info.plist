@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>GmailOAuthClientID</key>
+	<string>353214449712-bc7g6kq2duscbbdoqhod2b2chiip3h8h.apps.googleusercontent.com</string>
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
 		<string>com.fintrack.email-sync</string>
