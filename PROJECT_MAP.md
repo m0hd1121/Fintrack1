@@ -1,4 +1,4 @@
-Last verified: 2026-07-13 @ 1eaabf2
+Last verified: 2026-07-13 @ a942aa1
 
 # PROJECT_MAP.md
 
@@ -110,6 +110,7 @@ Error handling has three co-existing patterns (detail + file:line examples in `M
 - **Tab bar is full** (4 tabs + centre FAB). New top-level modules must be reachable via `Settings/SettingsView.swift`, not a new tab (per CLAUDE.md).
 - **FinTrackWidget has 5 widgets, not 3** — CLAUDE.md's "Platform Extensions" section is stale on this count (`FinTrackBalanceWidget`, `FinTrackBudgetWidget`, `FinTrackBillsWidget`, `FinTrackPaymentsWidget`, plus the Live Activity configuration).
 - **Email account sign-in: OAuth (`ASWebAuthenticationSession`) for every provider that has one, password-IMAP only where OAuth is impossible.** `EmailProvider.supportsOAuthSync` is `true` only for `.gmail`/`.outlook` — both go through the single `EmailSyncService.connect(provider:context:)` OAuth+PKCE flow (`ASWebAuthenticationSession`); `EmailImportView.connect(_:)` no longer has a Gmail-specific password-IMAP fallback (removed — previously fell back to `IMAPSignInSheet` when no client ID was configured, now always opens `OAuthSetupSheet` like Outlook). `.icloud`/`.imap` stay on `IMAPSignInSheet` (app-specific password) because there is no public third-party OAuth authorization flow for iCloud Mail, and `.imap` is an arbitrary user-supplied host with no known OAuth endpoint — this is a protocol constraint, not a gap to close.
+- **`GmailOAuthClientID` is baked into `FinTrack-Info.plist`** (real iOS-type OAuth client ID, safe to commit — Google treats native-app client IDs as non-confidential, PKCE covers the security). `EmailSyncService.storedClientId(for:)` checks this Info.plist key before the UserDefaults-backed manual-paste fallback, so Gmail sign-in requires zero setup for anyone building/running this repo: tap Gmail → straight to Google's real login page. No `CFBundleURLTypes` entry is needed for the reversed-client-ID redirect scheme — `ASWebAuthenticationSession` intercepts its own callback without app-level URL-scheme registration. Outlook has no equivalent baked-in client ID yet (still requires the one-time `OAuthSetupSheet` paste) since Microsoft Entra app registration wasn't done this session.
 
 ## 9. STATE
 
