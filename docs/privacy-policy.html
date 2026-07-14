@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FinTrack — Privacy Policy</title>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 40px 20px 80px;
+    line-height: 1.6;
+    color: #1c1c1e;
+    background: #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    body { color: #e6e6e6; background: #121212; }
+    a { color: #6cb4ff; }
+  }
+  h1 { font-size: 1.8rem; margin-bottom: 4px; }
+  h2 { font-size: 1.2rem; margin-top: 2.2em; }
+  .updated { color: #767680; font-size: 0.9rem; margin-bottom: 2em; }
+  ul { padding-left: 1.3em; }
+  li { margin-bottom: 0.4em; }
+  code { background: rgba(127,127,127,0.15); padding: 0.1em 0.4em; border-radius: 4px; font-size: 0.9em; }
+  .contact { margin-top: 3em; padding-top: 1.5em; border-top: 1px solid rgba(127,127,127,0.3); }
+</style>
+</head>
+<body>
+
+<h1>FinTrack Privacy Policy</h1>
+<p class="updated">Last updated: 14 July 2026</p>
+
+<p>FinTrack is a personal finance app built and operated by an individual developer, not a company. This policy explains what data FinTrack accesses, how it's used, and — most importantly — what FinTrack does <strong>not</strong> do with it.</p>
+
+<h2>The short version</h2>
+<ul>
+  <li>FinTrack has <strong>no backend server</strong>. There is nowhere for your data to be sent, because nothing exists to send it to.</li>
+  <li>All your financial data — transactions, accounts, balances, budgets — is stored only in the app's local database on your own device.</li>
+  <li>FinTrack does not run any analytics, advertising, or tracking software of any kind.</li>
+  <li>FinTrack does not sell, rent, or share your data with anyone, for any reason.</li>
+</ul>
+
+<h2>Gmail access</h2>
+<p>FinTrack can optionally connect to your Gmail account so it can automatically detect bank transaction emails (e.g. "You spent AED 50 at ...") and turn them into transactions, instead of you typing every purchase in by hand. This is entirely optional — FinTrack works fully without ever connecting an email account.</p>
+<p>When you choose to connect Gmail:</p>
+<ul>
+  <li><strong>Sign-in happens on Google's own page.</strong> FinTrack uses standard OAuth 2.0 with PKCE via Apple's <code>ASWebAuthenticationSession</code> — you type your Google password directly into Google's real login page, never into the app. FinTrack never sees or stores your password.</li>
+  <li><strong>Read-only access, one scope.</strong> FinTrack requests only <code>gmail.readonly</code> — it cannot send email, delete email, or modify your mailbox in any way.</li>
+  <li><strong>Only bank-sender emails are fetched.</strong> FinTrack searches for messages from a whitelist of known bank/financial-institution senders — it does not scan your entire inbox indiscriminately.</li>
+  <li><strong>Parsing happens entirely on your device.</strong> No email content is ever uploaded to any server, because FinTrack has no server. The transaction amount, merchant, and date are extracted on-device, and the full email body is discarded immediately afterward — only a short text snippet is kept locally, for your own reference inside the app.</li>
+  <li><strong>Your access token is stored only in the iOS Keychain</strong> on your device, protected by the same system Apple uses for passwords. It is never transmitted anywhere except directly to Google's own servers, which is required for the token itself to work.</li>
+  <li><strong>You can disconnect at any time</strong> from within the app, which removes the stored token. You can also revoke FinTrack's access directly from your Google Account's <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">Security → Third-party access</a> page at any time.</li>
+</ul>
+
+<h2>Data storage and backup</h2>
+<p>All app data lives in a local database on your device. FinTrack offers optional, user-initiated backup methods — iCloud, Google Drive, or emailing an encrypted backup file to yourself — each of which you must explicitly turn on and each of which sends data only to a service <em>you</em> already control (your own iCloud account, your own Google Drive, your own email inbox), never to FinTrack or any third party. Backups can optionally be encrypted with a passphrase that only you know and that is never transmitted anywhere.</p>
+
+<h2>What FinTrack does not do</h2>
+<ul>
+  <li>No analytics, crash-reporting, or advertising SDKs of any kind.</li>
+  <li>No account or sign-up with FinTrack itself — there is nothing to sign up for beyond your own device.</li>
+  <li>No selling, renting, or sharing of your data with advertisers, data brokers, or any other third party.</li>
+  <li>No access to your email beyond the read-only, bank-sender-filtered scope described above.</li>
+</ul>
+
+<h2>Children's privacy</h2>
+<p>FinTrack is not directed at children under 13 and does not knowingly collect data from them.</p>
+
+<h2>Changes to this policy</h2>
+<p>If this policy changes, the "Last updated" date above will change accordingly. Since FinTrack has no way to contact users directly (no accounts, no server), please check this page periodically if you have concerns.</p>
+
+<div class="contact">
+<h2>Contact</h2>
+<p>Questions about this policy or FinTrack's data handling can be sent to <a href="mailto:m0h3d.jf@gmail.com">m0h3d.jf@gmail.com</a>.</p>
+</div>
+
+</body>
+</html>
