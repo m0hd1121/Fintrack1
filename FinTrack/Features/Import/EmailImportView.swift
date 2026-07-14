@@ -251,7 +251,7 @@ struct EmailImportView: View {
         case .gmail:
             return syncService.isConfigured(.gmail)
                 ? "OAuth sign-in · read-only · bank senders only"
-                : "Sign in with your Gmail + Google App Password"
+                : "Tap for one-time setup (Google requires OAuth)"
         case .outlook:
             return syncService.isConfigured(.outlook)
                 ? "OAuth sign-in · read-only · bank senders only"
@@ -264,20 +264,18 @@ struct EmailImportView: View {
     }
 
     private func connect(_ provider: EmailProvider) {
-        // Direct email sign-in (app password over IMAP) is the default for
-        // everything except Outlook — Microsoft disabled password IMAP in
-        // 2024, so Outlook requires the OAuth client ID. Gmail uses OAuth
-        // automatically once a client ID has been configured.
+        // Direct email sign-in (app password over IMAP) only applies to
+        // providers with no OAuth implementation at all (iCloud has no public
+        // third-party OAuth for Mail; "Other IMAP" can be any host). Gmail
+        // and Outlook both sign in via ASWebAuthenticationSession — if no
+        // client ID has been configured yet, that's a one-time OAuth setup
+        // step, not a password fallback.
         if !provider.supportsOAuthSync {
             imapSignInProvider = provider
             return
         }
         if !syncService.isConfigured(provider) {
-            if provider == .gmail {
-                imapSignInProvider = provider   // sign in with Google App Password
-            } else {
-                oauthSetupProvider = provider   // Outlook: OAuth is the only way
-            }
+            oauthSetupProvider = provider
             return
         }
         Task {
