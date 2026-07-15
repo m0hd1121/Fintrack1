@@ -121,7 +121,7 @@ struct PDFImportView: View {
 
     private var bankSelector: some View {
         VStack(alignment: .leading, spacing: FTSpacing.sm) {
-            Text("BANK").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("BANK").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
             Menu {
                 ForEach(supportedBanks, id: \.self) { bank in
                     Button(bank) { selectedBankName = bank }
@@ -142,7 +142,7 @@ struct PDFImportView: View {
 
     private var accountSelector: some View {
         VStack(alignment: .leading, spacing: FTSpacing.sm) {
-            Text("IMPORT TO ACCOUNT").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("IMPORT TO ACCOUNT").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
             if accounts.isEmpty {
                 Text("No accounts found. Add an account first.").font(.ftBody).foregroundStyle(FTColor.textMuted)
             } else {

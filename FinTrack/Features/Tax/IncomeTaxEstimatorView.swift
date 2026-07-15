@@ -54,7 +54,7 @@ struct IncomeTaxEstimatorView: View {
 
     private var countrySelector: some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
-            Text("COUNTRY / REGION").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("COUNTRY / REGION").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: FTSpacing.sm) {
@@ -87,7 +87,7 @@ struct IncomeTaxEstimatorView: View {
 
     private var incomeSection: some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
-            Text("ANNUAL INCOME").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("ANNUAL INCOME").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
 
             VStack(spacing: FTSpacing.sm) {
                 Toggle(isOn: $useTransactionIncome) {
@@ -204,7 +204,7 @@ struct IncomeTaxEstimatorView: View {
     private var bracketBreakdown: some View {
         if estimate.isSubjectToTax && !estimate.bracketBreakdown.isEmpty {
             VStack(alignment: .leading, spacing: FTSpacing.md) {
-                Text("TAX BRACKET BREAKDOWN").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+                Text("TAX BRACKET BREAKDOWN").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
                 VStack(spacing: FTSpacing.sm) {
                     ForEach(estimate.bracketBreakdown) { b in
                         HStack {

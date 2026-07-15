@@ -444,7 +444,7 @@ struct AddBillView: View {
     private func sectionHeader(_ title: String) -> some View {
         Text(title.uppercased())
             .font(.ftLabel)
-            .tracking(1.6)
+            .tracking(1.6).fixedSize(horizontal: true, vertical: false)
             .foregroundStyle(FTColor.textMuted)
             .padding(.leading, FTSpacing.xs)
             .padding(.bottom, FTSpacing.xs)

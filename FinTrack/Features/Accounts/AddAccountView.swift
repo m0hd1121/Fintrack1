@@ -221,7 +221,7 @@ struct AddAccountView: View {
                         // Color
                         VStack(alignment: .leading, spacing: FTSpacing.sm) {
                             Text("COLOR")
-                                .font(.ftLabel).tracking(1.6)
+                                .font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false)
                                 .foregroundStyle(FTColor.textSecondary)
                             colorPicker
                         }
@@ -558,7 +558,7 @@ struct AddCreditCardView: View {
                         // Color
                         VStack(alignment: .leading, spacing: FTSpacing.sm) {
                             Text("COLOR")
-                                .font(.ftLabel).tracking(1.6)
+                                .font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false)
                                 .foregroundStyle(FTColor.textSecondary)
                             ScrollView(.horizontal, showsIndicators: false) {
                                 HStack(spacing: 12) {
@@ -1279,7 +1279,7 @@ struct AddGiftCardView: View {
 
                         // Color
                         VStack(alignment: .leading, spacing: FTSpacing.sm) {
-                            Text("COLOR").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+                            Text("COLOR").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
                             ScrollView(.horizontal, showsIndicators: false) {
                                 HStack(spacing: 12) {
                                     ForEach(colors, id: \.self) { color in
@@ -1515,7 +1515,7 @@ struct AddLoyaltyProgramView: View {
 
                         // Color
                         VStack(alignment: .leading, spacing: FTSpacing.sm) {
-                            Text("COLOR").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+                            Text("COLOR").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
                             ScrollView(.horizontal, showsIndicators: false) {
                                 HStack(spacing: 12) {
                                     ForEach(colors, id: \.self) { color in

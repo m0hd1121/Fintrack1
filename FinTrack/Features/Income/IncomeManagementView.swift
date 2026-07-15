@@ -609,7 +609,7 @@ private struct IncomeHeroCard: View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
             Text("TOTAL MONTHLY INCOME")
                 .font(.ftLabel)
-                .tracking(1.6)
+                .tracking(1.6).fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(.white.opacity(0.8))
 
             Text(totalMonthlyIncome.formatted(as: baseCurrency))
@@ -928,7 +928,7 @@ struct PassiveIncomeHeroCard: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("PASSIVE INCOME")
                         .font(.ftLabel)
-                        .tracking(1.6)
+                        .tracking(1.6).fixedSize(horizontal: true, vertical: false)
                         .foregroundStyle(.white.opacity(0.8))
                     Text("Earn while you sleep")
                         .font(.ftCaption)

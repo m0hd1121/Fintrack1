@@ -69,7 +69,7 @@ struct RentalView: View {
         VStack(alignment: .leading, spacing: FTSpacing.lg) {
             Text("RENTAL PORTFOLIO")
                 .font(.ftLabel)
-                .tracking(1.6)
+                .tracking(1.6).fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(FTColor.textMuted)
 
             // Primary metric
@@ -140,7 +140,7 @@ struct RentalView: View {
             HStack {
                 Text("PROPERTIES")
                     .font(.ftLabel)
-                    .tracking(1.6)
+                    .tracking(1.6).fixedSize(horizontal: true, vertical: false)
                     .foregroundStyle(FTColor.textMuted)
                 Spacer()
                 Button {
@@ -404,7 +404,7 @@ struct PropertyDetailSheet: View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
             Text("OCCUPANCY")
                 .font(.ftLabel)
-                .tracking(1.6)
+                .tracking(1.6).fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(FTColor.textMuted)
 
             if property.isOccupied, let period = property.currentOccupancyPeriod {
@@ -487,7 +487,7 @@ struct PropertyDetailSheet: View {
             HStack {
                 Text("ANALYTICS")
                     .font(.ftLabel)
-                    .tracking(1.6)
+                    .tracking(1.6).fixedSize(horizontal: true, vertical: false)
                     .foregroundStyle(FTColor.textMuted)
                 Spacer()
                 Button("Record Payment") {
@@ -546,7 +546,7 @@ struct PropertyDetailSheet: View {
         VStack(alignment: .leading, spacing: FTSpacing.sm) {
             Text("PAYMENT HISTORY")
                 .font(.ftLabel)
-                .tracking(1.6)
+                .tracking(1.6).fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(FTColor.textMuted)
                 .padding(.leading, FTSpacing.xs)
 
@@ -830,7 +830,7 @@ struct AddTenancySheet: View {
     private func sectionLabel(_ title: String) -> some View {
         Text(title)
             .font(.ftLabel)
-            .tracking(1.6)
+            .tracking(1.6).fixedSize(horizontal: true, vertical: false)
             .foregroundStyle(FTColor.textMuted)
             .padding(.leading, FTSpacing.xs)
             .padding(.bottom, FTSpacing.xs)
@@ -936,7 +936,7 @@ struct RecordRentPaymentSheet: View {
         VStack(alignment: .leading, spacing: 0) {
             Text("PAYMENT DETAILS")
                 .font(.ftLabel)
-                .tracking(1.6)
+                .tracking(1.6).fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(FTColor.textMuted)
                 .padding(.leading, FTSpacing.xs)
                 .padding(.bottom, FTSpacing.xs)

@@ -69,7 +69,7 @@ struct InvoiceCreatorView: View {
 
     private var headerSection: some View {
         VStack(spacing: FTSpacing.md) {
-            Text("INVOICE DETAILS").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("INVOICE DETAILS").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
                 .frame(maxWidth: .infinity, alignment: .leading)
             VStack(spacing: FTSpacing.sm) {
                 rowField("Invoice #") {
@@ -98,7 +98,7 @@ struct InvoiceCreatorView: View {
 
     private var clientSection: some View {
         VStack(spacing: FTSpacing.md) {
-            Text("CLIENT").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("CLIENT").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
                 .frame(maxWidth: .infinity, alignment: .leading)
             Button { showingClientPicker = true } label: {
                 HStack {
@@ -128,7 +128,7 @@ struct InvoiceCreatorView: View {
     private var lineItemsSection: some View {
         VStack(spacing: FTSpacing.md) {
             HStack {
-                Text("LINE ITEMS").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+                Text("LINE ITEMS").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
                 Spacer()
                 Button {
                     lineItems.append(InvoiceLineItem())
@@ -558,7 +558,7 @@ struct InvoiceDetailSheet: View {
 
     private var lineItemsCard: some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
-            Text("LINE ITEMS").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("LINE ITEMS").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
             ForEach(invoice.lineItems) { item in
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
@@ -598,7 +598,7 @@ struct InvoiceDetailSheet: View {
 
     private var paymentsCard: some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
-            Text("PAYMENT HISTORY").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("PAYMENT HISTORY").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
             if invoice.invoicePayments.isEmpty {
                 Text("No payments recorded.").font(.ftBody).foregroundStyle(FTColor.textMuted)
             } else {
@@ -631,7 +631,7 @@ struct InvoiceDetailSheet: View {
 
     private var statusActions: some View {
         VStack(spacing: FTSpacing.sm) {
-            Text("UPDATE STATUS").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("UPDATE STATUS").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
                 .frame(maxWidth: .infinity, alignment: .leading)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: FTSpacing.sm) {

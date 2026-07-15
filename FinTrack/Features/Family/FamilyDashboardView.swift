@@ -94,7 +94,7 @@ struct FamilyDashboardView: View {
             members: group.members, transactions: transactions, currency: appState.baseCurrency
         )
         return VStack(alignment: .leading, spacing: FTSpacing.md) {
-            Text("FAMILY MEMBERS").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("FAMILY MEMBERS").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
             VStack(spacing: FTSpacing.sm) {
                 ForEach(memberSummaries, id: \.member.id) { ms in
                     memberCard(ms.member, income: ms.monthlyIncome, expenses: ms.monthlyExpenses)
@@ -152,7 +152,7 @@ struct FamilyDashboardView: View {
         if !active.isEmpty {
             VStack(alignment: .leading, spacing: FTSpacing.md) {
                 HStack {
-                    Text("SHARED GOALS").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+                    Text("SHARED GOALS").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
                     Spacer()
                     NavigationLink("See All") {
                         SharedFamilyGoalsView(group: group)
@@ -192,7 +192,7 @@ struct FamilyDashboardView: View {
 
     private var spendingBreakdown: some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
-            Text("TOP SPENDING CATEGORIES").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("TOP SPENDING CATEGORIES").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
             VStack(spacing: FTSpacing.sm) {
                 ForEach(summary.topExpenseCategories, id: \.category) { item in
                     HStack {

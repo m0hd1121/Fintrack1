@@ -520,7 +520,7 @@ struct DebtManagementView: View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
             Text("TOTAL DEBT")
                 .font(.ftLabel)
-                .tracking(1.6)
+                .tracking(1.6).fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(.white.opacity(0.8))
 
             Text(totalDebt.formatted(as: baseCurrency))

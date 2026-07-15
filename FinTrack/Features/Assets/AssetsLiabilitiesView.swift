@@ -152,7 +152,7 @@ struct AssetsLiabilitiesView: View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
             Text("TOTAL ASSETS")
                 .font(.ftLabel)
-                .tracking(1.6)
+                .tracking(1.6).fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(.white.opacity(0.8))
 
             Text(combinedTotal.formatted(as: baseCurrency))
@@ -253,7 +253,7 @@ struct AssetsLiabilitiesView: View {
         HStack(spacing: FTSpacing.xs) {
             Text(title.uppercased())
                 .font(.ftLabel)
-                .tracking(1.6)
+                .tracking(1.6).fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(FTColor.textMuted)
             Spacer()
         }

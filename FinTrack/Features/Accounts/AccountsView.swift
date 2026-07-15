@@ -262,7 +262,7 @@ struct AccountsView: View {
             VStack(alignment: .leading, spacing: 14) {
                 HStack {
                     Text("TOTAL NET WORTH")
-                        .font(.ftLabel).tracking(1.6)
+                        .font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false)
                         .foregroundStyle(.white.opacity(0.8))
                     Spacer()
                     if !unacknowledgedMilestones.isEmpty {

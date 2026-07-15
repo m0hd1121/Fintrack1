@@ -95,7 +95,7 @@ struct EmailReviewQueueView: View {
                     }
                 } header: {
                     Text("PENDING · \(pendingItems.count)")
-                        .font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+                        .font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
                 }
             }
 

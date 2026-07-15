@@ -230,7 +230,7 @@ struct iCloudSyncView: View {
 
     private var devicesCard: some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
-            Text("BACKUP LOCATION").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("BACKUP LOCATION").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
 
             HStack(spacing: FTSpacing.md) {
                 ZStack {
@@ -286,7 +286,7 @@ struct iCloudSyncView: View {
 
     private var conflictCard: some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
-            Text("CONFLICT RESOLUTION").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("CONFLICT RESOLUTION").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
             HStack {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Strategy").font(.ftBody).foregroundStyle(FTColor.textPrimary)

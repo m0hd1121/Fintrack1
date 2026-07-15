@@ -104,7 +104,7 @@ struct AddSavingsGoalView: View {
 
     private var typeSection: some View {
         VStack(alignment: .leading, spacing: FTSpacing.sm) {
-            Text("GOAL TYPE").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+            Text("GOAL TYPE").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
 
             let columns = [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())]
             LazyVGrid(columns: columns, spacing: FTSpacing.sm) {
@@ -145,7 +145,7 @@ struct AddSavingsGoalView: View {
 
     private var detailsSection: some View {
         VStack(alignment: .leading, spacing: FTSpacing.sm) {
-            Text("DETAILS").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+            Text("DETAILS").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
 
             VStack(spacing: 0) {
                 formRow("Goal Name") {
@@ -226,7 +226,7 @@ struct AddSavingsGoalView: View {
 
             // Icon picker
             VStack(alignment: .leading, spacing: FTSpacing.sm) {
-                Text("ICON").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+                Text("ICON").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 10) {
                         ForEach(sfIcons, id: \.self) { icon in
@@ -248,7 +248,7 @@ struct AddSavingsGoalView: View {
 
             // Color picker
             VStack(alignment: .leading, spacing: FTSpacing.sm) {
-                Text("COLOR").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+                Text("COLOR").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
                 HStack(spacing: 12) {
                     ForEach(colors, id: \.self) { color in
                         Circle()
@@ -289,7 +289,7 @@ struct AddSavingsGoalView: View {
         let suggested = monthly > 0 ? monthly * Double(emergencyMonths) : (emergencyMonths == 3 ? 15_000.0 : 30_000.0)
 
         return VStack(alignment: .leading, spacing: FTSpacing.sm) {
-            Text("EMERGENCY FUND").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+            Text("EMERGENCY FUND").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
             VStack(spacing: 0) {
                 formRow("Months of Coverage") {
                     Picker("", selection: $emergencyMonths) {
@@ -335,7 +335,7 @@ struct AddSavingsGoalView: View {
 
     private var downPaymentTemplate: some View {
         VStack(alignment: .leading, spacing: FTSpacing.sm) {
-            Text("DOWN PAYMENT").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+            Text("DOWN PAYMENT").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
             VStack(spacing: 0) {
                 formRow("Property Price") {
                     Text(currency).font(.ftBody).foregroundStyle(FTColor.textMuted)
@@ -403,7 +403,7 @@ struct AddSavingsGoalView: View {
 
     private var educationTemplate: some View {
         VStack(alignment: .leading, spacing: FTSpacing.sm) {
-            Text("EDUCATION FUND").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+            Text("EDUCATION FUND").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
             VStack(spacing: 0) {
                 formRow("Institution") {
                     Picker("", selection: Binding<String>(
@@ -458,7 +458,7 @@ struct AddSavingsGoalView: View {
     private var hajjTemplate: some View {
         let packages = isUmrahTrip ? SavingsGoalService.umrahPackageEstimates : SavingsGoalService.hajjPackageEstimates
         return VStack(alignment: .leading, spacing: FTSpacing.sm) {
-            Text("HAJJ / UMRAH").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+            Text("HAJJ / UMRAH").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
             VStack(spacing: 0) {
                 formRow("Trip Type") {
                     Picker("", selection: $isUmrahTrip) {
@@ -514,7 +514,7 @@ struct AddSavingsGoalView: View {
 
     private var autoContributionSection: some View {
         VStack(alignment: .leading, spacing: FTSpacing.sm) {
-            Text("AUTO-CONTRIBUTION").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+            Text("AUTO-CONTRIBUTION").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
             VStack(spacing: 0) {
                 Toggle(isOn: $autoContribEnabled) {
                     Label("Automatic Contributions", systemImage: "repeat.circle")
@@ -600,7 +600,7 @@ struct AddSavingsGoalView: View {
 
     private var notesSection: some View {
         VStack(alignment: .leading, spacing: FTSpacing.sm) {
-            Text("NOTES").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+            Text("NOTES").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
             TextEditor(text: $notes)
                 .font(.ftBody).foregroundStyle(FTColor.textPrimary)
                 .frame(minHeight: 80)

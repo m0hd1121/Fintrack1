@@ -236,7 +236,7 @@ struct AddChildProfileSheet: View {
                     .padding().ftGlass(FTRadius.xl)
 
                     VStack(alignment: .leading, spacing: FTSpacing.md) {
-                        Text("ALLOWANCE").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+                        Text("ALLOWANCE").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
                         VStack(spacing: FTSpacing.sm) {
                             fieldRow("Monthly Amount (\(currency))", placeholder: "e.g. 200", text: $monthlyAllowance, keyboard: .decimalPad)
                             Picker("Frequency", selection: $frequency) {
@@ -250,7 +250,7 @@ struct AddChildProfileSheet: View {
                     .padding().ftGlass(FTRadius.xl)
 
                     VStack(alignment: .leading, spacing: FTSpacing.md) {
-                        Text("SAVINGS GOAL (OPTIONAL)").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+                        Text("SAVINGS GOAL (OPTIONAL)").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
                         VStack(spacing: FTSpacing.sm) {
                             fieldRow("Goal Name", placeholder: "e.g. New Bicycle", text: $goalName)
                             fieldRow("Target Amount (\(currency))", placeholder: "e.g. 500", text: $goalAmount, keyboard: .decimalPad)
@@ -294,7 +294,7 @@ struct AddChildProfileSheet: View {
 
     private var iconPicker: some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
-            Text("ICON").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("ICON").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: FTSpacing.sm) {
                 ForEach(icons, id: \.self) { icon in
                     Button { selectedIcon = icon } label: {
@@ -314,7 +314,7 @@ struct AddChildProfileSheet: View {
 
     private var colorPicker: some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
-            Text("COLOR").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("COLOR").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
             HStack(spacing: FTSpacing.md) {
                 ForEach(colors, id: \.self) { c in
                     Circle().fill(Color(hex: c)).frame(width: 32, height: 32)
@@ -444,7 +444,7 @@ struct RecordAllowancePaymentSheet: View {
 
     private func fieldSection<C: View>(_ title: String, @ViewBuilder content: () -> C) -> some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
-            Text(title).font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text(title).font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
             content()
         }
         .padding().ftGlass(FTRadius.xl)
@@ -546,7 +546,7 @@ struct ChildDetailSheet: View {
 
     private var paymentHistorySection: some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
-            Text("PAYMENT HISTORY").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("PAYMENT HISTORY").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
             if child.sortedPayments.isEmpty {
                 Text("No payments recorded yet.")
                     .font(.ftBody).foregroundStyle(FTColor.textMuted)
@@ -588,7 +588,7 @@ struct ChildDetailSheet: View {
     private var insightsSection: some View {
         let insights = FamilyService.shared.allowanceInsights(child: child, currency: appState.baseCurrency)
         return VStack(alignment: .leading, spacing: FTSpacing.md) {
-            Text("INSIGHTS").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("INSIGHTS").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
             VStack(spacing: FTSpacing.sm) {
                 ForEach(insights, id: \.self) { insight in
                     HStack(alignment: .top, spacing: FTSpacing.sm) {

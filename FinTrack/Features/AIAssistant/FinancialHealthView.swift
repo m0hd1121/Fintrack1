@@ -83,7 +83,7 @@ struct FinancialHealthView: View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
             Text("SCORE BREAKDOWN")
                 .font(.ftLabel)
-                .tracking(1.6)
+                .tracking(1.6).fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(FTColor.textMuted)
 
             VStack(spacing: FTSpacing.sm) {
@@ -155,7 +155,7 @@ struct FinancialHealthView: View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
             Text("IMPROVEMENT TIPS")
                 .font(.ftLabel)
-                .tracking(1.6)
+                .tracking(1.6).fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(FTColor.textMuted)
 
             VStack(spacing: FTSpacing.sm) {
@@ -185,7 +185,7 @@ struct FinancialHealthView: View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
             Text("GRADE SCALE")
                 .font(.ftLabel)
-                .tracking(1.6)
+                .tracking(1.6).fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(FTColor.textMuted)
 
             VStack(spacing: 2) {

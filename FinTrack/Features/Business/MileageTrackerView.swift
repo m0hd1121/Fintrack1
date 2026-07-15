@@ -146,7 +146,7 @@ struct MileageTrackerView: View {
 
     private var trendChart: some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
-            Text("6-MONTH TREND").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("6-MONTH TREND").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
             Chart {
                 ForEach(monthlyData, id: \.month) { item in
                     BarMark(x: .value("Month", item.month), y: .value("km", item.km))
@@ -166,7 +166,7 @@ struct MileageTrackerView: View {
 
     private var tripList: some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
-            Text("TRIPS (\(filtered.count))").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("TRIPS (\(filtered.count))").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
             if filtered.isEmpty {
                 Text("No trips recorded. Tap + to log your first trip.")
                     .font(.ftBody).foregroundStyle(FTColor.textMuted)
@@ -282,7 +282,7 @@ struct AddMileageTripSheet: View {
 
     private var amountPreview: some View {
         VStack(spacing: 4) {
-            Text("REIMBURSEMENT").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("REIMBURSEMENT").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
             Text(computedAmount.formatted(as: currency)).font(.ftAmount).foregroundStyle(FTColor.income)
             Text(String(format: "%.1f km × %@ /km", Double(distanceKm) ?? 0, ratePerKm))
                 .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
@@ -293,7 +293,7 @@ struct AddMileageTripSheet: View {
 
     private var routeSection: some View {
         VStack(spacing: FTSpacing.md) {
-            Text("ROUTE").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("ROUTE").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
                 .frame(maxWidth: .infinity, alignment: .leading)
             VStack(spacing: FTSpacing.sm) {
                 inputField("From", text: $from)
@@ -312,7 +312,7 @@ struct AddMileageTripSheet: View {
 
     private var detailsSection: some View {
         VStack(spacing: FTSpacing.md) {
-            Text("DETAILS").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("DETAILS").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
                 .frame(maxWidth: .infinity, alignment: .leading)
             VStack(spacing: FTSpacing.sm) {
                 pickerRow("Vehicle", vehicleType.rawValue) {
@@ -335,7 +335,7 @@ struct AddMileageTripSheet: View {
 
     private var attributionSection: some View {
         VStack(spacing: FTSpacing.md) {
-            Text("ATTRIBUTION").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("ATTRIBUTION").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
                 .frame(maxWidth: .infinity, alignment: .leading)
             VStack(spacing: FTSpacing.sm) {
                 if !clients.isEmpty {

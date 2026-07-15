@@ -124,7 +124,7 @@ struct ProjectProfitabilityView: View {
 
     private var projectList: some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
-            Text("PROJECTS (\(filtered.count))").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("PROJECTS (\(filtered.count))").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
             if filtered.isEmpty {
                 Text("No projects found. Create your first project to track profitability.")
                     .font(.ftBody).foregroundStyle(FTColor.textMuted)
@@ -459,7 +459,7 @@ struct ProjectDetailSheet: View {
 
     private var invoiceList: some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
-            Text("INVOICES (\(invoices.count))").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("INVOICES (\(invoices.count))").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
             ForEach(invoices.sorted { $0.issueDate > $1.issueDate }) { inv in
                 HStack {
                     Text(inv.invoiceNumber.isEmpty ? "Invoice" : inv.invoiceNumber)
@@ -479,7 +479,7 @@ struct ProjectDetailSheet: View {
     private var expenseList: some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
             let expenses = transactions.filter { $0.type == .expense }
-            Text("EXPENSES (\(expenses.count))").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("EXPENSES (\(expenses.count))").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
             ForEach(expenses.sorted { $0.date > $1.date }.prefix(10), id: \.id) { tx in
                 HStack {
                     Text(tx.title).font(.ftBody).foregroundStyle(FTColor.textPrimary)

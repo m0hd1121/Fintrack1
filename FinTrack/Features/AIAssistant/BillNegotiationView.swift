@@ -43,7 +43,7 @@ struct BillNegotiationView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("NEGOTIATION POTENTIAL")
                         .font(.ftLabel)
-                        .tracking(1.6)
+                        .tracking(1.6).fixedSize(horizontal: true, vertical: false)
                         .foregroundStyle(FTColor.textMuted)
                     Text(total.formatted(as: appState.baseCurrency) + "/mo")
                         .font(.ftAmount)
@@ -160,7 +160,7 @@ struct BillNegotiationView: View {
                     VStack(alignment: .leading, spacing: FTSpacing.md) {
                         Text("CALL SCRIPT")
                             .font(.ftLabel)
-                            .tracking(1.6)
+                            .tracking(1.6).fixedSize(horizontal: true, vertical: false)
                             .foregroundStyle(FTColor.textMuted)
                         Text("Read this script when calling \(tip.merchantName):")
                             .font(.ftBody)
@@ -177,7 +177,7 @@ struct BillNegotiationView: View {
                     VStack(alignment: .leading, spacing: FTSpacing.md) {
                         Text("BEFORE YOU CALL")
                             .font(.ftLabel)
-                            .tracking(1.6)
+                            .tracking(1.6).fixedSize(horizontal: true, vertical: false)
                             .foregroundStyle(FTColor.textMuted)
                         VStack(spacing: FTSpacing.sm) {
                             checkItem("Have your account number or customer ID ready")
@@ -191,7 +191,7 @@ struct BillNegotiationView: View {
                     VStack(alignment: .leading, spacing: FTSpacing.md) {
                         Text("POTENTIAL SAVING")
                             .font(.ftLabel)
-                            .tracking(1.6)
+                            .tracking(1.6).fixedSize(horizontal: true, vertical: false)
                             .foregroundStyle(FTColor.textMuted)
                         HStack {
                             VStack(alignment: .leading, spacing: 4) {
@@ -248,7 +248,7 @@ struct BillNegotiationView: View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
             Text("NEGOTIATION PRINCIPLES")
                 .font(.ftLabel)
-                .tracking(1.6)
+                .tracking(1.6).fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(FTColor.textMuted)
 
             VStack(spacing: FTSpacing.sm) {

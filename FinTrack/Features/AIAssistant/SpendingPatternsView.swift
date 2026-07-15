@@ -73,7 +73,7 @@ struct SpendingPatternsView: View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
             Text(tabs[selectedTab].uppercased())
                 .font(.ftLabel)
-                .tracking(1.6)
+                .tracking(1.6).fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(FTColor.textMuted)
 
             switch selectedTab {
@@ -206,7 +206,7 @@ struct SpendingPatternsView: View {
         return VStack(alignment: .leading, spacing: FTSpacing.md) {
             Text("TOP MERCHANTS")
                 .font(.ftLabel)
-                .tracking(1.6)
+                .tracking(1.6).fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(FTColor.textMuted)
 
             if topMerchants.isEmpty {
@@ -260,7 +260,7 @@ struct SpendingPatternsView: View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
             Text("PATTERN INSIGHTS")
                 .font(.ftLabel)
-                .tracking(1.6)
+                .tracking(1.6).fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(FTColor.textMuted)
 
             VStack(spacing: FTSpacing.sm) {

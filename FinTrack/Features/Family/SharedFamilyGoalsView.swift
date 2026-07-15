@@ -94,7 +94,7 @@ struct SharedFamilyGoalsView: View {
 
     private func goalsSection(title: String, goals: [SharedFamilyGoal]) -> some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
-            Text(title).font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text(title).font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
             VStack(spacing: FTSpacing.sm) {
                 ForEach(goals) { goal in
                     goalCard(goal)
@@ -320,7 +320,7 @@ struct AddSharedGoalSheet: View {
 
     private var iconPickerSection: some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
-            Text("ICON").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("ICON").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 5), spacing: FTSpacing.sm) {
                 ForEach(sfIcons, id: \.self) { icon in
                     Button { selectedIcon = icon } label: {
@@ -342,7 +342,7 @@ struct AddSharedGoalSheet: View {
 
     private var colorPickerSection: some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
-            Text("COLOR").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("COLOR").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
             HStack(spacing: FTSpacing.md) {
                 ForEach(colors, id: \.self) { c in
                     Circle().fill(Color(hex: c)).frame(width: 32, height: 32)
@@ -477,7 +477,7 @@ struct SharedGoalDetailSheet: View {
     private var milestonesSection: some View {
         let milestones = FamilyService.shared.milestones(for: goal)
         return VStack(alignment: .leading, spacing: FTSpacing.md) {
-            Text("MILESTONES").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("MILESTONES").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
             HStack(spacing: 0) {
                 ForEach(milestones) { milestone in
                     VStack(spacing: FTSpacing.sm) {
@@ -512,7 +512,7 @@ struct SharedGoalDetailSheet: View {
 
     private var contributionsSection: some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
-            Text("RECENT CONTRIBUTIONS").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("RECENT CONTRIBUTIONS").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
             if goal.contributions.isEmpty {
                 Text("No contributions yet. Be the first to contribute!")
                     .font(.ftBody).foregroundStyle(FTColor.textMuted)
@@ -553,7 +553,7 @@ struct SharedGoalDetailSheet: View {
 
     private var memberBreakdownSection: some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
-            Text("BY MEMBER").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("BY MEMBER").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
             VStack(spacing: FTSpacing.sm) {
                 ForEach(goal.contributionsByMember.sorted(by: { $0.value > $1.value }), id: \.key) { entry in
                     HStack {
@@ -619,7 +619,7 @@ struct ContributeToGoalSheet: View {
                     goalSummary
 
                     VStack(alignment: .leading, spacing: FTSpacing.md) {
-                        Text("CONTRIBUTION DETAILS").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+                        Text("CONTRIBUTION DETAILS").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
                         VStack(spacing: FTSpacing.sm) {
                             fieldRow("Amount (\(currency))", placeholder: "e.g. 500", text: $amount, keyboard: .decimalPad)
                             fieldRow("Notes (optional)", placeholder: "e.g. Monthly contribution", text: $notes)
@@ -628,7 +628,7 @@ struct ContributeToGoalSheet: View {
                     .padding().ftGlass(FTRadius.xl)
 
                     VStack(alignment: .leading, spacing: FTSpacing.md) {
-                        Text("CONTRIBUTING AS").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+                        Text("CONTRIBUTING AS").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
                         VStack(spacing: FTSpacing.sm) {
                             ForEach(group.members, id: \.id) { member in
                                 Button { selectedMemberName = member.name } label: {

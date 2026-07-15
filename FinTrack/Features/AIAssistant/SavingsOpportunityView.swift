@@ -49,7 +49,7 @@ struct SavingsOpportunityView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("POTENTIAL MONTHLY SAVINGS")
                         .font(.ftLabel)
-                        .tracking(1.6)
+                        .tracking(1.6).fixedSize(horizontal: true, vertical: false)
                         .foregroundStyle(FTColor.textMuted)
                     Text(totalPotential.formatted(as: appState.baseCurrency))
                         .font(.ftAmount)

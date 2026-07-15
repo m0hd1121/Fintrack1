@@ -208,7 +208,7 @@ struct GoogleDriveBackupView: View {
             HStack(spacing: FTSpacing.sm) {
                 Image(systemName: "lock.shield.fill")
                     .font(.ftHeadline).foregroundStyle(FTColor.income)
-                Text("PRIVACY").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+                Text("PRIVACY").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
             }
             privacyRow("key.fill", "OAuth only — the app never sees your Google password")
             privacyRow("doc.fill", "Uses the narrow \u{201c}drive.file\u{201d} scope: only the single backup file this app creates is ever visible to it — nothing else in your Drive")
@@ -282,7 +282,7 @@ private struct DriveOAuthSetupSheet: View {
 
                         VStack(alignment: .leading, spacing: FTSpacing.md) {
                             Text("STEPS")
-                                .font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+                                .font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
                             ForEach(Array(steps.enumerated()), id: \.offset) { index, step in
                                 HStack(alignment: .top, spacing: FTSpacing.sm) {
                                     Text("\(index + 1)")
@@ -300,7 +300,7 @@ private struct DriveOAuthSetupSheet: View {
 
                         VStack(alignment: .leading, spacing: FTSpacing.sm) {
                             Text("CLIENT ID")
-                                .font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+                                .font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
                             TextField("xxxx.apps.googleusercontent.com", text: $clientId, axis: .vertical)
                                 .font(.ftBody)
                                 .textInputAutocapitalization(.never)

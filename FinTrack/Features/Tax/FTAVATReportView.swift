@@ -122,7 +122,7 @@ struct FTAVATReportView: View {
 
     private var annualSummary: some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
-            Text("ANNUAL SUMMARY \(taxYear)").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("ANNUAL SUMMARY \(taxYear)").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
             HStack(spacing: FTSpacing.sm) {
                 annualStat(label: "Total Output", value: summary.totalVATCollected, color: FTColor.income)
                 annualStat(label: "Total Input", value: summary.totalVATPaid, color: FTColor.expense)
@@ -146,7 +146,7 @@ struct FTAVATReportView: View {
 
     private var ftaDeadlines: some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
-            Text("FTA FILING DEADLINES \(taxYear)").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("FTA FILING DEADLINES \(taxYear)").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
             VStack(spacing: FTSpacing.sm) {
                 ForEach(1...4, id: \.self) { q in
                     let dl = quarterDeadline(year: taxYear, quarter: q)

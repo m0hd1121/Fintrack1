@@ -77,7 +77,7 @@ struct FamilySetupView: View {
 
     private var groupInfoSection: some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
-            Text("FAMILY GROUP").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("FAMILY GROUP").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
 
             VStack(spacing: FTSpacing.sm) {
                 inputRow("Family Name", text: $groupName, placeholder: "e.g. The Smith Family")
@@ -101,7 +101,7 @@ struct FamilySetupView: View {
     private var membersSection: some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
             HStack {
-                Text("MEMBERS").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+                Text("MEMBERS").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
                 Spacer()
                 Button { showingAddMember = true } label: {
                     Label("Add", systemImage: "plus")
@@ -163,7 +163,7 @@ struct FamilySetupView: View {
 
     private var dangerZone: some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
-            Text("DANGER ZONE").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.expense)
+            Text("DANGER ZONE").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.expense)
             Button(role: .destructive) {
                 if let g = group { context.delete(g); try? context.save(); dismiss() }
             } label: {
@@ -232,7 +232,7 @@ struct AddFamilyMemberSheet: View {
                     .padding().ftGlass(FTRadius.xl)
 
                     VStack(alignment: .leading, spacing: FTSpacing.md) {
-                        Text("ROLE").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+                        Text("ROLE").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
                         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: FTSpacing.sm) {
                             ForEach(FamilyMemberRole.allCases, id: \.rawValue) { r in
                                 Button { role = r; permission = r.defaultPermission } label: {
@@ -253,7 +253,7 @@ struct AddFamilyMemberSheet: View {
                     .padding().ftGlass(FTRadius.xl)
 
                     VStack(alignment: .leading, spacing: FTSpacing.md) {
-                        Text("DEFAULT PERMISSION").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+                        Text("DEFAULT PERMISSION").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
                         ForEach(FamilyPermissionLevel.allCases, id: \.rawValue) { p in
                             Button { permission = p } label: {
                                 HStack {
@@ -278,7 +278,7 @@ struct AddFamilyMemberSheet: View {
                     .padding().ftGlass(FTRadius.xl)
 
                     VStack(alignment: .leading, spacing: FTSpacing.md) {
-                        Text("AVATAR COLOR").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+                        Text("AVATAR COLOR").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
                         HStack(spacing: FTSpacing.md) {
                             ForEach(colors, id: \.self) { c in
                                 Circle().fill(Color(hex: c)).frame(width: 32, height: 32)
@@ -370,7 +370,7 @@ struct EditFamilyMemberSheet: View {
                     .padding().ftGlass(FTRadius.lg)
 
                     VStack(alignment: .leading, spacing: FTSpacing.md) {
-                        Text("ROLE").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+                        Text("ROLE").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
                         Picker("Role", selection: $role) {
                             ForEach(FamilyMemberRole.allCases, id: \.rawValue) { r in
                                 Text(r.rawValue).tag(r)
@@ -379,7 +379,7 @@ struct EditFamilyMemberSheet: View {
                     }
 
                     VStack(alignment: .leading, spacing: FTSpacing.md) {
-                        Text("DEFAULT PERMISSION").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+                        Text("DEFAULT PERMISSION").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
                         Picker("Permission", selection: $permission) {
                             ForEach(FamilyPermissionLevel.allCases, id: \.rawValue) { p in
                                 Text(p.rawValue).tag(p)

@@ -102,7 +102,7 @@ struct AIAssistantView: View {
         return VStack(spacing: FTSpacing.md) {
             Text("FEATURES")
                 .font(.ftLabel)
-                .tracking(1.6)
+                .tracking(1.6).fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(FTColor.textMuted)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -160,7 +160,7 @@ struct AIAssistantView: View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
             Text("AI CHAT ASSISTANT")
                 .font(.ftLabel)
-                .tracking(1.6)
+                .tracking(1.6).fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(FTColor.textMuted)
 
             Button {

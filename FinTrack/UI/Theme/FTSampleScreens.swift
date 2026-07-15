@@ -76,7 +76,7 @@ struct FTDashboardView: View {
     private var netWorthHero: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("TOTAL NET WORTH")
-                .font(.ftLabel).tracking(1.6).foregroundStyle(.white.opacity(0.8))
+                .font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(.white.opacity(0.8))
             Text("AED 248,560").font(.ftDisplay).foregroundStyle(.white)
             HStack(spacing: 10) {
                 Text("↑ 2.4%").font(.ftCaption.weight(.bold)).foregroundStyle(.white)

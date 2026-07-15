@@ -57,7 +57,7 @@ struct DigitalTwinView: View {
                         .foregroundStyle(FTColor.accent)
                     Text("SCENARIO PARAMETERS")
                         .font(.ftLabel)
-                        .tracking(1.6)
+                        .tracking(1.6).fixedSize(horizontal: true, vertical: false)
                         .foregroundStyle(FTColor.textMuted)
                     Spacer()
                     Image(systemName: "chevron.down")
@@ -191,7 +191,7 @@ struct DigitalTwinView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("PROJECTED NET WORTH")
                         .font(.ftLabel)
-                        .tracking(1.6)
+                        .tracking(1.6).fixedSize(horizontal: true, vertical: false)
                         .foregroundStyle(FTColor.textMuted)
                     Text(proj.netWorthAtEnd.formatted(as: currency))
                         .font(.ftAmount)
@@ -238,7 +238,7 @@ struct DigitalTwinView: View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
             Text("NET WORTH PROJECTION")
                 .font(.ftLabel)
-                .tracking(1.6)
+                .tracking(1.6).fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(FTColor.textMuted)
 
             Chart {
@@ -311,7 +311,7 @@ struct DigitalTwinView: View {
             VStack(alignment: .leading, spacing: FTSpacing.md) {
                 Text("KEY MILESTONES")
                     .font(.ftLabel)
-                    .tracking(1.6)
+                    .tracking(1.6).fixedSize(horizontal: true, vertical: false)
                     .foregroundStyle(FTColor.textMuted)
 
                 VStack(spacing: FTSpacing.sm) {
@@ -356,7 +356,7 @@ struct DigitalTwinView: View {
         return VStack(alignment: .leading, spacing: FTSpacing.md) {
             Text("SCENARIO COMPARISON")
                 .font(.ftLabel)
-                .tracking(1.6)
+                .tracking(1.6).fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(FTColor.textMuted)
 
             VStack(spacing: 0) {

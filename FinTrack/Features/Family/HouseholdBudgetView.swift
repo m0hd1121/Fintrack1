@@ -113,7 +113,7 @@ struct HouseholdBudgetView: View {
                 members: g.members, transactions: transactions, currency: appState.baseCurrency
             )
             VStack(alignment: .leading, spacing: FTSpacing.md) {
-                Text("MEMBER CONTRIBUTIONS").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+                Text("MEMBER CONTRIBUTIONS").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
                 VStack(spacing: FTSpacing.sm) {
                     ForEach(summaries, id: \.member.id) { ms in
                         memberContributionRow(ms.member, income: ms.monthlyIncome, expenses: ms.monthlyExpenses)
@@ -160,7 +160,7 @@ struct HouseholdBudgetView: View {
 
     private var expenseBreakdownCard: some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
-            Text("TOP SPENDING CATEGORIES").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("TOP SPENDING CATEGORIES").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
             if summary.topExpenseCategories.isEmpty {
                 Text("No expenses recorded this month.")
                     .font(.ftBody).foregroundStyle(FTColor.textMuted)
@@ -198,7 +198,7 @@ struct HouseholdBudgetView: View {
         if !upcomingBills.isEmpty {
             VStack(alignment: .leading, spacing: FTSpacing.md) {
                 HStack {
-                    Text("UPCOMING BILLS").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+                    Text("UPCOMING BILLS").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
                     Spacer()
                     Text(summary.totalMonthlyBills.formatted(as: appState.baseCurrency))
                         .font(.ftCallout).foregroundStyle(FTColor.catBlue)
@@ -235,7 +235,7 @@ struct HouseholdBudgetView: View {
 
     private var monthlyTrendChart: some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
-            Text("MONTHLY TREND (6 MONTHS)").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("MONTHLY TREND (6 MONTHS)").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
 
             let data = last6MonthsData()
             if data.isEmpty {

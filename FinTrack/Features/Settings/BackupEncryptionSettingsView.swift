@@ -96,7 +96,7 @@ struct BackupEncryptionSettingsView: View {
     private var setPassphraseCard: some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
             Text(isEnabled ? "CHANGE PASSPHRASE" : "SET A PASSPHRASE")
-                .font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+                .font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
 
             VStack(spacing: 0) {
                 HStack(spacing: FTSpacing.md) {

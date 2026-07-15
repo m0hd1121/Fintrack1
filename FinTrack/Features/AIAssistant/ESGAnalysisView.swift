@@ -129,7 +129,7 @@ struct ESGAnalysisView: View {
                 HStack {
                     Text("CATEGORY BREAKDOWN")
                         .font(.ftLabel)
-                        .tracking(1.6)
+                        .tracking(1.6).fixedSize(horizontal: true, vertical: false)
                         .foregroundStyle(FTColor.textMuted)
                     Spacer()
                     Image(systemName: "chevron.down")
@@ -217,7 +217,7 @@ struct ESGAnalysisView: View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
             Text("ESG INSIGHTS")
                 .font(.ftLabel)
-                .tracking(1.6)
+                .tracking(1.6).fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(FTColor.textMuted)
 
             VStack(spacing: FTSpacing.sm) {
@@ -256,7 +256,7 @@ struct ESGAnalysisView: View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
             Text("ABOUT ESG RATINGS")
                 .font(.ftLabel)
-                .tracking(1.6)
+                .tracking(1.6).fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(FTColor.textMuted)
 
             VStack(spacing: FTSpacing.sm) {

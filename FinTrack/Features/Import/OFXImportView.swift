@@ -119,7 +119,7 @@ struct OFXImportView: View {
 
     private var formatSelector: some View {
         VStack(alignment: .leading, spacing: FTSpacing.sm) {
-            Text("FILE FORMAT").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("FILE FORMAT").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
             HStack(spacing: FTSpacing.sm) {
                 ForEach([ImportFileType.ofx, .qif, .qfx], id: \.self) { ft in
                     Button {
@@ -139,7 +139,7 @@ struct OFXImportView: View {
 
     private var accountSelector: some View {
         VStack(alignment: .leading, spacing: FTSpacing.sm) {
-            Text("IMPORT TO ACCOUNT").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("IMPORT TO ACCOUNT").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
             if accounts.isEmpty {
                 Text("Add an account in the Accounts tab first.").font(.ftBody).foregroundStyle(FTColor.textMuted)
             } else {

@@ -43,7 +43,7 @@ struct PredictiveBalanceView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("CURRENT BALANCE")
                         .font(.ftLabel)
-                        .tracking(1.6)
+                        .tracking(1.6).fixedSize(horizontal: true, vertical: false)
                         .foregroundStyle(FTColor.textMuted)
                     Text(f.currentBalance.formatted(as: appState.baseCurrency))
                         .font(.ftAmount)
@@ -106,7 +106,7 @@ struct PredictiveBalanceView: View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
             Text("BALANCE PROJECTION")
                 .font(.ftLabel)
-                .tracking(1.6)
+                .tracking(1.6).fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(FTColor.textMuted)
 
             Chart {
@@ -212,7 +212,7 @@ struct PredictiveBalanceView: View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
             Text("KEY INSIGHTS")
                 .font(.ftLabel)
-                .tracking(1.6)
+                .tracking(1.6).fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(FTColor.textMuted)
 
             VStack(spacing: FTSpacing.sm) {
@@ -274,7 +274,7 @@ struct PredictiveBalanceView: View {
                 HStack {
                     Text("UPCOMING RECURRING")
                         .font(.ftLabel)
-                        .tracking(1.6)
+                        .tracking(1.6).fixedSize(horizontal: true, vertical: false)
                         .foregroundStyle(FTColor.textMuted)
                     Spacer()
                     Image(systemName: "chevron.down")

@@ -70,7 +70,7 @@ struct EmailImportView: View {
         VStack(spacing: FTSpacing.md) {
             HStack {
                 Text("MY BANKS")
-                    .font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+                    .font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
                 Spacer()
                 Button { showingBankWizard = true } label: {
                     Label("Add Bank", systemImage: "plus")
@@ -148,7 +148,7 @@ struct EmailImportView: View {
             VStack(spacing: FTSpacing.md) {
                 HStack {
                     Text("CONNECTED ACCOUNTS")
-                        .font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+                        .font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
                     Spacer()
                     if syncService.isSyncing {
                         ProgressView().scaleEffect(0.7)
@@ -212,7 +212,7 @@ struct EmailImportView: View {
     private var connectSection: some View {
         VStack(spacing: FTSpacing.md) {
             Text("CONNECT A MAILBOX")
-                .font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+                .font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             ForEach(EmailProvider.allCases, id: \.self) { provider in
@@ -295,7 +295,7 @@ struct EmailImportView: View {
     private var manualImportSection: some View {
         VStack(spacing: FTSpacing.md) {
             Text("MANUAL IMPORT")
-                .font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+                .font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             Button { showingPasteSheet = true } label: {
@@ -346,7 +346,7 @@ struct EmailImportView: View {
     private var merchantCategorySection: some View {
         VStack(spacing: FTSpacing.md) {
             Text("MERCHANT CATEGORIES")
-                .font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+                .font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             VStack(spacing: 0) {
@@ -391,7 +391,7 @@ struct EmailImportView: View {
                 Image(systemName: "lock.shield.fill")
                     .font(.ftHeadline).foregroundStyle(FTColor.income)
                 Text("PRIVACY BY DESIGN")
-                    .font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+                    .font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
                 Spacer()
                 Button { withAnimation { showingPrivacy.toggle() } } label: {
                     Image(systemName: showingPrivacy ? "chevron.up" : "chevron.down")
@@ -725,7 +725,7 @@ private struct OAuthSetupSheet: View {
 
                         VStack(alignment: .leading, spacing: FTSpacing.md) {
                             Text("STEPS")
-                                .font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+                                .font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
                             ForEach(Array(steps.enumerated()), id: \.offset) { index, step in
                                 HStack(alignment: .top, spacing: FTSpacing.sm) {
                                     Text("\(index + 1)")
@@ -743,7 +743,7 @@ private struct OAuthSetupSheet: View {
 
                         VStack(alignment: .leading, spacing: FTSpacing.sm) {
                             Text("CLIENT ID")
-                                .font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+                                .font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
                             TextField(provider == .gmail
                                       ? "xxxx.apps.googleusercontent.com"
                                       : "00000000-0000-0000-0000-000000000000",

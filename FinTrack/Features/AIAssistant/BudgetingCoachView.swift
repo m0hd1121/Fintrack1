@@ -149,7 +149,7 @@ struct BudgetingCoachView: View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
             Text("PROVEN MONEY HABITS")
                 .font(.ftLabel)
-                .tracking(1.6)
+                .tracking(1.6).fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(FTColor.textMuted)
 
             VStack(spacing: FTSpacing.sm) {

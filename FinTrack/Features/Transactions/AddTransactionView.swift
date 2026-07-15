@@ -432,7 +432,7 @@ struct AddTransactionView: View {
         VStack(alignment: .leading, spacing: FTSpacing.sm) {
             HStack {
                 Text("Category")
-                    .font(.ftLabel).tracking(1.6)
+                    .font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false)
                     .foregroundStyle(FTColor.textSecondary)
                 Spacer()
                 // AI / rule confidence badge
@@ -972,7 +972,7 @@ struct AddTransactionView: View {
     private var notesReceiptCard: some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
             Text("Notes & Attachments")
-                .font(.ftLabel).tracking(1.6)
+                .font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(FTColor.textSecondary)
 
             TextField("Add a note...", text: $notes, axis: .vertical)

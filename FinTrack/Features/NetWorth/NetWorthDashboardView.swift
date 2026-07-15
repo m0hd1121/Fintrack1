@@ -325,7 +325,7 @@ extension NetWorthDashboardView {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
             Text("NET WORTH")
                 .font(.ftLabel)
-                .tracking(1.6)
+                .tracking(1.6).fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(.white.opacity(0.7))
 
             Text(currentNetWorth.formatted(as: base))

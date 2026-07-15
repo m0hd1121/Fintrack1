@@ -161,7 +161,7 @@ struct BusinessExpenseView: View {
 
     private var categoryChart: some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
-            Text("BY CATEGORY").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("BY CATEGORY").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
             Chart {
                 ForEach(categoryBreakdown, id: \.category) { item in
                     BarMark(
@@ -186,7 +186,7 @@ struct BusinessExpenseView: View {
     private var transactionsList: some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
             Text("TRANSACTIONS (\(filteredExpenses.count))")
-                .font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+                .font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
             if filteredExpenses.isEmpty {
                 Text("No business expenses found for the selected filters.")
                     .font(.ftBody).foregroundStyle(FTColor.textMuted)

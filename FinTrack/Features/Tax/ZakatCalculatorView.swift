@@ -103,7 +103,7 @@ struct ZakatCalculatorView: View {
 
     private func assetsSection(_ r: ZakatRecord) -> some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
-            Text("ZAKATABLE ASSETS").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("ZAKATABLE ASSETS").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
 
             VStack(spacing: FTSpacing.sm) {
                 zakatInputRow(
@@ -150,7 +150,7 @@ struct ZakatCalculatorView: View {
 
     private func deductionsSection(_ r: ZakatRecord) -> some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
-            Text("DEDUCTIONS").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("DEDUCTIONS").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
 
             VStack(spacing: FTSpacing.sm) {
                 zakatInputRow(
@@ -281,7 +281,7 @@ struct ZakatCalculatorView: View {
 
     private var zakatGuide: some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
-            Text("ABOUT ZAKAT").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("ABOUT ZAKAT").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
             VStack(spacing: FTSpacing.sm) {
                 guideRow("Zakat is 2.5% of net zakatable wealth held for one lunar year.")
                 guideRow("Nisab (gold): Equivalent of 87.48 grams of gold.")

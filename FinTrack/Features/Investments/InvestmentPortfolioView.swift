@@ -319,7 +319,7 @@ struct InvestmentPortfolioView: View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
             Text("TOTAL PORTFOLIO VALUE")
                 .font(.ftLabel)
-                .tracking(1.6)
+                .tracking(1.6).fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(.white.opacity(0.8))
 
             Text(totalPortfolioValue.formatted(as: baseCurrency))
@@ -374,7 +374,7 @@ struct InvestmentPortfolioView: View {
             VStack(alignment: .leading, spacing: FTSpacing.md) {
                 HStack {
                     Text("STOCKS & ETFs")
-                        .font(.ftLabel).tracking(1.6).foregroundStyle(.white.opacity(0.8))
+                        .font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(.white.opacity(0.8))
                     Spacer()
                     StockLiveBadge(isRefreshing: stockPriceService.isRefreshing,
                                    lastUpdated: stockPriceService.lastUpdated)
@@ -478,7 +478,7 @@ struct InvestmentPortfolioView: View {
             VStack(alignment: .leading, spacing: FTSpacing.md) {
                 HStack {
                     Text("TOTAL CRYPTO VALUE")
-                        .font(.ftLabel).tracking(1.6).foregroundStyle(.white.opacity(0.8))
+                        .font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(.white.opacity(0.8))
                     Spacer()
                     CryptoLiveBadge(isRefreshing: cryptoPriceService.isRefreshing,
                                     lastUpdated: cryptoPriceService.lastUpdated)
@@ -573,7 +573,7 @@ struct InvestmentPortfolioView: View {
 
             VStack(alignment: .leading, spacing: FTSpacing.md) {
                 Text("TOTAL PRECIOUS METALS")
-                    .font(.ftLabel).tracking(1.6).foregroundStyle(.white.opacity(0.8))
+                    .font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(.white.opacity(0.8))
                 Text(goldValue.formatted(as: baseCurrency))
                     .font(.ftAmount).foregroundStyle(.white)
                     .minimumScaleFactor(0.5).lineLimit(1)
@@ -686,7 +686,7 @@ struct InvestmentPortfolioView: View {
         VStack(spacing: FTSpacing.lg) {
             VStack(spacing: FTSpacing.md) {
                 Text("YOUR PORTFOLIO RETURN")
-                    .font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+                    .font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
                 HStack(alignment: .lastTextBaseline, spacing: FTSpacing.sm) {
                     Text(portfolioReturnPct.asPercentage(decimals: 2))
                         .font(.ftDisplay)
@@ -789,7 +789,7 @@ struct InvestmentPortfolioView: View {
         VStack(spacing: FTSpacing.lg) {
             VStack(spacing: FTSpacing.sm) {
                 Text("ANNUAL DIVIDEND INCOME")
-                    .font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+                    .font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
                 Text(annualDividends.formatted(as: baseCurrency))
                     .font(.ftDisplay).foregroundStyle(FTColor.income)
                     .minimumScaleFactor(0.5).lineLimit(1)
@@ -1195,7 +1195,7 @@ struct InvestmentPortfolioView: View {
 
                 VStack(spacing: FTSpacing.sm) {
                     Text("SUCCESS PROBABILITY")
-                        .font(.ftLabel).tracking(1.6).foregroundStyle(.white.opacity(0.8))
+                        .font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(.white.opacity(0.8))
                     Text(result.successProbability.asPercentage(decimals: 1))
                         .font(.ftDisplay).foregroundStyle(.white)
                     Text("of \(result.iterations) iterations reached \(result.targetAmount.asCompact(currency: baseCurrency))")

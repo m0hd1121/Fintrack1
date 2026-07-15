@@ -814,7 +814,7 @@ struct IncomeReport: View {
             // P&L income statement summary
             VStack(spacing: 0) {
                 HStack {
-                    Text("INCOME STATEMENT").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+                    Text("INCOME STATEMENT").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
                     Spacer()
                 }
                 .padding(.horizontal, FTSpacing.lg).padding(.top, FTSpacing.md)
@@ -1821,7 +1821,7 @@ struct SavingsGoalsReport: View {
 
     private var summaryCard: some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
-            Text("SAVINGS SUMMARY").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+            Text("SAVINGS SUMMARY").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
             VStack(spacing: FTSpacing.sm) {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
@@ -1850,7 +1850,7 @@ struct SavingsGoalsReport: View {
 
     private var activeGoalsSection: some View {
         VStack(alignment: .leading, spacing: FTSpacing.sm) {
-            Text("ACTIVE GOALS").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+            Text("ACTIVE GOALS").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
             VStack(spacing: FTSpacing.sm) {
                 ForEach(activeGoals.sorted { $0.progress > $1.progress }) { goal in
                     goalReportRow(goal)
@@ -1861,7 +1861,7 @@ struct SavingsGoalsReport: View {
 
     private var completedSection: some View {
         VStack(alignment: .leading, spacing: FTSpacing.sm) {
-            Text("COMPLETED").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+            Text("COMPLETED").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
             VStack(spacing: FTSpacing.sm) {
                 ForEach(completedGoals) { goal in goalReportRow(goal) }
             }
@@ -1870,7 +1870,7 @@ struct SavingsGoalsReport: View {
 
     private var archivedSection: some View {
         VStack(alignment: .leading, spacing: FTSpacing.sm) {
-            Text("ARCHIVED").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+            Text("ARCHIVED").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
             VStack(spacing: FTSpacing.sm) {
                 ForEach(archivedGoals) { goal in goalReportRow(goal) }
             }
@@ -2001,7 +2001,7 @@ struct TaxSummaryReport: View {
             } else {
                 // Deductible ratio
                 VStack(alignment: .leading, spacing: FTSpacing.sm) {
-                    Text("DEDUCTIBLE RATIO").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+                    Text("DEDUCTIBLE RATIO").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
                     VStack(spacing: FTSpacing.xs) {
                         HStack {
                             Text("Deductible Expenses").font(.ftBody).foregroundStyle(FTColor.textPrimary)
@@ -2017,7 +2017,7 @@ struct TaxSummaryReport: View {
 
                 // Category breakdown
                 VStack(alignment: .leading, spacing: 0) {
-                    Text("BY CATEGORY").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+                    Text("BY CATEGORY").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
                         .padding(.bottom, FTSpacing.sm)
                     VStack(spacing: 0) {
                         ForEach(Array(cats.enumerated()), id: \.offset) { idx, cat in
@@ -2054,7 +2054,7 @@ struct TaxSummaryReport: View {
                         withAnimation { showingAllTransactions.toggle() }
                     } label: {
                         HStack {
-                            Text("DEDUCTIBLE TRANSACTIONS").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+                            Text("DEDUCTIBLE TRANSACTIONS").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
                             Spacer()
                             Image(systemName: showingAllTransactions ? "chevron.up" : "chevron.down")
                                 .font(.ftCaption).foregroundStyle(FTColor.textMuted)
@@ -2166,7 +2166,7 @@ struct VATReport: View {
             // Input VAT by category
             if !inputTxs.isEmpty {
                 VStack(alignment: .leading, spacing: FTSpacing.sm) {
-                    Text("INPUT VAT BY CATEGORY").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+                    Text("INPUT VAT BY CATEGORY").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
                     VStack(spacing: 0) {
                         ForEach(Array(inputByCategory.enumerated()), id: \.offset) { idx, cat in
                             let tint = ftChartPalette[idx % ftChartPalette.count]
@@ -2189,7 +2189,7 @@ struct VATReport: View {
 
                 // VAT return summary table (FTA-style)
                 VStack(alignment: .leading, spacing: FTSpacing.sm) {
-                    Text("VAT RETURN SUMMARY").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+                    Text("VAT RETURN SUMMARY").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
                     VStack(spacing: 0) {
                         vatReturnRow(label: "Standard-rated supplies (5%)",
                                      amount: outputTxs.reduce(0) { $0 + $1.amountInBaseCurrency },
@@ -2329,7 +2329,7 @@ struct AnnualSummaryReport: View {
             // Year hero
             VStack(spacing: FTSpacing.md) {
                 HStack {
-                    Text("\(selectedYear) YEAR IN REVIEW").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+                    Text("\(selectedYear) YEAR IN REVIEW").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
                     Spacer()
                     if totalIncome > 0 || totalExpenses > 0 {
                         BadgeView(text: savingsRate >= 20 ? "On Track" : savingsRate >= 10 ? "Fair" : "Below Target",
@@ -2369,7 +2369,7 @@ struct AnnualSummaryReport: View {
 
             // 12-month chart
             VStack(alignment: .leading, spacing: FTSpacing.sm) {
-                Text("MONTHLY BREAKDOWN").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+                Text("MONTHLY BREAKDOWN").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
                 let data = monthlyData
                 if !data.allSatisfy({ $0.income == 0 && $0.expenses == 0 }) {
                     Chart {
@@ -2403,7 +2403,7 @@ struct AnnualSummaryReport: View {
 
             // Key metrics
             VStack(alignment: .leading, spacing: FTSpacing.sm) {
-                Text("KEY METRICS").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+                Text("KEY METRICS").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
                 VStack(spacing: 0) {
                     if let best = bestMonth {
                         keyMetricRow(icon: "star.fill", tint: FTColor.gold,
@@ -2435,7 +2435,7 @@ struct AnnualSummaryReport: View {
             // YoY Comparison
             if previousIncome > 0 || previousExpenses > 0 {
                 VStack(alignment: .leading, spacing: FTSpacing.sm) {
-                    Text("YEAR-OVER-YEAR").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+                    Text("YEAR-OVER-YEAR").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
                     VStack(spacing: 0) {
                         yoyRow(label: "Total Income", current: totalIncome, previous: previousIncome)
                         Divider().padding(.leading, FTSpacing.lg)
@@ -2567,7 +2567,7 @@ struct MerchantSpendReport: View {
             // Top 5 bar chart
             if !merchants.isEmpty {
                 VStack(alignment: .leading, spacing: FTSpacing.sm) {
-                    Text("TOP MERCHANTS").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+                    Text("TOP MERCHANTS").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
                     let top5 = merchants.sorted { $0.total > $1.total }.prefix(5).map { $0 }
                     Chart {
                         ForEach(Array(top5.enumerated()), id: \.offset) { idx, m in

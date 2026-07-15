@@ -170,7 +170,7 @@ struct ContributeToGoalView: View {
     private var previewCard: some View {
         VStack(spacing: FTSpacing.md) {
             Text("AFTER THIS \(isWithdrawal ? "WITHDRAWAL" : "CONTRIBUTION")")
-                .font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+                .font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
 
             HStack(spacing: FTSpacing.xl) {
                 VStack(spacing: 4) {

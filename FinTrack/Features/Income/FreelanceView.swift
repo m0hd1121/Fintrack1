@@ -73,7 +73,7 @@ struct FreelanceView: View {
         VStack(alignment: .leading, spacing: FTSpacing.lg) {
             Text("FREELANCE OVERVIEW")
                 .font(.ftLabel)
-                .tracking(1.6)
+                .tracking(1.6).fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(FTColor.textMuted)
 
             HStack(spacing: 0) {
@@ -129,7 +129,7 @@ struct FreelanceView: View {
             HStack {
                 Text("ACTIVE PROJECTS")
                     .font(.ftLabel)
-                    .tracking(1.6)
+                    .tracking(1.6).fixedSize(horizontal: true, vertical: false)
                     .foregroundStyle(FTColor.textMuted)
                 Spacer()
                 Button {
@@ -170,7 +170,7 @@ struct FreelanceView: View {
                 HStack {
                     Text("COMPLETED PROJECTS")
                         .font(.ftLabel)
-                        .tracking(1.6)
+                        .tracking(1.6).fixedSize(horizontal: true, vertical: false)
                         .foregroundStyle(FTColor.textMuted)
                     Spacer()
                     Image(systemName: completedExpanded ? "chevron.up" : "chevron.down")
@@ -396,7 +396,7 @@ struct FreelanceProjectDetailSheet: View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
             Text("FINANCIALS")
                 .font(.ftLabel)
-                .tracking(1.6)
+                .tracking(1.6).fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(FTColor.textMuted)
 
             VStack(spacing: FTSpacing.sm) {
@@ -446,7 +446,7 @@ struct FreelanceProjectDetailSheet: View {
             HStack {
                 Text("INVOICES")
                     .font(.ftLabel)
-                    .tracking(1.6)
+                    .tracking(1.6).fixedSize(horizontal: true, vertical: false)
                     .foregroundStyle(FTColor.textMuted)
                 Spacer()
                 Button {
@@ -725,7 +725,7 @@ struct AddInvoiceSheet: View {
     private func sectionHeader(_ title: String) -> some View {
         Text(title)
             .font(.ftLabel)
-            .tracking(1.6)
+            .tracking(1.6).fixedSize(horizontal: true, vertical: false)
             .foregroundStyle(FTColor.textMuted)
             .padding(.leading, FTSpacing.xs)
             .padding(.bottom, FTSpacing.xs)
@@ -802,7 +802,7 @@ struct RecordInvoicePaymentSheet: View {
         VStack(alignment: .leading, spacing: FTSpacing.sm) {
             Text("INVOICE")
                 .font(.ftLabel)
-                .tracking(1.6)
+                .tracking(1.6).fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(FTColor.textMuted)
 
             HStack {
@@ -834,7 +834,7 @@ struct RecordInvoicePaymentSheet: View {
         VStack(alignment: .leading, spacing: 0) {
             Text("PAYMENT DETAILS")
                 .font(.ftLabel)
-                .tracking(1.6)
+                .tracking(1.6).fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(FTColor.textMuted)
                 .padding(.leading, FTSpacing.xs)
                 .padding(.bottom, FTSpacing.xs)

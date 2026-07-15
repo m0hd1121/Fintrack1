@@ -145,7 +145,7 @@ struct SecurityPrivacyView: View {
 
     private var appLockCard: some View {
         VStack(alignment: .leading, spacing: FTSpacing.sm) {
-            Text("APP LOCK").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("APP LOCK").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
 
             VStack(spacing: 0) {
                 FTToggleRow(
@@ -201,7 +201,7 @@ struct SecurityPrivacyView: View {
 
     private var advancedSecurityCard: some View {
         VStack(alignment: .leading, spacing: FTSpacing.sm) {
-            Text("ADVANCED SECURITY").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("ADVANCED SECURITY").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
 
             VStack(spacing: 0) {
                 NavigationLink(destination: TwoFactorSetupView()) {
@@ -241,7 +241,7 @@ struct SecurityPrivacyView: View {
 
     private var auditLogCard: some View {
         VStack(alignment: .leading, spacing: FTSpacing.sm) {
-            Text("AUDIT LOG").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("AUDIT LOG").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
 
             VStack(spacing: 0) {
                 FTToggleRow(symbol: "doc.text.magnifyingglass", tint: FTColor.gold,
@@ -626,7 +626,7 @@ struct TwoFactorSetupView: View {
 
     private var tfaSetupView: some View {
         VStack(spacing: FTSpacing.xxl) {
-            Text("STEP 1 OF 2").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("STEP 1 OF 2").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
 
             VStack(spacing: FTSpacing.lg) {
                 Text("Add to Authenticator App").font(.ftHeadline).foregroundStyle(FTColor.textPrimary)
@@ -671,7 +671,7 @@ struct TwoFactorSetupView: View {
 
     private var tfaVerifyView: some View {
         VStack(spacing: FTSpacing.xxl) {
-            Text("STEP 2 OF 2").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("STEP 2 OF 2").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
 
             VStack(spacing: FTSpacing.md) {
                 Image(systemName: "number.square.fill")
@@ -862,7 +862,7 @@ struct HiddenModeView: View {
 
     private var howItWorksCard: some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
-            Text("HOW IT WORKS").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("HOW IT WORKS").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
 
             hiddenRow("Real PIN → full access to all your data", icon: "lock.open.fill", color: FTColor.income)
             hiddenRow("Decoy PIN → Hidden Mode activates", icon: "eye.slash.fill", color: FTColor.catPurple)

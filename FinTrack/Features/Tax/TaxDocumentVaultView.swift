@@ -233,7 +233,7 @@ struct AddTaxDocumentView: View {
                 VStack(spacing: FTSpacing.xl) {
                     // Document Type
                     VStack(alignment: .leading, spacing: FTSpacing.md) {
-                        Text("DOCUMENT TYPE").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+                        Text("DOCUMENT TYPE").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
                         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: FTSpacing.sm) {
                             ForEach(TaxDocumentType.allCases, id: \.rawValue) { t in
                                 Button {
@@ -287,7 +287,7 @@ struct AddTaxDocumentView: View {
 
                     // File Picker
                     VStack(alignment: .leading, spacing: FTSpacing.md) {
-                        Text("ATTACH FILE").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+                        Text("ATTACH FILE").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
                         PhotosPicker(selection: $selectedPhoto, matching: .images) {
                             HStack {
                                 Image(systemName: selectedData != nil ? "checkmark.circle.fill" : "photo.badge.plus")
@@ -393,7 +393,7 @@ struct TaxDocumentDetailView: View {
 
                     if !document.tags.isEmpty {
                         VStack(alignment: .leading, spacing: FTSpacing.sm) {
-                            Text("TAGS").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+                            Text("TAGS").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
                             FlowLayout(spacing: FTSpacing.sm) {
                                 ForEach(document.tags, id: \.self) { tag in
                                     Text(tag)

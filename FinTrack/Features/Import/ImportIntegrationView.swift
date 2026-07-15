@@ -76,7 +76,7 @@ struct ImportIntegrationView: View {
 
     private var importMethods: some View {
         VStack(spacing: FTSpacing.md) {
-            Text("IMPORT METHODS").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("IMPORT METHODS").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             NavigationLink(destination: EmailImportView()) {
@@ -130,7 +130,7 @@ struct ImportIntegrationView: View {
 
     private var historyCard: some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
-            Text("IMPORT HISTORY").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("IMPORT HISTORY").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
             ForEach(importHistory.prefix(5)) { file in
                 HStack(spacing: FTSpacing.md) {
                     ZStack {

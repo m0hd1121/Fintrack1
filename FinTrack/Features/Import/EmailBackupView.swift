@@ -184,7 +184,7 @@ struct EmailBackupView: View {
             HStack(spacing: FTSpacing.sm) {
                 Image(systemName: "lock.shield.fill")
                     .font(.ftHeadline).foregroundStyle(FTColor.income)
-                Text("PRIVACY").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+                Text("PRIVACY").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
             }
             privacyRow("key.fill", "No OAuth, no developer setup — just your email address and an app-specific password, verified directly against your mail server")
             privacyRow("lock.doc.fill", "Turn on Backup Encryption (Settings → Data & Privacy) to protect the file's contents even though it travels as an email attachment")

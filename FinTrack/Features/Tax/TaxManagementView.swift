@@ -108,7 +108,7 @@ struct TaxManagementView: View {
     private var featuresGrid: some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
             Text("TAX TOOLS")
-                .font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+                .font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
 
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: FTSpacing.md) {
                 taxFeatureCard(
@@ -206,7 +206,7 @@ struct TaxManagementView: View {
     private var quickInsights: some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
             Text("TAX INSIGHTS")
-                .font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+                .font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
 
             VStack(spacing: FTSpacing.sm) {
                 insightRow(

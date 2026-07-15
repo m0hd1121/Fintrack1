@@ -170,7 +170,7 @@ struct FamilyFinanceView: View {
 
     private func featuresGrid(_ g: FamilyGroup) -> some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
-            Text("FAMILY TOOLS").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("FAMILY TOOLS").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
 
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: FTSpacing.md) {
                 familyFeatureCard(
@@ -257,7 +257,7 @@ struct FamilyFinanceView: View {
             transactions: transactions, bills: bills, currency: appState.baseCurrency
         )
         return VStack(alignment: .leading, spacing: FTSpacing.md) {
-            Text("HOUSEHOLD INSIGHTS").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("HOUSEHOLD INSIGHTS").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
             VStack(spacing: FTSpacing.sm) {
                 if summary.savingsRate > 0 {
                     insightRow(

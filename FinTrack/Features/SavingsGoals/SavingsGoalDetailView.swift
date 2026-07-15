@@ -193,7 +193,7 @@ struct SavingsGoalDetailView: View {
 
     private var downPaymentSummary: some View {
         VStack(alignment: .leading, spacing: FTSpacing.sm) {
-            Text("DOWN PAYMENT DETAILS").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+            Text("DOWN PAYMENT DETAILS").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
             VStack(spacing: FTSpacing.xs) {
                 if goal.propertyTargetPrice > 0 {
                     detailRow("Property Value", goal.propertyTargetPrice.formatted(as: goal.currency))
@@ -209,7 +209,7 @@ struct SavingsGoalDetailView: View {
 
     private var educationSummary: some View {
         VStack(alignment: .leading, spacing: FTSpacing.sm) {
-            Text("EDUCATION DETAILS").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+            Text("EDUCATION DETAILS").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
             if let inst = goal.educationInstitution {
                 detailCard {
                     detailRow("Institution", inst)
@@ -224,7 +224,7 @@ struct SavingsGoalDetailView: View {
 
     private var hajjSummary: some View {
         VStack(alignment: .leading, spacing: FTSpacing.sm) {
-            Text("HAJJ / UMRAH DETAILS").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+            Text("HAJJ / UMRAH DETAILS").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
             detailCard {
                 if goal.hajjTravelYear > 0 {
                     detailRow("Target Year", String(goal.hajjTravelYear))
@@ -239,7 +239,7 @@ struct SavingsGoalDetailView: View {
     private var emergencyFundSummary: some View {
         let monthly = SavingsGoalService.shared.estimatedMonthlyExpenses(transactions: transactions)
         return VStack(alignment: .leading, spacing: FTSpacing.sm) {
-            Text("EMERGENCY FUND DETAILS").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+            Text("EMERGENCY FUND DETAILS").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
             detailCard {
                 detailRow("Coverage Target", "\(goal.emergencyMonthsTarget) months")
                 if monthly > 0 {
@@ -253,7 +253,7 @@ struct SavingsGoalDetailView: View {
 
     private func notesCard(_ notes: String) -> some View {
         VStack(alignment: .leading, spacing: FTSpacing.xs) {
-            Text("NOTES").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+            Text("NOTES").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
             Text(notes).font(.ftBody).foregroundStyle(FTColor.textPrimary)
                 .padding(FTSpacing.md)
                 .ftGlass(FTRadius.md)
@@ -262,7 +262,7 @@ struct SavingsGoalDetailView: View {
 
     private var goalDetailsCard: some View {
         VStack(alignment: .leading, spacing: FTSpacing.sm) {
-            Text("GOAL DETAILS").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+            Text("GOAL DETAILS").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
             detailCard {
                 detailRow("Type", goal.goalType.rawValue)
                 detailRow("Currency", goal.currency)
@@ -291,7 +291,7 @@ struct SavingsGoalDetailView: View {
 
     private var projectionCard: some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
-            Text("SAVINGS PROJECTION").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+            Text("SAVINGS PROJECTION").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
             VStack(spacing: FTSpacing.sm) {
                 if let months = goal.monthsRemaining, months > 0 {
                     HStack {
@@ -338,7 +338,7 @@ struct SavingsGoalDetailView: View {
 
     private var milestonesCard: some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
-            Text("MILESTONES").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+            Text("MILESTONES").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
             VStack(spacing: 0) {
                 ForEach(SavingsGoalService.milestoneThresholds, id: \.self) { threshold in
                     let reached = goal.progress >= threshold
@@ -408,7 +408,7 @@ struct SavingsGoalDetailView: View {
 
     private var autoContribCard: some View {
         VStack(alignment: .leading, spacing: FTSpacing.sm) {
-            Text("AUTO-CONTRIBUTIONS").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+            Text("AUTO-CONTRIBUTIONS").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
             VStack(spacing: 0) {
                 HStack(spacing: FTSpacing.md) {
                     FTIconTile(symbol: "repeat.circle.fill", tint: FTColor.accent, size: 36)
@@ -473,7 +473,7 @@ struct SavingsGoalDetailView: View {
 
     private var nextContributionCard: some View {
         VStack(alignment: .leading, spacing: FTSpacing.sm) {
-            Text("NEXT CONTRIBUTION").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+            Text("NEXT CONTRIBUTION").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
             if goal.autoContributionEnabled && goal.autoContributionAmount > 0 {
                 let next = goal.autoContributionFrequency.nextContributionDate(from: Date(), dayOfMonth: goal.autoContributionDay)
                 HStack(spacing: FTSpacing.md) {
@@ -526,7 +526,7 @@ struct SavingsGoalDetailView: View {
 
             if !insights.isEmpty {
                 VStack(alignment: .leading, spacing: FTSpacing.md) {
-                    Text("AI INSIGHTS").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+                    Text("AI INSIGHTS").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
                     VStack(spacing: FTSpacing.sm) {
                         ForEach(insights) { insight in
                             insightRow(insight)

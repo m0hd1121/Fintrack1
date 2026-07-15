@@ -121,7 +121,7 @@ struct VATTrackerView: View {
     private var quarterlyChart: some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
             Text("QUARTERLY BREAKDOWN")
-                .font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+                .font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
 
             Chart {
                 ForEach(summary.quarterlyBreakdown) { q in
@@ -309,7 +309,7 @@ struct VATTrackerView: View {
 
     private var ftaInfoCard: some View {
         VStack(alignment: .leading, spacing: FTSpacing.sm) {
-            Text("FTA FILING GUIDE").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("FTA FILING GUIDE").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
             VStack(spacing: FTSpacing.sm) {
                 ftaGuideRow("Register with FTA if annual taxable supplies exceed AED 375,000.")
                 ftaGuideRow("Voluntary registration threshold: AED 187,500.")
@@ -359,7 +359,7 @@ struct AddVATRecordView: View {
             ScrollView {
                 VStack(spacing: FTSpacing.xl) {
                     VStack(alignment: .leading, spacing: FTSpacing.md) {
-                        Text("VAT TYPE").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+                        Text("VAT TYPE").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
                         Picker("VAT Type", selection: $vatType) {
                             ForEach(VATRecordType.allCases, id: \.rawValue) { t in
                                 Text(t.rawValue).tag(t)

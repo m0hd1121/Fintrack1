@@ -38,7 +38,7 @@ struct FinancialIntelligenceView: View {
                 if !predictionList.isEmpty {
                     VStack(spacing: FTSpacing.md) {
                         Text("PREDICTIONS")
-                            .font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+                            .font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
                             .frame(maxWidth: .infinity, alignment: .leading)
                         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: FTSpacing.sm) {
                             ForEach(predictionList) { prediction in
@@ -64,7 +64,7 @@ struct FinancialIntelligenceView: View {
 
                 VStack(spacing: FTSpacing.md) {
                     Text("INSIGHTS")
-                        .font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+                        .font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
                         .frame(maxWidth: .infinity, alignment: .leading)
 
                     if insightList.isEmpty {
@@ -136,7 +136,7 @@ struct FinancialIntelligenceView: View {
 
                 VStack(alignment: .leading, spacing: FTSpacing.sm) {
                     Text("FINANCIAL HEALTH")
-                        .font(.ftLabel).tracking(1.6).foregroundStyle(.white.opacity(0.8))
+                        .font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(.white.opacity(0.8))
                     ForEach(score.components.prefix(3)) { component in
                         HStack(spacing: FTSpacing.xs) {
                             Text(component.name)

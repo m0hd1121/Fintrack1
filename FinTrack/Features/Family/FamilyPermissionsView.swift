@@ -43,7 +43,7 @@ struct FamilyPermissionsView: View {
 
     private var permissionLegend: some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
-            Text("PERMISSION LEVELS").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("PERMISSION LEVELS").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
             VStack(spacing: FTSpacing.sm) {
                 ForEach(FamilyPermissionLevel.allCases, id: \.rawValue) { level in
                     HStack(spacing: FTSpacing.md) {
@@ -70,7 +70,7 @@ struct FamilyPermissionsView: View {
 
     private var membersPermissionList: some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
-            Text("MEMBER PERMISSIONS").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("MEMBER PERMISSIONS").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
             VStack(spacing: FTSpacing.sm) {
                 ForEach(members, id: \.id) { member in
                     memberPermissionRow(member)
@@ -138,7 +138,7 @@ struct FamilyPermissionsView: View {
     private var resourceAccessMatrix: some View {
         let resourceTypes = ["transactions", "accounts", "budget", "investments", "reports", "settings"]
         return VStack(alignment: .leading, spacing: FTSpacing.md) {
-            Text("ACCESS MATRIX").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("ACCESS MATRIX").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
             Text("Effective access per member for key resources")
                 .font(.ftCaption).foregroundStyle(FTColor.textMuted)
 
@@ -277,7 +277,7 @@ struct MemberPermissionEditorSheet: View {
 
     private var defaultPermissionSection: some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
-            Text("DEFAULT PERMISSION").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("DEFAULT PERMISSION").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
             Text("Applies to all resources unless overridden below")
                 .font(.ftCaption).foregroundStyle(FTColor.textMuted)
             ForEach(FamilyPermissionLevel.allCases, id: \.rawValue) { level in
@@ -309,7 +309,7 @@ struct MemberPermissionEditorSheet: View {
 
     private var overridesSection: some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
-            Text("RESOURCE OVERRIDES").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("RESOURCE OVERRIDES").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
             Text("Override default permission for specific sections")
                 .font(.ftCaption).foregroundStyle(FTColor.textMuted)
             VStack(spacing: FTSpacing.sm) {

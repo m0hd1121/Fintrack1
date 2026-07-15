@@ -243,7 +243,7 @@ struct AddEditClientSheet: View {
 
     private var statusPicker: some View {
         VStack(alignment: .leading, spacing: FTSpacing.sm) {
-            Text("STATUS").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("STATUS").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
             HStack(spacing: FTSpacing.sm) {
                 ForEach(ClientStatus.allCases, id: \.self) { s in
                     Button {
@@ -397,7 +397,7 @@ struct ClientDetailSheet: View {
 
     private var invoiceList: some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
-            Text("INVOICES").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textMuted)
+            Text("INVOICES").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
             if invoices.isEmpty {
                 Text("No invoices for this client.").font(.ftBody).foregroundStyle(FTColor.textMuted).padding()
             } else {

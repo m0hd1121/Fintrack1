@@ -105,7 +105,7 @@ struct SavingsGoalsView: View {
     private var heroCard: some View {
         VStack(alignment: .leading, spacing: FTSpacing.lg) {
             Text("TOTAL SAVINGS PROGRESS")
-                .font(.ftLabel).tracking(1.6)
+                .font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(.white.opacity(0.8))
 
             HStack(alignment: .firstTextBaseline, spacing: FTSpacing.sm) {
@@ -256,7 +256,7 @@ struct SavingsGoalsView: View {
     private var insightsSection: some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
             Text("AI INSIGHTS")
-                .font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+                .font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: FTSpacing.md) {
                     ForEach(insights) { insight in
@@ -466,7 +466,7 @@ struct GoalConflictView: View {
                         if !conflict.suggestions.isEmpty {
                             VStack(alignment: .leading, spacing: FTSpacing.sm) {
                                 Text("AI RECOMMENDATIONS")
-                                    .font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+                                    .font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
                                 ForEach(conflict.suggestions.indices, id: \.self) { i in
                                     HStack(alignment: .top, spacing: FTSpacing.md) {
                                         Image(systemName: "\(i + 1).circle.fill")
@@ -486,7 +486,7 @@ struct GoalConflictView: View {
                         // Goals involved
                         VStack(alignment: .leading, spacing: FTSpacing.sm) {
                             Text("AFFECTED GOALS")
-                                .font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+                                .font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
                             ForEach(conflict.goals) { goal in
                                 HStack(spacing: FTSpacing.md) {
                                     FTIconTile(symbol: goal.effectiveIcon,

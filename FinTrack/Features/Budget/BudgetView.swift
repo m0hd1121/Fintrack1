@@ -594,7 +594,7 @@ struct BudgetView: View {
         return VStack(alignment: .leading, spacing: 14) {
             HStack {
                 Text("SPENT THIS MONTH")
-                    .font(.ftLabel).tracking(1.6)
+                    .font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false)
                     .foregroundStyle(.white.opacity(0.8))
                 Spacer()
                 Text(selectedMonth.shortMonthName.uppercased())
@@ -654,7 +654,7 @@ struct BudgetView: View {
 
         return VStack(alignment: .leading, spacing: 14) {
             Text("YEAR-TO-DATE SPENDING")
-                .font(.ftLabel).tracking(1.6)
+                .font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(.white.opacity(0.8))
 
             HStack(alignment: .firstTextBaseline, spacing: 6) {
@@ -702,7 +702,7 @@ struct BudgetView: View {
         let data = last6MonthsSpending
         return VStack(alignment: .leading, spacing: FTSpacing.sm) {
             Text("MONTHLY SPENDING TREND")
-                .font(.ftLabel).tracking(1.6)
+                .font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(FTColor.textSecondary)
 
             Chart(data, id: \.month) { item in
@@ -743,7 +743,7 @@ struct BudgetView: View {
 
         return VStack(alignment: .leading, spacing: 14) {
             Text("ENVELOPE BALANCES")
-                .font(.ftLabel).tracking(1.6)
+                .font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(.white.opacity(0.8))
 
             HStack(alignment: .firstTextBaseline, spacing: 6) {
@@ -789,7 +789,7 @@ struct BudgetView: View {
 
         return VStack(alignment: .leading, spacing: 14) {
             Text("ZERO-BASED BUDGET")
-                .font(.ftLabel).tracking(1.6)
+                .font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(.white.opacity(0.8))
 
             HStack(alignment: .firstTextBaseline, spacing: 6) {
@@ -1373,7 +1373,7 @@ struct BudgetDetailView: View {
                         // 6-month history chart
                         VStack(alignment: .leading, spacing: FTSpacing.sm) {
                             Text("6-MONTH HISTORY")
-                                .font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+                                .font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
                             Chart(monthlyHistory, id: \.month) { item in
                                 BarMark(x: .value("Month", item.month, unit: .month),
                                         y: .value("Spent", item.spent))
@@ -1410,7 +1410,7 @@ struct BudgetDetailView: View {
                         if !relatedTransactions.isEmpty {
                             VStack(alignment: .leading, spacing: FTSpacing.sm) {
                                 Text("THIS MONTH'S TRANSACTIONS")
-                                    .font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+                                    .font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
                                     .padding(.horizontal, FTSpacing.xs)
                                 ForEach(relatedTransactions.prefix(10)) { tx in
                                     HStack(spacing: FTSpacing.md) {
@@ -1837,7 +1837,7 @@ struct AddEnvelopeView: View {
 
                         // Icon
                         VStack(alignment: .leading, spacing: FTSpacing.sm) {
-                            Text("ICON").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+                            Text("ICON").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
                             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 6), spacing: 10) {
                                 ForEach(iconOptions, id: \.self) { icon in
                                     Button { selectedIcon = icon } label: {
@@ -1856,7 +1856,7 @@ struct AddEnvelopeView: View {
 
                         // Color
                         VStack(alignment: .leading, spacing: FTSpacing.sm) {
-                            Text("COLOR").font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+                            Text("COLOR").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
                             HStack(spacing: 10) {
                                 ForEach(paletteColors, id: \.hex) { item in
                                     Circle()
@@ -1992,7 +1992,7 @@ struct EnvelopeDetailView: View {
                         if !relatedTransactions.isEmpty {
                             VStack(alignment: .leading, spacing: FTSpacing.sm) {
                                 Text("THIS MONTH")
-                                    .font(.ftLabel).tracking(1.6).foregroundStyle(FTColor.textSecondary)
+                                    .font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
                                     .padding(.horizontal, FTSpacing.xs)
                                 ForEach(relatedTransactions.prefix(15)) { tx in
                                     HStack(spacing: FTSpacing.md) {
