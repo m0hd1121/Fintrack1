@@ -509,6 +509,7 @@ struct BudgetView: View {
                         EnvelopeRow(
                             envelope: envelope,
                             spent: spentByCategory[envelope.category] ?? 0,
+                            allocatedAmount: converted(envelope.allocatedAmount, from: envelope.currency),
                             currency: baseCurrency
                         )
                         .contentShape(RoundedRectangle(cornerRadius: FTRadius.md))
@@ -736,7 +737,7 @@ struct BudgetView: View {
     }
 
     private var envelopeOverviewCard: some View {
-        let totalAllocated = envelopes.reduce(0) { $0 + $1.allocatedAmount }
+        let totalAllocated = envelopes.reduce(0) { $0 + converted($1.allocatedAmount, from: $1.currency) }
         let totalSpent = envelopes.reduce(0) { $0 + (spentByCategory[$1.category] ?? 0) }
         let remaining = totalAllocated - totalSpent
         let progress = totalAllocated > 0 ? min(totalSpent / totalAllocated, 1.0) : 0
@@ -1158,13 +1159,15 @@ struct AnnualBudgetRow: View {
 struct EnvelopeRow: View {
     let envelope: BudgetEnvelope
     let spent: Double
+    /// envelope.allocatedAmount converted from envelope.currency into `currency` (the app's base currency).
+    let allocatedAmount: Double
     let currency: String
 
-    private var remaining: Double { envelope.allocatedAmount - spent }
+    private var remaining: Double { allocatedAmount - spent }
     private var progress: Double {
-        envelope.allocatedAmount > 0 ? min(spent / envelope.allocatedAmount, 1.0) : 0
+        allocatedAmount > 0 ? min(spent / allocatedAmount, 1.0) : 0
     }
-    private var isOver: Bool { spent > envelope.allocatedAmount }
+    private var isOver: Bool { spent > allocatedAmount }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -1180,7 +1183,7 @@ struct EnvelopeRow: View {
                     Text(spent.formatted(as: currency))
                         .font(.ftBodySemibold)
                         .foregroundStyle(isOver ? FTColor.expense : FTColor.textPrimary)
-                    Text("of \(envelope.allocatedAmount.formatted(as: currency))")
+                    Text("of \(allocatedAmount.formatted(as: currency))")
                         .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
                 }
             }
@@ -1770,12 +1773,18 @@ struct AddEnvelopeView: View {
     @State private var name = ""
     @State private var category: TransactionCategory = .food
     @State private var amount = ""
+    @State private var currency = "AED"
     @State private var selectedColorHex = "#0E9C8A"
     @State private var selectedIcon = "envelope.fill"
 
     private let categories: [TransactionCategory] = [
         .food, .shopping, .transportation, .fuel, .utilities, .entertainment,
         .travel, .education, .medical, .personalCare, .gifts, .other
+    ]
+
+    private let currencies: [String] = [
+        "AED", "USD", "EUR", "GBP", "SAR",
+        "INR", "PKR", "EGP", "KWD", "BHD", "QAR", "OMR"
     ]
 
     private let paletteColors: [(name: String, hex: String)] = [
@@ -1827,10 +1836,26 @@ struct AddEnvelopeView: View {
                             HStack(spacing: FTSpacing.md) {
                                 Text("Funded Amount").font(.ftBody).foregroundStyle(FTColor.textSecondary)
                                 Spacer()
-                                Text(appState.baseCurrency).font(.ftBody).foregroundStyle(FTColor.textMuted)
+                                Text(currency).font(.ftBody).foregroundStyle(FTColor.textMuted)
                                 AmountTextField("0.00", text: $amount, font: .ftBodySemibold)
                                     .foregroundStyle(FTColor.textPrimary)
                                     .frame(maxWidth: 120)
+                            }.padding(.vertical, 13)
+                            Divider().opacity(0.4)
+                            HStack(spacing: FTSpacing.md) {
+                                Text("Currency").font(.ftBody).foregroundStyle(FTColor.textSecondary)
+                                Spacer()
+                                Menu {
+                                    ForEach(currencies, id: \.self) { cur in
+                                        Button(cur) { currency = cur }
+                                    }
+                                } label: {
+                                    HStack(spacing: 4) {
+                                        Text(currency).font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                                        Image(systemName: "chevron.up.chevron.down")
+                                            .font(.system(size: 11, weight: .semibold)).foregroundStyle(FTColor.textMuted)
+                                    }
+                                }
                             }.padding(.vertical, 13)
                         }
                         .padding(.horizontal, FTSpacing.lg).ftGlass(FTRadius.md)
@@ -1885,6 +1910,7 @@ struct AddEnvelopeView: View {
             .navigationTitle("New Envelope").navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .navigationBarLeading) { Button("Cancel") { dismiss() } } }
             .dismissKeyboardOnTap()
+            .onAppear { currency = appState.baseCurrency }
         }
     }
 
@@ -1895,7 +1921,7 @@ struct AddEnvelopeView: View {
             colorHex: selectedColorHex,
             allocatedAmount: AmountTextField.double(from: amount),
             category: category,
-            currency: appState.baseCurrency,
+            currency: currency,
             sortOrder: existingEnvelopes.count
         )
         context.insert(envelope)
@@ -1912,6 +1938,7 @@ struct EnvelopeDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
     @Environment(AppState.self) private var appState
+    @Environment(CurrencyService.self) private var currencyService
     @Query(sort: \BudgetEnvelope.sortOrder) private var allEnvelopes: [BudgetEnvelope]
 
     @State private var showingFund = false
@@ -1922,6 +1949,12 @@ struct EnvelopeDetailView: View {
     @State private var showingDeleteConfirm = false
 
     private var currency: String { appState.baseCurrency }
+
+    /// envelope.allocatedAmount converted from envelope.currency into the app's base currency,
+    /// since `spent` (derived from Transaction.spendingPairs) is always base-currency.
+    private var allocatedAmount: Double {
+        currencyService.convert(envelope.allocatedAmount, from: envelope.currency, to: currency)
+    }
 
     private var relatedTransactions: [Transaction] {
         transactions
@@ -1940,8 +1973,8 @@ struct EnvelopeDetailView: View {
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
                         // Hero
-                        let remaining = envelope.allocatedAmount - spent
-                        let progress = envelope.allocatedAmount > 0 ? min(spent / envelope.allocatedAmount, 1.0) : 0
+                        let remaining = allocatedAmount - spent
+                        let progress = allocatedAmount > 0 ? min(spent / allocatedAmount, 1.0) : 0
 
                         VStack(alignment: .leading, spacing: 14) {
                             HStack {
@@ -1960,7 +1993,7 @@ struct EnvelopeDetailView: View {
                             }
                             FTProgressBar(value: progress, color: .white.opacity(0.9))
                             HStack {
-                                Text("Funded: \(envelope.allocatedAmount.formatted(as: currency))")
+                                Text("Funded: \(allocatedAmount.formatted(as: currency))")
                                     .font(.ftCaption).foregroundStyle(.white.opacity(0.8))
                                 Spacer()
                                 Text("Spent: \(spent.formatted(as: currency))")
@@ -2056,7 +2089,7 @@ struct EnvelopeDetailView: View {
                 }
                 Button("Cancel", role: .cancel) { fundAmount = "" }
             } message: {
-                Text("How much are you adding to \(envelope.name)?")
+                Text("How much \(envelope.currency) are you adding to \(envelope.name)?")
             }
             .sheet(isPresented: $showingTransfer) {
                 transferSheet
@@ -2104,6 +2137,7 @@ struct EnvelopeDetailView: View {
                         HStack {
                             Text("Amount").font(.ftBody).foregroundStyle(FTColor.textSecondary)
                             Spacer()
+                            Text(envelope.currency).font(.ftBody).foregroundStyle(FTColor.textMuted)
                             AmountTextField("0.00", text: $transferAmount, font: .ftBodySemibold)
                                 .foregroundStyle(FTColor.textPrimary)
                                 .frame(maxWidth: 120)
@@ -2115,8 +2149,9 @@ struct EnvelopeDetailView: View {
 
                     Button {
                         if let target = transferTarget, let a = Double(transferAmount.replacingOccurrences(of: ",", with: "")), a > 0 {
+                            // `a` is entered in the source envelope's own currency.
                             envelope.allocatedAmount -= a
-                            target.allocatedAmount += a
+                            target.allocatedAmount += currencyService.convert(a, from: envelope.currency, to: target.currency)
                             try? context.save()
                         }
                         transferAmount = ""
