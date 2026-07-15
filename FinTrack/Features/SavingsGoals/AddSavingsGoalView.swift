@@ -198,7 +198,7 @@ struct AddSavingsGoalView: View {
                 divider
                 VStack(spacing: 0) {
                     Toggle(isOn: $hasTargetDate) {
-                        Text("Set Target Date").font(.ftBody).foregroundStyle(FTColor.textPrimary)
+                        Text("Set Target Date").font(.ftBody).foregroundStyle(FTColor.textSecondary)
                     }.tint(FTColor.accent).padding(.vertical, 13)
                     if hasTargetDate {
                         Divider().opacity(0.4)
