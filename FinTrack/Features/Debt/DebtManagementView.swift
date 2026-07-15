@@ -120,10 +120,10 @@ struct DebtManagementView: View {
                 AddBNPLView()
             }
             .sheet(isPresented: $showingAddLent) {
-                AddMoneyLentSheet()
+                AddMoneyLentView()
             }
             .sheet(isPresented: $showingAddBorrowed) {
-                AddMoneyBorrowedSheet()
+                AddMoneyBorrowedView()
             }
             .sheet(item: $editingLoan) { item in
                 AddLoanView(editingLoan: item)
@@ -135,10 +135,10 @@ struct DebtManagementView: View {
                 LoanDetailSheet(loan: item)
             }
             .sheet(item: $editingLent) { item in
-                AddMoneyLentSheet(editing: item)
+                AddMoneyLentView(editingItem: item)
             }
             .sheet(item: $editingBorrowed) { item in
-                AddMoneyBorrowedSheet(editing: item)
+                AddMoneyBorrowedView(editingItem: item)
             }
             .sheet(item: $selectedLent) { item in
                 MoneyLentDetailSheet(item: item)
@@ -2572,7 +2572,7 @@ struct MoneyLentDetailSheet: View {
                 RecordLentRepaymentSheet(item: item)
             }
             .sheet(isPresented: $showingEdit) {
-                AddMoneyLentSheet(editing: item)
+                AddMoneyLentView(editingItem: item)
             }
             .sheet(item: $editingRepayment) { repayment in
                 let linkedAccountId = allTransactions.first(where: { $0.linkedDebtRepaymentId == repayment.id })?.account?.id
@@ -3026,7 +3026,7 @@ struct MoneyBorrowedDetailSheet: View {
                 RecordBorrowedRepaymentSheet(item: item)
             }
             .sheet(isPresented: $showingEdit) {
-                AddMoneyBorrowedSheet(editing: item)
+                AddMoneyBorrowedView(editingItem: item)
             }
             .sheet(item: $editingRepayment) { repayment in
                 let linkedAccountId = allTransactions.first(where: { $0.linkedDebtRepaymentId == repayment.id })?.account?.id
@@ -3542,395 +3542,6 @@ private struct RecordBorrowedRepaymentSheet: View {
             account.balance -= delta
         }
         context.insert(tx)
-        try? context.save()
-        dismiss()
-    }
-}
-
-// MARK: - AddMoneyLentSheet (minimal add form)
-
-private struct AddMoneyLentSheet: View {
-    @Environment(\.modelContext) private var context
-    @Environment(\.dismiss) private var dismiss
-
-    var editing: MoneyLent? = nil
-
-    @State private var borrowerName = ""
-    @State private var amount = ""
-    @State private var currency = "AED"
-    @State private var lendingDate = Date()
-    @State private var dueDate: Date? = nil
-    @State private var hasDueDate = false
-    @State private var notes = ""
-    @State private var selectedColor = "blue"
-    @State private var contactInfo = ""
-
-    private let colorOptions = ["blue", "green", "teal", "purple", "orange", "pink", "indigo"]
-
-    var body: some View {
-        NavigationStack {
-            ZStack {
-                FTBackdrop()
-                ScrollView {
-                    VStack(spacing: FTSpacing.lg) {
-                        VStack(spacing: 0) {
-                            formRow(label: "Borrower Name") {
-                                TextField("Name", text: $borrowerName)
-                                    .multilineTextAlignment(.trailing)
-                                    .font(.ftBody)
-                                    .foregroundStyle(FTColor.textPrimary)
-                            }
-                            Divider().padding(.leading, FTSpacing.screen)
-                            formRow(label: "Amount") {
-                                AmountTextField("0.00", text: $amount, font: .ftBodySemibold)
-                                    .foregroundStyle(FTColor.textPrimary)
-                            }
-                            Divider().padding(.leading, FTSpacing.screen)
-                            formRow(label: "Currency") {
-                                TextField("AED", text: $currency)
-                                    .multilineTextAlignment(.trailing)
-                                    .font(.ftBody)
-                                    .foregroundStyle(FTColor.textPrimary)
-                                    .frame(width: 60)
-                            }
-                            Divider().padding(.leading, FTSpacing.screen)
-                            formRow(label: "Lending Date") {
-                                DatePicker("", selection: $lendingDate, displayedComponents: .date)
-                                    .labelsHidden()
-                                    .tint(FTColor.accent)
-                            }
-                            Divider().padding(.leading, FTSpacing.screen)
-                            formRow(label: "Due Date") {
-                                Toggle("", isOn: $hasDueDate)
-                                    .labelsHidden()
-                                    .tint(FTColor.accent)
-                            }
-                            if hasDueDate {
-                                Divider().padding(.leading, FTSpacing.screen)
-                                formRow(label: "") {
-                                    DatePicker("", selection: Binding(
-                                        get: { dueDate ?? Date() },
-                                        set: { dueDate = $0 }
-                                    ), displayedComponents: .date)
-                                    .labelsHidden()
-                                    .tint(FTColor.accent)
-                                }
-                            }
-                            Divider().padding(.leading, FTSpacing.screen)
-                            formRow(label: "Contact") {
-                                TextField("Phone/Email", text: $contactInfo)
-                                    .multilineTextAlignment(.trailing)
-                                    .font(.ftBody)
-                                    .foregroundStyle(FTColor.textPrimary)
-                            }
-                            Divider().padding(.leading, FTSpacing.screen)
-                            formRow(label: "Notes") {
-                                TextField("Optional", text: $notes)
-                                    .multilineTextAlignment(.trailing)
-                                    .font(.ftBody)
-                                    .foregroundStyle(FTColor.textPrimary)
-                            }
-                        }
-                        .ftGlass(FTRadius.lg)
-                        .padding(.horizontal, FTSpacing.screen)
-
-                        // Color picker
-                        VStack(alignment: .leading, spacing: FTSpacing.sm) {
-                            Text("Color")
-                                .font(.ftBodySemibold)
-                                .foregroundStyle(FTColor.textPrimary)
-                                .padding(.horizontal, FTSpacing.screen)
-
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: FTSpacing.md) {
-                                    ForEach(colorOptions, id: \.self) { colorName in
-                                        Button {
-                                            selectedColor = colorName
-                                        } label: {
-                                            Circle()
-                                                .fill(Color.fromString(colorName))
-                                                .frame(width: 34, height: 34)
-                                                .overlay(
-                                                    Circle()
-                                                        .strokeBorder(.white, lineWidth: selectedColor == colorName ? 3 : 0)
-                                                )
-                                                .shadow(color: Color.fromString(colorName).opacity(0.4), radius: 6, y: 2)
-                                        }
-                                        .buttonStyle(.plain)
-                                    }
-                                }
-                                .padding(.horizontal, FTSpacing.screen)
-                            }
-                        }
-
-                        Button(editing == nil ? "Add Record" : "Save Changes") { save() }
-                            .buttonStyle(.ftPrimary)
-                            .padding(.horizontal, FTSpacing.screen)
-                            .disabled(borrowerName.isEmpty || Double(amount.replacingOccurrences(of: ",", with: "")) == nil)
-                    }
-                    .padding(.top, FTSpacing.lg)
-                    .padding(.bottom, FTSpacing.xxl)
-                }
-            }
-            .navigationTitle(editing == nil ? "Lend Money" : "Edit Record")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.hidden, for: .navigationBar)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") { dismiss() }
-                        .foregroundStyle(FTColor.accent)
-                }
-            }
-            .onAppear { populateIfEditing() }
-        }
-    }
-
-    private func formRow<Content: View>(label: String, @ViewBuilder content: () -> Content) -> some View {
-        HStack {
-            if !label.isEmpty {
-                Text(label)
-                    .font(.ftBody)
-                    .foregroundStyle(FTColor.textSecondary)
-            }
-            Spacer()
-            content()
-        }
-        .padding(.horizontal, FTSpacing.screen)
-        .padding(.vertical, FTSpacing.md)
-    }
-
-    private func populateIfEditing() {
-        guard let e = editing else { return }
-        borrowerName = e.borrowerName
-        amount = AmountTextField.format(String(format: "%.2f", e.amount))
-        currency = e.currency
-        lendingDate = e.lendingDate
-        hasDueDate = e.dueDate != nil
-        dueDate = e.dueDate
-        notes = e.notes ?? ""
-        contactInfo = e.contactInfo ?? ""
-        selectedColor = e.color
-    }
-
-    private func save() {
-        guard let amountValue = Double(amount.replacingOccurrences(of: ",", with: "")), !borrowerName.isEmpty else { return }
-        if let e = editing {
-            e.borrowerName = borrowerName
-            e.amount = amountValue
-            e.currency = currency
-            e.lendingDate = lendingDate
-            e.dueDate = hasDueDate ? dueDate : nil
-            e.notes = notes.isEmpty ? nil : notes
-            e.contactInfo = contactInfo.isEmpty ? nil : contactInfo
-            e.color = selectedColor
-            e.updatedAt = Date()
-        } else {
-            let item = MoneyLent(
-                borrowerName: borrowerName,
-                amount: amountValue,
-                currency: currency,
-                lendingDate: lendingDate,
-                dueDate: hasDueDate ? dueDate : nil,
-                notes: notes.isEmpty ? nil : notes,
-                color: selectedColor
-            )
-            item.contactInfo = contactInfo.isEmpty ? nil : contactInfo
-            context.insert(item)
-        }
-        try? context.save()
-        dismiss()
-    }
-}
-
-// MARK: - AddMoneyBorrowedSheet (minimal add form)
-
-private struct AddMoneyBorrowedSheet: View {
-    @Environment(\.modelContext) private var context
-    @Environment(\.dismiss) private var dismiss
-
-    var editing: MoneyBorrowed? = nil
-
-    @State private var lenderName = ""
-    @State private var amount = ""
-    @State private var currency = "AED"
-    @State private var borrowDate = Date()
-    @State private var dueDate: Date? = nil
-    @State private var hasDueDate = false
-    @State private var notes = ""
-    @State private var selectedColor = "red"
-    @State private var contactInfo = ""
-
-    private let colorOptions = ["red", "orange", "pink", "purple", "brown", "gray", "indigo"]
-
-    var body: some View {
-        NavigationStack {
-            ZStack {
-                FTBackdrop()
-                ScrollView {
-                    VStack(spacing: FTSpacing.lg) {
-                        VStack(spacing: 0) {
-                            formRow(label: "Lender Name") {
-                                TextField("Name", text: $lenderName)
-                                    .multilineTextAlignment(.trailing)
-                                    .font(.ftBody)
-                                    .foregroundStyle(FTColor.textPrimary)
-                            }
-                            Divider().padding(.leading, FTSpacing.screen)
-                            formRow(label: "Amount") {
-                                AmountTextField("0.00", text: $amount, font: .ftBodySemibold)
-                                    .foregroundStyle(FTColor.textPrimary)
-                            }
-                            Divider().padding(.leading, FTSpacing.screen)
-                            formRow(label: "Currency") {
-                                TextField("AED", text: $currency)
-                                    .multilineTextAlignment(.trailing)
-                                    .font(.ftBody)
-                                    .foregroundStyle(FTColor.textPrimary)
-                                    .frame(width: 60)
-                            }
-                            Divider().padding(.leading, FTSpacing.screen)
-                            formRow(label: "Borrow Date") {
-                                DatePicker("", selection: $borrowDate, displayedComponents: .date)
-                                    .labelsHidden()
-                                    .tint(FTColor.accent)
-                            }
-                            Divider().padding(.leading, FTSpacing.screen)
-                            formRow(label: "Due Date") {
-                                Toggle("", isOn: $hasDueDate)
-                                    .labelsHidden()
-                                    .tint(FTColor.accent)
-                            }
-                            if hasDueDate {
-                                Divider().padding(.leading, FTSpacing.screen)
-                                formRow(label: "") {
-                                    DatePicker("", selection: Binding(
-                                        get: { dueDate ?? Date() },
-                                        set: { dueDate = $0 }
-                                    ), displayedComponents: .date)
-                                    .labelsHidden()
-                                    .tint(FTColor.accent)
-                                }
-                            }
-                            Divider().padding(.leading, FTSpacing.screen)
-                            formRow(label: "Contact") {
-                                TextField("Phone/Email", text: $contactInfo)
-                                    .multilineTextAlignment(.trailing)
-                                    .font(.ftBody)
-                                    .foregroundStyle(FTColor.textPrimary)
-                            }
-                            Divider().padding(.leading, FTSpacing.screen)
-                            formRow(label: "Notes") {
-                                TextField("Optional", text: $notes)
-                                    .multilineTextAlignment(.trailing)
-                                    .font(.ftBody)
-                                    .foregroundStyle(FTColor.textPrimary)
-                            }
-                        }
-                        .ftGlass(FTRadius.lg)
-                        .padding(.horizontal, FTSpacing.screen)
-
-                        VStack(alignment: .leading, spacing: FTSpacing.sm) {
-                            Text("Color")
-                                .font(.ftBodySemibold)
-                                .foregroundStyle(FTColor.textPrimary)
-                                .padding(.horizontal, FTSpacing.screen)
-
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: FTSpacing.md) {
-                                    ForEach(colorOptions, id: \.self) { colorName in
-                                        Button {
-                                            selectedColor = colorName
-                                        } label: {
-                                            Circle()
-                                                .fill(Color.fromString(colorName))
-                                                .frame(width: 34, height: 34)
-                                                .overlay(
-                                                    Circle()
-                                                        .strokeBorder(.white, lineWidth: selectedColor == colorName ? 3 : 0)
-                                                )
-                                                .shadow(color: Color.fromString(colorName).opacity(0.4), radius: 6, y: 2)
-                                        }
-                                        .buttonStyle(.plain)
-                                    }
-                                }
-                                .padding(.horizontal, FTSpacing.screen)
-                            }
-                        }
-
-                        Button(editing == nil ? "Add Record" : "Save Changes") { save() }
-                            .buttonStyle(.ftPrimary)
-                            .padding(.horizontal, FTSpacing.screen)
-                            .disabled(lenderName.isEmpty || Double(amount.replacingOccurrences(of: ",", with: "")) == nil)
-                    }
-                    .padding(.top, FTSpacing.lg)
-                    .padding(.bottom, FTSpacing.xxl)
-                }
-            }
-            .navigationTitle(editing == nil ? "Borrowed Money" : "Edit Record")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.hidden, for: .navigationBar)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") { dismiss() }
-                        .foregroundStyle(FTColor.accent)
-                }
-            }
-            .onAppear { populateIfEditing() }
-        }
-    }
-
-    private func formRow<Content: View>(label: String, @ViewBuilder content: () -> Content) -> some View {
-        HStack {
-            if !label.isEmpty {
-                Text(label)
-                    .font(.ftBody)
-                    .foregroundStyle(FTColor.textSecondary)
-            }
-            Spacer()
-            content()
-        }
-        .padding(.horizontal, FTSpacing.screen)
-        .padding(.vertical, FTSpacing.md)
-    }
-
-    private func populateIfEditing() {
-        guard let e = editing else { return }
-        lenderName = e.lenderName
-        amount = AmountTextField.format(String(format: "%.2f", e.amount))
-        currency = e.currency
-        borrowDate = e.borrowDate
-        hasDueDate = e.dueDate != nil
-        dueDate = e.dueDate
-        notes = e.notes ?? ""
-        contactInfo = e.contactInfo ?? ""
-        selectedColor = e.color
-    }
-
-    private func save() {
-        guard let amountValue = Double(amount.replacingOccurrences(of: ",", with: "")), !lenderName.isEmpty else { return }
-        if let e = editing {
-            e.lenderName = lenderName
-            e.amount = amountValue
-            e.currency = currency
-            e.borrowDate = borrowDate
-            e.dueDate = hasDueDate ? dueDate : nil
-            e.notes = notes.isEmpty ? nil : notes
-            e.contactInfo = contactInfo.isEmpty ? nil : contactInfo
-            e.color = selectedColor
-            e.updatedAt = Date()
-        } else {
-            let item = MoneyBorrowed(
-                lenderName: lenderName,
-                amount: amountValue,
-                currency: currency,
-                borrowDate: borrowDate,
-                dueDate: hasDueDate ? dueDate : nil,
-                notes: notes.isEmpty ? nil : notes,
-                color: selectedColor
-            )
-            item.contactInfo = contactInfo.isEmpty ? nil : contactInfo
-            context.insert(item)
-        }
         try? context.save()
         dismiss()
     }

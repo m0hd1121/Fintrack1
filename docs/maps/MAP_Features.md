@@ -74,11 +74,11 @@ Part of PROJECT_MAP.md (see root for navigation). All folders under `FinTrack/Fe
 **Core features:** app home screen — widget visibility controlled by `DashboardCustomizerView`'s enum + `AppSettings.dashboardHiddenWidgets`; `UpcomingPaymentsView` is a drill-down sheet.
 
 ### Features/Debt/
-- AddMoneyBorrowedView.swift — add/edit money borrowed from a person
-- AddMoneyLentView.swift — add/edit money lent to a person (linked account, due date, reminders)
-- DebtManagementView.swift — debt hub, 9 tabs (overview/loans/snowball/avalanche/calculator/lent/borrowed/BNPL/utilization); also hosts `LoanDetailSheet`, `RecordBNPLPaymentSheet`, `BNPLDetailSheet`, `MoneyLentDetailSheet`, `MoneyBorrowedDetailSheet`, delete-with-cleanup helpers
+- AddMoneyBorrowedView.swift — add/edit money borrowed from a person, with a "Borrow Into" account picker (linked account, due date, reminders); creates/reverses a linked `Transaction` + `Account` balance delta, same pattern as Loan/BNPL
+- AddMoneyLentView.swift — add/edit money lent to a person, with a "Lend From" account picker (linked account, due date, reminders); creates/reverses a linked `Transaction` + `Account` balance delta, same pattern as Loan/BNPL
+- DebtManagementView.swift — debt hub, 9 tabs (overview/loans/snowball/avalanche/calculator/lent/borrowed/BNPL/utilization); also hosts `LoanDetailSheet`, `RecordBNPLPaymentSheet`, `BNPLDetailSheet`, `MoneyLentDetailSheet`, `MoneyBorrowedDetailSheet`, delete-with-cleanup helpers. All 6 Add/Edit Lent/Borrowed sheet presentations here now call the real `AddMoneyLentView`/`AddMoneyBorrowedView` structs (see §8 — this file used to contain dead-code duplicates `AddMoneyLentSheet`/`AddMoneyBorrowedSheet`, now deleted).
 
-**Core features:** debt tracking & payoff planning — loans, credit cards, BNPL, snowball/avalanche strategies, interest calculator, all in one multi-tab file. Every debt type (Loan/BNPL/MoneyLent/MoneyBorrowed) follows the same pattern: tap card → detail sheet → Record Payment creates a linked `Transaction` + deducts an `Account`; delete reverses that deduction first.
+**Core features:** debt tracking & payoff planning — loans, credit cards, BNPL, snowball/avalanche strategies, interest calculator, all in one multi-tab file. Every debt type (Loan/BNPL/MoneyLent/MoneyBorrowed) follows the same pattern: tap card → detail sheet → Record Payment creates a linked `Transaction` + deducts an `Account`; delete reverses that deduction first. The *initial* lend/borrow now follows this same pattern too (previously MoneyLent/MoneyBorrowed only got this on repayment, not on creation — see §8).
 
 ### Features/Family/
 - ChildAllowanceView.swift — children list with allowance summary, per-child cards, record payment
