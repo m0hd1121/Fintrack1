@@ -9,6 +9,10 @@ struct AddMoneyBorrowedView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
 
+    // MARK: Data
+    @Query(sort: \Account.name) private var accounts: [Account]
+    @Query private var allTransactions: [Transaction]
+
     // MARK: Editing target
     let editingItem: MoneyBorrowed?
 
@@ -21,6 +25,7 @@ struct AddMoneyBorrowedView: View {
     // Section 2: Amount & Dates
     @State private var amountText: String = ""
     @State private var currency: String = "AED"
+    @State private var selectedAccountId: UUID? = nil
     @State private var borrowDate: Date = Date()
     @State private var dueDateEnabled: Bool = false
     @State private var dueDate: Date = Calendar.current.date(byAdding: .month, value: 1, to: Date()) ?? Date()
@@ -37,6 +42,10 @@ struct AddMoneyBorrowedView: View {
 
     // Validation
     @State private var showValidationError: Bool = false
+
+    // MARK: - Computed
+    private var activeAccounts: [Account] { accounts.filter { !$0.isArchived } }
+    private var selectedAccount: Account? { activeAccounts.first { $0.id == selectedAccountId } }
 
     // MARK: - Constants
 
@@ -104,6 +113,18 @@ struct AddMoneyBorrowedView: View {
             }
             .navigationTitle(editingItem == nil ? "Borrow Record" : "Edit Borrow Record")
             .navigationBarTitleDisplayMode(.inline)
+            .onAppear {
+                guard selectedAccountId == nil else { return }
+                if let item = editingItem {
+                    let linkedTx = allTransactions.first {
+                        $0.linkedMoneyBorrowedId == item.id && $0.linkedDebtRepaymentId == nil
+                    }
+                    selectedAccountId = linkedTx?.account?.id
+                } else {
+                    selectedAccountId = activeAccounts.first(where: { $0.isDefault })?.id
+                        ?? activeAccounts.first?.id
+                }
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
@@ -204,6 +225,27 @@ struct AddMoneyBorrowedView: View {
                                 .foregroundStyle(FTColor.textMuted)
                         }
                     }
+                }
+                .padding(.vertical, FTSpacing.md)
+
+                divider
+
+                // Destination Account
+                HStack(spacing: FTSpacing.md) {
+                    FTIconTile(symbol: "building.columns.fill", tint: FTColor.accent, size: 36)
+                    Text("Deposit Into")
+                        .font(.ftBody)
+                        .foregroundStyle(FTColor.textSecondary)
+                        .fixedSize()
+                    Spacer()
+                    Picker("", selection: $selectedAccountId) {
+                        Text("None").tag(Optional<UUID>(nil))
+                        ForEach(activeAccounts) { acc in
+                            Text(acc.name).tag(Optional(acc.id))
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .accentColor(FTColor.accent)
                 }
                 .padding(.vertical, FTSpacing.md)
 
@@ -502,6 +544,48 @@ struct AddMoneyBorrowedView: View {
                 NotificationService.shared.cancelNotification(id: "borrowed_\(item.id.uuidString)")
             }
 
+            // Find and update the initial-borrow transaction (no repayment ID = initial borrow)
+            let existingTx = allTransactions.first {
+                $0.linkedMoneyBorrowedId == item.id && $0.linkedDebtRepaymentId == nil
+            }
+            let oldAccount = existingTx?.account
+            if let tx = existingTx {
+                // Reverse old account balance
+                if let oldAcc = oldAccount {
+                    let oldDelta = CurrencyService.shared.convert(item.amount, from: item.currency, to: oldAcc.currency)
+                    oldAcc.balance -= oldDelta
+                }
+                // Apply to new account
+                if let newAcc = selectedAccount {
+                    tx.account = newAcc
+                    tx.title = "Borrowed from \(trimmedName)"
+                    tx.amount = amount
+                    tx.currency = currency
+                    tx.date = borrowDate
+                    tx.notes = trimmedNotes.isEmpty ? nil : trimmedNotes
+                    let delta = CurrencyService.shared.convert(amount, from: currency, to: newAcc.currency)
+                    newAcc.balance += delta
+                } else {
+                    tx.account = nil
+                }
+            } else if let newAcc = selectedAccount {
+                // No prior transaction existed — create one now
+                let tx = Transaction(
+                    title: "Borrowed from \(trimmedName)",
+                    amount: amount,
+                    currency: currency,
+                    type: .income,
+                    category: .personalBorrowed,
+                    date: borrowDate,
+                    notes: trimmedNotes.isEmpty ? nil : trimmedNotes
+                )
+                tx.linkedMoneyBorrowedId = item.id
+                tx.account = newAcc
+                let delta = CurrencyService.shared.convert(amount, from: currency, to: newAcc.currency)
+                newAcc.balance += delta
+                context.insert(tx)
+            }
+
             // Update existing record
             item.lenderName         = trimmedName
             item.contactInfo        = trimmedContact.isEmpty ? nil : trimmedContact
@@ -541,6 +625,24 @@ struct AddMoneyBorrowedView: View {
                 color: selectedColorName
             )
             context.insert(newItem)
+
+            // Create the initial-borrow transaction and deposit into account
+            if let account = selectedAccount {
+                let tx = Transaction(
+                    title: "Borrowed from \(trimmedName)",
+                    amount: amount,
+                    currency: currency,
+                    type: .income,
+                    category: .personalBorrowed,
+                    date: borrowDate,
+                    notes: trimmedNotes.isEmpty ? nil : trimmedNotes
+                )
+                tx.linkedMoneyBorrowedId = newItem.id
+                tx.account = account
+                let delta = CurrencyService.shared.convert(amount, from: currency, to: account.currency)
+                account.balance += delta
+                context.insert(tx)
+            }
 
             if reminderEnabled, let due = resolvedDueDate {
                 NotificationService.shared.scheduleBorrowedReminder(

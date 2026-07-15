@@ -312,6 +312,7 @@ enum TransactionCategory: String, Codable, CaseIterable {
     // Personal lending
     case personalLent            = "Personal Lent"
     case personalLentRepayment   = "Personal Lent Repayment"
+    case personalBorrowed        = "Personal Borrowed"
     // Loyalty & Rewards
     case loyaltyEarned   = "Loyalty Points Earned"
     case loyaltyRedeemed = "Loyalty Points Redeemed"
@@ -359,6 +360,7 @@ enum TransactionCategory: String, Codable, CaseIterable {
         case .bnplRepayment:     return "cart.fill"
         case .personalLent:             return "hand.raised.fill"
         case .personalLentRepayment:    return "hand.thumbsup.fill"
+        case .personalBorrowed:         return "person.badge.minus"
         case .loyaltyEarned:            return "star.fill"
         case .loyaltyRedeemed:          return "star.slash.fill"
         case .creditCard:        return "creditcard.fill"
@@ -392,6 +394,7 @@ enum TransactionCategory: String, Codable, CaseIterable {
         case .cashbackIncome:    return "teal"
         case .personalLent:             return "orange"
         case .personalLentRepayment:    return "teal"
+        case .personalBorrowed:         return "red"
         case .loyaltyEarned:            return "purple"
         case .loyaltyRedeemed:          return "orange"
         default:                 return "gray"

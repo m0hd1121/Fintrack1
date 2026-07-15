@@ -293,7 +293,13 @@ struct DebtManagementView: View {
         for tx in allTx where tx.linkedMoneyLentId == linkedId {
             if let account = tx.account {
                 let delta = currencyService.convert(tx.amount, from: tx.currency, to: account.currency)
-                account.balance -= delta   // reverse the income each repayment credited
+                // Reverse each transaction by its own type: the initial lend is
+                // .expense (deducted), repayments are .income (credited).
+                switch tx.type {
+                case .expense: account.balance += delta
+                case .income:  account.balance -= delta
+                case .transfer: break
+                }
             }
             context.delete(tx)
         }
@@ -307,7 +313,13 @@ struct DebtManagementView: View {
         for tx in allTx where tx.linkedMoneyBorrowedId == linkedId {
             if let account = tx.account {
                 let delta = currencyService.convert(tx.amount, from: tx.currency, to: account.currency)
-                account.balance += delta   // reverse the expense each repayment deducted
+                // Reverse each transaction by its own type: the initial borrow is
+                // .income (credited), repayments are .expense (deducted).
+                switch tx.type {
+                case .expense: account.balance += delta
+                case .income:  account.balance -= delta
+                case .transfer: break
+                }
             }
             context.delete(tx)
         }
@@ -2638,11 +2650,17 @@ struct MoneyLentDetailSheet: View {
     /// Deleting the whole record must also undo every repayment posted
     /// against it — otherwise its account keeps whatever those
     /// transactions credited even after the record they belonged to is gone.
+    /// The initial lend transaction is .expense (deducted); repayments are
+    /// .income (credited) — each must be reversed by its own type.
     private func deleteEntireRecord() {
         for tx in allTransactions where tx.linkedMoneyLentId == item.id {
             if let account = tx.account {
                 let delta = currencyService.convert(tx.amount, from: tx.currency, to: account.currency)
-                account.balance -= delta
+                switch tx.type {
+                case .expense: account.balance += delta
+                case .income:  account.balance -= delta
+                case .transfer: break
+                }
             }
             context.delete(tx)
         }
@@ -3092,11 +3110,17 @@ struct MoneyBorrowedDetailSheet: View {
     /// Deleting the whole record must also undo every repayment posted
     /// against it — otherwise its account keeps whatever those
     /// transactions deducted even after the record they belonged to is gone.
+    /// The initial borrow transaction is .income (credited); repayments are
+    /// .expense (deducted) — each must be reversed by its own type.
     private func deleteEntireRecord() {
         for tx in allTransactions where tx.linkedMoneyBorrowedId == item.id {
             if let account = tx.account {
                 let delta = currencyService.convert(tx.amount, from: tx.currency, to: account.currency)
-                account.balance += delta
+                switch tx.type {
+                case .expense: account.balance += delta
+                case .income:  account.balance -= delta
+                case .transfer: break
+                }
             }
             context.delete(tx)
         }
