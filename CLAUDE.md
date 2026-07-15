@@ -92,7 +92,7 @@ Color.fromString("teal")  // returns SwiftUI Color; default → .blue
 `.sm=12` `.md=16` `.lg=22` `.xl=26` `.pill=30`
 
 ### Fonts (SwiftUI `.font(...)`)
-`.ftDisplay` `.ftAmount` `.ftTitle` `.ftHeadline` `.ftBody` `.ftBodySemibold` `.ftCallout` `.ftCaption` `.ftLabel` (section labels — pair with `.tracking(1.6)`)
+`.ftDisplay` `.ftAmount` `.ftTitle` `.ftHeadline` `.ftBody` `.ftBodySemibold` `.ftCallout` `.ftCaption` `.ftLabel` (section labels — pair with `.tracking(1.6).fixedSize(horizontal: true, vertical: false)`, otherwise the leading glyph gets clipped)
 
 ### Glass Surfaces
 - `.ftGlass(radius)` — standard Liquid Glass card modifier (iOS 26 `glassEffect`)
