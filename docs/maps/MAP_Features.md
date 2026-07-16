@@ -40,7 +40,7 @@ Part of PROJECT_MAP.md (see root for navigation). All folders under `FinTrack/Fe
 
 ### Features/Bills/
 - AddBillView.swift — add/edit recurring bill/subscription form (cycle, category, autopay, reminders)
-- BillDetailView.swift — bill detail: hero card, autopay info, price-history/waste analysis, record payment
+- BillDetailView.swift — bill detail: hero card, autopay info, price-history/waste analysis, record payment. `RecordPaymentSheet` (private) has a "Pay From" account picker (defaults to the default account) — recording a payment now creates a linked expense `Transaction` (`linkedBillId`, category via `BillCategory.transactionCategory`) and deducts that account's balance, on top of `BillService.recordPayment`'s existing due-date/history bookkeeping. `Bill` has no payment-history array (just `lastPaidDate`/`lastPaidAmount`), so there's no past-payment edit/delete flow needing the same balance-reversal treatment as Lent/Borrowed.
 - BillsView.swift — bills hub: calendar view + subscriptions list tab; defines `SubscriptionsTabContent` (internal, not `private` — reused directly by `DebtManagementView`'s Bills tab, see below) plus several `private` row/card helpers (`SummaryHeroCard`, `BillSectionHeader`, `WasteAlertCard`, `AutoPayWarningCard`, `CalendarTabContent`, etc.) that stay file-scoped
 
 **Core features:** recurring bills & subscriptions — list/calendar, create/edit, drill-down + waste analysis (`BillService`). Also surfaced as a 10th tab in Debt Management (`DebtManagementView`'s Bills tab embeds `SubscriptionsTabContent` directly rather than duplicating it — same data, same Add/Edit/Detail sheets).
