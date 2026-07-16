@@ -41,9 +41,9 @@ Part of PROJECT_MAP.md (see root for navigation). All folders under `FinTrack/Fe
 ### Features/Bills/
 - AddBillView.swift — add/edit recurring bill/subscription form (cycle, category, autopay, reminders)
 - BillDetailView.swift — bill detail: hero card, autopay info, price-history/waste analysis, record payment
-- BillsView.swift — bills hub: calendar view + subscriptions list tab
+- BillsView.swift — bills hub: calendar view + subscriptions list tab; defines `SubscriptionsTabContent` (internal, not `private` — reused directly by `DebtManagementView`'s Bills tab, see below) plus several `private` row/card helpers (`SummaryHeroCard`, `BillSectionHeader`, `WasteAlertCard`, `AutoPayWarningCard`, `CalendarTabContent`, etc.) that stay file-scoped
 
-**Core features:** recurring bills & subscriptions — list/calendar, create/edit, drill-down + waste analysis (`BillService`).
+**Core features:** recurring bills & subscriptions — list/calendar, create/edit, drill-down + waste analysis (`BillService`). Also surfaced as a 10th tab in Debt Management (`DebtManagementView`'s Bills tab embeds `SubscriptionsTabContent` directly rather than duplicating it — same data, same Add/Edit/Detail sheets).
 
 ### Features/Budget/
 - BudgetView.swift — budget hub, 4 tabs (Monthly/Annual/Envelopes/Zero-Based); spending-by-category computation, recommendations, links to bills/income/debt; also hosts `AddBudgetView`, `EnhancedBudgetRow`, `AnnualBudgetRow`, `EnvelopeRow`, `ZeroBasedAllocationRow`, `SavingsGoalRow`, `BudgetDetailView`, `AddEnvelopeView`, `EnvelopeDetailView`
@@ -76,7 +76,7 @@ Part of PROJECT_MAP.md (see root for navigation). All folders under `FinTrack/Fe
 ### Features/Debt/
 - AddMoneyBorrowedView.swift — add/edit money borrowed from a person, with a "Deposit Into" account picker (linked account, due date, reminders); creates/reverses a linked `Transaction` (`.income`, `.personalBorrowed`) + `Account` balance delta, same pattern as Loan/BNPL
 - AddMoneyLentView.swift — add/edit money lent to a person, with a "Lend From" account picker (linked account, due date, reminders); creates/reverses a linked `Transaction` + `Account` balance delta, same pattern as Loan/BNPL
-- DebtManagementView.swift — debt hub, 9 tabs (overview/loans/snowball/avalanche/calculator/lent/borrowed/BNPL/utilization); also hosts `LoanDetailSheet`, `RecordBNPLPaymentSheet`, `BNPLDetailSheet`, `MoneyLentDetailSheet`, `MoneyBorrowedDetailSheet`, delete-with-cleanup helpers. All 6 Add/Edit Lent/Borrowed sheet presentations here now call the real `AddMoneyLentView`/`AddMoneyBorrowedView` structs (see §8 — this file used to contain dead-code duplicates `AddMoneyLentSheet`/`AddMoneyBorrowedSheet`, now deleted).
+- DebtManagementView.swift — debt hub, 10 tabs (overview/loans/snowball/avalanche/calculator/lent/borrowed/BNPL/utilization/bills); also hosts `LoanDetailSheet`, `RecordBNPLPaymentSheet`, `BNPLDetailSheet`, `MoneyLentDetailSheet`, `MoneyBorrowedDetailSheet`, delete-with-cleanup helpers. All 6 Add/Edit Lent/Borrowed sheet presentations here now call the real `AddMoneyLentView`/`AddMoneyBorrowedView` structs (see §8 — this file used to contain dead-code duplicates `AddMoneyLentSheet`/`AddMoneyBorrowedSheet`, now deleted). The Bills tab embeds `Features/Bills/BillsView.swift`'s `SubscriptionsTabContent` (own `@Query` for `Bill`/`Transaction`, own `showingAddBill`/`selectedBill` state, `AddBillView`/`BillDetailView` sheets) rather than a separate implementation.
 
 **Core features:** debt tracking & payoff planning — loans, credit cards, BNPL, snowball/avalanche strategies, interest calculator, all in one multi-tab file. Every debt type (Loan/BNPL/MoneyLent/MoneyBorrowed) follows the same pattern: tap card → detail sheet → Record Payment creates a linked `Transaction` + deducts an `Account`; delete reverses that deduction first. The *initial* lend/borrow now follows this same pattern too (previously MoneyLent/MoneyBorrowed only got this on repayment, not on creation — see §8).
 
