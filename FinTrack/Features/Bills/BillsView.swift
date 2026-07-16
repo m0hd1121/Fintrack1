@@ -449,7 +449,7 @@ private struct CalendarBillSection: View {
 
 // MARK: - Subscriptions Tab
 
-private struct SubscriptionsTabContent: View {
+struct SubscriptionsTabContent: View {
     let activeBills: [Bill]
     let transactions: [Transaction]
     @Binding var selectedBill: Bill?

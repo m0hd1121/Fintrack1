@@ -15,6 +15,8 @@ struct DebtManagementView: View {
     @Query private var moneyLent: [MoneyLent]
     @Query private var moneyBorrowed: [MoneyBorrowed]
     @Query(filter: #Predicate<BNPLPlan> { $0.isCompleted == false }) private var bnplPlans: [BNPLPlan]
+    @Query(filter: #Predicate<Bill> { $0.isActive }, sort: \Bill.nextDueDate) private var activeBills: [Bill]
+    @Query private var allTransactions: [Transaction]
 
     @State private var selectedTab = 0
     @State private var showingAddLoan = false
@@ -39,8 +41,10 @@ struct DebtManagementView: View {
     @State private var selectedBNPL: BNPLPlan? = nil
     @State private var editingBNPL: BNPLPlan? = nil
     @State private var recordingPaymentBNPL: BNPLPlan? = nil
+    @State private var showingAddBill = false
+    @State private var selectedBill: Bill? = nil
 
-    private let tabs = ["Overview", "Loans", "Snowball", "Avalanche", "Calculator", "Lent", "Borrowed", "BNPL", "Utilization"]
+    private let tabs = ["Overview", "Loans", "Snowball", "Avalanche", "Calculator", "Lent", "Borrowed", "BNPL", "Utilization", "Bills"]
 
     private var baseCurrency: String { appState.baseCurrency }
 
@@ -155,6 +159,12 @@ struct DebtManagementView: View {
             .sheet(item: $recordingPaymentBNPL) { item in
                 RecordBNPLPaymentSheet(plan: item)
             }
+            .sheet(isPresented: $showingAddBill) {
+                AddBillView()
+            }
+            .sheet(item: $selectedBill) { bill in
+                BillDetailView(bill: bill, transactions: allTransactions)
+            }
         }
         .onAppear { recomputeAll() }
         .onChange(of: snowballExtra) { _, _ in recomputeSnowball() }
@@ -194,6 +204,7 @@ struct DebtManagementView: View {
         case 6: return "hand.point.down.fill"
         case 7: return "cart.fill"
         case 8: return "gauge.medium"
+        case 9: return "calendar.badge.exclamationmark"
         default: return "circle"
         }
     }
@@ -210,6 +221,7 @@ struct DebtManagementView: View {
         case 6: return AnyView(borrowedTab)
         case 7: return AnyView(bnplTab)
         case 8: return AnyView(utilizationTab)
+        case 9: return AnyView(billsTab)
         default: return AnyView(overviewTab)
         }
     }
@@ -239,6 +251,12 @@ struct DebtManagementView: View {
             }
         case 7:
             Button { showingAddBNPL = true } label: {
+                Image(systemName: "plus")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(FTColor.accent)
+            }
+        case 9:
+            Button { showingAddBill = true } label: {
                 Image(systemName: "plus")
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(FTColor.accent)
@@ -1239,6 +1257,30 @@ struct DebtManagementView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, FTSpacing.xxl)
                     .onAppear { recomputeUtilization() }
+            }
+        }
+        .padding(.top, FTSpacing.md)
+    }
+
+    private var billsTab: some View {
+        VStack(spacing: FTSpacing.lg) {
+            if activeBills.isEmpty {
+                debtEmptyState(
+                    symbol: "calendar.badge.exclamationmark",
+                    title: "No Bills Yet",
+                    message: "Add recurring bills and subscriptions to track due dates and spot wasted spend.",
+                    buttonTitle: "Add Bill",
+                    action: { showingAddBill = true }
+                )
+                .padding(.horizontal, FTSpacing.screen)
+            } else {
+                SubscriptionsTabContent(
+                    activeBills: activeBills,
+                    transactions: allTransactions,
+                    selectedBill: $selectedBill,
+                    baseCurrency: baseCurrency,
+                    context: context
+                )
             }
         }
         .padding(.top, FTSpacing.md)
