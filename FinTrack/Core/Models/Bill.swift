@@ -101,6 +101,22 @@ enum BillCategory: String, Codable, CaseIterable {
         case .other:         return "gray"
         }
     }
+
+    /// Closest matching `TransactionCategory` for a payment recorded against a bill in this category.
+    var transactionCategory: TransactionCategory {
+        switch self {
+        case .utilities:     return .utilities
+        case .housing:       return .rent
+        case .entertainment: return .entertainment
+        case .communication: return .utilities
+        case .insurance:     return .insurance
+        case .education:     return .education
+        case .subscriptions: return .subscriptions
+        case .healthcare:    return .medical
+        case .financial:     return .other
+        case .other:         return .other
+        }
+    }
 }
 
 // MARK: - PriceHistoryEntry

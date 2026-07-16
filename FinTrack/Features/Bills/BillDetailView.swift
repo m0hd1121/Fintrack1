@@ -669,12 +669,18 @@ private struct RecordPaymentSheet: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
+    @Environment(CurrencyService.self) private var currencyService
+    @Query(sort: \Account.name) private var accounts: [Account]
 
     let bill: Bill
 
     @State private var amountText: String
     @State private var paymentDate = Date()
     @State private var isProcessing = false
+    @State private var selectedAccountId: UUID? = nil
+
+    private var activeAccounts: [Account] { accounts.filter { !$0.isArchived } }
+    private var selectedAccount: Account? { activeAccounts.first { $0.id == selectedAccountId } }
 
     init(bill: Bill) {
         self.bill = bill
@@ -720,6 +726,36 @@ private struct RecordPaymentSheet: View {
                                 .foregroundStyle(FTColor.textSecondary)
                             AmountTextField("0.00", text: $amountText, font: .ftAmount)
                                 .foregroundStyle(FTColor.textPrimary)
+                        }
+                        .padding(FTSpacing.lg)
+                        .ftGlass(FTRadius.md)
+                    }
+
+                    // Account picker
+                    VStack(alignment: .leading, spacing: FTSpacing.sm) {
+                        Text("Pay From")
+                            .font(.ftLabel)
+                            .foregroundStyle(FTColor.textSecondary)
+                            .tracking(1.2)
+                            .textCase(.uppercase)
+
+                        HStack {
+                            Menu {
+                                Button("None") { selectedAccountId = nil }
+                                ForEach(activeAccounts) { acc in
+                                    Button(acc.name) { selectedAccountId = acc.id }
+                                }
+                            } label: {
+                                HStack(spacing: FTSpacing.xs) {
+                                    Text(selectedAccount?.name ?? "None")
+                                        .font(.ftBodySemibold)
+                                        .foregroundStyle(FTColor.textPrimary)
+                                    Image(systemName: "chevron.up.chevron.down")
+                                        .font(.system(size: 11, weight: .semibold))
+                                        .foregroundStyle(FTColor.textMuted)
+                                }
+                            }
+                            Spacer()
                         }
                         .padding(FTSpacing.lg)
                         .ftGlass(FTRadius.md)
@@ -774,12 +810,36 @@ private struct RecordPaymentSheet: View {
                     Button("Cancel") { dismiss() }
                 }
             }
+            .onAppear {
+                guard selectedAccountId == nil else { return }
+                selectedAccountId = activeAccounts.first(where: { $0.isDefault })?.id
+                    ?? activeAccounts.first?.id
+            }
         }
     }
 
     private func recordPayment() {
         isProcessing = true
-        BillService.shared.recordPayment(bill: bill, amount: AmountTextField.double(from: amountText), date: paymentDate)
+        let amount = AmountTextField.double(from: amountText)
+        BillService.shared.recordPayment(bill: bill, amount: amount, date: paymentDate)
+
+        if let account = selectedAccount {
+            let tx = Transaction(
+                title: "\(bill.name) Payment",
+                amount: amount,
+                currency: bill.currency,
+                type: .expense,
+                category: bill.billCategory.transactionCategory,
+                date: paymentDate,
+                notes: nil
+            )
+            tx.linkedBillId = bill.id
+            tx.account = account
+            let delta = currencyService.convert(amount, from: bill.currency, to: account.currency)
+            account.balance -= delta
+            context.insert(tx)
+        }
+
         try? context.save()
         isProcessing = false
         dismiss()

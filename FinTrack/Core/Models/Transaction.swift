@@ -151,6 +151,9 @@ final class Transaction {
     var linkedMoneyBorrowedId: UUID?
     var linkedDebtRepaymentId: UUID?
 
+    // Back-reference to the Bill this payment was recorded against
+    var linkedBillId: UUID?
+
     init(
         id: UUID = UUID(),
         title: String,
