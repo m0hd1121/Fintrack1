@@ -39,11 +39,11 @@ Key methods: `biometricType/biometricTypeName/biometricIcon/isAvailable`, `authe
 External APIs: LocalAuthentication (LAContext)
 
 ### BudgetService.swift
-Purpose: budget forecasting, multi-threshold alerts, rollover processing, AI spend recommendations, seasonal templates (Ramadan/Eid/Summer).
+Purpose: budget forecasting, multi-threshold alerts, rollover processing, AI spend recommendations, seasonal templates (Ramadan/Eid/Summer), budget↔transaction matching.
 Singleton: `.shared` | Actor: implicit MainActor
-Key methods: `forecastEndOfMonth(for:spent:transactions:baseCurrency:) -> BudgetForecast` (blends pace + 3mo history), `checkAndSendAlerts(budget:spent:currency:)` (75/90/100%), `processRollovers(budgets:transactions:baseCurrency:)`, `generateRecommendations(transactions:budgets:)`, `builtInTemplates()`
+Key methods: `forecastEndOfMonth(for:spent:transactions:baseCurrency:) -> BudgetForecast` (blends pace + 3mo history), `checkAndSendAlerts(budget:spent:currency:)` (75/90/100%), `processRollovers(budgets:transactions:baseCurrency:)`, `generateRecommendations(transactions:budgets:)`, `builtInTemplates()`, `autoKeyword(from:)`/`effectiveKeyword(for:allBudgets:)` (derives/resolves a budget's match keyword — explicit `Budget.merchantFilter` wins, else auto-derived from `Budget.name` when disambiguating same-category siblings or specific enough alone), `matchingBudget(title:merchant:category:budgets:) -> Budget?` (which budget a transaction belongs to — category alone is ambiguous once siblings share it), `spending(for:allBudgets:transactions:in:) -> Double` (per-budget monthly spend using the same keyword match, with a cross-category keyword fallback)
 External APIs: UNUserNotificationCenter
-Note: `forecastEndOfMonth`/`checkAndSendAlerts`/`processRollovers` all take a currency param and convert `Budget.amount`/`.rolloverAmount` internally — fixed this session after cross-currency bugs were found.
+Note: `forecastEndOfMonth`/`checkAndSendAlerts`/`processRollovers` all take a currency param and convert `Budget.amount`/`.rolloverAmount` internally — fixed after cross-currency bugs were found. `BudgetView.swift`'s own `autoKeyword`/`effectiveKeyword` are now thin delegates to this service (moved here so `AddTransactionView`'s live budget-recognition indicator can't drift from what `BudgetView` uses to compute spending) — `BudgetView.spending(for:in:)`/`.ytdSpending(for:)` keep their own cached-dictionary fast path and were left as-is.
 
 ### CSVImportService.swift
 Purpose: CSV parsing, delimiter/date-format auto-detection, column-mapping suggestion, row mapping with dedup + AI categorization.
