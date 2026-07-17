@@ -66,36 +66,16 @@ struct BudgetView: View {
         return result
     }
 
-    /// Generic stop-words stripped when auto-deriving a keyword from a budget name.
-    private static let budgetNameStopWords: Set<String> = [
-        "membership", "budget", "subscription", "subscriptions", "plan", "plans",
-        "fee", "fees", "payment", "payments", "monthly", "annual", "yearly",
-        "weekly", "daily", "my", "the", "a", "an"
-    ]
-
-    /// Derives a matching keyword from a budget name by stripping generic words.
-    /// "Claude Membership" → "claude", "GYM Membership" → "gym"
+    /// Derives a matching keyword from a budget name — delegates to `BudgetService`
+    /// so this logic can't drift from what `AddTransactionView` uses to auto-recognize
+    /// which budget a new transaction belongs to.
     private func autoKeyword(from name: String) -> String {
-        name.components(separatedBy: .whitespacesAndNewlines)
-            .filter { !Self.budgetNameStopWords.contains($0.lowercased()) && !$0.isEmpty }
-            .joined(separator: " ")
-            .trimmingCharacters(in: .whitespaces)
+        BudgetService.shared.autoKeyword(from: name)
     }
 
-    /// Returns the effective filter keyword for a budget:
-    /// - explicit merchantFilter → always used
-    /// - auto-derived from name → used when (a) sibling budgets share the category, OR
-    ///   (b) the stripped name yields 2+ words, indicating a specific item rather than a
-    ///   general category (e.g. "Shiraz Home Payment" → "Shiraz Home", which is specific
-    ///   enough to filter even without siblings so unrelated loan repayments aren't counted)
+    /// Returns the effective filter keyword for a budget — delegates to `BudgetService`.
     private func effectiveKeyword(for budget: Budget) -> String? {
-        if let explicit = budget.merchantFilter, !explicit.isEmpty { return explicit }
-        let kw = autoKeyword(from: budget.name)
-        guard !kw.isEmpty else { return nil }
-        let siblings = budgets.filter { $0.isActive && $0.category == budget.category && $0.id != budget.id }
-        if !siblings.isEmpty { return kw }
-        let wordCount = kw.components(separatedBy: .whitespaces).filter { !$0.isEmpty }.count
-        return wordCount >= 2 ? kw : nil
+        BudgetService.shared.effectiveKeyword(for: budget, allBudgets: Array(budgets))
     }
 
     /// Per-budget monthly spending, auto-filtering by keyword when the category is shared.

@@ -173,6 +173,16 @@ struct AddTransactionView: View {
         activeBillsForLinking.filter { $0.billCategory.transactionCategory == category }
     }
 
+    /// The budget this transaction is recognized as counting against — same
+    /// keyword-then-category matching `BudgetView` uses to compute spending,
+    /// shared via `BudgetService` so the two never disagree.
+    private var recognizedBudget: Budget? {
+        guard type == .expense else { return nil }
+        return BudgetService.shared.matchingBudget(
+            title: title, merchant: merchant.isEmpty ? nil : merchant, category: category, budgets: Array(budgets)
+        )
+    }
+
     private var splitTotal: Double { splitItems.reduce(0) { $0 + $1.amount } }
     private var splitIsValid: Bool {
         !isSplitEnabled || (abs(splitTotal - (amountDouble ?? 0)) < 0.01 && !splitItems.isEmpty)
@@ -858,6 +868,21 @@ struct AddTransactionView: View {
                         Button(bill.name) { linkedBillItem = bill }
                     }
                 }
+            }
+
+            // Recognized budget — automatic, read-only (BudgetService decides which
+            // budget this counts against; edit the budget itself to change matching).
+            if let budget = recognizedBudget {
+                Divider().opacity(0.4)
+                HStack(spacing: FTSpacing.md) {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(FTColor.accent)
+                    Text("Budget").font(.ftBody).foregroundStyle(FTColor.textSecondary)
+                    Spacer()
+                    Text(budget.name).font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                }
+                .padding(.vertical, 9)
             }
 
             // Date
@@ -1814,17 +1839,18 @@ struct AddTransactionView: View {
     private func fireBudgetAlertIfNeeded(category: TransactionCategory, amountInBase: Double) {
         let base = appState.baseCurrency
         let now = Date()
-        let cal = Calendar.current
-        let monthStart = cal.date(from: cal.dateComponents([.year, .month], from: now)) ?? now
-        guard let matchingBudget = budgets.first(where: { $0.category == category }) else { return }
+        // Category alone is ambiguous once two budgets share it (e.g. "Netflix
+        // Budget" + "Spotify Budget", both Subscriptions) — recognize the
+        // specific budget this transaction actually belongs to.
+        guard let budget = BudgetService.shared.matchingBudget(
+            title: title, merchant: merchant.isEmpty ? nil : merchant, category: category, budgets: Array(budgets)
+        ) else { return }
         let allTx = (try? context.fetch(FetchDescriptor<Transaction>())) ?? []
-        let spent = allTx
-            .filter { $0.type == .expense && $0.category == category && $0.date >= monthStart && !$0.isPending && !$0.isScheduled }
-            .reduce(0.0) { $0 + $1.amountInBaseCurrency }
-        let limit = currencyService.convert(matchingBudget.amount, from: matchingBudget.currency, to: base)
+        let spent = BudgetService.shared.spending(for: budget, allBudgets: Array(budgets), transactions: allTx, in: now)
+        let limit = currencyService.convert(budget.amount, from: budget.currency, to: base)
         if limit > 0 && spent / limit >= 0.8 {
             NotificationService.shared.scheduleBudgetAlert(
-                categoryName: category.rawValue, spent: spent, budget: limit, currency: base
+                categoryName: budget.name, spent: spent, budget: limit, currency: base
             )
         }
     }

@@ -70,6 +70,106 @@ final class BudgetService {
     static let shared = BudgetService()
     private init() {}
 
+    // MARK: - Budget ↔ Transaction Matching
+    //
+    // Shared by BudgetView (computing per-budget spending) and anywhere that
+    // needs to know which specific budget a transaction counts against —
+    // category alone is ambiguous once two budgets share a category (e.g.
+    // "Netflix Budget" and "Spotify Budget", both Subscriptions).
+
+    /// Generic stop-words stripped when auto-deriving a keyword from a budget name.
+    private static let budgetNameStopWords: Set<String> = [
+        "membership", "budget", "subscription", "subscriptions", "plan", "plans",
+        "fee", "fees", "payment", "payments", "monthly", "annual", "yearly",
+        "weekly", "daily", "my", "the", "a", "an"
+    ]
+
+    /// Derives a matching keyword from a budget name by stripping generic words.
+    /// "Claude Membership" → "claude", "GYM Membership" → "gym"
+    func autoKeyword(from name: String) -> String {
+        name.components(separatedBy: .whitespacesAndNewlines)
+            .filter { !Self.budgetNameStopWords.contains($0.lowercased()) && !$0.isEmpty }
+            .joined(separator: " ")
+            .trimmingCharacters(in: .whitespaces)
+    }
+
+    /// Returns the effective filter keyword for a budget:
+    /// - explicit merchantFilter → always used
+    /// - auto-derived from name → used when (a) sibling budgets share the category, OR
+    ///   (b) the stripped name yields 2+ words, indicating a specific item rather than a
+    ///   general category (e.g. "Shiraz Home Payment" → "Shiraz Home", which is specific
+    ///   enough to filter even without siblings so unrelated loan repayments aren't counted)
+    func effectiveKeyword(for budget: Budget, allBudgets: [Budget]) -> String? {
+        if let explicit = budget.merchantFilter, !explicit.isEmpty { return explicit }
+        let kw = autoKeyword(from: budget.name)
+        guard !kw.isEmpty else { return nil }
+        let siblings = allBudgets.filter { $0.isActive && $0.category == budget.category && $0.id != budget.id }
+        if !siblings.isEmpty { return kw }
+        let wordCount = kw.components(separatedBy: .whitespaces).filter { !$0.isEmpty }.count
+        return wordCount >= 2 ? kw : nil
+    }
+
+    /// Finds which active budget (if any) a transaction with this title/merchant/category
+    /// would be counted against, using the same keyword-then-category heuristic used to
+    /// compute per-budget spending totals. Prefers a budget whose own keyword actually
+    /// appears in the transaction text; falls back to a general (unfiltered) budget for
+    /// the category when no keyword matches.
+    func matchingBudget(title: String, merchant: String?, category: TransactionCategory, budgets: [Budget]) -> Budget? {
+        let candidates = budgets.filter { $0.isActive && $0.category == category }
+        guard candidates.count > 1 else { return candidates.first }
+
+        let lowerTitle = title.lowercased()
+        let lowerMerchant = (merchant ?? "").lowercased()
+
+        for budget in candidates {
+            guard let keyword = effectiveKeyword(for: budget, allBudgets: budgets) else { continue }
+            let lower = keyword.lowercased()
+            if lowerTitle.contains(lower) || (!lowerMerchant.isEmpty && lowerMerchant.contains(lower)) {
+                return budget
+            }
+        }
+        return candidates.first { effectiveKeyword(for: $0, allBudgets: budgets) == nil } ?? candidates.first
+    }
+
+    /// Per-budget spending for a given month, auto-filtering by keyword when the
+    /// category is shared by multiple budgets. Falls back to a cross-category
+    /// keyword search when the primary match returns 0 and the budget name
+    /// contains a specific keyword (e.g. a loan-repayment budget miscategorised
+    /// as "Other" should still be found by name).
+    func spending(for budget: Budget, allBudgets: [Budget], transactions: [Transaction], in month: Date) -> Double {
+        let monthlyTxs = transactions.filter { $0.date.isSameMonth(as: month) }
+
+        if let keyword = effectiveKeyword(for: budget, allBudgets: allBudgets) {
+            let lower = keyword.lowercased()
+            let primary = monthlyTxs
+                .filter { tx in
+                    tx.title.lowercased().contains(lower) ||
+                    (tx.merchant?.lowercased().contains(lower) ?? false)
+                }
+                .flatMap { $0.spendingPairs }
+                .filter { $0.0 == budget.category }
+                .reduce(0) { $0 + $1.1 }
+            if primary > 0 { return primary }
+        } else {
+            let primary = monthlyTxs
+                .flatMap { $0.spendingPairs }
+                .filter { $0.0 == budget.category }
+                .reduce(0) { $0 + $1.1 }
+            if primary > 0 { return primary }
+        }
+
+        let kw = autoKeyword(from: budget.name)
+        guard !kw.isEmpty else { return 0 }
+        let lower = kw.lowercased()
+        return monthlyTxs
+            .filter { tx in
+                tx.title.lowercased().contains(lower) ||
+                (tx.merchant?.lowercased().contains(lower) ?? false)
+            }
+            .flatMap { $0.spendingPairs }
+            .reduce(0) { $0 + $1.1 }
+    }
+
     // MARK: Feature 7 — End-of-Month Forecast
 
     func forecastEndOfMonth(
