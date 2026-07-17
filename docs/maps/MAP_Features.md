@@ -198,7 +198,7 @@ Part of PROJECT_MAP.md (see root for navigation). All folders under `FinTrack/Fe
 **Core features:** full UAE tax module — `TaxManagementView` is the year-scoped hub linking to VAT/FTA/income-tax/Zakat/tax-tagging/document-vault, all via `TaxService`.
 
 ### Features/Transactions/
-- AddTransactionView.swift — largest add/edit form: core fields, receipt scanning, voice entry, location tagging; defines `LocationHelper`
+- AddTransactionView.swift — largest add/edit form: core fields, receipt scanning, voice entry, location tagging; defines `LocationHelper`. Also auto-links a matching active `Bill` (via title/merchant name match against `Bill.name`/`.provider`, or manual "Paying Bill" picker scoped to bills sharing the selected category) — first-time linking calls `BillService.recordPayment` so the bill's due date/history advances the same as its own Record Payment sheet (`AddTransactionView.originalLinkedBillId` prevents re-advancing on a plain edit-save).
 - CSVImportView.swift — 3-step CSV import wizard (upload/map/preview)
 - TransactionsListView.swift — main list: search/filter, bulk edit mode, undo snackbar; defines `UndoSnackbar`, `BulkEditBar`, `TransactionDetailView`, `FlowLayout`, etc.
 - VoiceTransactionView.swift — voice-to-transaction capture UI wrapping `SpeechTransactionService`
