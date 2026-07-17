@@ -23,6 +23,7 @@ struct AddTransactionView: View {
     private var categorizationRules: [CategorizationRule]
     @Query(sort: \LoyaltyProgram.name) private var loyaltyPrograms: [LoyaltyProgram]
     @Query(sort: \BNPLPlan.name) private var bnplPlans: [BNPLPlan]
+    @Query(sort: \Bill.name) private var allBills: [Bill]
 
     // — Core fields
     @State private var title = ""
@@ -84,6 +85,10 @@ struct AddTransactionView: View {
 
     // — BNPL link
     @State private var linkedBNPLPlan: BNPLPlan? = nil
+
+    // — Bill link
+    @State private var linkedBillItem: Bill? = nil
+    @State private var originalLinkedBillId: UUID? = nil
 
     // — Loyalty points
     @State private var selectedLoyaltyProgram: LoyaltyProgram? = nil
@@ -157,6 +162,15 @@ struct AddTransactionView: View {
               let entered = enteredAmountInAccountCurrency
         else { return false }
         return entered > balance
+    }
+
+    private var activeBillsForLinking: [Bill] { allBills.filter { $0.isActive } }
+
+    /// Active bills in the same category as the selected transaction category —
+    /// narrows the "Linked Bill" picker to what's actually relevant instead of
+    /// showing every bill for every expense.
+    private var matchingBills: [Bill] {
+        activeBillsForLinking.filter { $0.billCategory.transactionCategory == category }
     }
 
     private var splitTotal: Double { splitItems.reduce(0) { $0 + $1.amount } }
@@ -834,6 +848,18 @@ struct AddTransactionView: View {
                 }
             }
 
+            // Linked bill/subscription — auto-selected when the title/merchant
+            // names an active bill in this category; always overridable here.
+            if type == .expense && !matchingBills.isEmpty {
+                Divider().opacity(0.4)
+                detailMenuRow(label: "Paying Bill", value: linkedBillItem?.name ?? "None") {
+                    Button("None") { linkedBillItem = nil }
+                    ForEach(matchingBills) { bill in
+                        Button(bill.name) { linkedBillItem = bill }
+                    }
+                }
+            }
+
             // Date
             Divider().opacity(0.4)
             HStack(spacing: FTSpacing.md) {
@@ -1268,6 +1294,8 @@ struct AddTransactionView: View {
                 }
             }
         }
+        autoLinkBillIfNeeded(text: title)
+        autoLinkBillIfNeeded(text: merchant)
     }
 
     private func updateTagSuggestions() {
@@ -1438,6 +1466,10 @@ struct AddTransactionView: View {
             selectedLoyaltyProgram = loyaltyPrograms.first(where: { $0.id == id })
         }
         linkedBNPLPlan = tx.linkedBNPL
+        if let billId = tx.linkedBillId {
+            linkedBillItem = allBills.first(where: { $0.id == billId })
+        }
+        originalLinkedBillId = tx.linkedBillId
         if tx.loyaltyPointsAmount > 0 {
             loyaltyPoints = String(format: "%g", tx.loyaltyPointsAmount)
         }
@@ -1532,6 +1564,7 @@ struct AddTransactionView: View {
             tx.linkedLoyaltyProgramID = selectedLoyaltyProgram?.id
             tx.loyaltyPointsAmount = loyaltyPointsDouble
             tx.linkedBNPL = paymentMethod == .bnpl ? linkedBNPLPlan : nil
+            tx.linkedBillId = linkedBillItem?.id
             if let img = receiptImage { tx.receiptImageData = img.jpegData(compressionQuality: 0.7) }
 
             // Attach pending documents
@@ -1609,6 +1642,7 @@ struct AddTransactionView: View {
             tx.linkedLoyaltyProgramID = isLoyaltyTransfer ? toLoyaltyProgram?.id : selectedLoyaltyProgram?.id
             tx.loyaltyPointsAmount = loyaltyPointsDouble
             tx.linkedBNPL = paymentMethod == .bnpl ? linkedBNPLPlan : nil
+            tx.linkedBillId = linkedBillItem?.id
             context.insert(tx)
 
             // Attach pending documents
@@ -1704,6 +1738,15 @@ struct AddTransactionView: View {
             )
         }
 
+        // Bill payment: only advance the bill's due date/history the first time
+        // it gets linked to this transaction — re-saving an edit that keeps the
+        // same linked bill must not advance it again.
+        if let bill = linkedBillItem, bill.id != originalLinkedBillId {
+            let billAmount = currencyService.convert(amountValue, from: currency, to: bill.currency)
+            BillService.shared.recordPayment(bill: bill, amount: billAmount, date: date)
+            try? context.save()
+        }
+
         // Record category & tag learning
         let effectiveMerchant = merchant.trimmingCharacters(in: .whitespacesAndNewlines)
         if !effectiveMerchant.isEmpty {
@@ -1739,6 +1782,24 @@ struct AddTransactionView: View {
             }
         }
         checkMinBalance(account: account)
+    }
+
+    /// Auto-selects a matching active bill when the title/merchant text names one
+    /// (e.g. typing "Netflix" auto-links the Netflix subscription). Only fires
+    /// while nothing is linked yet, so it never overrides an explicit pick.
+    private func autoLinkBillIfNeeded(text: String) {
+        guard linkedBillItem == nil else { return }
+        let needle = text.trimmingCharacters(in: .whitespaces).lowercased()
+        guard !needle.isEmpty else { return }
+        linkedBillItem = activeBillsForLinking.first { bill in
+            let name = bill.name.lowercased()
+            let provider = bill.provider?.lowercased() ?? ""
+            return needle.contains(name) || name.contains(needle)
+                || (!provider.isEmpty && (needle.contains(provider) || provider.contains(needle)))
+        }
+        if let bill = linkedBillItem {
+            category = bill.billCategory.transactionCategory
+        }
     }
 
     private func checkMinBalance(account: Account) {
