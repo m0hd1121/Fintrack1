@@ -205,12 +205,6 @@ struct SettingsView: View {
                 }
 
                 sectionCard("Data & Privacy") {
-                    NavigationLink(destination: LazyView { BackupEncryptionSettingsView() }) {
-                        settingRow(symbol: "lock.doc.fill", tint: FTColor.catPurple,
-                                   title: "Backup Encryption",
-                                   value: "On", chevron: true)
-                    }
-                    rowDivider
                     NavigationLink(destination: LazyView { iCloudSyncView() }) {
                         settingRow(symbol: "icloud.fill", tint: FTColor.catBlue,
                                    title: "iCloud Backup", chevron: true)

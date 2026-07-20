@@ -264,19 +264,6 @@ struct iCloudSyncView: View {
             FTToggleRow(symbol: "wifi", tint: FTColor.catTeal,
                         title: "Sync on Wi-Fi only",
                         isOn: wifiOnlyBinding)
-            Divider().background(FTColor.textMuted.opacity(0.3))
-            NavigationLink(destination: BackupEncryptionSettingsView()) {
-                HStack(spacing: FTSpacing.md) {
-                    FTIconTile(symbol: "lock.fill", tint: FTColor.catPurple, size: 36)
-                    Text("Backup Encryption").font(.ftBody).foregroundStyle(FTColor.textPrimary)
-                    Spacer()
-                    Text("On")
-                        .font(.ftBody).foregroundStyle(FTColor.textSecondary)
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .semibold)).foregroundStyle(FTColor.textMuted)
-                }
-            }
-            .buttonStyle(.plain)
         }
         .padding()
         .ftGlass(FTRadius.xl)

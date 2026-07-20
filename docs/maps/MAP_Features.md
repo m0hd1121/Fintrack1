@@ -176,7 +176,6 @@ Part of PROJECT_MAP.md (see root for navigation). All folders under `FinTrack/Fe
 
 ### Features/Settings/
 - AppearanceView.swift — theme/OLED/high-contrast/accent-color/fiscal-month/first-day-of-week bindings
-- BackupEncryptionSettingsView.swift — read-only status/info screen (no toggle, no passphrase): backup encryption is mandatory/always-on, key held only in this device's Keychain
 - LockScreenView.swift — Face ID/Touch ID unlock screen (`AppState.isLocked`)
 - NotificationSettingsView.swift — notification permission, master toggle, bill/budget threshold editors
 - PrivacyPolicyView.swift — static privacy policy text
@@ -184,7 +183,7 @@ Part of PROJECT_MAP.md (see root for navigation). All folders under `FinTrack/Fe
 - SettingsView.swift — root Settings screen: currency picker, About, backup import/export, links to every other Settings/Premium/Tax sub-screen (tab bar is full — new modules surface here). Presented as a **pushed** destination from `DashboardView` (a single enum-driven `.navigationDestination(item: $dashRoute)` shared with Reports, not a sheet), so its body is a bare `ScrollView` with **no own `NavigationStack`** (it uses the Dashboard's stack; back button handles dismissal, no "Done" toolbar). "Premium Features" card renders only enabled `.premium`-category `DisableableFeature`s (via `visibleFeatures` + `destinationView(for:)` switch), and the whole card is hidden if none remain; there is **no** user-facing "Manage Features" screen (disabling is developer-only — `DisableableFeature.disabled` + `docs/DISABLED_FEATURES.md`). Standalone sections like "Tax Management" wrap their `sectionCard` in `if DisableableFeature.taxManagement.isEnabled` for the same effect on `.topLevelSection` cases; the "Google Drive Backup" row inside the shared "Data & Privacy" card is a `.nested` case, wrapped individually (`if DisableableFeature.googleDriveBackup.isEnabled`) since it's just one sibling row, not its own card
 - TermsOfServiceView.swift — static terms-of-service text
 
-**Core features:** app-wide preferences and security — `SettingsView` is the hub; appearance/notifications/security/backup-encryption are dedicated sub-views.
+**Core features:** app-wide preferences and security — `SettingsView` is the hub; appearance/notifications/security are dedicated sub-views. Backup encryption is mandatory/always-on and has no UI (not surfaced in Settings or iCloud Backup).
 
 ### Features/Tax/
 - FTAVATReportView.swift — UAE FTA quarterly VAT report with quarter selector and annual summary
