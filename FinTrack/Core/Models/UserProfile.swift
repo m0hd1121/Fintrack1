@@ -67,7 +67,6 @@ final class AppSettings {
     var twoFactorEnabled: Bool
     var twoFactorSecret: String?
     var auditLogEnabled: Bool
-    var encryptionEnabled: Bool
     // Existing notifications
     var notificationsEnabled: Bool
     var budgetAlertsEnabled: Bool
@@ -112,7 +111,6 @@ final class AppSettings {
         twoFactorEnabled: Bool = false,
         twoFactorSecret: String? = nil,
         auditLogEnabled: Bool = true,
-        encryptionEnabled: Bool = true,
         notificationsEnabled: Bool = true,
         budgetAlertsEnabled: Bool = true,
         billRemindersEnabled: Bool = true,
@@ -151,7 +149,6 @@ final class AppSettings {
         self.twoFactorEnabled = twoFactorEnabled
         self.twoFactorSecret = twoFactorSecret
         self.auditLogEnabled = auditLogEnabled
-        self.encryptionEnabled = encryptionEnabled
         self.notificationsEnabled = notificationsEnabled
         self.budgetAlertsEnabled = budgetAlertsEnabled
         self.billRemindersEnabled = billRemindersEnabled

@@ -41,15 +41,13 @@ struct SecurityPrivacyView: View {
         )
     }
     private var autoLockBinding: Binding<Int> { settingsBind(\.autoLockMinutes, default: 5) }
-    private var encryptionBinding: Binding<Bool> { settingsBind(\.encryptionEnabled, default: true) }
     private var auditLogBinding: Binding<Bool> { settingsBind(\.auditLogEnabled, default: true) }
 
     private var securityScore: Int {
-        var score = 0
+        var score = 15 // end-to-end encryption is always on, not user-configurable
         if settings?.useBiometrics == true  { score += 30 }
         if settings?.usePIN == true          { score += 20 }
         if settings?.twoFactorEnabled == true { score += 25 }
-        if settings?.encryptionEnabled != false { score += 15 }
         if settings?.auditLogEnabled != false   { score += 10 }
         return score
     }
@@ -105,7 +103,7 @@ struct SecurityPrivacyView: View {
                 scoreFeatureTile("Biometrics", enabled: settings?.useBiometrics == true)
                 scoreFeatureTile("PIN", enabled: settings?.usePIN == true)
                 scoreFeatureTile("2FA", enabled: settings?.twoFactorEnabled == true)
-                scoreFeatureTile("Encrypted", enabled: settings?.encryptionEnabled != false)
+                scoreFeatureTile("Encrypted", enabled: true)
             }
         }
         .padding()
@@ -221,11 +219,11 @@ struct SecurityPrivacyView: View {
 
                 divider
 
-                FTToggleRow(symbol: "lock.shield.fill", tint: FTColor.catTeal,
-                            title: "End-to-End Encryption", isOn: encryptionBinding)
-                    .onChange(of: encryptionBinding.wrappedValue) { _, enabled in
-                        logAudit(.settingsChanged, "Encryption \(enabled ? "enabled" : "disabled")")
-                    }
+                securityRow(icon: "lock.shield.fill", tint: FTColor.catTeal,
+                            title: "End-to-End Encryption",
+                            subtitle: "Always on",
+                            subtitleColor: FTColor.income)
+                    .padding(.vertical, 13)
             }
             .padding()
             .ftGlass(FTRadius.xl)
@@ -267,7 +265,7 @@ struct SecurityPrivacyView: View {
                 .font(.ftCallout).foregroundStyle(FTColor.income)
             VStack(alignment: .leading, spacing: 4) {
                 Text("Your Data, Your Control").font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
-                Text("All financial data is stored locally and encrypted using AES-256. FinTrack never transmits your data to third-party servers without your explicit consent.")
+                Text("All financial data is stored locally and encrypted. FinTrack never transmits your data to third-party servers without your explicit consent.")
                     .font(.ftCaption).foregroundStyle(FTColor.textMuted)
             }
         }

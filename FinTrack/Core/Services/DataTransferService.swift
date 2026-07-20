@@ -210,7 +210,7 @@ struct AppSettingsDTO: Codable {
     var autoLockMinutes: Int; var showBalanceOnDashboard: Bool
     var defaultCurrency: String
     var twoFactorEnabled: Bool?; var twoFactorSecret: String?
-    var auditLogEnabled: Bool?; var encryptionEnabled: Bool?
+    var auditLogEnabled: Bool?
     var notificationsEnabled: Bool; var budgetAlertsEnabled: Bool
     var billRemindersEnabled: Bool; var salaryReminderEnabled: Bool; var reminderDaysBefore: Int
     var lowBalanceAlertEnabled: Bool?; var lowBalanceThreshold: Double?
@@ -781,7 +781,7 @@ extension AppSettings {
             showBalanceOnDashboard: showBalanceOnDashboard,
             defaultCurrency: defaultCurrency,
             twoFactorEnabled: twoFactorEnabled, twoFactorSecret: twoFactorSecret,
-            auditLogEnabled: auditLogEnabled, encryptionEnabled: encryptionEnabled,
+            auditLogEnabled: auditLogEnabled,
             notificationsEnabled: notificationsEnabled,
             budgetAlertsEnabled: budgetAlertsEnabled,
             billRemindersEnabled: billRemindersEnabled,
@@ -1030,7 +1030,7 @@ extension AppSettingsDTO {
             showBalanceOnDashboard: showBalanceOnDashboard,
             defaultCurrency: defaultCurrency,
             twoFactorEnabled: twoFactorEnabled ?? false, twoFactorSecret: twoFactorSecret,
-            auditLogEnabled: auditLogEnabled ?? true, encryptionEnabled: encryptionEnabled ?? true,
+            auditLogEnabled: auditLogEnabled ?? true,
             notificationsEnabled: notificationsEnabled,
             budgetAlertsEnabled: budgetAlertsEnabled,
             billRemindersEnabled: billRemindersEnabled,

@@ -314,7 +314,7 @@ struct iCloudSyncView: View {
                 Text(BackupEncryptionService.isEnabled ? "Encrypted Before Upload" : "Not Encrypted Yet")
                     .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
                 Text(BackupEncryptionService.isEnabled
-                     ? "Your backup is encrypted with AES-256 using your Backup Encryption passphrase before it's written to iCloud — Apple only ever sees ciphertext."
+                     ? "Your backup is encrypted using your Backup Encryption passphrase before it's written to iCloud — Apple only ever sees ciphertext."
                      : "This backup is plain, readable data once it reaches iCloud. Set a Backup Encryption passphrase above to protect it.")
                     .font(.ftCaption).foregroundStyle(FTColor.textMuted)
             }

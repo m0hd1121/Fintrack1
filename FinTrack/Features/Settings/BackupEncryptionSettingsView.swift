@@ -83,7 +83,7 @@ struct BackupEncryptionSettingsView: View {
                 Text(isEnabled ? "Backups Encrypted" : "Backups Not Encrypted")
                     .font(.ftHeadline).foregroundStyle(FTColor.textPrimary)
                 Text(isEnabled
-                     ? "Every export, iCloud backup, and Drive backup is protected with AES-256."
+                     ? "Every export, iCloud backup, and Drive backup is protected with strong encryption."
                      : "Backup files are plain, readable data. Set a passphrase below to protect them.")
                     .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
             }

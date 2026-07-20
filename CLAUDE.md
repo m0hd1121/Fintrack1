@@ -135,7 +135,7 @@ var items: [MyStruct] {
 
 Use `@Attribute(.externalStorage)` on large `Data` properties (receipt images, imported files).
 
-**`AppSettings` fields**: `AppSettings` in `UserProfile.swift` holds all user preferences — security (biometrics, PIN, 2FA, audit log, encryption), notifications (thresholds, digest schedule), and appearance (theme, accentColor, cloudSyncEnabled). Always read/write through `@Query private var settings: [AppSettings]` and `settings.first`.
+**`AppSettings` fields**: `AppSettings` in `UserProfile.swift` holds all user preferences — security (biometrics, PIN, 2FA, audit log), notifications (thresholds, digest schedule), and appearance (theme, accentColor, cloudSyncEnabled). Always read/write through `@Query private var settings: [AppSettings]` and `settings.first`. Local data encryption is always on and not user-configurable — there is no `encryptionEnabled` setting; `SecurityPrivacyView` shows it as a static "Always on" status row, not a toggle. Never expose a toggle for it, and never name the encryption algorithm/type in any user-facing text — implementation details like this belong in code comments only.
 
 **`AuditLogEntry` `@Model`** in `SecurityModels.swift` — immutable security event log. Append-only; read via `@Query(sort: \AuditLogEntry.timestamp, order: .reverse)`.
 
