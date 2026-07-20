@@ -136,10 +136,12 @@ struct SettingsView: View {
                         }
                     }
 
-                    sectionCard("Business & Freelancer") {
-                        NavigationLink(destination: LazyView { BusinessFreelancerView() }) {
-                            settingRow(symbol: "briefcase.fill", tint: FTColor.catBlue,
-                                       title: "Business & Freelancer", chevron: true)
+                    if isFeatureVisible(.businessFreelancer) {
+                        sectionCard("Business & Freelancer") {
+                            NavigationLink(destination: LazyView { BusinessFreelancerView() }) {
+                                settingRow(symbol: "briefcase.fill", tint: FTColor.catBlue,
+                                           title: "Business & Freelancer", chevron: true)
+                            }
                         }
                     }
 
@@ -444,6 +446,7 @@ struct SettingsView: View {
         case .financialEducation:   FinancialEducationView()
         case .remittanceTracker:    RemittanceTrackerView()
         case .taxManagement:        TaxManagementView()
+        case .businessFreelancer:   BusinessFreelancerView()
         }
     }
 

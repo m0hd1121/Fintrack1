@@ -122,7 +122,8 @@ Error handling has three co-existing patterns (detail + file:line examples in `M
 Active branch: `claude/finance-app-features-f1fo3p`. No release/version tags found in this pass.
 
 **Recently completed** (most recent commits, newest first):
-- `DisableableFeature` generalized with a `category` (`.premium` vs `.topLevelSection`) so non-Premium-Features sections can be disabled too; Tax Management added as the first `.topLevelSection` case and added to `disabledByDefault` (now `[.collaborativePlanner, .insuranceOptimizer, .remittanceTracker, .taxManagement]`) — hidden out of the box, code/data untouched, re-enable via Settings > Manage Features.
+- Business & Freelancer added as a second `.topLevelSection` `DisableableFeature` case and to `disabledByDefault` (now `[.collaborativePlanner, .insuranceOptimizer, .remittanceTracker, .taxManagement, .businessFreelancer]`) — hidden out of the box, code/data untouched, re-enable via Settings > Manage Features.
+- `DisableableFeature` generalized with a `category` (`.premium` vs `.topLevelSection`) so non-Premium-Features sections can be disabled too; Tax Management added as the first `.topLevelSection` case.
 - Remittance Tracker added to `DisableableFeature.disabledByDefault` — hidden out of the box, code/data untouched, re-enable via Settings > Manage Features.
 - Insurance Optimizer added to `DisableableFeature.disabledByDefault` — hidden out of the box, code/data untouched, re-enable via Settings > Manage Features.
 - General "Disabled Features" system (`DisableableFeature` enum + `AppSettings.disabledFeatures` + `DisabledFeaturesView`) replacing one-off feature disabling; Collaborative Planner ships disabled-by-default through it with all code/data intact.

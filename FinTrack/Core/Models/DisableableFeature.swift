@@ -14,6 +14,7 @@ enum DisableableFeature: String, CaseIterable, Identifiable, Codable {
     case financialEducation = "Financial Education"
     case remittanceTracker = "Remittance Tracker"
     case taxManagement = "Tax Management"
+    case businessFreelancer = "Business & Freelancer"
 
     var id: String { rawValue }
 
@@ -28,8 +29,8 @@ enum DisableableFeature: String, CaseIterable, Identifiable, Codable {
 
     var category: Category {
         switch self {
-        case .taxManagement: return .topLevelSection
-        default:              return .premium
+        case .taxManagement, .businessFreelancer: return .topLevelSection
+        default:                                   return .premium
         }
     }
 
@@ -45,6 +46,7 @@ enum DisableableFeature: String, CaseIterable, Identifiable, Codable {
         case .financialEducation:   return "book.fill"
         case .remittanceTracker:    return "arrow.up.right.circle.fill"
         case .taxManagement:        return "doc.text.fill"
+        case .businessFreelancer:   return "briefcase.fill"
         }
     }
 
@@ -60,13 +62,14 @@ enum DisableableFeature: String, CaseIterable, Identifiable, Codable {
         case .financialEducation:   return FTColor.catPurple
         case .remittanceTracker:    return FTColor.accent
         case .taxManagement:        return FTColor.catPurple
+        case .businessFreelancer:   return FTColor.catBlue
         }
     }
 
     /// Features that are hidden out of the box, before the user ever opens the
     /// Disabled Features screen (i.e. while `AppSettings.disabledFeatures == nil`).
     static let disabledByDefault: Set<DisableableFeature> = [
-        .collaborativePlanner, .insuranceOptimizer, .remittanceTracker, .taxManagement
+        .collaborativePlanner, .insuranceOptimizer, .remittanceTracker, .taxManagement, .businessFreelancer
     ]
 }
 
