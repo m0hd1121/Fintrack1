@@ -181,7 +181,7 @@ Part of PROJECT_MAP.md (see root for navigation). All folders under `FinTrack/Fe
 - LockScreenView.swift — Face ID/Touch ID unlock screen (`AppState.isLocked`)
 - NotificationSettingsView.swift — notification permission, master toggle, bill/budget threshold editors
 - PrivacyPolicyView.swift — static privacy policy text
-- SecurityPrivacyView.swift — biometrics/PIN, 2FA, recovery codes, decoy/hidden mode, audit log viewer
+- SecurityPrivacyView.swift — biometrics/PIN, 2FA, recovery codes, decoy/hidden mode, audit log viewer (`auditLogCard`, hidden by default — `isFeatureVisible(.auditLog)`, a `.nested`-category `DisableableFeature`; background logging keeps running either way)
 - SettingsView.swift — root Settings screen: currency picker, About, backup import/export, links to every other Settings/Premium/Tax sub-screen (tab bar is full — new modules surface here). "Premium Features" card renders only `.premium`-category `DisableableFeature`s not in `AppSettings.disabledFeatureSet` (via `visibleFeatures` + `destinationView(for:)` switch) plus an always-visible "Manage Features" row → `DisabledFeaturesView`; standalone sections like "Tax Management" wrap their `sectionCard` in `if isFeatureVisible(.taxManagement)` for the same effect on `.topLevelSection`-category cases
 - TermsOfServiceView.swift — static terms-of-service text
 

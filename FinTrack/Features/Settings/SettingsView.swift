@@ -447,6 +447,7 @@ struct SettingsView: View {
         case .remittanceTracker:    RemittanceTrackerView()
         case .taxManagement:        TaxManagementView()
         case .businessFreelancer:   BusinessFreelancerView()
+        case .auditLog:             AuditLogView()
         }
     }
 

@@ -15,6 +15,7 @@ enum DisableableFeature: String, CaseIterable, Identifiable, Codable {
     case remittanceTracker = "Remittance Tracker"
     case taxManagement = "Tax Management"
     case businessFreelancer = "Business & Freelancer"
+    case auditLog = "Audit Log"
 
     var id: String { rawValue }
 
@@ -25,11 +26,16 @@ enum DisableableFeature: String, CaseIterable, Identifiable, Codable {
         case premium
         /// Rendered as its own standalone `sectionCard` in Settings.
         case topLevelSection
+        /// Rendered somewhere other than SettingsView's top level (e.g. nested inside
+        /// another screen); that screen checks `isFeatureEnabled` at its own call site
+        /// rather than being auto-filtered by SettingsView.
+        case nested
     }
 
     var category: Category {
         switch self {
         case .taxManagement, .businessFreelancer: return .topLevelSection
+        case .auditLog:                            return .nested
         default:                                   return .premium
         }
     }
@@ -47,6 +53,7 @@ enum DisableableFeature: String, CaseIterable, Identifiable, Codable {
         case .remittanceTracker:    return "arrow.up.right.circle.fill"
         case .taxManagement:        return "doc.text.fill"
         case .businessFreelancer:   return "briefcase.fill"
+        case .auditLog:             return "list.bullet.clipboard.fill"
         }
     }
 
@@ -63,13 +70,15 @@ enum DisableableFeature: String, CaseIterable, Identifiable, Codable {
         case .remittanceTracker:    return FTColor.accent
         case .taxManagement:        return FTColor.catPurple
         case .businessFreelancer:   return FTColor.catBlue
+        case .auditLog:             return FTColor.gold
         }
     }
 
     /// Features that are hidden out of the box, before the user ever opens the
     /// Disabled Features screen (i.e. while `AppSettings.disabledFeatures == nil`).
     static let disabledByDefault: Set<DisableableFeature> = [
-        .collaborativePlanner, .insuranceOptimizer, .remittanceTracker, .taxManagement, .businessFreelancer
+        .collaborativePlanner, .insuranceOptimizer, .remittanceTracker, .taxManagement, .businessFreelancer,
+        .auditLog
     ]
 }
 
