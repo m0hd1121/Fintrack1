@@ -408,10 +408,47 @@ struct MainTabView: View {
         }
         .ignoresSafeArea(edges: .bottom)
         .dismissKeyboardOnTap()
+        // Switching tabs always restores the bar to full size.
+        .onChange(of: appState.selectedTab) { appState.tabBarCollapsed = false }
         .sheet(isPresented: $appState.showingAddTransaction) {
             AddTransactionView()
         }
     }
+}
+
+// MARK: – Shrink-on-scroll for the floating tab bar
+
+/// Collapses (shrinks) the floating `CustomTabBar` while the enclosing scroll
+/// view is scrolled down, and restores it when scrolling up or near the top.
+/// Attach to a tab's main vertical `ScrollView`/`List` via `.collapsesTabBarOnScroll()`.
+private struct TabBarScrollCollapseModifier: ViewModifier {
+    @Environment(AppState.self) private var appState
+    @State private var lastOffset: CGFloat = 0
+
+    func body(content: Content) -> some View {
+        content.onScrollGeometryChange(for: CGFloat.self) { geo in
+            geo.contentOffset.y
+        } action: { _, newOffset in
+            let collapsed: Bool
+            if newOffset <= 40 {
+                collapsed = false                       // near the top → always full size
+            } else if newOffset > lastOffset + 4 {
+                collapsed = true                        // scrolling down
+            } else if newOffset < lastOffset - 4 {
+                collapsed = false                       // scrolling up
+            } else {
+                collapsed = appState.tabBarCollapsed    // tiny move → unchanged
+            }
+            lastOffset = newOffset
+            if collapsed != appState.tabBarCollapsed {
+                appState.tabBarCollapsed = collapsed
+            }
+        }
+    }
+}
+
+extension View {
+    func collapsesTabBarOnScroll() -> some View { modifier(TabBarScrollCollapseModifier()) }
 }
 
 // MARK: – Custom tab bar
@@ -422,6 +459,7 @@ struct CustomTabBar: View {
 
     @Namespace private var selectionNamespace
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(AppState.self) private var appState
 
     private let tabs: [(tab: AppTab, icon: String, selectedIcon: String, label: String)] = [
         (.dashboard,    "square.grid.2x2",               "square.grid.2x2.fill",              "Dashboard"),
@@ -463,6 +501,9 @@ struct CustomTabBar: View {
                 .opacity(1)
         }
         .shadow(color: .black.opacity(0.12), radius: 20, x: 0, y: 6)
+        // Shrink ~20% while scrolling down (see collapsesTabBarOnScroll()).
+        .scaleEffect(appState.tabBarCollapsed ? 0.8 : 1.0, anchor: .bottom)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.25), value: appState.tabBarCollapsed)
         .padding(.horizontal, 24)
         .padding(.bottom, 44)
     }

@@ -228,6 +228,7 @@ struct BudgetView: View {
                         .padding(.horizontal, FTSpacing.screen)
                         .padding(.top, FTSpacing.lg)
                     }
+                    .collapsesTabBarOnScroll()
                 }
             }
             .navigationTitle("Budget & Goals")

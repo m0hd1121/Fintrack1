@@ -126,6 +126,9 @@ final class AppState {
     var selectedTab: AppTab = .dashboard
     var showingAddTransaction = false
     var baseCurrency = "AED"
+    /// Drives the floating tab bar's shrink-on-scroll: true while the user is
+    /// scrolling down, false near the top or when scrolling up.
+    var tabBarCollapsed = false
 
     init() {
         hasCompletedOnboarding = UserDefaults.standard.bool(forKey: "has_completed_onboarding")

@@ -167,6 +167,7 @@ struct TransactionsListView: View {
                             await EmailSyncService.shared.runSyncPass(context: context)
                             recomputeGroups()
                         }
+                        .collapsesTabBarOnScroll()
                     }
                 }
                 .task(id: searchText) {

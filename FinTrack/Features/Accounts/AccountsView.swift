@@ -209,6 +209,7 @@ struct AccountsView: View {
                     .padding(.top, FTSpacing.sm)
                     .padding(.bottom, 120)
                 }
+                .collapsesTabBarOnScroll()
             }
             .toolbar(.hidden, for: .navigationBar)
             .sheet(isPresented: $showingAddAccount) { AddAccountView() }

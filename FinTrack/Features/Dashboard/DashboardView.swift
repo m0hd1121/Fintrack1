@@ -293,6 +293,7 @@ struct DashboardView: View {
                     await EmailSyncService.shared.runSyncPass(context: context)
                     refreshDashboard()
                 }
+                .collapsesTabBarOnScroll()
             }
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(isPresented: $showingReports) {
