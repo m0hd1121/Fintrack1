@@ -13,7 +13,6 @@ enum AuditEventType: String, Codable, CaseIterable {
     case settingsChanged     = "Settings Changed"
     case dataExported        = "Data Exported"
     case dataImported        = "Data Imported"
-    case hiddenModeActivated = "Hidden Mode"
     case twoFAEnabled        = "2FA Enabled"
     case twoFADisabled       = "2FA Disabled"
 
@@ -30,7 +29,6 @@ enum AuditEventType: String, Codable, CaseIterable {
         case .settingsChanged:     return "gearshape.fill"
         case .dataExported:        return "arrow.up.doc.fill"
         case .dataImported:        return "arrow.down.doc.fill"
-        case .hiddenModeActivated: return "eye.slash.fill"
         case .twoFAEnabled:        return "checkmark.shield.fill"
         case .twoFADisabled:       return "xmark.shield.fill"
         }
@@ -38,7 +36,7 @@ enum AuditEventType: String, Codable, CaseIterable {
 
     var isSecurityEvent: Bool {
         switch self {
-        case .failedAuth, .pinChanged, .hiddenModeActivated, .twoFAEnabled, .twoFADisabled:
+        case .failedAuth, .pinChanged, .twoFAEnabled, .twoFADisabled:
             return true
         default:
             return false

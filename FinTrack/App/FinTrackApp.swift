@@ -122,7 +122,6 @@ struct FinTrackApp: App {
 @MainActor
 final class AppState {
     var isLocked = false
-    var isHiddenMode = false
     var hasCompletedOnboarding = false
     var selectedTab: AppTab = .dashboard
     var showingAddTransaction = false

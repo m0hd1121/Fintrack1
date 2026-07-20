@@ -72,7 +72,7 @@ struct SecurityPrivacyView: View {
         .navigationBarTitleDisplayMode(.inline)
         .background { FTBackdrop() }
         .sheet(isPresented: $showingPINSetup) {
-            PINSetupSheet(isDecoy: false)
+            PINSetupSheet()
         }
     }
 
@@ -226,17 +226,6 @@ struct SecurityPrivacyView: View {
                     .onChange(of: encryptionBinding.wrappedValue) { _, enabled in
                         logAudit(.settingsChanged, "Encryption \(enabled ? "enabled" : "disabled")")
                     }
-
-                divider
-
-                NavigationLink(destination: HiddenModeView()) {
-                    securityRow(icon: "eye.slash.fill", tint: FTColor.catPurple,
-                                title: "Hidden Mode / Decoy PIN",
-                                subtitle: settings?.hiddenModeEnabled == true ? "Configured" : "Not Set Up",
-                                subtitleColor: settings?.hiddenModeEnabled == true ? FTColor.gold : FTColor.textMuted,
-                                chevron: true)
-                }
-                .buttonStyle(.plain)
             }
             .padding()
             .ftGlass(FTRadius.xl)
@@ -330,8 +319,6 @@ struct SecurityPrivacyView: View {
 // MARK: - PIN Setup Sheet
 
 struct PINSetupSheet: View {
-    var isDecoy: Bool = false
-
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
     @Query private var allSettings: [AppSettings]
@@ -371,7 +358,7 @@ struct PINSetupSheet: View {
             }
             .scrollContentBackground(.hidden)
             .background { FTBackdrop() }
-            .navigationTitle(isDecoy ? "Decoy PIN" : "Change PIN")
+            .navigationTitle("Change PIN")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -384,7 +371,7 @@ struct PINSetupSheet: View {
     private var iconHeader: some View {
         ZStack {
             Circle().fill(FTColor.catPurple.opacity(0.1)).frame(width: 80, height: 80)
-            Image(systemName: isDecoy ? "eye.slash.fill" : "lock.fill")
+            Image(systemName: "lock.fill")
                 .font(.system(size: 32)).foregroundStyle(FTColor.catPurple)
         }
         .padding(.top, FTSpacing.xl)
@@ -393,12 +380,12 @@ struct PINSetupSheet: View {
     private var stageTitle: some View {
         VStack(spacing: FTSpacing.sm) {
             Text(stage == .enter
-                 ? (isDecoy ? "Set Decoy PIN" : "Set New PIN")
+                 ? "Set New PIN"
                  : (stage == .confirm ? "Confirm PIN" : "PIN Saved"))
                 .font(.ftHeadline).foregroundStyle(FTColor.textPrimary)
 
             Text(stage == .enter
-                 ? (isDecoy ? "This PIN activates Hidden Mode when used to unlock" : "Enter a 4–6 digit PIN")
+                 ? "Enter a 4–6 digit PIN"
                  : (stage == .confirm ? "Re-enter your PIN to confirm" : ""))
                 .font(.ftBody).foregroundStyle(FTColor.textSecondary)
                 .multilineTextAlignment(.center)
@@ -422,7 +409,7 @@ struct PINSetupSheet: View {
         VStack(spacing: FTSpacing.lg) {
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 56)).foregroundStyle(FTColor.income)
-            Text(isDecoy ? "Decoy PIN Set!" : "PIN Updated!")
+            Text("PIN Updated!")
                 .font(.ftHeadline).foregroundStyle(FTColor.textPrimary)
             Button("Done") { dismiss() }
                 .font(.ftBodySemibold).foregroundStyle(.white)
@@ -488,17 +475,10 @@ struct PINSetupSheet: View {
         }
         let hash = SHA256.hash(data: Data(pin.utf8))
             .compactMap { String(format: "%02x", $0) }.joined()
-        if isDecoy {
-            settings?.decoyPINHash = hash
-            settings?.hiddenModeEnabled = true
-            let entry = AuditLogEntry(eventType: .hiddenModeActivated, description: "Decoy PIN configured")
-            context.insert(entry)
-        } else {
-            settings?.pinHash = hash
-            settings?.usePIN = true
-            let entry = AuditLogEntry(eventType: .pinChanged, description: "PIN changed")
-            context.insert(entry)
-        }
+        settings?.pinHash = hash
+        settings?.usePIN = true
+        let entry = AuditLogEntry(eventType: .pinChanged, description: "PIN changed")
+        context.insert(entry)
         try? context.save()
         withAnimation { stage = .success }
     }
@@ -819,111 +799,6 @@ struct RecoveryCodesView: View {
                 }
             }
         }
-    }
-}
-
-// MARK: - Hidden Mode View
-
-struct HiddenModeView: View {
-    @Environment(\.modelContext) private var context
-    @Query private var allSettings: [AppSettings]
-
-    @State private var showingDecoyPINSetup = false
-
-    private var settings: AppSettings? { allSettings.first }
-
-    var body: some View {
-        ScrollView {
-            VStack(spacing: FTSpacing.xxl) {
-                headerCard
-                howItWorksCard
-                statusCard
-            }
-            .padding(FTSpacing.screen)
-            .padding(.bottom, 40)
-        }
-        .navigationTitle("Hidden Mode")
-        .navigationBarTitleDisplayMode(.inline)
-        .background { FTBackdrop() }
-        .sheet(isPresented: $showingDecoyPINSetup) {
-            PINSetupSheet(isDecoy: true)
-        }
-    }
-
-    private var headerCard: some View {
-        VStack(spacing: FTSpacing.lg) {
-            ZStack {
-                Circle().fill(FTColor.catPurple.opacity(0.1)).frame(width: 80, height: 80)
-                Image(systemName: "eye.slash.fill").font(.system(size: 32)).foregroundStyle(FTColor.catPurple)
-            }
-            VStack(spacing: FTSpacing.sm) {
-                Text("Hidden Mode").font(.ftHeadline).foregroundStyle(FTColor.textPrimary)
-                Text("Set a Decoy PIN that shows a sanitized view of your finances — balances hidden, transactions limited to the last 30 days. Ideal for showing your phone to others without revealing sensitive data.")
-                    .font(.ftBody).foregroundStyle(FTColor.textSecondary).multilineTextAlignment(.center)
-            }
-        }
-        .padding()
-        .ftGlass(FTRadius.xl)
-    }
-
-    private var howItWorksCard: some View {
-        VStack(alignment: .leading, spacing: FTSpacing.md) {
-            Text("HOW IT WORKS").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
-
-            hiddenRow("Real PIN → full access to all your data", icon: "lock.open.fill", color: FTColor.income)
-            hiddenRow("Decoy PIN → Hidden Mode activates", icon: "eye.slash.fill", color: FTColor.catPurple)
-            hiddenRow("Account balances replaced with ••••", icon: "eye.slash", color: FTColor.textMuted)
-            hiddenRow("Transactions limited to last 30 days only", icon: "clock.fill", color: FTColor.catBlue)
-            hiddenRow("Status indicator only visible to you", icon: "checkmark.seal.fill", color: FTColor.catTeal)
-        }
-        .padding()
-        .ftGlass(FTRadius.xl)
-    }
-
-    private func hiddenRow(_ text: String, icon: String, color: Color) -> some View {
-        HStack(spacing: FTSpacing.md) {
-            Image(systemName: icon).font(.ftCallout).foregroundStyle(color).frame(width: 20)
-            Text(text).font(.ftBody).foregroundStyle(FTColor.textPrimary)
-        }
-    }
-
-    private var statusCard: some View {
-        VStack(spacing: FTSpacing.md) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Decoy PIN").font(.ftBody).foregroundStyle(FTColor.textPrimary)
-                    Text(settings?.decoyPINHash != nil ? "Configured and active" : "Not set up")
-                        .font(.ftCaption)
-                        .foregroundStyle(settings?.decoyPINHash != nil ? FTColor.income : FTColor.textMuted)
-                }
-                Spacer()
-                Image(systemName: settings?.decoyPINHash != nil ? "checkmark.circle.fill" : "xmark.circle")
-                    .foregroundStyle(settings?.decoyPINHash != nil ? FTColor.income : FTColor.textMuted)
-            }
-
-            Button { showingDecoyPINSetup = true } label: {
-                Text(settings?.decoyPINHash != nil ? "Change Decoy PIN" : "Set Up Decoy PIN")
-                    .font(.ftBodySemibold).foregroundStyle(.white)
-                    .frame(maxWidth: .infinity).padding()
-                    .background(FTColor.catPurple, in: RoundedRectangle(cornerRadius: FTRadius.md))
-            }
-
-            if settings?.decoyPINHash != nil {
-                Button(role: .destructive) {
-                    settings?.decoyPINHash = nil
-                    settings?.hiddenModeEnabled = false
-                    try? context.save()
-                } label: {
-                    Text("Remove Decoy PIN")
-                        .font(.ftBodySemibold).foregroundStyle(FTColor.expense)
-                        .frame(maxWidth: .infinity).padding()
-                        .background(FTColor.expense.opacity(0.1),
-                                    in: RoundedRectangle(cornerRadius: FTRadius.md))
-                }
-            }
-        }
-        .padding()
-        .ftGlass(FTRadius.xl)
     }
 }
 

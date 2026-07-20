@@ -64,8 +64,6 @@ final class AppSettings {
     var showBalanceOnDashboard: Bool
     var defaultCurrency: String
     // Advanced security
-    var decoyPINHash: String?
-    var hiddenModeEnabled: Bool
     var twoFactorEnabled: Bool
     var twoFactorSecret: String?
     var auditLogEnabled: Bool
@@ -111,8 +109,6 @@ final class AppSettings {
         autoLockMinutes: Int = 5,
         showBalanceOnDashboard: Bool = true,
         defaultCurrency: String = "AED",
-        decoyPINHash: String? = nil,
-        hiddenModeEnabled: Bool = false,
         twoFactorEnabled: Bool = false,
         twoFactorSecret: String? = nil,
         auditLogEnabled: Bool = true,
@@ -152,8 +148,6 @@ final class AppSettings {
         self.autoLockMinutes = autoLockMinutes
         self.showBalanceOnDashboard = showBalanceOnDashboard
         self.defaultCurrency = defaultCurrency
-        self.decoyPINHash = decoyPINHash
-        self.hiddenModeEnabled = hiddenModeEnabled
         self.twoFactorEnabled = twoFactorEnabled
         self.twoFactorSecret = twoFactorSecret
         self.auditLogEnabled = auditLogEnabled

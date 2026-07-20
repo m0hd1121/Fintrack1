@@ -209,7 +209,6 @@ struct AppSettingsDTO: Codable {
     var id: UUID; var useBiometrics: Bool; var usePIN: Bool; var pinHash: String?
     var autoLockMinutes: Int; var showBalanceOnDashboard: Bool
     var defaultCurrency: String
-    var decoyPINHash: String?; var hiddenModeEnabled: Bool?
     var twoFactorEnabled: Bool?; var twoFactorSecret: String?
     var auditLogEnabled: Bool?; var encryptionEnabled: Bool?
     var notificationsEnabled: Bool; var budgetAlertsEnabled: Bool
@@ -781,7 +780,6 @@ extension AppSettings {
             pinHash: pinHash, autoLockMinutes: autoLockMinutes,
             showBalanceOnDashboard: showBalanceOnDashboard,
             defaultCurrency: defaultCurrency,
-            decoyPINHash: decoyPINHash, hiddenModeEnabled: hiddenModeEnabled,
             twoFactorEnabled: twoFactorEnabled, twoFactorSecret: twoFactorSecret,
             auditLogEnabled: auditLogEnabled, encryptionEnabled: encryptionEnabled,
             notificationsEnabled: notificationsEnabled,
@@ -1031,7 +1029,6 @@ extension AppSettingsDTO {
             pinHash: pinHash, autoLockMinutes: autoLockMinutes,
             showBalanceOnDashboard: showBalanceOnDashboard,
             defaultCurrency: defaultCurrency,
-            decoyPINHash: decoyPINHash, hiddenModeEnabled: hiddenModeEnabled ?? false,
             twoFactorEnabled: twoFactorEnabled ?? false, twoFactorSecret: twoFactorSecret,
             auditLogEnabled: auditLogEnabled ?? true, encryptionEnabled: encryptionEnabled ?? true,
             notificationsEnabled: notificationsEnabled,

@@ -44,7 +44,7 @@ FinTrackWidget/     Widget Extension source (WidgetBundle, all widget families, 
 FinTrackWatch/      Apple Watch companion app source
 ```
 
-`AppState` is `@Observable @MainActor final class` — inject via `.environment(appState)` and read with `@Environment(AppState.self)`. Key fields: `selectedTab`, `isLocked`, `isHiddenMode`, `baseCurrency`, `hideBalances`, `showingAddTransaction`.
+`AppState` is `@Observable @MainActor final class` — inject via `.environment(appState)` and read with `@Environment(AppState.self)`. Key fields: `selectedTab`, `isLocked`, `baseCurrency`, `hideBalances`, `showingAddTransaction`.
 
 **Navigation**: 4 tabs (dashboard, transactions, budget, accounts) + a centre FAB. **The tab bar is full.** Any new top-level module must be reachable via Settings (`FinTrack/Features/Settings/SettingsView.swift`), not a new tab. On iPad (`horizontalSizeClass == .regular`), `RootView` renders a `NavigationSplitView` instead of the tab bar.
 
@@ -135,7 +135,7 @@ var items: [MyStruct] {
 
 Use `@Attribute(.externalStorage)` on large `Data` properties (receipt images, imported files).
 
-**`AppSettings` fields**: `AppSettings` in `UserProfile.swift` holds all user preferences — security (biometrics, PIN, 2FA, decoy PIN, audit log, encryption), notifications (thresholds, digest schedule), and appearance (theme, accentColor, cloudSyncEnabled). Always read/write through `@Query private var settings: [AppSettings]` and `settings.first`.
+**`AppSettings` fields**: `AppSettings` in `UserProfile.swift` holds all user preferences — security (biometrics, PIN, 2FA, audit log, encryption), notifications (thresholds, digest schedule), and appearance (theme, accentColor, cloudSyncEnabled). Always read/write through `@Query private var settings: [AppSettings]` and `settings.first`.
 
 **`AuditLogEntry` `@Model`** in `SecurityModels.swift` — immutable security event log. Append-only; read via `@Query(sort: \AuditLogEntry.timestamp, order: .reverse)`.
 
