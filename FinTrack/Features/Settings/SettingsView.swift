@@ -270,7 +270,7 @@ struct SettingsView: View {
             }
             .padding(.horizontal, FTSpacing.screen)
             .padding(.top, FTSpacing.sm)
-            .padding(.bottom, 40)
+            .padding(.bottom, 120)   // clear the floating tab bar (Settings is now a pushed screen)
         }
         .scrollContentBackground(.hidden)
         .background { FTBackdrop() }
