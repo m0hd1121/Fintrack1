@@ -1,8 +1,14 @@
 import SwiftUI
 
-/// Settings modules (Premium Features grid rows, or standalone top-level sections)
-/// that the user can hide from the app without deleting any code or data.
-/// Persisted as a comma-separated list of raw values in `AppSettings.disabledFeatures`.
+/// Settings modules (Premium Features grid rows, standalone top-level sections,
+/// or individual nested rows) that developers can hide from the app without
+/// deleting any code or data.
+///
+/// This is **developer-controlled only** — there is intentionally no user-facing
+/// screen to toggle these. To disable a feature, add its case to `disabled`
+/// below and record it in `docs/DISABLED_FEATURES.md`. To re-enable, remove it
+/// from both. The code, models, and data for a disabled feature always stay
+/// intact so it can be switched back on later.
 enum DisableableFeature: String, CaseIterable, Identifiable, Codable {
     case aiCFOMode = "AI CFO Mode"
     case retirementSimulation = "Retirement Simulation"
@@ -29,8 +35,8 @@ enum DisableableFeature: String, CaseIterable, Identifiable, Codable {
         case topLevelSection
         /// Rendered as one row among others in a shared card (a sibling row inside
         /// some other `sectionCard`), or nested inside another screen entirely.
-        /// The owning view checks `isFeatureEnabled`/`isFeatureVisible` manually at
-        /// its own call site rather than being auto-filtered by category.
+        /// The owning view checks `isEnabled` manually at its own call site
+        /// rather than being auto-filtered by category.
         case nested
     }
 
@@ -78,29 +84,18 @@ enum DisableableFeature: String, CaseIterable, Identifiable, Codable {
         }
     }
 
-    /// Features that are hidden out of the box, before the user ever opens the
-    /// Disabled Features screen (i.e. while `AppSettings.disabledFeatures == nil`).
-    static let disabledByDefault: Set<DisableableFeature> = [
-        .collaborativePlanner, .insuranceOptimizer, .remittanceTracker, .taxManagement, .businessFreelancer,
-        .auditLog, .googleDriveBackup
+    /// The single source of truth for which features are currently disabled.
+    /// Keep this in sync with `docs/DISABLED_FEATURES.md`.
+    static let disabled: Set<DisableableFeature> = [
+        .collaborativePlanner,
+        .insuranceOptimizer,
+        .remittanceTracker,
+        .taxManagement,
+        .businessFreelancer,
+        .auditLog,
+        .googleDriveBackup,
     ]
-}
 
-extension AppSettings {
-    /// The set of currently-disabled features, decoded from `disabledFeatures`.
-    /// `nil` storage falls back to `DisableableFeature.disabledByDefault`.
-    var disabledFeatureSet: Set<DisableableFeature> {
-        get {
-            guard let disabledFeatures else { return DisableableFeature.disabledByDefault }
-            let rawValues = disabledFeatures.split(separator: ",").map(String.init)
-            return Set(rawValues.compactMap(DisableableFeature.init(rawValue:)))
-        }
-        set {
-            disabledFeatures = newValue.map(\.rawValue).joined(separator: ",")
-        }
-    }
-
-    func isFeatureEnabled(_ feature: DisableableFeature) -> Bool {
-        !disabledFeatureSet.contains(feature)
-    }
+    /// Whether this feature should currently be shown/active in the app.
+    var isEnabled: Bool { !DisableableFeature.disabled.contains(self) }
 }

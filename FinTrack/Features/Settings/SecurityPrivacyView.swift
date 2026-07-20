@@ -14,10 +14,6 @@ struct SecurityPrivacyView: View {
 
     private var settings: AppSettings? { allSettings.first }
 
-    private func isFeatureVisible(_ feature: DisableableFeature) -> Bool {
-        settings?.isFeatureEnabled(feature) ?? !DisableableFeature.disabledByDefault.contains(feature)
-    }
-
     private func settingsBind<T>(_ kp: ReferenceWritableKeyPath<AppSettings, T>, default def: T) -> Binding<T> {
         Binding(
             get: { settings?[keyPath: kp] ?? def },
@@ -58,7 +54,7 @@ struct SecurityPrivacyView: View {
                 securityScoreCard
                 appLockCard
                 advancedSecurityCard
-                if isFeatureVisible(.auditLog) {
+                if DisableableFeature.auditLog.isEnabled {
                     auditLogCard
                 }
                 infoCard

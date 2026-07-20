@@ -37,9 +37,7 @@ struct RootView: View {
         Color.ftAccent(named: settings.first?.accentColorName ?? "teal")
     }
 
-    private var isGoogleDriveBackupEnabled: Bool {
-        settings.first?.isFeatureEnabled(.googleDriveBackup) ?? !DisableableFeature.disabledByDefault.contains(.googleDriveBackup)
-    }
+    private var isGoogleDriveBackupEnabled: Bool { DisableableFeature.googleDriveBackup.isEnabled }
 
     var body: some View {
         Group {

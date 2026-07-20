@@ -24,11 +24,8 @@ struct SettingsView: View {
 
     private var setting: AppSettings? { settings.first }
     private var profile: UserProfile? { profiles.first }
-    private func isFeatureVisible(_ feature: DisableableFeature) -> Bool {
-        setting?.isFeatureEnabled(feature) ?? !DisableableFeature.disabledByDefault.contains(feature)
-    }
     private var visibleFeatures: [DisableableFeature] {
-        DisableableFeature.allCases.filter { $0.category == .premium && isFeatureVisible($0) }
+        DisableableFeature.allCases.filter { $0.category == .premium && $0.isEnabled }
     }
 
     @State private var showingCurrencyPicker = false
@@ -94,22 +91,17 @@ struct SettingsView: View {
                 VStack(spacing: FTSpacing.xl) {
                     profileCard
 
-                    sectionCard("Premium Features") {
-                        ForEach(Array(visibleFeatures.enumerated()), id: \.element.id) { index, feature in
-                            NavigationLink(destination: LazyView { destinationView(for: feature) }) {
-                                settingRow(symbol: feature.symbol, tint: feature.tint,
-                                           title: feature.title, chevron: true)
+                    if !visibleFeatures.isEmpty {
+                        sectionCard("Premium Features") {
+                            ForEach(Array(visibleFeatures.enumerated()), id: \.element.id) { index, feature in
+                                NavigationLink(destination: LazyView { destinationView(for: feature) }) {
+                                    settingRow(symbol: feature.symbol, tint: feature.tint,
+                                               title: feature.title, chevron: true)
+                                }
+                                if index < visibleFeatures.count - 1 {
+                                    rowDivider
+                                }
                             }
-                            if index < visibleFeatures.count - 1 {
-                                rowDivider
-                            }
-                        }
-                        if !visibleFeatures.isEmpty {
-                            rowDivider
-                        }
-                        NavigationLink(destination: DisabledFeaturesView()) {
-                            settingRow(symbol: "eye.slash.fill", tint: FTColor.textMuted,
-                                       title: "Manage Features", chevron: true)
                         }
                     }
 
@@ -120,7 +112,7 @@ struct SettingsView: View {
                         }
                     }
 
-                    if isFeatureVisible(.taxManagement) {
+                    if DisableableFeature.taxManagement.isEnabled {
                         sectionCard("Tax Management") {
                             NavigationLink(destination: LazyView { TaxManagementView() }) {
                                 settingRow(symbol: "doc.text.fill", tint: FTColor.catPurple,
@@ -136,7 +128,7 @@ struct SettingsView: View {
                         }
                     }
 
-                    if isFeatureVisible(.businessFreelancer) {
+                    if DisableableFeature.businessFreelancer.isEnabled {
                         sectionCard("Business & Freelancer") {
                             NavigationLink(destination: LazyView { BusinessFreelancerView() }) {
                                 settingRow(symbol: "briefcase.fill", tint: FTColor.catBlue,
@@ -230,7 +222,7 @@ struct SettingsView: View {
                                        title: "iCloud Backup", chevron: true)
                         }
                         rowDivider
-                        if isFeatureVisible(.googleDriveBackup) {
+                        if DisableableFeature.googleDriveBackup.isEnabled {
                             NavigationLink(destination: LazyView { GoogleDriveBackupView() }) {
                                 settingRow(symbol: "doc.badge.gearshape.fill", tint: FTColor.income,
                                            title: "Google Drive Backup", chevron: true)

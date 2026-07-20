@@ -98,7 +98,6 @@ final class AppSettings {
     var fiscalYearStartMonth: Int   // 1–12
     var firstDayOfWeek: Int         // 1=Sunday, 2=Monday
     var dashboardHiddenWidgets: String  // comma-separated widget IDs
-    var disabledFeatures: String?  // comma-separated DisableableFeature raw values; nil = use DisableableFeature.disabledByDefault
 
     init(
         id: UUID = UUID(),
