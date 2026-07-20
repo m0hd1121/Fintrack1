@@ -230,11 +230,13 @@ struct SettingsView: View {
                                        title: "iCloud Backup", chevron: true)
                         }
                         rowDivider
-                        NavigationLink(destination: LazyView { GoogleDriveBackupView() }) {
-                            settingRow(symbol: "doc.badge.gearshape.fill", tint: FTColor.income,
-                                       title: "Google Drive Backup", chevron: true)
+                        if isFeatureVisible(.googleDriveBackup) {
+                            NavigationLink(destination: LazyView { GoogleDriveBackupView() }) {
+                                settingRow(symbol: "doc.badge.gearshape.fill", tint: FTColor.income,
+                                           title: "Google Drive Backup", chevron: true)
+                            }
+                            rowDivider
                         }
-                        rowDivider
                         NavigationLink(destination: LazyView { EmailBackupView() }) {
                             settingRow(symbol: "envelope.badge.shield.half.filled.fill", tint: FTColor.catCoral,
                                        title: "Email Backup", chevron: true)
@@ -448,6 +450,7 @@ struct SettingsView: View {
         case .taxManagement:        TaxManagementView()
         case .businessFreelancer:   BusinessFreelancerView()
         case .auditLog:             AuditLogView()
+        case .googleDriveBackup:    GoogleDriveBackupView()
         }
     }
 

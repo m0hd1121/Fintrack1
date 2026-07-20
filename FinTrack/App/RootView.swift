@@ -37,6 +37,10 @@ struct RootView: View {
         Color.ftAccent(named: settings.first?.accentColorName ?? "teal")
     }
 
+    private var isGoogleDriveBackupEnabled: Bool {
+        settings.first?.isFeatureEnabled(.googleDriveBackup) ?? !DisableableFeature.disabledByDefault.contains(.googleDriveBackup)
+    }
+
     var body: some View {
         Group {
             if !appState.hasCompletedOnboarding {
@@ -71,7 +75,7 @@ struct RootView: View {
                 let wifiOnly = settings.first?.backupWifiOnly ?? false
                 iCloudBackupService.shared.scheduleAutomaticBackupIfNeeded(context: context, wifiOnly: wifiOnly)
             }
-            GoogleDriveBackupService.shared.syncIfDue(context: context)
+            if isGoogleDriveBackupEnabled { GoogleDriveBackupService.shared.syncIfDue(context: context) }
             EmailBackupService.shared.scheduleAutomaticBackupIfNeeded(context: context)
         }
         .onChange(of: scenePhase) { _, phase in
@@ -87,7 +91,7 @@ struct RootView: View {
                     let wifiOnly = settings.first?.backupWifiOnly ?? false
                     iCloudBackupService.shared.scheduleAutomaticBackupIfNeeded(context: context, wifiOnly: wifiOnly)
                 }
-                GoogleDriveBackupService.shared.syncIfDue(context: context)
+                if isGoogleDriveBackupEnabled { GoogleDriveBackupService.shared.syncIfDue(context: context) }
                 EmailBackupService.shared.scheduleAutomaticBackupIfNeeded(context: context)
             }
             if phase == .active {
@@ -103,7 +107,7 @@ struct RootView: View {
                     let wifiOnly = settings.first?.backupWifiOnly ?? false
                     iCloudBackupService.shared.scheduleAutomaticBackupIfNeeded(context: context, wifiOnly: wifiOnly)
                 }
-                GoogleDriveBackupService.shared.syncIfDue(context: context)
+                if isGoogleDriveBackupEnabled { GoogleDriveBackupService.shared.syncIfDue(context: context) }
                 EmailBackupService.shared.scheduleAutomaticBackupIfNeeded(context: context)
             }
         }
@@ -120,7 +124,7 @@ struct RootView: View {
         }
         .task {
             EmailSyncService.shared.startAutoSync(context: context)
-            GoogleDriveBackupService.shared.startAutoSync(context: context)
+            if isGoogleDriveBackupEnabled { GoogleDriveBackupService.shared.startAutoSync(context: context) }
             EmailBackupService.shared.startAutoBackup(context: context)
             await cryptoPriceService.fetchPrices()
             cryptoPriceService.updateHoldings(Array(cryptoHoldings), currencyService: currencyService)
