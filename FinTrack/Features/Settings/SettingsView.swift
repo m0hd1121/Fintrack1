@@ -3,7 +3,6 @@ import SwiftData
 import UniformTypeIdentifiers
 
 struct SettingsView: View {
-    @Environment(\.dismiss) private var dismiss
     @Environment(AppState.self) private var appState
     @Environment(CurrencyService.self) private var currencyService
     @Environment(\.modelContext) private var context
@@ -85,254 +84,245 @@ struct SettingsView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: FTSpacing.xl) {
-                    profileCard
+        ScrollView {
+            VStack(spacing: FTSpacing.xl) {
+                profileCard
 
-                    if !visibleFeatures.isEmpty {
-                        sectionCard("Premium Features") {
-                            ForEach(Array(visibleFeatures.enumerated()), id: \.element.id) { index, feature in
-                                NavigationLink(destination: LazyView { destinationView(for: feature) }) {
-                                    settingRow(symbol: feature.symbol, tint: feature.tint,
-                                               title: feature.title, chevron: true)
-                                }
-                                if index < visibleFeatures.count - 1 {
-                                    rowDivider
-                                }
+                if !visibleFeatures.isEmpty {
+                    sectionCard("Premium Features") {
+                        ForEach(Array(visibleFeatures.enumerated()), id: \.element.id) { index, feature in
+                            NavigationLink(destination: LazyView { destinationView(for: feature) }) {
+                                settingRow(symbol: feature.symbol, tint: feature.tint,
+                                           title: feature.title, chevron: true)
+                            }
+                            if index < visibleFeatures.count - 1 {
+                                rowDivider
                             }
                         }
                     }
-
-                    sectionCard("Financial Intelligence") {
-                        NavigationLink(destination: LazyView { FinancialIntelligenceView() }) {
-                            settingRow(symbol: "brain.head.profile", tint: FTColor.gold,
-                                       title: "Health Score & Insights", chevron: true)
-                        }
-                    }
-
-                    if DisableableFeature.taxManagement.isEnabled {
-                        sectionCard("Tax Management") {
-                            NavigationLink(destination: LazyView { TaxManagementView() }) {
-                                settingRow(symbol: "doc.text.fill", tint: FTColor.catPurple,
-                                           title: "Tax Management", chevron: true)
-                            }
-                        }
-                    }
-
-                    sectionCard("Family Finance") {
-                        NavigationLink(destination: LazyView { FamilyFinanceView() }) {
-                            settingRow(symbol: "person.3.fill", tint: FTColor.catTeal,
-                                       title: "Family & Shared Finance", chevron: true)
-                        }
-                    }
-
-                    if DisableableFeature.businessFreelancer.isEnabled {
-                        sectionCard("Business & Freelancer") {
-                            NavigationLink(destination: LazyView { BusinessFreelancerView() }) {
-                                settingRow(symbol: "briefcase.fill", tint: FTColor.catBlue,
-                                           title: "Business & Freelancer", chevron: true)
-                            }
-                        }
-                    }
-
-                    sectionCard("Import & Integration") {
-                        NavigationLink(destination: LazyView { ImportIntegrationView() }) {
-                            settingRow(symbol: "arrow.down.circle.fill", tint: FTColor.catCoral,
-                                       title: "Import & Sync", chevron: true)
-                        }
-                    }
-
-                    sectionCard("Organization") {
-                        Button { showingCategoryManagement = true } label: {
-                            settingRow(symbol: "folder.badge.gear", tint: FTColor.catTeal,
-                                       title: "Custom Categories", chevron: true)
-                        }
-                        rowDivider
-                        Button { showingRuleManagement = true } label: {
-                            settingRow(symbol: "text.badge.checkmark", tint: FTColor.catPurple,
-                                       title: "Categorization Rules", chevron: true)
-                        }
-                    }
-
-                    sectionCard("Security & Privacy") {
-                        NavigationLink(destination: LazyView { SecurityPrivacyView() }) {
-                            settingRow(symbol: "lock.shield.fill", tint: FTColor.accent,
-                                       title: "Security & Privacy", chevron: true)
-                        }
-                        rowDivider
-                        FTToggleRow(symbol: BiometricService.shared.biometricIcon, tint: FTColor.accent,
-                                    title: BiometricService.shared.biometricTypeName, isOn: biometricsBinding)
-                        rowDivider
-                        FTToggleRow(symbol: "lock.fill", tint: FTColor.catPurple,
-                                    title: "PIN Lock", isOn: pinBinding)
-                        rowDivider
-                        Menu {
-                            Picker("Auto-Lock", selection: autoLockBinding) {
-                                Text("1 minute").tag(1)
-                                Text("5 minutes").tag(5)
-                                Text("15 minutes").tag(15)
-                                Text("Never").tag(0)
-                            }
-                        } label: {
-                            settingRow(symbol: "timer", tint: FTColor.catBlue, title: "Auto-Lock",
-                                       value: autoLockText, chevron: true)
-                        }
-                    }
-
-                    sectionCard("Preferences") {
-                        Button { showingCurrencyPicker = true } label: {
-                            settingRow(symbol: "globe", tint: FTColor.accent, title: "Base Currency",
-                                       value: appState.baseCurrency, chevron: true)
-                        }
-                        .accessibilityLabel("Base Currency: \(appState.baseCurrency)")
-                        rowDivider
-                        NavigationLink(destination: LazyView { AppearanceView() }) {
-                            settingRow(symbol: "paintbrush.fill", tint: FTColor.catPurple,
-                                       title: "Appearance & Accessibility",
-                                       value: (setting?.theme ?? .system).rawValue, chevron: true)
-                        }
-                        .accessibilityLabel("Appearance and Accessibility settings")
-                        rowDivider
-                        NavigationLink(destination: LazyView { DashboardCustomizerView() }) {
-                            settingRow(symbol: "square.grid.2x2.fill", tint: FTColor.catTeal,
-                                       title: "Dashboard Layout", chevron: true)
-                        }
-                        .accessibilityLabel("Customize Dashboard Layout")
-                        rowDivider
-                        NavigationLink(destination: LazyView { NotificationSettingsView() }) {
-                            settingRow(symbol: "bell.badge.fill", tint: FTColor.gold,
-                                       title: "Notifications", chevron: true)
-                        }
-                    }
-
-                    sectionCard("Data & Privacy") {
-                        NavigationLink(destination: LazyView { BackupEncryptionSettingsView() }) {
-                            settingRow(symbol: "lock.doc.fill", tint: FTColor.catPurple,
-                                       title: "Backup Encryption",
-                                       value: "On", chevron: true)
-                        }
-                        rowDivider
-                        NavigationLink(destination: LazyView { iCloudSyncView() }) {
-                            settingRow(symbol: "icloud.fill", tint: FTColor.catBlue,
-                                       title: "iCloud Backup", chevron: true)
-                        }
-                        rowDivider
-                        if DisableableFeature.googleDriveBackup.isEnabled {
-                            NavigationLink(destination: LazyView { GoogleDriveBackupView() }) {
-                                settingRow(symbol: "doc.badge.gearshape.fill", tint: FTColor.income,
-                                           title: "Google Drive Backup", chevron: true)
-                            }
-                            rowDivider
-                        }
-                        NavigationLink(destination: LazyView { EmailBackupView() }) {
-                            settingRow(symbol: "envelope.badge.shield.half.filled.fill", tint: FTColor.catCoral,
-                                       title: "Email Backup", chevron: true)
-                        }
-                        rowDivider
-                        Button { exportBackup() } label: {
-                            settingRow(symbol: "arrow.up.doc.fill", tint: FTColor.accent,
-                                       title: "Export Backup", chevron: true)
-                        }
-                        rowDivider
-                        Button { showingImporter = true } label: {
-                            settingRow(symbol: "arrow.down.doc.fill", tint: FTColor.income,
-                                       title: "Import Backup", chevron: true)
-                        }
-                        rowDivider
-                        Button { exportCSV() } label: {
-                            settingRow(symbol: "square.and.arrow.up", tint: FTColor.gold,
-                                       title: "Export as CSV", chevron: true)
-                        }
-                        rowDivider
-                        Button(role: .destructive) { showingClearConfirm = true } label: {
-                            settingRow(symbol: "trash", tint: FTColor.expense,
-                                       title: "Clear All Data", titleColor: FTColor.expense, chevron: true)
-                        }
-                    }
-
-                    sectionCard("About") {
-                        Button { showingAbout = true } label: {
-                            settingRow(symbol: "info.circle", tint: FTColor.accent, title: "About FinTrack",
-                                       value: "v1.0.0", chevron: true)
-                        }
-                        rowDivider
-                        NavigationLink(destination: LazyView { PrivacyPolicyView() }) {
-                            settingRow(symbol: "checkmark.shield.fill", tint: FTColor.income,
-                                       title: "Privacy Policy", chevron: true)
-                        }
-                        rowDivider
-                        NavigationLink(destination: LazyView { TermsOfServiceView() }) {
-                            settingRow(symbol: "doc.text", tint: FTColor.catPurple,
-                                       title: "Terms of Service", chevron: true)
-                        }
-                    }
-
-                    exchangeRatesCard
                 }
-                .padding(.horizontal, FTSpacing.screen)
-                .padding(.top, FTSpacing.sm)
-                .padding(.bottom, 40)
-            }
-            .scrollContentBackground(.hidden)
-            .background { FTBackdrop() }
-            .navigationTitle("Settings")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") { dismiss() }
-                        .font(.ftBodySemibold)
-                        .foregroundStyle(FTColor.accent)
+
+                sectionCard("Financial Intelligence") {
+                    NavigationLink(destination: LazyView { FinancialIntelligenceView() }) {
+                        settingRow(symbol: "brain.head.profile", tint: FTColor.gold,
+                                   title: "Health Score & Insights", chevron: true)
+                    }
                 }
-            }
-            .sheet(isPresented: $showingCurrencyPicker) {
-                CurrencyPickerView(selectedCurrency: appState.baseCurrency) { currency in
-                    appState.baseCurrency = currency
-                    UserDefaults.standard.set(currency, forKey: "base_currency")
+
+                if DisableableFeature.taxManagement.isEnabled {
+                    sectionCard("Tax Management") {
+                        NavigationLink(destination: LazyView { TaxManagementView() }) {
+                            settingRow(symbol: "doc.text.fill", tint: FTColor.catPurple,
+                                       title: "Tax Management", chevron: true)
+                        }
+                    }
                 }
-            }
-            .sheet(isPresented: $showingAbout) {
-                AboutView()
-            }
-            .sheet(isPresented: $showingCategoryManagement) {
-                CategoryManagementView()
-            }
-            .sheet(isPresented: $showingRuleManagement) {
-                RuleManagementView()
-            }
-            .fileImporter(
-                isPresented: $showingImporter,
-                allowedContentTypes: [UTType(filenameExtension: "fintrack") ?? .json, .json, .data],
-                allowsMultipleSelection: false
-            ) { result in
-                switch result {
-                case .success(let urls):
-                    guard let url = urls.first else { return }
-                    pendingImportURL = url
-                    showingImportMode = true
-                case .failure(let error):
-                    resultMessage = "Could not open file: \(error.localizedDescription)"
-                    showingResult = true
+
+                sectionCard("Family Finance") {
+                    NavigationLink(destination: LazyView { FamilyFinanceView() }) {
+                        settingRow(symbol: "person.3.fill", tint: FTColor.catTeal,
+                                   title: "Family & Shared Finance", chevron: true)
+                    }
                 }
+
+                if DisableableFeature.businessFreelancer.isEnabled {
+                    sectionCard("Business & Freelancer") {
+                        NavigationLink(destination: LazyView { BusinessFreelancerView() }) {
+                            settingRow(symbol: "briefcase.fill", tint: FTColor.catBlue,
+                                       title: "Business & Freelancer", chevron: true)
+                        }
+                    }
+                }
+
+                sectionCard("Import & Integration") {
+                    NavigationLink(destination: LazyView { ImportIntegrationView() }) {
+                        settingRow(symbol: "arrow.down.circle.fill", tint: FTColor.catCoral,
+                                   title: "Import & Sync", chevron: true)
+                    }
+                }
+
+                sectionCard("Organization") {
+                    Button { showingCategoryManagement = true } label: {
+                        settingRow(symbol: "folder.badge.gear", tint: FTColor.catTeal,
+                                   title: "Custom Categories", chevron: true)
+                    }
+                    rowDivider
+                    Button { showingRuleManagement = true } label: {
+                        settingRow(symbol: "text.badge.checkmark", tint: FTColor.catPurple,
+                                   title: "Categorization Rules", chevron: true)
+                    }
+                }
+
+                sectionCard("Security & Privacy") {
+                    NavigationLink(destination: LazyView { SecurityPrivacyView() }) {
+                        settingRow(symbol: "lock.shield.fill", tint: FTColor.accent,
+                                   title: "Security & Privacy", chevron: true)
+                    }
+                    rowDivider
+                    FTToggleRow(symbol: BiometricService.shared.biometricIcon, tint: FTColor.accent,
+                                title: BiometricService.shared.biometricTypeName, isOn: biometricsBinding)
+                    rowDivider
+                    FTToggleRow(symbol: "lock.fill", tint: FTColor.catPurple,
+                                title: "PIN Lock", isOn: pinBinding)
+                    rowDivider
+                    Menu {
+                        Picker("Auto-Lock", selection: autoLockBinding) {
+                            Text("1 minute").tag(1)
+                            Text("5 minutes").tag(5)
+                            Text("15 minutes").tag(15)
+                            Text("Never").tag(0)
+                        }
+                    } label: {
+                        settingRow(symbol: "timer", tint: FTColor.catBlue, title: "Auto-Lock",
+                                   value: autoLockText, chevron: true)
+                    }
+                }
+
+                sectionCard("Preferences") {
+                    Button { showingCurrencyPicker = true } label: {
+                        settingRow(symbol: "globe", tint: FTColor.accent, title: "Base Currency",
+                                   value: appState.baseCurrency, chevron: true)
+                    }
+                    .accessibilityLabel("Base Currency: \(appState.baseCurrency)")
+                    rowDivider
+                    NavigationLink(destination: LazyView { AppearanceView() }) {
+                        settingRow(symbol: "paintbrush.fill", tint: FTColor.catPurple,
+                                   title: "Appearance & Accessibility",
+                                   value: (setting?.theme ?? .system).rawValue, chevron: true)
+                    }
+                    .accessibilityLabel("Appearance and Accessibility settings")
+                    rowDivider
+                    NavigationLink(destination: LazyView { DashboardCustomizerView() }) {
+                        settingRow(symbol: "square.grid.2x2.fill", tint: FTColor.catTeal,
+                                   title: "Dashboard Layout", chevron: true)
+                    }
+                    .accessibilityLabel("Customize Dashboard Layout")
+                    rowDivider
+                    NavigationLink(destination: LazyView { NotificationSettingsView() }) {
+                        settingRow(symbol: "bell.badge.fill", tint: FTColor.gold,
+                                   title: "Notifications", chevron: true)
+                    }
+                }
+
+                sectionCard("Data & Privacy") {
+                    NavigationLink(destination: LazyView { BackupEncryptionSettingsView() }) {
+                        settingRow(symbol: "lock.doc.fill", tint: FTColor.catPurple,
+                                   title: "Backup Encryption",
+                                   value: "On", chevron: true)
+                    }
+                    rowDivider
+                    NavigationLink(destination: LazyView { iCloudSyncView() }) {
+                        settingRow(symbol: "icloud.fill", tint: FTColor.catBlue,
+                                   title: "iCloud Backup", chevron: true)
+                    }
+                    rowDivider
+                    if DisableableFeature.googleDriveBackup.isEnabled {
+                        NavigationLink(destination: LazyView { GoogleDriveBackupView() }) {
+                            settingRow(symbol: "doc.badge.gearshape.fill", tint: FTColor.income,
+                                       title: "Google Drive Backup", chevron: true)
+                        }
+                        rowDivider
+                    }
+                    NavigationLink(destination: LazyView { EmailBackupView() }) {
+                        settingRow(symbol: "envelope.badge.shield.half.filled.fill", tint: FTColor.catCoral,
+                                   title: "Email Backup", chevron: true)
+                    }
+                    rowDivider
+                    Button { exportBackup() } label: {
+                        settingRow(symbol: "arrow.up.doc.fill", tint: FTColor.accent,
+                                   title: "Export Backup", chevron: true)
+                    }
+                    rowDivider
+                    Button { showingImporter = true } label: {
+                        settingRow(symbol: "arrow.down.doc.fill", tint: FTColor.income,
+                                   title: "Import Backup", chevron: true)
+                    }
+                    rowDivider
+                    Button { exportCSV() } label: {
+                        settingRow(symbol: "square.and.arrow.up", tint: FTColor.gold,
+                                   title: "Export as CSV", chevron: true)
+                    }
+                    rowDivider
+                    Button(role: .destructive) { showingClearConfirm = true } label: {
+                        settingRow(symbol: "trash", tint: FTColor.expense,
+                                   title: "Clear All Data", titleColor: FTColor.expense, chevron: true)
+                    }
+                }
+
+                sectionCard("About") {
+                    Button { showingAbout = true } label: {
+                        settingRow(symbol: "info.circle", tint: FTColor.accent, title: "About FinTrack",
+                                   value: "v1.0.0", chevron: true)
+                    }
+                    rowDivider
+                    NavigationLink(destination: LazyView { PrivacyPolicyView() }) {
+                        settingRow(symbol: "checkmark.shield.fill", tint: FTColor.income,
+                                   title: "Privacy Policy", chevron: true)
+                    }
+                    rowDivider
+                    NavigationLink(destination: LazyView { TermsOfServiceView() }) {
+                        settingRow(symbol: "doc.text", tint: FTColor.catPurple,
+                                   title: "Terms of Service", chevron: true)
+                    }
+                }
+
+                exchangeRatesCard
             }
-            .confirmationDialog("Import Backup", isPresented: $showingImportMode, titleVisibility: .visible) {
-                Button("Merge with existing data") { runImport(mode: .merge) }
-                Button("Replace all data", role: .destructive) { runImport(mode: .replace) }
-                Button("Cancel", role: .cancel) { pendingImportURL = nil }
-            } message: {
-                Text("Merge keeps your current data and adds new items. Replace deletes everything first, then restores from the backup.")
+            .padding(.horizontal, FTSpacing.screen)
+            .padding(.top, FTSpacing.sm)
+            .padding(.bottom, 40)
+        }
+        .scrollContentBackground(.hidden)
+        .background { FTBackdrop() }
+        .navigationTitle("Settings")
+        .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showingCurrencyPicker) {
+            CurrencyPickerView(selectedCurrency: appState.baseCurrency) { currency in
+                appState.baseCurrency = currency
+                UserDefaults.standard.set(currency, forKey: "base_currency")
             }
-            .alert("Clear All Data", isPresented: $showingClearConfirm) {
-                Button("Delete Everything", role: .destructive) { clearAllData() }
-                Button("Cancel", role: .cancel) { }
-            } message: {
-                Text("This will permanently delete all financial data — transactions, accounts, budgets, investments, debts, tax records, bills, assets, and more. Your app settings and preferences will be kept. This action cannot be undone.")
+        }
+        .sheet(isPresented: $showingAbout) {
+            AboutView()
+        }
+        .sheet(isPresented: $showingCategoryManagement) {
+            CategoryManagementView()
+        }
+        .sheet(isPresented: $showingRuleManagement) {
+            RuleManagementView()
+        }
+        .fileImporter(
+            isPresented: $showingImporter,
+            allowedContentTypes: [UTType(filenameExtension: "fintrack") ?? .json, .json, .data],
+            allowsMultipleSelection: false
+        ) { result in
+            switch result {
+            case .success(let urls):
+                guard let url = urls.first else { return }
+                pendingImportURL = url
+                showingImportMode = true
+            case .failure(let error):
+                resultMessage = "Could not open file: \(error.localizedDescription)"
+                showingResult = true
             }
-            .alert("Backup", isPresented: $showingResult) {
-                Button("OK") { }
-            } message: {
-                Text(resultMessage)
-            }
+        }
+        .confirmationDialog("Import Backup", isPresented: $showingImportMode, titleVisibility: .visible) {
+            Button("Merge with existing data") { runImport(mode: .merge) }
+            Button("Replace all data", role: .destructive) { runImport(mode: .replace) }
+            Button("Cancel", role: .cancel) { pendingImportURL = nil }
+        } message: {
+            Text("Merge keeps your current data and adds new items. Replace deletes everything first, then restores from the backup.")
+        }
+        .alert("Clear All Data", isPresented: $showingClearConfirm) {
+            Button("Delete Everything", role: .destructive) { clearAllData() }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("This will permanently delete all financial data — transactions, accounts, budgets, investments, debts, tax records, bills, assets, and more. Your app settings and preferences will be kept. This action cannot be undone.")
+        }
+        .alert("Backup", isPresented: $showingResult) {
+            Button("OK") { }
+        } message: {
+            Text(resultMessage)
         }
     }
 

@@ -298,7 +298,7 @@ struct DashboardView: View {
             .navigationDestination(isPresented: $showingReports) {
                 ReportsView()
             }
-            .sheet(isPresented: $showingProfile) {
+            .navigationDestination(isPresented: $showingProfile) {
                 SettingsView()
             }
             .sheet(isPresented: $showingAI) {
