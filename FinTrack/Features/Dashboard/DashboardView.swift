@@ -382,15 +382,11 @@ struct DashboardView: View {
                                     .font(.ftCaption)
                                     .foregroundStyle(FTColor.textSecondary)
                                     .lineLimit(1)
-                                if appState.hideBalances {
-                                    Text("••••").font(.ftHeadline).foregroundStyle(FTColor.textPrimary)
-                                } else {
-                                    Text(account.balance.formatted(as: account.currency))
-                                        .font(.ftHeadline)
-                                        .foregroundStyle(FTColor.textPrimary)
-                                        .lineLimit(1)
-                                        .minimumScaleFactor(0.7)
-                                }
+                                Text(account.balance.formatted(as: account.currency))
+                                    .font(.ftHeadline)
+                                    .foregroundStyle(FTColor.textPrimary)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.7)
                             }
                         }
                         .padding(15)
@@ -398,7 +394,7 @@ struct DashboardView: View {
                         .background(Color(UIColor.secondarySystemBackground), in: .rect(cornerRadius: FTRadius.lg))
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel("\(account.name), \(appState.hideBalances ? "balance hidden" : account.balance.formatted(as: account.currency))")
+                    .accessibilityLabel("\(account.name), \(account.balance.formatted(as: account.currency))")
                     .accessibilityHint("Open Accounts")
                 }
             }

@@ -126,7 +126,6 @@ final class AppState {
     var selectedTab: AppTab = .dashboard
     var showingAddTransaction = false
     var baseCurrency = "AED"
-    var hideBalances = false
 
     init() {
         hasCompletedOnboarding = UserDefaults.standard.bool(forKey: "has_completed_onboarding")

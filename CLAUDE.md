@@ -44,7 +44,7 @@ FinTrackWidget/     Widget Extension source (WidgetBundle, all widget families, 
 FinTrackWatch/      Apple Watch companion app source
 ```
 
-`AppState` is `@Observable @MainActor final class` — inject via `.environment(appState)` and read with `@Environment(AppState.self)`. Key fields: `selectedTab`, `isLocked`, `baseCurrency`, `hideBalances`, `showingAddTransaction`.
+`AppState` is `@Observable @MainActor final class` — inject via `.environment(appState)` and read with `@Environment(AppState.self)`. Key fields: `selectedTab`, `isLocked`, `baseCurrency`, `showingAddTransaction`.
 
 **Navigation**: 4 tabs (dashboard, transactions, budget, accounts) + a centre FAB. **The tab bar is full.** Any new top-level module must be reachable via Settings (`FinTrack/Features/Settings/SettingsView.swift`), not a new tab. On iPad (`horizontalSizeClass == .regular`), `RootView` renders a `NavigationSplitView` instead of the tab bar.
 

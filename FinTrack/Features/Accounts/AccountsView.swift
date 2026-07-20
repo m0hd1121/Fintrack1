@@ -274,15 +274,9 @@ struct AccountsView: View {
                     }
                 }
 
-                Group {
-                    if appState.hideBalances {
-                        Text("••••••").font(.ftDisplay).foregroundStyle(.white)
-                    } else {
-                        Text(netWorth.formatted(as: baseCurrency))
-                            .font(.ftDisplay).foregroundStyle(.white)
-                            .lineLimit(1).minimumScaleFactor(0.5)
-                    }
-                }
+                Text(netWorth.formatted(as: baseCurrency))
+                    .font(.ftDisplay).foregroundStyle(.white)
+                    .lineLimit(1).minimumScaleFactor(0.5)
 
                 HStack {
                     HStack(spacing: 5) {
@@ -311,9 +305,7 @@ struct AccountsView: View {
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(appState.hideBalances
-            ? "Total Net Worth, hidden"
-            : "Total Net Worth, \(netWorth.formatted(as: baseCurrency))")
+        .accessibilityLabel("Total Net Worth, \(netWorth.formatted(as: baseCurrency))")
     }
 
     // MARK: - Module Grid

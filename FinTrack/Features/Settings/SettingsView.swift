@@ -85,7 +85,6 @@ struct SettingsView: View {
     }
 
     var body: some View {
-        @Bindable var appState = appState
         NavigationStack {
             ScrollView {
                 VStack(spacing: FTSpacing.xl) {
@@ -205,9 +204,6 @@ struct SettingsView: View {
                             settingRow(symbol: "bell.badge.fill", tint: FTColor.gold,
                                        title: "Notifications", chevron: true)
                         }
-                        rowDivider
-                        FTToggleRow(symbol: "eye.slash", tint: FTColor.textMuted,
-                                    title: "Hide Balances", isOn: $appState.hideBalances)
                     }
 
                     sectionCard("Data & Privacy") {
