@@ -1,6 +1,13 @@
 import SwiftUI
 import SwiftData
 
+/// The five module screens AccountsView pushes. Drives a single
+/// `navigationDestination(item:)` so only one destination is ever active.
+private enum ModuleRoute: Identifiable, Hashable {
+    case income, portfolio, goals, assetsLiabilities, debt
+    var id: Self { self }
+}
+
 struct AccountsView: View {
     @Environment(AppState.self) private var appState
     @Environment(CurrencyService.self) private var currencyService
@@ -45,12 +52,13 @@ struct AccountsView: View {
     @State private var editingGiftCard: GiftCard? = nil
     @State private var editingLoyalty: LoyaltyProgram? = nil
 
-    // Module destinations (relocated from Dashboard)
-    @State private var showingIncome = false
-    @State private var showingPortfolio = false
-    @State private var showingGoals = false
-    @State private var showingAssetsLiabilities = false
-    @State private var showingDebt = false
+    // Module destinations (relocated from Dashboard). A single item-driven
+    // navigationDestination — NOT one .navigationDestination(isPresented:) per
+    // module. Several isPresented bindings on the same NavigationStack all
+    // compete for one navigation slot, which SwiftUI re-resolves every frame
+    // (main-thread spin → freeze) and often fails to push at all. One item
+    // binding has exactly one active destination at a time.
+    @State private var moduleRoute: ModuleRoute? = nil
     @State private var showingNetWorth = false
     @State private var showingNotifications = false
 
@@ -225,11 +233,15 @@ struct AccountsView: View {
             .sheet(item: $editingGold) { h in EditGoldHoldingView(holding: h) }
             .sheet(item: $editingGiftCard) { c in EditGiftCardView(card: c) }
             .sheet(item: $editingLoyalty) { p in EditLoyaltyProgramView(program: p) }
-            .navigationDestination(isPresented: $showingIncome) { IncomeManagementView() }
-            .navigationDestination(isPresented: $showingPortfolio) { InvestmentPortfolioView() }
-            .navigationDestination(isPresented: $showingGoals) { SavingsGoalsView() }
-            .navigationDestination(isPresented: $showingAssetsLiabilities) { AssetsLiabilitiesView() }
-            .navigationDestination(isPresented: $showingDebt) { DebtManagementView() }
+            .navigationDestination(item: $moduleRoute) { route in
+                switch route {
+                case .income:            IncomeManagementView()
+                case .portfolio:         InvestmentPortfolioView()
+                case .goals:             SavingsGoalsView()
+                case .assetsLiabilities: AssetsLiabilitiesView()
+                case .debt:              DebtManagementView()
+                }
+            }
             .sheet(isPresented: $showingNetWorth) { NetWorthDashboardView() }
             .sheet(isPresented: $showingNotifications) { NotificationSettingsView() }
         }
@@ -358,7 +370,7 @@ struct AccountsView: View {
                 label: "Income Management",
                 value: monthlyIncome.asCompact(currency: baseCurrency),
                 valueColor: FTColor.textPrimary, sub: incomeSub, wide: false, badge: false,
-                action: { showingIncome = true }
+                action: { moduleRoute = .income }
             ),
             ModuleCardData(
                 icon: "chart.line.uptrend.xyaxis.circle.fill",
@@ -366,21 +378,21 @@ struct AccountsView: View {
                 label: "Investment Portfolio",
                 value: portfolioTotalValue.asCompact(currency: baseCurrency),
                 valueColor: FTColor.textPrimary, sub: portfolioSub, wide: false, badge: false,
-                action: { showingPortfolio = true }
+                action: { moduleRoute = .portfolio }
             ),
             ModuleCardData(
                 icon: "star.fill", tint: FTColor.catTeal,
                 label: "Savings Goals",
                 value: goalsSaved.asCompact(currency: baseCurrency),
                 valueColor: FTColor.textPrimary, sub: goalsSub, wide: false, badge: goalConflict.hasConflict,
-                action: { showingGoals = true }
+                action: { moduleRoute = .goals }
             ),
             ModuleCardData(
                 icon: "building.columns.fill", tint: FTColor.catBlue,
                 label: "Assets & Liabilities",
                 value: hardAssetsTotal.asCompact(currency: baseCurrency),
                 valueColor: FTColor.textPrimary, sub: assetsSub, wide: false, badge: false,
-                action: { showingAssetsLiabilities = true }
+                action: { moduleRoute = .assetsLiabilities }
             ),
             ModuleCardData(
                 icon: debtAlert ? "creditcard.trianglebadge.exclamationmark" : "creditcard.fill",
@@ -388,7 +400,7 @@ struct AccountsView: View {
                 label: "Debt Management",
                 value: totalDebt.asCompact(currency: baseCurrency),
                 valueColor: FTColor.textPrimary, sub: debtSub, wide: true, badge: false,
-                action: { showingDebt = true }
+                action: { moduleRoute = .debt }
             ),
         ]
     }

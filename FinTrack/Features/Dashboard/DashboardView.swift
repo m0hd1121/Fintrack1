@@ -2,6 +2,15 @@ import SwiftUI
 import SwiftData
 import Charts
 
+/// The screens DashboardView pushes. A single `navigationDestination(item:)`
+/// keeps one destination active — stacking `.navigationDestination(isPresented:)`
+/// modifiers on one NavigationStack makes the bindings contend for a single
+/// slot, which spins the main thread (freeze).
+private enum DashboardRoute: Identifiable, Hashable {
+    case reports, profile
+    var id: Self { self }
+}
+
 struct DashboardView: View {
     @Environment(AppState.self) private var appState
     @Environment(CurrencyService.self) private var currencyService
@@ -22,8 +31,7 @@ struct DashboardView: View {
 
     @Query private var dashSettings: [AppSettings]
 
-    @State private var showingProfile = false
-    @State private var showingReports = false
+    @State private var dashRoute: DashboardRoute? = nil
     @State private var showingAI = false
     @State private var showingBills = false
     @State private var showingUpcomingPayments = false
@@ -296,11 +304,11 @@ struct DashboardView: View {
                 .collapsesTabBarOnScroll()
             }
             .toolbar(.hidden, for: .navigationBar)
-            .navigationDestination(isPresented: $showingReports) {
-                ReportsView()
-            }
-            .navigationDestination(isPresented: $showingProfile) {
-                SettingsView()
+            .navigationDestination(item: $dashRoute) { route in
+                switch route {
+                case .reports: ReportsView()
+                case .profile: SettingsView()
+                }
             }
             .sheet(isPresented: $showingAI) {
                 AIAssistantView()
@@ -342,7 +350,7 @@ struct DashboardView: View {
                 .accessibilityLabel("AI Assistant")
 
                 Button {
-                    showingReports = true
+                    dashRoute = .reports
                 } label: {
                     Image(systemName: "chart.bar.xaxis")
                         .font(.system(size: 18, weight: .semibold))
@@ -353,7 +361,7 @@ struct DashboardView: View {
                 .accessibilityLabel("Reports")
 
                 Button {
-                    showingProfile = true
+                    dashRoute = .profile
                 } label: {
                     Image(systemName: "person.fill")
                         .font(.system(size: 18, weight: .semibold))
@@ -415,7 +423,7 @@ struct DashboardView: View {
                 Text("Spending this month")
                     .font(.ftHeadline).foregroundStyle(FTColor.textPrimary)
                 Spacer()
-                Button("View all") { showingReports = true }
+                Button("View all") { dashRoute = .reports }
                     .font(.ftCallout).foregroundStyle(FTColor.accent)
             }
 

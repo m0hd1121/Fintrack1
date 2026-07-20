@@ -2,6 +2,15 @@ import SwiftUI
 import SwiftData
 import Charts
 
+/// The module screens BudgetView pushes. A single `navigationDestination(item:)`
+/// keeps exactly one destination active — stacking multiple
+/// `.navigationDestination(isPresented:)` on one NavigationStack makes the
+/// bindings contend for a single slot, which spins the main thread (freeze).
+private enum BudgetModuleRoute: Identifiable, Hashable {
+    case income, debt
+    var id: Self { self }
+}
+
 // MARK: - Main Budget View
 
 struct BudgetView: View {
@@ -27,8 +36,7 @@ struct BudgetView: View {
     @State private var detailEnvelope: BudgetEnvelope? = nil
     @State private var detailGoal: SavingsGoal? = nil
     @State private var showingBills = false
-    @State private var showingIncome = false
-    @State private var showingDebt = false
+    @State private var moduleRoute: BudgetModuleRoute? = nil
 
     private let tabs = ["Monthly", "Annual", "Envelopes", "Zero-Based"]
     private var baseCurrency: String { appState.baseCurrency }
@@ -260,11 +268,11 @@ struct BudgetView: View {
             .sheet(isPresented: $showingBills) {
                 BillsView()
             }
-            .navigationDestination(isPresented: $showingIncome) {
-                IncomeManagementView()
-            }
-            .navigationDestination(isPresented: $showingDebt) {
-                DebtManagementView()
+            .navigationDestination(item: $moduleRoute) { route in
+                switch route {
+                case .income: IncomeManagementView()
+                case .debt:   DebtManagementView()
+                }
             }
             .onAppear {
                 BudgetService.shared.processRollovers(budgets: budgets, transactions: transactions, baseCurrency: baseCurrency)
@@ -303,10 +311,10 @@ struct BudgetView: View {
                 Button { showingBills = true } label: {
                     Label("Bills & Subscriptions", systemImage: "calendar.badge.clock")
                 }
-                Button { showingIncome = true } label: {
+                Button { moduleRoute = .income } label: {
                     Label("Income Management", systemImage: "banknote.fill")
                 }
-                Button { showingDebt = true } label: {
+                Button { moduleRoute = .debt } label: {
                     Label("Debt Management", systemImage: "creditcard.trianglebadge.exclamationmark")
                 }
             } label: {
