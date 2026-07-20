@@ -1,4 +1,4 @@
-Last verified: 2026-07-20 @ 77b9dac
+Last verified: 2026-07-20 @ c8d3540
 
 # PROJECT_MAP.md
 
@@ -122,6 +122,7 @@ Error handling has three co-existing patterns (detail + file:line examples in `M
 Active branch: `claude/finance-app-features-f1fo3p`. No release/version tags found in this pass.
 
 **Recently completed** (most recent commits, newest first):
+- Insurance Optimizer added to `DisableableFeature.disabledByDefault` (now `[.collaborativePlanner, .insuranceOptimizer]`) — hidden out of the box, code/data untouched, re-enable via Settings > Manage Features.
 - General "Disabled Features" system (`DisableableFeature` enum + `AppSettings.disabledFeatures` + `DisabledFeaturesView`) replacing one-off feature disabling; Collaborative Planner ships disabled-by-default through it with all code/data intact.
 - Bills tab in Debt Management (`SubscriptionsTabContent` embedded), Bill payment "Pay From" account picker with linked `Transaction`/balance deduction (`RecordPaymentSheet`), and `AddTransactionView` auto-linking a paying transaction to its `Bill` by title/merchant match.
 - Budget AI-recognition: `AddTransactionView` shows a live read-only "Budget" row and `fireBudgetAlertIfNeeded` now routes through `BudgetService.matchingBudget`/`.spending` instead of a naive category `.first(where:)`.
