@@ -24,8 +24,11 @@ struct SettingsView: View {
 
     private var setting: AppSettings? { settings.first }
     private var profile: UserProfile? { profiles.first }
+    private func isFeatureVisible(_ feature: DisableableFeature) -> Bool {
+        setting?.isFeatureEnabled(feature) ?? !DisableableFeature.disabledByDefault.contains(feature)
+    }
     private var visibleFeatures: [DisableableFeature] {
-        DisableableFeature.allCases.filter { setting?.isFeatureEnabled($0) ?? !DisableableFeature.disabledByDefault.contains($0) }
+        DisableableFeature.allCases.filter { $0.category == .premium && isFeatureVisible($0) }
     }
 
     @State private var showingCurrencyPicker = false
@@ -117,10 +120,12 @@ struct SettingsView: View {
                         }
                     }
 
-                    sectionCard("Tax Management") {
-                        NavigationLink(destination: LazyView { TaxManagementView() }) {
-                            settingRow(symbol: "doc.text.fill", tint: FTColor.catPurple,
-                                       title: "Tax Management", chevron: true)
+                    if isFeatureVisible(.taxManagement) {
+                        sectionCard("Tax Management") {
+                            NavigationLink(destination: LazyView { TaxManagementView() }) {
+                                settingRow(symbol: "doc.text.fill", tint: FTColor.catPurple,
+                                           title: "Tax Management", chevron: true)
+                            }
                         }
                     }
 
@@ -438,6 +443,7 @@ struct SettingsView: View {
         case .collaborativePlanner: CollaborativePlannerView()
         case .financialEducation:   FinancialEducationView()
         case .remittanceTracker:    RemittanceTrackerView()
+        case .taxManagement:        TaxManagementView()
         }
     }
 

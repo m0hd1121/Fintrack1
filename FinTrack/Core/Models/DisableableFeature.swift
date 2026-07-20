@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// Premium Features that the user can hide from the app without deleting any code or data.
+/// Settings modules (Premium Features grid rows, or standalone top-level sections)
+/// that the user can hide from the app without deleting any code or data.
 /// Persisted as a comma-separated list of raw values in `AppSettings.disabledFeatures`.
 enum DisableableFeature: String, CaseIterable, Identifiable, Codable {
     case aiCFOMode = "AI CFO Mode"
@@ -12,10 +13,25 @@ enum DisableableFeature: String, CaseIterable, Identifiable, Codable {
     case collaborativePlanner = "Collaborative Planner"
     case financialEducation = "Financial Education"
     case remittanceTracker = "Remittance Tracker"
+    case taxManagement = "Tax Management"
 
     var id: String { rawValue }
 
     var title: String { rawValue }
+
+    enum Category {
+        /// Rendered as one of the rows inside Settings' "Premium Features" card.
+        case premium
+        /// Rendered as its own standalone `sectionCard` in Settings.
+        case topLevelSection
+    }
+
+    var category: Category {
+        switch self {
+        case .taxManagement: return .topLevelSection
+        default:              return .premium
+        }
+    }
 
     var symbol: String {
         switch self {
@@ -28,6 +44,7 @@ enum DisableableFeature: String, CaseIterable, Identifiable, Codable {
         case .collaborativePlanner: return "person.3.fill"
         case .financialEducation:   return "book.fill"
         case .remittanceTracker:    return "arrow.up.right.circle.fill"
+        case .taxManagement:        return "doc.text.fill"
         }
     }
 
@@ -42,12 +59,15 @@ enum DisableableFeature: String, CaseIterable, Identifiable, Codable {
         case .collaborativePlanner: return FTColor.catBlue
         case .financialEducation:   return FTColor.catPurple
         case .remittanceTracker:    return FTColor.accent
+        case .taxManagement:        return FTColor.catPurple
         }
     }
 
     /// Features that are hidden out of the box, before the user ever opens the
     /// Disabled Features screen (i.e. while `AppSettings.disabledFeatures == nil`).
-    static let disabledByDefault: Set<DisableableFeature> = [.collaborativePlanner, .insuranceOptimizer, .remittanceTracker]
+    static let disabledByDefault: Set<DisableableFeature> = [
+        .collaborativePlanner, .insuranceOptimizer, .remittanceTracker, .taxManagement
+    ]
 }
 
 extension AppSettings {
