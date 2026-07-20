@@ -15,9 +15,9 @@ Key methods: `suggestCategory(for:amount:type:)`, `predictCategory(for:merchant:
 External APIs: NaturalLanguage (imported, keyword matching only)
 
 ### BackupEncryptionService.swift
-Purpose: optional passphrase-based AES-GCM encryption for `.fintrack` backup files — shared by manual export, iCloud, Google Drive, Email backup.
+Purpose: **mandatory, always-on** AES-GCM encryption for `.fintrack` backup files — shared by manual export, iCloud, Google Drive, Email backup. Not user-configurable (no toggle, no passphrase). The key is a random 256-bit value generated once and stored **only** in this device's Keychain (`kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`), so a backup can only ever be opened by this FinTrack install on this device — no other app can read it, and (by design) it can't be restored on a different device or after reinstall.
 Singleton: no (enum namespace, all static) | Actor: **`nonisolated enum`** — opts out of MainActor isolation so `Task.detached` PBKDF2 work (100k iterations) never bounces back to main actor.
-Key methods: `storedPassphrase` (Keychain-backed), `isEnabled`, `isEncrypted(_:) -> Bool` (checks 5-byte "FTBK1" header), `encryptIfEnabled(_:) async throws`, `decryptIfNeeded(_:) async throws` (throws `.passphraseRequired`), `encrypt/decrypt(_:passphrase:)`
+Key methods: `private encryptionKey` (lazily provisions + Keychain-caches the random key, NSLock-guarded against first-run races), `isEncrypted(_:) -> Bool` (checks 5-byte "FTBK1" header), `encryptIfEnabled(_:) async throws` (always encrypts — name kept for call sites), `decryptIfNeeded(_:) async throws` (decrypts if the header is present, else passes legacy plain files through; throws `.cannotOpen` on wrong-device/corrupt), `encrypt/decrypt(_:key:)`. Removed: the old user `storedPassphrase`/`isEnabled` and the `.passphraseRequired`/`.wrongPassphraseOrCorruptFile` errors (now a single `.cannotOpen`).
 External APIs: CryptoKit (AES.GCM, HMAC<SHA256> manual PBKDF2), Security (SecRandomCopyBytes)
 
 ### BankEmailParser.swift
@@ -86,7 +86,7 @@ Purpose: automatic backup-to-self-inbox via plain SMTP/IMAP (app-specific passwo
 Singleton: `.shared` | Actor: **`@MainActor @Observable`** (explicit)
 Key methods: `connect(email:password:smtpHost:imapHost:) async throws` (verifies SMTP+IMAP up front), `disconnect()`, `performBackup(context:) async -> Bool`, `restoreFromEmail(context:mode:) async -> String`, `scheduleAutomaticBackupIfNeeded/startAutoBackup/stopAutoBackup`
 External APIs: SMTPClient, IMAPClient (custom raw-socket clients), Keychain
-Note: hourly auto-backup interval + a real foreground polling loop (`startAutoBackup`), added this session because scene-phase-only checks weren't reliable. Pipeline order is compress (zlib, always) → encrypt (only if `BackupEncryptionService.isEnabled`) on backup, decrypt → decompress on restore; a private `"FTGZ1"` magic header lets restore detect and skip decompression for backup emails sent before compression was added. This compression step is local to `EmailBackupService` — `GoogleDriveBackupService`/iCloud/manual export still send uncompressed (only encryption is shared via `BackupEncryptionService`).
+Note: hourly auto-backup interval + a real foreground polling loop (`startAutoBackup`), added this session because scene-phase-only checks weren't reliable. Pipeline order is compress (zlib, always) → encrypt (always, via `BackupEncryptionService`) on backup, decrypt → decompress on restore; a private `"FTGZ1"` magic header lets restore detect and skip decompression for backup emails sent before compression was added. This compression step is local to `EmailBackupService` — `GoogleDriveBackupService`/iCloud/manual export still send uncompressed (only encryption is shared via `BackupEncryptionService`).
 
 ### EmailSyncService.swift
 Purpose: orchestrates the whole email → pending-transaction pipeline — Gmail/Outlook OAuth2+PKCE, IMAP app-password, background sync, bank-email parsing, dedup, auto-approval to ledger.

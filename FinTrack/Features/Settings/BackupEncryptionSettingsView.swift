@@ -1,46 +1,16 @@
 import SwiftUI
 
 // MARK: - BackupEncryptionSettingsView
-// Sets the passphrase used to encrypt (AES-256-GCM) the .fintrack backup
-// file before it's written anywhere — manual Export, iCloud Backup, or
-// Google Drive Backup all use the same passphrase automatically.
+// Read-only status screen. Backup encryption is mandatory and always on — there
+// is intentionally no toggle and no passphrase to manage (the key is a random
+// value held only in this device's Keychain; see BackupEncryptionService).
 
 struct BackupEncryptionSettingsView: View {
-    @Environment(\.dismiss) private var dismiss
-
-    @State private var isEnabled = BackupEncryptionService.isEnabled
-    @State private var passphrase = ""
-    @State private var confirmPassphrase = ""
-    @State private var showingDisableConfirm = false
-    @State private var resultMessage = ""
-    @State private var showingResult = false
-
-    private var canSave: Bool {
-        passphrase.count >= 6 && passphrase == confirmPassphrase
-    }
-
     var body: some View {
         ScrollView {
             VStack(spacing: FTSpacing.xxl) {
                 statusCard
-
-                if isEnabled {
-                    VStack(alignment: .leading, spacing: FTSpacing.md) {
-                        debtHeader
-                        Text("A passphrase is set on this device. Backups are encrypted automatically.")
-                            .font(.ftCallout).foregroundStyle(FTColor.textSecondary)
-                        Button(role: .destructive) { showingDisableConfirm = true } label: {
-                            Text("Turn Off Encryption").font(.ftBodySemibold).foregroundStyle(FTColor.expense)
-                                .frame(maxWidth: .infinity).padding()
-                                .background(FTColor.expense.opacity(0.1), in: RoundedRectangle(cornerRadius: FTRadius.md))
-                        }
-                    }
-                    .padding()
-                    .ftGlass(FTRadius.xl)
-                }
-
-                setPassphraseCard
-                warningCard
+                howItWorksCard
             }
             .padding(FTSpacing.screen)
             .padding(.bottom, 40)
@@ -49,42 +19,18 @@ struct BackupEncryptionSettingsView: View {
         .navigationBarTitleDisplayMode(.inline)
         .background { FTBackdrop() }
         .scrollContentBackground(.hidden)
-        .confirmationDialog("Turn off backup encryption?", isPresented: $showingDisableConfirm, titleVisibility: .visible) {
-            Button("Turn Off", role: .destructive) {
-                BackupEncryptionService.storedPassphrase = nil
-                isEnabled = false
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Future backups will be saved unencrypted. Existing encrypted backups still need this passphrase to restore.")
-        }
-        .alert("Backup Encryption", isPresented: $showingResult) {
-            Button("OK") {}
-        } message: {
-            Text(resultMessage)
-        }
-    }
-
-    private var debtHeader: some View {
-        HStack(spacing: FTSpacing.sm) {
-            Image(systemName: "checkmark.shield.fill").foregroundStyle(FTColor.income)
-            Text("ENCRYPTION ENABLED").font(.ftLabel).tracking(1.4).foregroundStyle(FTColor.textMuted)
-        }
     }
 
     private var statusCard: some View {
         HStack(spacing: FTSpacing.md) {
             ZStack {
-                Circle().fill((isEnabled ? FTColor.income : FTColor.textMuted).opacity(0.1)).frame(width: 56, height: 56)
-                Image(systemName: isEnabled ? "lock.fill" : "lock.open.fill")
-                    .font(.ftTitle).foregroundStyle(isEnabled ? FTColor.income : FTColor.textMuted)
+                Circle().fill(FTColor.income.opacity(0.1)).frame(width: 56, height: 56)
+                Image(systemName: "lock.fill").font(.ftTitle).foregroundStyle(FTColor.income)
             }
             VStack(alignment: .leading, spacing: 3) {
-                Text(isEnabled ? "Backups Encrypted" : "Backups Not Encrypted")
+                Text("Backups Always Encrypted")
                     .font(.ftHeadline).foregroundStyle(FTColor.textPrimary)
-                Text(isEnabled
-                     ? "Every export, iCloud backup, and Drive backup is protected with strong encryption."
-                     : "Backup files are plain, readable data. Set a passphrase below to protect them.")
+                Text("Every export, iCloud backup, Drive backup, and email backup is encrypted automatically. This can't be turned off.")
                     .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
             }
             Spacer(minLength: 0)
@@ -93,67 +39,28 @@ struct BackupEncryptionSettingsView: View {
         .ftGlass(FTRadius.xl)
     }
 
-    private var setPassphraseCard: some View {
+    private var howItWorksCard: some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
-            Text(isEnabled ? "CHANGE PASSPHRASE" : "SET A PASSPHRASE")
-                .font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
+            Text("HOW IT WORKS").font(.ftLabel).tracking(1.6)
+                .fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
 
-            VStack(spacing: 0) {
-                HStack(spacing: FTSpacing.md) {
-                    Text("Passphrase").font(.ftBody).foregroundStyle(FTColor.textSecondary).fixedSize()
-                    Spacer()
-                    SecureField("At least 6 characters", text: $passphrase)
-                        .multilineTextAlignment(.trailing)
-                        .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
-                }
-                .padding(.vertical, 13)
-                Divider().opacity(0.4)
-                HStack(spacing: FTSpacing.md) {
-                    Text("Confirm").font(.ftBody).foregroundStyle(FTColor.textSecondary).fixedSize()
-                    Spacer()
-                    SecureField("Re-enter passphrase", text: $confirmPassphrase)
-                        .multilineTextAlignment(.trailing)
-                        .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
-                }
-                .padding(.vertical, 13)
-            }
-            .padding(.horizontal, FTSpacing.lg)
-            .ftGlass(FTRadius.md)
-
-            if !passphrase.isEmpty && !confirmPassphrase.isEmpty && passphrase != confirmPassphrase {
-                Text("Passphrases don't match.").font(.ftCaption).foregroundStyle(FTColor.expense)
-            }
-
-            Button {
-                BackupEncryptionService.storedPassphrase = passphrase
-                isEnabled = true
-                passphrase = ""
-                confirmPassphrase = ""
-                resultMessage = "Passphrase saved. New backups on this device will be encrypted with it."
-                showingResult = true
-            } label: {
-                Text(isEnabled ? "Update Passphrase" : "Enable Encryption")
-                    .font(.ftBodySemibold).foregroundStyle(.white)
-                    .frame(maxWidth: .infinity).padding()
-                    .background(canSave ? FTColor.accent : FTColor.accent.opacity(0.3),
-                                in: RoundedRectangle(cornerRadius: FTRadius.md))
-            }
-            .disabled(!canSave)
+            infoRow("lock.shield.fill", FTColor.income,
+                    "Backups are locked to this device — only the FinTrack app that created them can open them.")
+            infoRow("hand.raised.slash.fill", FTColor.catTeal,
+                    "No other app can read a backup file, even if it's shared, copied, or intercepted.")
+            infoRow("key.fill", FTColor.gold,
+                    "The key stays in this device's secure storage. It's never shown to you, never transmitted, and never synced.")
+            infoRow("exclamationmark.triangle.fill", FTColor.expense,
+                    "Because the key can't leave this device, a backup can't be restored on a different device or after reinstalling. Keep this device to keep access.")
         }
         .padding()
         .ftGlass(FTRadius.xl)
     }
 
-    private var warningCard: some View {
+    private func infoRow(_ icon: String, _ tint: Color, _ text: String) -> some View {
         HStack(alignment: .top, spacing: FTSpacing.md) {
-            Image(systemName: "exclamationmark.triangle.fill").font(.ftCallout).foregroundStyle(FTColor.gold)
-            VStack(alignment: .leading, spacing: 4) {
-                Text("There Is No Password Recovery").font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
-                Text("This passphrase lives only in this device's Keychain — it is never sent anywhere, including to iCloud or Google Drive. To restore an encrypted backup on another device, you must set the exact same passphrase there first. If you forget it, encrypted backups cannot be recovered by anyone, including FinTrack.")
-                    .font(.ftCaption).foregroundStyle(FTColor.textMuted)
-            }
+            Image(systemName: icon).font(.ftCallout).foregroundStyle(tint).frame(width: 22)
+            Text(text).font(.ftCaption).foregroundStyle(FTColor.textSecondary)
         }
-        .padding()
-        .ftGlass(FTRadius.lg)
     }
 }

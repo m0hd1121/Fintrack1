@@ -11,9 +11,9 @@ import Observation
 // like the existing IMAP email-import flow — no OAuth, no developer setup,
 // no Google Cloud Console client ID.
 //
-// Pipeline: export JSON → zlib-compress → encrypt (if a Backup Passphrase is
-// set) → attach to an SMTP message. Restore reverses it: decrypt (if
-// encrypted) → decompress (if compressed) → import. Compression always runs
+// Pipeline: export JSON → zlib-compress → encrypt (always — see
+// BackupEncryptionService) → attach to an SMTP message. Restore reverses it:
+// decrypt (if encrypted) → decompress (if compressed) → import. Compression always runs
 // on backup; decompression detects a magic header so older, uncompressed
 // backup emails still restore correctly.
 enum EmailBackupError: LocalizedError {

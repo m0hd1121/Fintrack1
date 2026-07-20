@@ -210,7 +210,7 @@ struct SettingsView: View {
                         NavigationLink(destination: LazyView { BackupEncryptionSettingsView() }) {
                             settingRow(symbol: "lock.doc.fill", tint: FTColor.catPurple,
                                        title: "Backup Encryption",
-                                       value: BackupEncryptionService.isEnabled ? "On" : "Off", chevron: true)
+                                       value: "On", chevron: true)
                         }
                         rowDivider
                         NavigationLink(destination: LazyView { iCloudSyncView() }) {

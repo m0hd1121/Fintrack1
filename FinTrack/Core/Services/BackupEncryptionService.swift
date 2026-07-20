@@ -4,30 +4,31 @@ import Security
 
 // MARK: - BackupEncryptionService
 //
-// Optional passphrase-based encryption for the .fintrack backup file, used
-// uniformly by manual Export/Import, iCloud Backup, and Google Drive Backup.
-// Without this, the backup file is plain JSON containing full transaction
-// history, balances, account numbers, and card last-4 digits — readable by
-// anyone who gets hold of the file.
+// Mandatory, always-on encryption for the .fintrack backup file, applied
+// uniformly by manual Export/Import, iCloud Backup, Google Drive Backup, and
+// email backup. Every backup FinTrack writes is ciphertext — the plain JSON
+// (full transaction history, balances, account numbers, card last-4 digits) is
+// never persisted anywhere in readable form.
 //
-// The passphrase is a shared secret only the user knows: it lives in this
-// device's Keychain only, is never transmitted anywhere, and is NOT
-// automatically available on other devices — you must set the same
-// passphrase on every device that needs to restore an encrypted backup.
-// Forgetting it means the backup cannot be recovered; that's the same
-// tradeoff as any end-to-end-encrypted backup (WhatsApp, iTunes encrypted
-// backups, etc.) — there is no "reset password" for data nobody but you can
-// read.
+// The key is a random 256-bit value generated once on this device and stored
+// only in this device's Keychain (kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
+// via KeychainStore). It is never derived from anything the user types, never
+// transmitted, and never synced. Consequences by design:
+//   • No other app can open a FinTrack backup — the key lives in FinTrack's
+//     own Keychain scope, and the file is useless without it.
+//   • A backup can only be restored by the same FinTrack install that created
+//     it. Moving the file to another device / app, or reinstalling, cannot
+//     read it. This is the price of "readable by nothing but this app."
+//
+// There is intentionally no user setting for any of this — encryption cannot be
+// turned off, and the key cannot be viewed or changed.
 enum BackupEncryptionError: LocalizedError {
-    case passphraseRequired
-    case wrongPassphraseOrCorruptFile
+    case cannotOpen
 
     var errorDescription: String? {
         switch self {
-        case .passphraseRequired:
-            return "This backup is encrypted. Set the same Backup Passphrase on this device (Settings → Data & Privacy → Backup Encryption), then try again."
-        case .wrongPassphraseOrCorruptFile:
-            return "Couldn't decrypt this backup — the Backup Passphrase on this device doesn't match the one used to create it, or the file is corrupted."
+        case .cannotOpen:
+            return "Couldn't open this backup. FinTrack backups are encrypted and can only be restored by the FinTrack app on the device that created them."
         }
     }
 }
@@ -43,62 +44,79 @@ nonisolated enum BackupEncryptionService {
     private static let saltSize = 16
     private static let pbkdf2Iterations: UInt32 = 100_000
 
-    private static let passphraseKeychainKey = "ft_backup_encryption_passphrase"
+    private static let keyKeychainKey = "ft_backup_encryption_key"
+    private static let keyLock = NSLock()
 
-    static var storedPassphrase: String? {
-        get { KeychainStore.load(key: passphraseKeychainKey) }
-        set {
-            if let newValue, !newValue.isEmpty {
-                try? KeychainStore.save(newValue, key: passphraseKeychainKey)
-            } else {
-                KeychainStore.delete(key: passphraseKeychainKey)
-            }
+    /// The device-local random key every backup is encrypted with. Generated
+    /// lazily on first use and stored only in this device's Keychain. The lock
+    /// serializes first-run provisioning so two backups triggered at once (e.g.
+    /// iCloud + email auto-backup on launch) can't each mint a different key
+    /// and race on save.
+    private static var encryptionKey: String {
+        keyLock.lock()
+        defer { keyLock.unlock() }
+        if let existing: String = KeychainStore.load(key: keyKeychainKey) {
+            return existing
         }
+        let fresh = randomKeyString()
+        try? KeychainStore.save(fresh, key: keyKeychainKey)
+        return fresh
     }
 
-    static var isEnabled: Bool { storedPassphrase != nil }
+    private static func randomKeyString() -> String {
+        var bytes = Data(count: 32)
+        let status = bytes.withUnsafeMutableBytes { ptr -> Int32 in
+            guard let base = ptr.baseAddress else { return errSecParam }
+            return SecRandomCopyBytes(kSecRandomDefault, 32, base)
+        }
+        // SecRandomCopyBytes effectively never fails on-device; fall back to
+        // CryptoKit's generator so we never hand back low-entropy key material.
+        if status != errSecSuccess {
+            return SymmetricKey(size: .bits256).withUnsafeBytes { Data($0).base64EncodedString() }
+        }
+        return bytes.base64EncodedString()
+    }
 
     static func isEncrypted(_ data: Data) -> Bool {
         data.starts(with: magic)
     }
 
-    /// Encrypts with the stored passphrase if one is set; otherwise returns
-    /// the data unchanged (encryption is opt-in).
+    /// Encrypts the data. Backup encryption is mandatory and always on — there
+    /// is no "disabled" path. (Name kept for its existing call sites.)
     static func encryptIfEnabled(_ data: Data) async throws -> Data {
-        guard let passphrase = storedPassphrase else { return data }
-        return try await encrypt(data, passphrase: passphrase)
+        try await encrypt(data, key: encryptionKey)
     }
 
-    /// Decrypts using the stored passphrase if the data looks encrypted;
-    /// passes plain (legacy or never-encrypted) data through unchanged.
+    /// Decrypts an encrypted backup with this device's key. Plain (legacy,
+    /// pre-encryption) files are still passed through so old exports remain
+    /// importable.
     static func decryptIfNeeded(_ data: Data) async throws -> Data {
         guard isEncrypted(data) else { return data }
-        guard let passphrase = storedPassphrase else { throw BackupEncryptionError.passphraseRequired }
-        return try await decrypt(data, passphrase: passphrase)
+        return try await decrypt(data, key: encryptionKey)
     }
 
     /// The 100k-iteration PBKDF2 pass is CPU-bound; run it off the caller's
     /// actor (typically @MainActor) so backup/restore never hitches the UI.
-    static func encrypt(_ data: Data, passphrase: String) async throws -> Data {
+    static func encrypt(_ data: Data, key passphrase: String) async throws -> Data {
         try await Task.detached(priority: .utility) {
             var salt = Data(count: saltSize)
             let status = salt.withUnsafeMutableBytes { ptr -> Int32 in
                 guard let base = ptr.baseAddress else { return errSecParam }
                 return SecRandomCopyBytes(kSecRandomDefault, saltSize, base)
             }
-            guard status == errSecSuccess else { throw BackupEncryptionError.wrongPassphraseOrCorruptFile }
+            guard status == errSecSuccess else { throw BackupEncryptionError.cannotOpen }
 
             let key = deriveKey(passphrase: passphrase, salt: salt)
             let sealed = try AES.GCM.seal(data, using: key)
-            guard let combined = sealed.combined else { throw BackupEncryptionError.wrongPassphraseOrCorruptFile }
+            guard let combined = sealed.combined else { throw BackupEncryptionError.cannotOpen }
             return magic + salt + combined
         }.value
     }
 
-    static func decrypt(_ data: Data, passphrase: String) async throws -> Data {
+    static func decrypt(_ data: Data, key passphrase: String) async throws -> Data {
         try await Task.detached(priority: .utility) {
             guard data.count > magic.count + saltSize, data.starts(with: magic) else {
-                throw BackupEncryptionError.wrongPassphraseOrCorruptFile
+                throw BackupEncryptionError.cannotOpen
             }
             let salt = data.subdata(in: magic.count..<(magic.count + saltSize))
             let combined = data.subdata(in: (magic.count + saltSize)..<data.count)
@@ -107,7 +125,7 @@ nonisolated enum BackupEncryptionService {
                 let sealedBox = try AES.GCM.SealedBox(combined: combined)
                 return try AES.GCM.open(sealedBox, using: key)
             } catch {
-                throw BackupEncryptionError.wrongPassphraseOrCorruptFile
+                throw BackupEncryptionError.cannotOpen
             }
         }.value
     }

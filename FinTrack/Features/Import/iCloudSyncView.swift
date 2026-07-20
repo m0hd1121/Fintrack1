@@ -270,7 +270,7 @@ struct iCloudSyncView: View {
                     FTIconTile(symbol: "lock.fill", tint: FTColor.catPurple, size: 36)
                     Text("Backup Encryption").font(.ftBody).foregroundStyle(FTColor.textPrimary)
                     Spacer()
-                    Text(BackupEncryptionService.isEnabled ? "On" : "Off")
+                    Text("On")
                         .font(.ftBody).foregroundStyle(FTColor.textSecondary)
                     Image(systemName: "chevron.right")
                         .font(.system(size: 12, weight: .semibold)).foregroundStyle(FTColor.textMuted)
@@ -307,15 +307,13 @@ struct iCloudSyncView: View {
 
     private var encryptionCard: some View {
         HStack(spacing: FTSpacing.md) {
-            Image(systemName: BackupEncryptionService.isEnabled ? "checkmark.shield.fill" : "shield.slash.fill")
+            Image(systemName: "checkmark.shield.fill")
                 .font(.ftCallout)
-                .foregroundStyle(BackupEncryptionService.isEnabled ? FTColor.income : FTColor.gold)
+                .foregroundStyle(FTColor.income)
             VStack(alignment: .leading, spacing: 4) {
-                Text(BackupEncryptionService.isEnabled ? "Encrypted Before Upload" : "Not Encrypted Yet")
+                Text("Encrypted Before Upload")
                     .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
-                Text(BackupEncryptionService.isEnabled
-                     ? "Your backup is encrypted using your Backup Encryption passphrase before it's written to iCloud — Apple only ever sees ciphertext."
-                     : "This backup is plain, readable data once it reaches iCloud. Set a Backup Encryption passphrase above to protect it.")
+                Text("Your backup is always encrypted on this device before it's written to iCloud — Apple only ever sees ciphertext, and only FinTrack on this device can open it.")
                     .font(.ftCaption).foregroundStyle(FTColor.textMuted)
             }
         }

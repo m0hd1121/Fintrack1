@@ -176,7 +176,7 @@ Part of PROJECT_MAP.md (see root for navigation). All folders under `FinTrack/Fe
 
 ### Features/Settings/
 - AppearanceView.swift — theme/OLED/high-contrast/accent-color/fiscal-month/first-day-of-week bindings
-- BackupEncryptionSettingsView.swift — sets the passphrase used by `BackupEncryptionService`
+- BackupEncryptionSettingsView.swift — read-only status/info screen (no toggle, no passphrase): backup encryption is mandatory/always-on, key held only in this device's Keychain
 - LockScreenView.swift — Face ID/Touch ID unlock screen (`AppState.isLocked`)
 - NotificationSettingsView.swift — notification permission, master toggle, bill/budget threshold editors
 - PrivacyPolicyView.swift — static privacy policy text
