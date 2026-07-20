@@ -24,6 +24,9 @@ struct SettingsView: View {
 
     private var setting: AppSettings? { settings.first }
     private var profile: UserProfile? { profiles.first }
+    private var visibleFeatures: [DisableableFeature] {
+        DisableableFeature.allCases.filter { setting?.isFeatureEnabled($0) ?? !DisableableFeature.disabledByDefault.contains($0) }
+    }
 
     @State private var showingCurrencyPicker = false
     @State private var showingPINSetup = false
@@ -89,49 +92,21 @@ struct SettingsView: View {
                     profileCard
 
                     sectionCard("Premium Features") {
-                        NavigationLink(destination: LazyView { AICFOModeView() }) {
-                            settingRow(symbol: "brain.head.profile", tint: FTColor.accent,
-                                       title: "AI CFO Mode", chevron: true)
+                        ForEach(Array(visibleFeatures.enumerated()), id: \.element.id) { index, feature in
+                            NavigationLink(destination: LazyView { destinationView(for: feature) }) {
+                                settingRow(symbol: feature.symbol, tint: feature.tint,
+                                           title: feature.title, chevron: true)
+                            }
+                            if index < visibleFeatures.count - 1 {
+                                rowDivider
+                            }
                         }
-                        rowDivider
-                        NavigationLink(destination: LazyView { RetirementSimulationView() }) {
-                            settingRow(symbol: "sun.max.fill", tint: FTColor.gold,
-                                       title: "Retirement Simulation", chevron: true)
+                        if !visibleFeatures.isEmpty {
+                            rowDivider
                         }
-                        rowDivider
-                        NavigationLink(destination: LazyView { LifeEventPlanningView() }) {
-                            settingRow(symbol: "star.fill", tint: FTColor.catPurple,
-                                       title: "Life Event Planning", chevron: true)
-                        }
-                        rowDivider
-                        NavigationLink(destination: LazyView { EstatePlanningView() }) {
-                            settingRow(symbol: "scroll.fill", tint: FTColor.catCoral,
-                                       title: "Estate Planning", chevron: true)
-                        }
-                        rowDivider
-                        NavigationLink(destination: LazyView { InsuranceOptimizerView() }) {
-                            settingRow(symbol: "shield.fill", tint: FTColor.catTeal,
-                                       title: "Insurance Optimizer", chevron: true)
-                        }
-                        rowDivider
-                        NavigationLink(destination: LazyView { SmartCashAllocationView() }) {
-                            settingRow(symbol: "lightbulb.fill", tint: FTColor.income,
-                                       title: "Smart Cash Allocation", chevron: true)
-                        }
-                        rowDivider
-                        NavigationLink(destination: LazyView { CollaborativePlannerView() }) {
-                            settingRow(symbol: "person.3.fill", tint: FTColor.catBlue,
-                                       title: "Collaborative Planner", chevron: true)
-                        }
-                        rowDivider
-                        NavigationLink(destination: LazyView { FinancialEducationView() }) {
-                            settingRow(symbol: "book.fill", tint: FTColor.catPurple,
-                                       title: "Financial Education", chevron: true)
-                        }
-                        rowDivider
-                        NavigationLink(destination: LazyView { RemittanceTrackerView() }) {
-                            settingRow(symbol: "arrow.up.right.circle.fill", tint: FTColor.accent,
-                                       title: "Remittance Tracker", chevron: true)
+                        NavigationLink(destination: DisabledFeaturesView()) {
+                            settingRow(symbol: "eye.slash.fill", tint: FTColor.textMuted,
+                                       title: "Manage Features", chevron: true)
                         }
                     }
 
@@ -450,6 +425,21 @@ struct SettingsView: View {
     }
 
     private var rowDivider: some View { Divider().opacity(0.4) }
+
+    @ViewBuilder
+    private func destinationView(for feature: DisableableFeature) -> some View {
+        switch feature {
+        case .aiCFOMode:            AICFOModeView()
+        case .retirementSimulation: RetirementSimulationView()
+        case .lifeEventPlanning:    LifeEventPlanningView()
+        case .estatePlanning:       EstatePlanningView()
+        case .insuranceOptimizer:   InsuranceOptimizerView()
+        case .smartCashAllocation:  SmartCashAllocationView()
+        case .collaborativePlanner: CollaborativePlannerView()
+        case .financialEducation:   FinancialEducationView()
+        case .remittanceTracker:    RemittanceTrackerView()
+        }
+    }
 
     private func settingRow(symbol: String, tint: Color, title: String,
                             titleColor: Color = FTColor.textPrimary,
