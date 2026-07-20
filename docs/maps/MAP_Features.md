@@ -177,11 +177,12 @@ Part of PROJECT_MAP.md (see root for navigation). All folders under `FinTrack/Fe
 ### Features/Settings/
 - AppearanceView.swift — theme/OLED/high-contrast/accent-color/fiscal-month/first-day-of-week bindings
 - BackupEncryptionSettingsView.swift — sets the passphrase used by `BackupEncryptionService`
+- DisabledFeaturesView.swift — toggle list (`FTToggleRow` per case) for hiding/showing each `DisableableFeature`; writes `AppSettings.disabledFeatureSet`; pushed via Settings' "Manage Features" row, no own `NavigationStack`
 - LockScreenView.swift — Face ID/Touch ID unlock screen (`AppState.isLocked`)
 - NotificationSettingsView.swift — notification permission, master toggle, bill/budget threshold editors
 - PrivacyPolicyView.swift — static privacy policy text
 - SecurityPrivacyView.swift — biometrics/PIN, 2FA, recovery codes, decoy/hidden mode, audit log viewer
-- SettingsView.swift — root Settings screen: currency picker, About, backup import/export, links to every other Settings/Premium/Tax sub-screen (tab bar is full — new modules surface here)
+- SettingsView.swift — root Settings screen: currency picker, About, backup import/export, links to every other Settings/Premium/Tax sub-screen (tab bar is full — new modules surface here). "Premium Features" card renders only `DisableableFeature`s not in `AppSettings.disabledFeatureSet` (via `visibleFeatures` + `destinationView(for:)` switch) plus an always-visible "Manage Features" row → `DisabledFeaturesView`
 - TermsOfServiceView.swift — static terms-of-service text
 
 **Core features:** app-wide preferences and security — `SettingsView` is the hub; appearance/notifications/security/backup-encryption are dedicated sub-views.
