@@ -1,4 +1,4 @@
-Last verified: 2026-07-20 @ b11c23c
+Last verified: 2026-07-20 @ 511b3eb
 
 # PROJECT_MAP.md
 
@@ -124,6 +124,7 @@ Error handling has three co-existing patterns (detail + file:line examples in `M
 Active branch: `claude/finance-app-features-f1fo3p`. No release/version tags found in this pass.
 
 **Recently completed** (most recent commits, newest first):
+- Removed the **"Export as CSV" row** from Settings → Data & Privacy (and its `exportCSV()` helper + now-unused `transactions` `@Query`). CSV export still exists in the **Reports** tab (`ReportsView` export menu → `ReportExportService`); only the Settings entry point is gone.
 - **Bottom-nav tab taps now pop that tab to its main page.** Tapping a tab (including re-tapping the current one while deep in a pushed screen, e.g. Accounts → Debt Management) lands on the tab's root. `CustomTabBar` bumps `AppState.popToRootTick` on every tab tap (before the `selectedTab != tab` guard, so re-taps count); each tab root watches it via `.onChange(of: appState.popToRootTick)` and clears its pushed-screen bindings (`AccountsView`/`BudgetView` `moduleRoute`, `BudgetView` `detailGoal`, `DashboardView` `dashRoute`, `TransactionsListView` `showingEmailReviewFromBanner`). Only item/isPresented-driven pushes reset this way — a direct `NavigationLink(destination:)` (e.g. Transactions' Email Review Queue) isn't tracked by a binding and won't pop.
 - **Removed the backup-encryption UI** (per user request "don't show backup encryption to user"): deleted `BackupEncryptionSettingsView.swift` and both entry points to it — the "Backup Encryption" row in `SettingsView`'s "Data & Privacy" card and the one in `iCloudSyncView`'s settings card. Backup encryption is unchanged and still **mandatory/always-on** (`BackupEncryptionService`); it's just no longer surfaced anywhere in the UI. (File deletion is safe — the Xcode project uses `PBXFileSystemSynchronizedRootGroup`, so files aren't listed individually in `project.pbxproj`.)
 - **Fixed freeze when opening the pushed module screens** (Income/Portfolio/Savings Goals/Assets & Liabilities/Debt, plus Reports/Settings). Root cause: each presenter stacked several `.navigationDestination(isPresented:)` modifiers on one `NavigationStack` — the competing `isPresented` bindings all drive a single navigation slot, so SwiftUI re-resolved the stack every frame (main-thread spin → freeze) and often refused to push. Fix: one enum-driven `.navigationDestination(item:)` per presenter (`ModuleRoute` in `AccountsView`, `BudgetModuleRoute` in `BudgetView`, `DashboardRoute` in `DashboardView`); exactly one destination is active at a time. Rule: never stack multiple `isPresented` destinations on the same stack — use a single `item:`/path-based destination.

@@ -8,7 +8,6 @@ struct SettingsView: View {
     @Environment(\.modelContext) private var context
     @Query private var settings: [AppSettings]
     @Query private var profiles: [UserProfile]
-    @Query private var transactions: [Transaction]
     @Query private var exportAccounts: [Account]
     @Query private var budgets: [Budget]
     @Query private var savingsGoals: [SavingsGoal]
@@ -232,11 +231,6 @@ struct SettingsView: View {
                                    title: "Import Backup", chevron: true)
                     }
                     rowDivider
-                    Button { exportCSV() } label: {
-                        settingRow(symbol: "square.and.arrow.up", tint: FTColor.gold,
-                                   title: "Export as CSV", chevron: true)
-                    }
-                    rowDivider
                     Button(role: .destructive) { showingClearConfirm = true } label: {
                         settingRow(symbol: "trash", tint: FTColor.expense,
                                    title: "Clear All Data", titleColor: FTColor.expense, chevron: true)
@@ -444,30 +438,6 @@ struct SettingsView: View {
         }
         .padding(.vertical, 13)
         .contentShape(Rectangle())
-    }
-
-    // #12 – CSV export
-
-    private func exportCSV() {
-        var csv = "Date,Title,Type,Category,Amount,Currency,Account,Notes\n"
-        let fmt = DateFormatter()
-        fmt.dateStyle = .short; fmt.timeStyle = .short
-        for tx in transactions {
-            let row = [
-                fmt.string(from: tx.date),
-                tx.title.replacingOccurrences(of: ",", with: ";"),
-                tx.type.rawValue,
-                tx.category.rawValue,
-                String(tx.amount),
-                tx.currency,
-                tx.account?.name ?? "",
-                (tx.notes ?? "").replacingOccurrences(of: ",", with: ";")
-            ].joined(separator: ",")
-            csv += row + "\n"
-        }
-        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("FinTrack_Export.csv")
-        try? csv.write(to: tempURL, atomically: true, encoding: .utf8)
-        presentShareSheet(for: tempURL)
     }
 
     // Full-fidelity backup (.fintrack JSON) — round-trips with Import.
