@@ -440,8 +440,17 @@ private struct TabBarScrollCollapseModifier: ViewModifier {
                 collapsed = appState.tabBarCollapsed    // tiny move → unchanged
             }
             lastOffset = newOffset
-            if collapsed != appState.tabBarCollapsed {
-                appState.tabBarCollapsed = collapsed
+            guard collapsed != appState.tabBarCollapsed else { return }
+            // Defer the write off this scroll/layout pass. CustomTabBar (a sibling
+            // in the same hosting view) reads tabBarCollapsed with an .animation, so
+            // mutating it synchronously here re-invalidates this hosting view's layout
+            // from within its own layout pass — the "observation tracking feedback
+            // loop" SwiftUI warns about. Landing the change in the next runloop breaks
+            // that cycle; the hysteresis thresholds above keep the value from oscillating.
+            DispatchQueue.main.async {
+                if collapsed != appState.tabBarCollapsed {
+                    appState.tabBarCollapsed = collapsed
+                }
             }
         }
     }
