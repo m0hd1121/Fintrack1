@@ -47,7 +47,7 @@ enum DisableableFeature: String, CaseIterable, Identifiable, Codable {
 
     /// Features that are hidden out of the box, before the user ever opens the
     /// Disabled Features screen (i.e. while `AppSettings.disabledFeatures == nil`).
-    static let disabledByDefault: Set<DisableableFeature> = [.collaborativePlanner, .insuranceOptimizer]
+    static let disabledByDefault: Set<DisableableFeature> = [.collaborativePlanner, .insuranceOptimizer, .remittanceTracker]
 }
 
 extension AppSettings {
