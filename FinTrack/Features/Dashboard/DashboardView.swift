@@ -321,6 +321,8 @@ struct DashboardView: View {
             }
             .task(id: dataStamp) { refreshDashboard() }
             .onAppear { refreshDashboard() }
+            // Tapping the Dashboard tab pops any pushed screen back here.
+            .onChange(of: appState.popToRootTick) { dashRoute = nil }
         }
     }
 

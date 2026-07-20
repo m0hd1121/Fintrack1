@@ -244,6 +244,8 @@ struct AccountsView: View {
             }
             .sheet(isPresented: $showingNetWorth) { NetWorthDashboardView() }
             .sheet(isPresented: $showingNotifications) { NotificationSettingsView() }
+            // Tapping the Accounts tab pops any pushed module screen back here.
+            .onChange(of: appState.popToRootTick) { moduleRoute = nil }
         }
     }
 

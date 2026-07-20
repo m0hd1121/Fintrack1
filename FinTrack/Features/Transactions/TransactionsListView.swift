@@ -260,6 +260,8 @@ struct TransactionsListView: View {
                 .navigationDestination(isPresented: $showingEmailReviewFromBanner) {
                     EmailReviewQueueView()
                 }
+                // Tapping the Transactions tab pops any pushed screen back here.
+                .onChange(of: appState.popToRootTick) { showingEmailReviewFromBanner = false }
                 .sheet(isPresented: $showingCSVImport, onDismiss: { recomputeGroups() }) {
                     CSVImportView()
                 }

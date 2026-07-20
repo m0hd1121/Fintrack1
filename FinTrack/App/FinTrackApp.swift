@@ -129,6 +129,10 @@ final class AppState {
     /// Drives the floating tab bar's shrink-on-scroll: true while the user is
     /// scrolling down, false near the top or when scrolling up.
     var tabBarCollapsed = false
+    /// Bumped every time a bottom-nav tab is tapped (including re-tapping the
+    /// current tab). Each tab's root view watches this and pops its pushed
+    /// screens back to the main page, so tapping a tab always lands there.
+    var popToRootTick = 0
 
     init() {
         hasCompletedOnboarding = UserDefaults.standard.bool(forKey: "has_completed_onboarding")

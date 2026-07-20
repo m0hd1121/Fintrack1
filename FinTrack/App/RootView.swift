@@ -522,6 +522,10 @@ struct CustomTabBar: View {
         let isSelected = selectedTab == item.tab
 
         Button {
+            // Always ask the target tab to pop back to its main page — whether
+            // we're re-tapping the current tab (deep in a pushed screen) or
+            // switching to another tab that still has one pushed.
+            appState.popToRootTick &+= 1
             guard selectedTab != item.tab else { return }
             if reduceMotion {
                 selectedTab = item.tab

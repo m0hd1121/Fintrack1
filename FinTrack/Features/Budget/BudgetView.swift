@@ -282,6 +282,11 @@ struct BudgetView: View {
                 checkBudgetAlerts()
                 ensureBuiltInTemplates()
             }
+            // Tapping the Budget tab pops any pushed screen back here.
+            .onChange(of: appState.popToRootTick) {
+                moduleRoute = nil
+                detailGoal = nil
+            }
         }
     }
 
