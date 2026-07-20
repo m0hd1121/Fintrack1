@@ -8,7 +8,6 @@ struct IncomeManagementView: View {
     @Environment(AppState.self) private var appState
     @Environment(CurrencyService.self) private var currencyService
     @Environment(\.modelContext) private var context
-    @Environment(\.dismiss) private var dismiss
 
     @Query(filter: #Predicate<SalaryRecord> { $0.isActive }) private var salaryRecords: [SalaryRecord]
     @Query(filter: #Predicate<FreelanceProject> { $0.isArchived == false }) private var projects: [FreelanceProject]
@@ -65,58 +64,49 @@ struct IncomeManagementView: View {
     // MARK: - Body
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                FTBackdrop()
+        ZStack {
+            FTBackdrop()
 
-                VStack(spacing: 0) {
-                    tabBar
-                        .padding(.top, FTSpacing.xs)
+            VStack(spacing: 0) {
+                tabBar
+                    .padding(.top, FTSpacing.xs)
 
-                    ScrollView {
-                        Group {
-                            switch selectedTab {
-                            case 0: overviewTab
-                            case 1: SalaryTrackerView()
-                            case 2: FreelanceView()
-                            case 3: RentalView()
-                            case 4: dividendsTab
-                            case 5: passiveTab
-                            case 6: stabilityTab
-                            default: overviewTab
-                            }
+                ScrollView {
+                    Group {
+                        switch selectedTab {
+                        case 0: overviewTab
+                        case 1: SalaryTrackerView()
+                        case 2: FreelanceView()
+                        case 3: RentalView()
+                        case 4: dividendsTab
+                        case 5: passiveTab
+                        case 6: stabilityTab
+                        default: overviewTab
                         }
-                        .padding(.bottom, FTSpacing.xxl + FTSpacing.lg)
                     }
+                    .padding(.bottom, 120)   // clear the floating tab bar (pushed screen)
                 }
             }
-            .navigationTitle("Income")
-            .navigationBarTitleDisplayMode(.large)
-            .toolbarBackground(.hidden, for: .navigationBar)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Done") {
-                        dismiss()
-                    }
-                    .font(.ftBodySemibold)
-                    .foregroundStyle(FTColor.accent)
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    addButton
-                }
+        }
+        .navigationTitle("Income")
+        .navigationBarTitleDisplayMode(.large)
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                addButton
             }
-            .sheet(isPresented: $showingAddSalary) {
-                AddSalaryRecordView()
-            }
-            .sheet(isPresented: $showingAddProject) {
-                AddFreelanceProjectView()
-            }
-            .sheet(isPresented: $showingAddProperty) {
-                AddRentalPropertyView()
-            }
-            .sheet(isPresented: $showingAddDividend) {
-                AddDividendView()
-            }
+        }
+        .sheet(isPresented: $showingAddSalary) {
+            AddSalaryRecordView()
+        }
+        .sheet(isPresented: $showingAddProject) {
+            AddFreelanceProjectView()
+        }
+        .sheet(isPresented: $showingAddProperty) {
+            AddRentalPropertyView()
+        }
+        .sheet(isPresented: $showingAddDividend) {
+            AddDividendView()
         }
         .onAppear {
             recomputeAll()

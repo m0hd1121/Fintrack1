@@ -224,11 +224,11 @@ struct AccountsView: View {
             .sheet(item: $editingGold) { h in EditGoldHoldingView(holding: h) }
             .sheet(item: $editingGiftCard) { c in EditGiftCardView(card: c) }
             .sheet(item: $editingLoyalty) { p in EditLoyaltyProgramView(program: p) }
-            .sheet(isPresented: $showingIncome) { IncomeManagementView() }
-            .sheet(isPresented: $showingPortfolio) { InvestmentPortfolioView() }
-            .sheet(isPresented: $showingGoals) { SavingsGoalsView() }
-            .sheet(isPresented: $showingAssetsLiabilities) { AssetsLiabilitiesView() }
-            .sheet(isPresented: $showingDebt) { DebtManagementView() }
+            .navigationDestination(isPresented: $showingIncome) { IncomeManagementView() }
+            .navigationDestination(isPresented: $showingPortfolio) { InvestmentPortfolioView() }
+            .navigationDestination(isPresented: $showingGoals) { SavingsGoalsView() }
+            .navigationDestination(isPresented: $showingAssetsLiabilities) { AssetsLiabilitiesView() }
+            .navigationDestination(isPresented: $showingDebt) { DebtManagementView() }
             .sheet(isPresented: $showingNetWorth) { NetWorthDashboardView() }
             .sheet(isPresented: $showingNotifications) { NotificationSettingsView() }
         }

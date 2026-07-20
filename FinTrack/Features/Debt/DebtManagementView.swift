@@ -8,7 +8,6 @@ struct DebtManagementView: View {
     @Environment(AppState.self) private var appState
     @Environment(CurrencyService.self) private var currencyService
     @Environment(\.modelContext) private var context
-    @Environment(\.dismiss) private var dismiss
 
     @Query(filter: #Predicate<Loan> { $0.isActive }) private var loans: [Loan]
     @Query(filter: #Predicate<CreditCard> { $0.isActive }) private var creditCards: [CreditCard]
@@ -90,81 +89,74 @@ struct DebtManagementView: View {
     // MARK: - Body
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                FTBackdrop()
+        ZStack {
+            FTBackdrop()
 
-                VStack(spacing: 0) {
-                    tabBar
-                        .padding(.top, FTSpacing.xs)
+            VStack(spacing: 0) {
+                tabBar
+                    .padding(.top, FTSpacing.xs)
 
-                    ScrollView {
-                        activeTabView()
-                            .padding(.bottom, FTSpacing.xxl + FTSpacing.lg)
-                    }
+                ScrollView {
+                    activeTabView()
+                        .padding(.bottom, 120)   // clear the floating tab bar (pushed screen)
                 }
             }
-            .navigationTitle("Debt Management")
-            .navigationBarTitleDisplayMode(.large)
-            .toolbarBackground(.hidden, for: .navigationBar)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Done") { dismiss() }
-                        .font(.ftBodySemibold)
-                        .foregroundStyle(FTColor.accent)
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    addButton
-                }
+        }
+        .navigationTitle("Debt Management")
+        .navigationBarTitleDisplayMode(.large)
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                addButton
             }
-            .sheet(isPresented: $showingAddLoan) {
-                AddLoanView()
-            }
-            .sheet(isPresented: $showingAddBNPL) {
-                AddBNPLView()
-            }
-            .sheet(isPresented: $showingAddLent) {
-                AddMoneyLentView()
-            }
-            .sheet(isPresented: $showingAddBorrowed) {
-                AddMoneyBorrowedView()
-            }
-            .sheet(item: $editingLoan) { item in
-                AddLoanView(editingLoan: item)
-            }
-            .sheet(item: $recordingPaymentLoan) { item in
-                RecordLoanPaymentSheet(loan: item)
-            }
-            .sheet(item: $selectedLoan) { item in
-                LoanDetailSheet(loan: item)
-            }
-            .sheet(item: $editingLent) { item in
-                AddMoneyLentView(editingItem: item)
-            }
-            .sheet(item: $editingBorrowed) { item in
-                AddMoneyBorrowedView(editingItem: item)
-            }
-            .sheet(item: $selectedLent) { item in
-                MoneyLentDetailSheet(item: item)
-            }
-            .sheet(item: $selectedBorrowed) { item in
-                MoneyBorrowedDetailSheet(item: item)
-            }
-            .sheet(item: $selectedBNPL) { item in
-                BNPLDetailSheet(plan: item)
-            }
-            .sheet(item: $editingBNPL) { item in
-                AddBNPLView(editingPlan: item)
-            }
-            .sheet(item: $recordingPaymentBNPL) { item in
-                RecordBNPLPaymentSheet(plan: item)
-            }
-            .sheet(isPresented: $showingAddBill) {
-                AddBillView()
-            }
-            .sheet(item: $selectedBill) { bill in
-                BillDetailView(bill: bill, transactions: allTransactions)
-            }
+        }
+        .sheet(isPresented: $showingAddLoan) {
+            AddLoanView()
+        }
+        .sheet(isPresented: $showingAddBNPL) {
+            AddBNPLView()
+        }
+        .sheet(isPresented: $showingAddLent) {
+            AddMoneyLentView()
+        }
+        .sheet(isPresented: $showingAddBorrowed) {
+            AddMoneyBorrowedView()
+        }
+        .sheet(item: $editingLoan) { item in
+            AddLoanView(editingLoan: item)
+        }
+        .sheet(item: $recordingPaymentLoan) { item in
+            RecordLoanPaymentSheet(loan: item)
+        }
+        .sheet(item: $selectedLoan) { item in
+            LoanDetailSheet(loan: item)
+        }
+        .sheet(item: $editingLent) { item in
+            AddMoneyLentView(editingItem: item)
+        }
+        .sheet(item: $editingBorrowed) { item in
+            AddMoneyBorrowedView(editingItem: item)
+        }
+        .sheet(item: $selectedLent) { item in
+            MoneyLentDetailSheet(item: item)
+        }
+        .sheet(item: $selectedBorrowed) { item in
+            MoneyBorrowedDetailSheet(item: item)
+        }
+        .sheet(item: $selectedBNPL) { item in
+            BNPLDetailSheet(plan: item)
+        }
+        .sheet(item: $editingBNPL) { item in
+            AddBNPLView(editingPlan: item)
+        }
+        .sheet(item: $recordingPaymentBNPL) { item in
+            RecordBNPLPaymentSheet(plan: item)
+        }
+        .sheet(isPresented: $showingAddBill) {
+            AddBillView()
+        }
+        .sheet(item: $selectedBill) { bill in
+            BillDetailView(bill: bill, transactions: allTransactions)
         }
         .onAppear { recomputeAll() }
         .onChange(of: snowballExtra) { _, _ in recomputeSnowball() }

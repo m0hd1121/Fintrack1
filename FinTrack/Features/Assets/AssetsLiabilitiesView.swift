@@ -6,7 +6,6 @@ import SwiftData
 struct AssetsLiabilitiesView: View {
 
     // MARK: Environment
-    @Environment(\.dismiss) private var dismiss
     @Environment(AppState.self) private var appState
     @Environment(CurrencyService.self) private var currencyService
 
@@ -66,84 +65,75 @@ struct AssetsLiabilitiesView: View {
     // MARK: Body
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                FTBackdrop()
+        ZStack {
+            FTBackdrop()
 
-                ScrollView {
-                    VStack(spacing: FTSpacing.lg) {
-                        // Total Assets Hero Card
-                        totalAssetsHeroCard
-                            .padding(.horizontal, FTSpacing.screen)
-
-                        // Section Header
-                        sectionHeader("Asset Categories")
-                            .padding(.horizontal, FTSpacing.screen)
-
-                        // Asset Category Cards
-                        VStack(spacing: FTSpacing.sm) {
-                            NavigationLink(destination: LazyView { RealEstateListView() }) {
-                                assetCard(
-                                    symbol: "house.fill",
-                                    tint: FTColor.catCoral,
-                                    title: "Real Estate",
-                                    subtitle: "\(realEstate.count) \(realEstate.count == 1 ? "property" : "properties")",
-                                    total: realEstateTotal
-                                )
-                            }
-                            .buttonStyle(.plain)
-
-                            NavigationLink(destination: LazyView { VehicleListView() }) {
-                                assetCard(
-                                    symbol: "car.fill",
-                                    tint: FTColor.catBlue,
-                                    title: "Vehicles",
-                                    subtitle: "\(vehicles.count) \(vehicles.count == 1 ? "vehicle" : "vehicles")",
-                                    total: vehicleTotal
-                                )
-                            }
-                            .buttonStyle(.plain)
-
-                            NavigationLink(destination: LazyView { PersonalAssetsListView() }) {
-                                assetCard(
-                                    symbol: "sparkles",
-                                    tint: FTColor.gold,
-                                    title: "Personal Assets",
-                                    subtitle: "\(personalAssets.count) \(personalAssets.count == 1 ? "item" : "items")",
-                                    total: personalAssetTotal
-                                )
-                            }
-                            .buttonStyle(.plain)
-
-                            NavigationLink(destination: LazyView { DigitalAssetsListView() }) {
-                                assetCard(
-                                    symbol: "globe",
-                                    tint: FTColor.catPurple,
-                                    title: "Digital Assets",
-                                    subtitle: "\(digitalAssets.count) \(digitalAssets.count == 1 ? "asset" : "assets")",
-                                    total: digitalAssetTotal
-                                )
-                            }
-                            .buttonStyle(.plain)
-                        }
+            ScrollView {
+                VStack(spacing: FTSpacing.lg) {
+                    // Total Assets Hero Card
+                    totalAssetsHeroCard
                         .padding(.horizontal, FTSpacing.screen)
 
-                        Color.clear.frame(height: FTSpacing.xxl)
+                    // Section Header
+                    sectionHeader("Asset Categories")
+                        .padding(.horizontal, FTSpacing.screen)
+
+                    // Asset Category Cards
+                    VStack(spacing: FTSpacing.sm) {
+                        NavigationLink(destination: LazyView { RealEstateListView() }) {
+                            assetCard(
+                                symbol: "house.fill",
+                                tint: FTColor.catCoral,
+                                title: "Real Estate",
+                                subtitle: "\(realEstate.count) \(realEstate.count == 1 ? "property" : "properties")",
+                                total: realEstateTotal
+                            )
+                        }
+                        .buttonStyle(.plain)
+
+                        NavigationLink(destination: LazyView { VehicleListView() }) {
+                            assetCard(
+                                symbol: "car.fill",
+                                tint: FTColor.catBlue,
+                                title: "Vehicles",
+                                subtitle: "\(vehicles.count) \(vehicles.count == 1 ? "vehicle" : "vehicles")",
+                                total: vehicleTotal
+                            )
+                        }
+                        .buttonStyle(.plain)
+
+                        NavigationLink(destination: LazyView { PersonalAssetsListView() }) {
+                            assetCard(
+                                symbol: "sparkles",
+                                tint: FTColor.gold,
+                                title: "Personal Assets",
+                                subtitle: "\(personalAssets.count) \(personalAssets.count == 1 ? "item" : "items")",
+                                total: personalAssetTotal
+                            )
+                        }
+                        .buttonStyle(.plain)
+
+                        NavigationLink(destination: LazyView { DigitalAssetsListView() }) {
+                            assetCard(
+                                symbol: "globe",
+                                tint: FTColor.catPurple,
+                                title: "Digital Assets",
+                                subtitle: "\(digitalAssets.count) \(digitalAssets.count == 1 ? "asset" : "assets")",
+                                total: digitalAssetTotal
+                            )
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .padding(.top, FTSpacing.md)
+                    .padding(.horizontal, FTSpacing.screen)
+
+                    Color.clear.frame(height: 120)   // clear the floating tab bar (pushed screen)
                 }
-            }
-            .navigationTitle("Assets & Liabilities")
-            .navigationBarTitleDisplayMode(.large)
-            .toolbarBackground(.hidden, for: .navigationBar)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") { dismiss() }
-                        .font(.ftBodySemibold)
-                        .foregroundStyle(FTColor.accent)
-                }
+                .padding(.top, FTSpacing.md)
             }
         }
+        .navigationTitle("Assets & Liabilities")
+        .navigationBarTitleDisplayMode(.large)
+        .toolbarBackground(.hidden, for: .navigationBar)
     }
 
     // MARK: - Total Assets Hero Card

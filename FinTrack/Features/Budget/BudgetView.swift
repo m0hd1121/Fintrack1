@@ -259,10 +259,10 @@ struct BudgetView: View {
             .sheet(isPresented: $showingBills) {
                 BillsView()
             }
-            .sheet(isPresented: $showingIncome) {
+            .navigationDestination(isPresented: $showingIncome) {
                 IncomeManagementView()
             }
-            .sheet(isPresented: $showingDebt) {
+            .navigationDestination(isPresented: $showingDebt) {
                 DebtManagementView()
             }
             .onAppear {

@@ -9,7 +9,6 @@ struct InvestmentPortfolioView: View {
     @Environment(CurrencyService.self) private var currencyService
     @Environment(CryptoPriceService.self) private var cryptoPriceService
     @Environment(\.modelContext) private var context
-    @Environment(\.dismiss) private var dismiss
 
     @Query private var investments: [Investment]
     @Query private var cryptoHoldings: [CryptoHolding]
@@ -133,57 +132,50 @@ struct InvestmentPortfolioView: View {
     // MARK: - Body
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                FTBackdrop()
-                VStack(spacing: 0) {
-                    tabBar.padding(.top, FTSpacing.xs)
-                    ScrollView {
-                        Group {
-                            switch selectedTab {
-                            case 0:  overviewTab
-                            case 1:  holdingsTab
-                            case 2:  cryptoTab
-                            case 3:  goldTab
-                            case 4:  allocationTab
-                            case 5:  performanceTab
-                            case 6:  dividendsTab
-                            case 7:  capitalGainsTab
-                            case 8:  scenariosTab
-                            case 9:  simulationTab
-                            default: overviewTab
-                            }
+        ZStack {
+            FTBackdrop()
+            VStack(spacing: 0) {
+                tabBar.padding(.top, FTSpacing.xs)
+                ScrollView {
+                    Group {
+                        switch selectedTab {
+                        case 0:  overviewTab
+                        case 1:  holdingsTab
+                        case 2:  cryptoTab
+                        case 3:  goldTab
+                        case 4:  allocationTab
+                        case 5:  performanceTab
+                        case 6:  dividendsTab
+                        case 7:  capitalGainsTab
+                        case 8:  scenariosTab
+                        case 9:  simulationTab
+                        default: overviewTab
                         }
-                        .padding(.bottom, FTSpacing.xxl + FTSpacing.lg)
                     }
-                    .refreshable {
-                        let symbols = investments.map { $0.symbol }.filter { !$0.isEmpty }
-                        await stockPriceService.fetchPrices(symbols: symbols)
-                        await cryptoPriceService.fetchPrices()
-                    }
+                    .padding(.bottom, 120)   // clear the floating tab bar (pushed screen)
+                }
+                .refreshable {
+                    let symbols = investments.map { $0.symbol }.filter { !$0.isEmpty }
+                    await stockPriceService.fetchPrices(symbols: symbols)
+                    await cryptoPriceService.fetchPrices()
                 }
             }
-            .navigationTitle("Portfolio")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.hidden, for: .navigationBar)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Done") { dismiss() }
-                        .font(.ftBodySemibold)
-                        .foregroundStyle(FTColor.accent)
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    addButton
-                }
-            }
-            .sheet(isPresented: $showingAddInvestment) { AddInvestmentView() }
-            .sheet(isPresented: $showingAddCrypto) { AddCryptoView() }
-            .sheet(isPresented: $showingAddGold) { AddGoldHoldingView() }
-            .sheet(isPresented: $showingAddDividend) { AddDividendView() }
-            .sheet(item: $selectedInvestment) { inv in InvestmentDetailSheet(investment: inv) }
-            .sheet(item: $selectedCrypto) { crypto in CryptoDetailSheet(holding: crypto) }
-            .sheet(item: $selectedGold) { gold in GoldDetailSheet(holding: gold) }
         }
+        .navigationTitle("Portfolio")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                addButton
+            }
+        }
+        .sheet(isPresented: $showingAddInvestment) { AddInvestmentView() }
+        .sheet(isPresented: $showingAddCrypto) { AddCryptoView() }
+        .sheet(isPresented: $showingAddGold) { AddGoldHoldingView() }
+        .sheet(isPresented: $showingAddDividend) { AddDividendView() }
+        .sheet(item: $selectedInvestment) { inv in InvestmentDetailSheet(investment: inv) }
+        .sheet(item: $selectedCrypto) { crypto in CryptoDetailSheet(holding: crypto) }
+        .sheet(item: $selectedGold) { gold in GoldDetailSheet(holding: gold) }
     }
 
     // MARK: - Tab Bar

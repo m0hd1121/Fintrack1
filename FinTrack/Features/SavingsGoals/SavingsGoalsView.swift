@@ -55,49 +55,47 @@ struct SavingsGoalsView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                FTBackdrop()
-                ScrollView {
-                    VStack(spacing: FTSpacing.lg) {
-                        heroCard
-                        if conflict.hasConflict { conflictBanner }
-                        filterRow
-                        if filtered.isEmpty {
-                            emptyState
-                        } else {
-                            goalsGrid
-                        }
-                        if !insights.isEmpty { insightsSection }
-                        Color.clear.frame(height: 80)
+        ZStack {
+            FTBackdrop()
+            ScrollView {
+                VStack(spacing: FTSpacing.lg) {
+                    heroCard
+                    if conflict.hasConflict { conflictBanner }
+                    filterRow
+                    if filtered.isEmpty {
+                        emptyState
+                    } else {
+                        goalsGrid
                     }
-                    .padding(.horizontal, FTSpacing.screen)
-                    .padding(.top, FTSpacing.sm)
+                    if !insights.isEmpty { insightsSection }
+                    Color.clear.frame(height: 120)   // clear the floating tab bar (pushed screen)
                 }
+                .padding(.horizontal, FTSpacing.screen)
+                .padding(.top, FTSpacing.sm)
             }
-            .navigationTitle("Savings Goals")
-            .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Button { showingAdd = true } label: {
-                        Image(systemName: "plus.circle.fill")
-                            .foregroundStyle(FTColor.accent)
-                            .font(.title3)
-                    }
-                }
-            }
-            .sheet(isPresented: $showingAdd) {
-                AddSavingsGoalView()
-            }
-            .sheet(item: $detailGoal) { goal in
-                NavigationStack { SavingsGoalDetailView(goal: goal) }
-            }
-            .sheet(isPresented: $showingConflicts) {
-                GoalConflictView(conflict: conflict, base: base)
-            }
-            .onAppear { refreshInsights() }
-            .onChange(of: allGoals.count) { _, _ in refreshInsights() }
         }
+        .navigationTitle("Savings Goals")
+        .navigationBarTitleDisplayMode(.large)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button { showingAdd = true } label: {
+                    Image(systemName: "plus.circle.fill")
+                        .foregroundStyle(FTColor.accent)
+                        .font(.title3)
+                }
+            }
+        }
+        .sheet(isPresented: $showingAdd) {
+            AddSavingsGoalView()
+        }
+        .sheet(item: $detailGoal) { goal in
+            NavigationStack { SavingsGoalDetailView(goal: goal) }
+        }
+        .sheet(isPresented: $showingConflicts) {
+            GoalConflictView(conflict: conflict, base: base)
+        }
+        .onAppear { refreshInsights() }
+        .onChange(of: allGoals.count) { _, _ in refreshInsights() }
     }
 
     // MARK: - Hero Card

@@ -18,7 +18,7 @@ Part of PROJECT_MAP.md (see root for navigation). All folders under `FinTrack/Fe
 
 ### Features/Accounts/
 - AccountDetailView.swift — single account detail: transaction list, 30-day balance sparkline, monthly bar chart; also hosts `RegularLoanDetailView`, `LoanPaymentHistorySection`, `RecordLoanPaymentSheet`
-- AccountsView.swift — main accounts hub: balances across bank accounts, cards, investments, crypto, gold, gift cards, loyalty, loans, BNPL
+- AccountsView.swift — main accounts hub: balances across bank accounts, cards, investments, crypto, gold, gift cards, loyalty, loans, BNPL. Its module cards open Income/Portfolio/Savings Goals/Assets & Liabilities/Debt as **pushed** screens (`.navigationDestination(isPresented:)`), not sheets; Net Worth + all Add/Edit forms stay as sheets.
 - AddAccountView.swift — add/edit bank account form; also hosts `AddLoanView`, `AddBNPLView`, `AddGiftCardView` and other asset-adjacent add sheets
 
 **Core features:** bank account CRUD & balance dashboard (`AccountsView`/`AddAccountView`/`AccountDetailView`); Loan and BNPL add/edit forms live here too (`AddLoanView`, `AddBNPLView`), separate from their detail/repayment UI in Features/Debt/.
