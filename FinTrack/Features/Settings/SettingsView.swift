@@ -1,6 +1,5 @@
 import SwiftUI
 import SwiftData
-import UniformTypeIdentifiers
 
 struct SettingsView: View {
     @Environment(AppState.self) private var appState
@@ -8,17 +7,6 @@ struct SettingsView: View {
     @Environment(\.modelContext) private var context
     @Query private var settings: [AppSettings]
     @Query private var profiles: [UserProfile]
-    @Query private var exportAccounts: [Account]
-    @Query private var budgets: [Budget]
-    @Query private var savingsGoals: [SavingsGoal]
-    @Query private var creditCards: [CreditCard]
-    @Query private var loans: [Loan]
-    @Query private var bnplPlans: [BNPLPlan]
-    @Query private var investments: [Investment]
-    @Query private var cryptoHoldings: [CryptoHolding]
-    @Query private var goldHoldings: [GoldHolding]
-    @Query private var giftCards: [GiftCard]
-    @Query private var loyaltyPrograms: [LoyaltyProgram]
 
     private var setting: AppSettings? { settings.first }
     private var profile: UserProfile? { profiles.first }
@@ -32,13 +20,7 @@ struct SettingsView: View {
     @State private var showingCategoryManagement = false
     @State private var showingRuleManagement = false
 
-    // Backup import/export
-    @State private var showingImporter = false
-    @State private var pendingImportURL: URL?
-    @State private var showingImportMode = false
-    @State private var showingResult = false
     @State private var showingClearConfirm = false
-    @State private var resultMessage = ""
 
     // MARK: - Bindings
 
@@ -221,16 +203,6 @@ struct SettingsView: View {
                                    title: "Email Backup", chevron: true)
                     }
                     rowDivider
-                    Button { exportBackup() } label: {
-                        settingRow(symbol: "arrow.up.doc.fill", tint: FTColor.accent,
-                                   title: "Export Backup", chevron: true)
-                    }
-                    rowDivider
-                    Button { showingImporter = true } label: {
-                        settingRow(symbol: "arrow.down.doc.fill", tint: FTColor.income,
-                                   title: "Import Backup", chevron: true)
-                    }
-                    rowDivider
                     Button(role: .destructive) { showingClearConfirm = true } label: {
                         settingRow(symbol: "trash", tint: FTColor.expense,
                                    title: "Clear All Data", titleColor: FTColor.expense, chevron: true)
@@ -279,38 +251,11 @@ struct SettingsView: View {
         .sheet(isPresented: $showingRuleManagement) {
             RuleManagementView()
         }
-        .fileImporter(
-            isPresented: $showingImporter,
-            allowedContentTypes: [UTType(filenameExtension: "fintrack") ?? .json, .json, .data],
-            allowsMultipleSelection: false
-        ) { result in
-            switch result {
-            case .success(let urls):
-                guard let url = urls.first else { return }
-                pendingImportURL = url
-                showingImportMode = true
-            case .failure(let error):
-                resultMessage = "Could not open file: \(error.localizedDescription)"
-                showingResult = true
-            }
-        }
-        .confirmationDialog("Import Backup", isPresented: $showingImportMode, titleVisibility: .visible) {
-            Button("Merge with existing data") { runImport(mode: .merge) }
-            Button("Replace all data", role: .destructive) { runImport(mode: .replace) }
-            Button("Cancel", role: .cancel) { pendingImportURL = nil }
-        } message: {
-            Text("Merge keeps your current data and adds new items. Replace deletes everything first, then restores from the backup.")
-        }
         .alert("Clear All Data", isPresented: $showingClearConfirm) {
             Button("Delete Everything", role: .destructive) { clearAllData() }
             Button("Cancel", role: .cancel) { }
         } message: {
             Text("This will permanently delete all financial data — transactions, accounts, budgets, investments, debts, tax records, bills, assets, and more. Your app settings and preferences will be kept. This action cannot be undone.")
-        }
-        .alert("Backup", isPresented: $showingResult) {
-            Button("OK") { }
-        } message: {
-            Text(resultMessage)
         }
     }
 
@@ -438,74 +383,6 @@ struct SettingsView: View {
         }
         .padding(.vertical, 13)
         .contentShape(Rectangle())
-    }
-
-    // Full-fidelity backup (.fintrack JSON) — round-trips with Import.
-
-    private func exportBackup() {
-        Task {
-            do {
-                let url = try DataTransferService.shared.exportBackup(context: context)
-                let data = try Data(contentsOf: url)
-                let finalData = try await BackupEncryptionService.encryptIfEnabled(data)
-                try finalData.write(to: url, options: .atomic)
-                presentShareSheet(for: url)
-            } catch {
-                resultMessage = "Export failed: \(error.localizedDescription)"
-                showingResult = true
-            }
-        }
-    }
-
-    private func runImport(mode: DataTransferService.ImportMode) {
-        Task { await runImportAsync(mode: mode) }
-    }
-
-    private func runImportAsync(mode: DataTransferService.ImportMode) async {
-        guard let url = pendingImportURL else { return }
-        defer { pendingImportURL = nil }
-
-        // Files picked from iCloud/Files are security-scoped.
-        let scoped = url.startAccessingSecurityScopedResource()
-        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
-
-        do {
-            let rawData = try Data(contentsOf: url)
-            let plainData = try await BackupEncryptionService.decryptIfNeeded(rawData)
-            let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("FinTrack_Import_\(UUID().uuidString).fintrack")
-            try plainData.write(to: tempURL, options: .atomic)
-            defer { try? FileManager.default.removeItem(at: tempURL) }
-
-            let summary = try DataTransferService.shared.importBackup(from: tempURL, context: context, mode: mode)
-            resultMessage = summary.total > 0 ? "Imported \(summary.description)." : "Nothing new to import."
-        } catch {
-            resultMessage = "Import failed. Make sure this is a FinTrack backup file.\n\n\(error.localizedDescription)"
-        }
-        showingResult = true
-    }
-
-    /// Presents the iOS share sheet from the front-most controller. Settings is
-    /// itself a sheet, so presenting on the window root fails ("already presenting").
-    private func presentShareSheet(for url: URL) {
-        let av = UIActivityViewController(activityItems: [url], applicationActivities: nil)
-
-        guard let scene = UIApplication.shared.connectedScenes
-                .compactMap({ $0 as? UIWindowScene })
-                .first(where: { $0.activationState == .foregroundActive })
-                ?? UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first,
-              let keyWindow = scene.windows.first(where: { $0.isKeyWindow }) ?? scene.windows.first,
-              var top = keyWindow.rootViewController else { return }
-
-        while let presented = top.presentedViewController { top = presented }
-
-        // iPad: anchor the popover so it doesn't crash on presentation.
-        if let pop = av.popoverPresentationController {
-            pop.sourceView = top.view
-            pop.sourceRect = CGRect(x: top.view.bounds.midX, y: top.view.bounds.midY, width: 0, height: 0)
-            pop.permittedArrowDirections = []
-        }
-
-        top.present(av, animated: true)
     }
 
     private func clearAllData() {

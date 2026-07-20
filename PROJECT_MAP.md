@@ -1,4 +1,4 @@
-Last verified: 2026-07-20 @ 511b3eb
+Last verified: 2026-07-20 @ 47cf019
 
 # PROJECT_MAP.md
 
@@ -124,6 +124,7 @@ Error handling has three co-existing patterns (detail + file:line examples in `M
 Active branch: `claude/finance-app-features-f1fo3p`. No release/version tags found in this pass.
 
 **Recently completed** (most recent commits, newest first):
+- Removed the local file **"Export Backup" and "Import Backup" rows** from Settings → Data & Privacy, plus all their now-dead machinery (`exportBackup`/`runImport`/`runImportAsync`/`presentShareSheet`, the `.fileImporter` + import-mode dialog + result alert, the `showingImporter`/`pendingImportURL`/`showingResult`/`resultMessage` state, and the 11 export-only `@Query` fetches led by `exportAccounts`). The card is now iCloud/Drive/Email backup links + Clear All Data. `DataTransferService` export/import still exist as APIs (used by the cloud backup services) but are no longer reachable from Settings.
 - Removed the **"Export as CSV" row** from Settings → Data & Privacy (and its `exportCSV()` helper + now-unused `transactions` `@Query`). CSV export still exists in the **Reports** tab (`ReportsView` export menu → `ReportExportService`); only the Settings entry point is gone.
 - **Bottom-nav tab taps now pop that tab to its main page.** Tapping a tab (including re-tapping the current one while deep in a pushed screen, e.g. Accounts → Debt Management) lands on the tab's root. `CustomTabBar` bumps `AppState.popToRootTick` on every tab tap (before the `selectedTab != tab` guard, so re-taps count); each tab root watches it via `.onChange(of: appState.popToRootTick)` and clears its pushed-screen bindings (`AccountsView`/`BudgetView` `moduleRoute`, `BudgetView` `detailGoal`, `DashboardView` `dashRoute`, `TransactionsListView` `showingEmailReviewFromBanner`). Only item/isPresented-driven pushes reset this way — a direct `NavigationLink(destination:)` (e.g. Transactions' Email Review Queue) isn't tracked by a binding and won't pop.
 - **Removed the backup-encryption UI** (per user request "don't show backup encryption to user"): deleted `BackupEncryptionSettingsView.swift` and both entry points to it — the "Backup Encryption" row in `SettingsView`'s "Data & Privacy" card and the one in `iCloudSyncView`'s settings card. Backup encryption is unchanged and still **mandatory/always-on** (`BackupEncryptionService`); it's just no longer surfaced anywhere in the UI. (File deletion is safe — the Xcode project uses `PBXFileSystemSynchronizedRootGroup`, so files aren't listed individually in `project.pbxproj`.)
