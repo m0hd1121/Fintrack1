@@ -828,6 +828,7 @@ private struct RecordPaymentSheet: View {
                 title: "\(bill.name) Payment",
                 amount: amount,
                 currency: bill.currency,
+                amountInBaseCurrency: CurrencyService.shared.amountInBase(amount, from: bill.currency),
                 type: .expense,
                 category: bill.billCategory.transactionCategory,
                 date: paymentDate,

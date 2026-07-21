@@ -1037,6 +1037,7 @@ struct RecordRentPaymentSheet: View {
             title: "Rent — \(property.propertyName)",
             amount: amount,
             currency: property.currency,
+            amountInBaseCurrency: CurrencyService.shared.amountInBase(amount, from: property.currency),
             type: .income,
             category: .rental,
             date: paymentDate,

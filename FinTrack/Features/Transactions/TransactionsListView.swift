@@ -846,10 +846,18 @@ struct SectionDateHeader: View {
 struct TransactionDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
+    @Environment(AppState.self) private var appState
     let transaction: Transaction
     @State private var showingEdit = false
 
     private var tint: Color { Color.fromString(transaction.category.color) }
+
+    /// The rate locked at the transaction's own date: base units per 1 unit of
+    /// the transaction currency, derived from the stored base value.
+    private var lockedRate: Double? {
+        guard transaction.currency != appState.baseCurrency, transaction.amount != 0 else { return nil }
+        return transaction.amountInBaseCurrency / transaction.amount
+    }
 
     var body: some View {
         NavigationStack {
@@ -887,6 +895,20 @@ struct TransactionDetailView: View {
                                         : transaction.type == .expense ? FTColor.expense : FTColor.income
                                 )
                                 .lineLimit(1).minimumScaleFactor(0.5)
+                            // Base-currency equivalent locked at the transaction's
+                            // own date/rate (from the stored amountInBaseCurrency),
+                            // so it never drifts with today's live rate.
+                            if let rate = lockedRate {
+                                VStack(spacing: 2) {
+                                    Text("≈ " + transaction.amountInBaseCurrency.formatted(as: appState.baseCurrency))
+                                        .font(.ftHeadline)
+                                        .foregroundStyle(FTColor.textSecondary)
+                                    Text("1 \(transaction.currency) = \(rate.formatted(.number.precision(.fractionLength(2...4)))) \(appState.baseCurrency) · rate on \(transaction.date.formatted)")
+                                        .font(.ftCaption)
+                                        .foregroundStyle(FTColor.textMuted)
+                                        .multilineTextAlignment(.center)
+                                }
+                            }
                             Text(transaction.title)
                                 .font(.ftHeadline)
                                 .foregroundStyle(FTColor.textPrimary)

@@ -2136,6 +2136,7 @@ private struct RecordSaleSheet: View {
         investment.updatedAt = Date()
         let tx = Transaction(title: "Sold \(String(format: "%.4g", quantity)) \(investment.symbol)",
                              amount: salePrice * quantity, currency: investment.currency,
+                             amountInBaseCurrency: CurrencyService.shared.amountInBase(salePrice * quantity, from: investment.currency),
                              type: .income, category: .investmentIncome, date: saleDate,
                              notes: notes.isEmpty ? nil : notes)
         context.insert(tx)

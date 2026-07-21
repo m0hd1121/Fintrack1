@@ -408,6 +408,7 @@ struct AddDividendView: View {
                 title:        txTitle,
                 amount:       resolvedNetAmount,
                 currency:     currency,
+                amountInBaseCurrency: CurrencyService.shared.amountInBase(resolvedNetAmount, from: currency),
                 type:         .income,
                 category:     .dividends,
                 date:         paymentDate,

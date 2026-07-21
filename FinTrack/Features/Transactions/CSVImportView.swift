@@ -515,7 +515,10 @@ struct CSVImportView: View {
                     title: row.title,
                     amount: row.amount,
                     currency: row.currency,
-                    amountInBaseCurrency: row.amount,
+                    // Convert to base at import time rather than storing the raw
+                    // foreign amount as if it were already base. (A CSV carries no
+                    // historical rate, so the import-time rate is the best we have.)
+                    amountInBaseCurrency: CurrencyService.shared.convert(row.amount, from: row.currency, to: appState.baseCurrency),
                     type: row.type,
                     category: row.category,
                     date: row.date,

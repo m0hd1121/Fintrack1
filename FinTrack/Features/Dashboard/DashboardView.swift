@@ -810,6 +810,14 @@ struct TransactionRowView: View {
                             ? FTColor.textMuted
                             : transaction.type == .expense ? FTColor.expense : FTColor.income
                     )
+                // For a foreign-currency transaction, show its base value locked
+                // at the transaction-time rate (stored amountInBaseCurrency), not
+                // a live re-conversion.
+                if transaction.currency != baseCurrency {
+                    Text("≈ " + transaction.amountInBaseCurrency.formatted(as: baseCurrency))
+                        .font(.ftCaption)
+                        .foregroundStyle(FTColor.textMuted)
+                }
                 Text(transaction.date.formatted)
                     .font(.ftCaption)
                     .foregroundStyle(FTColor.textSecondary)

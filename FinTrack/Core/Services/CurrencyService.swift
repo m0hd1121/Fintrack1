@@ -81,6 +81,19 @@ final class CurrencyService {
         return inAED * toRate
     }
 
+    /// The user's current base currency (persisted by Settings/onboarding).
+    var baseCurrencyCode: String {
+        UserDefaults.standard.string(forKey: "base_currency") ?? "AED"
+    }
+
+    /// Base-currency value of `amount` at *today's* rate. Call this when creating
+    /// a transaction so its `amountInBaseCurrency` is locked at the rate of that
+    /// moment — the base equivalent then never drifts as live rates move. Works
+    /// from any context (reads the base currency itself; no AppState needed).
+    func amountInBase(_ amount: Double, from currency: String) -> Double {
+        convert(amount, from: currency, to: baseCurrencyCode)
+    }
+
     func symbol(for code: String) -> String {
         supportedCurrencies.first { $0.code == code }?.symbol ?? code
     }

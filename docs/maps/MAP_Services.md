@@ -66,7 +66,7 @@ External APIs: api.binance.com, min-api.cryptocompare.com (raw URLSession)
 ### CurrencyService.swift
 Purpose: FX rates (open.er-api.com) with multi-source IRR black-market-rate handling; hourly auto-refresh, disk cache, fallback table.
 Singleton: `.shared` | Actor: **`@MainActor @Observable`** (explicit)
-Key methods: `convert(_:from:to:) -> Double` (core conversion used everywhere), `symbol(for:)`, `info(for:)`, `fetchLiveRates(baseCurrency:) async` (chains 5 IRR fallback sources)
+Key methods: `convert(_:from:to:) -> Double` (core conversion used everywhere), `amountInBase(_:from:) -> Double` + `baseCurrencyCode` (lock a new transaction's `amountInBaseCurrency` at the current rate at creation — reads base from UserDefaults, needs no AppState; **every** `Transaction(...)` in a possibly-foreign currency must pass `amountInBaseCurrency:` via this so the base value is frozen at that moment), `symbol(for:)`, `info(for:)`, `fetchLiveRates(baseCurrency:) async` (chains 5 IRR fallback sources)
 External APIs: open.er-api.com, api.tetherland.com, coingecko.com, tgju.org, nobitex.ir, wallex.ir
 
 ### DataTransferService.swift

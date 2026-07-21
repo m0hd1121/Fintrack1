@@ -525,6 +525,7 @@ struct RecordLoanPaymentSheet: View {
             title: "\(loan.name) Payment",
             amount: amountValue,
             currency: paymentCurrency,
+            amountInBaseCurrency: CurrencyService.shared.amountInBase(amountValue, from: paymentCurrency),
             type: .expense,
             category: .loanRepayment,
             date: date,

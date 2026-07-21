@@ -946,6 +946,7 @@ struct RecordInvoicePaymentSheet: View {
             title: "Invoice #\(invoice.invoiceNumber) — \(project.clientName)",
             amount: paid,
             currency: project.currency,
+            amountInBaseCurrency: CurrencyService.shared.amountInBase(paid, from: project.currency),
             type: .income,
             category: .freelance,
             date: paymentDate,

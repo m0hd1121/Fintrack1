@@ -331,7 +331,9 @@ struct OFXImportView: View {
                 title: item.description,
                 amount: item.amount,
                 currency: item.currency,
-                amountInBaseCurrency: item.amount,
+                // Convert to base at import time instead of storing the raw
+                // foreign amount as base (the statement carries no FX rate).
+                amountInBaseCurrency: CurrencyService.shared.convert(item.amount, from: item.currency, to: appState.baseCurrency),
                 type: item.transactionType == "income" ? .income : .expense,
                 category: .other,
                 date: item.date,

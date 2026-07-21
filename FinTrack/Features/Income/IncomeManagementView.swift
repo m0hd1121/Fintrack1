@@ -37,7 +37,10 @@ struct IncomeManagementView: View {
         let startOfMonth = now.startOfMonth
         return incomeTransactions
             .filter { $0.date >= startOfMonth && $0.date < now }
-            .reduce(0) { $0 + currencyService.convert($1.amountInBaseCurrency, from: $1.currency, to: baseCurrency) }
+            // amountInBaseCurrency is already the base value locked at the
+            // transaction's own date/rate — sum it directly. (Re-converting it
+            // live double-counted foreign income and made it drift with rates.)
+            .reduce(0) { $0 + $1.amountInBaseCurrency }
     }
 
     private var previousMonthIncome: Double {
@@ -46,7 +49,7 @@ struct IncomeManagementView: View {
         let endOfPrev = now.startOfMonth
         return incomeTransactions
             .filter { $0.date >= prevMonth && $0.date < endOfPrev }
-            .reduce(0) { $0 + currencyService.convert($1.amountInBaseCurrency, from: $1.currency, to: baseCurrency) }
+            .reduce(0) { $0 + $1.amountInBaseCurrency }
     }
 
     private var monthOverMonthChange: Double {
