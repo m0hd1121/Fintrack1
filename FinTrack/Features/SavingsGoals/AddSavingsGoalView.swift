@@ -73,9 +73,13 @@ struct AddSavingsGoalView: View {
                         notesSection
                         Color.clear.frame(height: 80)
                     }
-                    .padding(.horizontal, FTSpacing.screen)
                     .padding(.top, FTSpacing.lg)
                 }
+                // Inset the whole scroll region (not the content) so the side
+                // gutters are structural and can't be defeated by a full-width
+                // child — content-level padding/contentMargins were both tried
+                // here and left the cards edge-to-edge.
+                .padding(.horizontal, FTSpacing.screen)
                 .scrollContentBackground(.hidden)
                 .scrollDismissesKeyboard(.interactively)
 
