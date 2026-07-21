@@ -60,29 +60,28 @@ struct AddSavingsGoalView: View {
 
     var body: some View {
         NavigationStack {
-            ZStack(alignment: .bottom) {
-                FTBackdrop()
-                ScrollView {
-                    VStack(spacing: FTSpacing.lg) {
-                        if editingGoal == nil {
-                            typeSection
-                        }
-                        detailsSection
-                        templateSection
-                        autoContributionSection
-                        notesSection
-                        Color.clear.frame(height: 80)
+            // Match the working screens (e.g. EmailImportView): backdrop as a
+            // .background and the CTA pinned via .safeAreaInset — NOT a
+            // ZStack(alignment:.bottom) wrapping the ScrollView, which was
+            // swallowing the content's horizontal padding here.
+            ScrollView {
+                VStack(spacing: FTSpacing.lg) {
+                    if editingGoal == nil {
+                        typeSection
                     }
-                    .padding(.top, FTSpacing.lg)
+                    detailsSection
+                    templateSection
+                    autoContributionSection
+                    notesSection
                 }
-                // Inset the whole scroll region (not the content) so the side
-                // gutters are structural and can't be defeated by a full-width
-                // child — content-level padding/contentMargins were both tried
-                // here and left the cards edge-to-edge.
                 .padding(.horizontal, FTSpacing.screen)
-                .scrollContentBackground(.hidden)
-                .scrollDismissesKeyboard(.interactively)
-
+                .padding(.top, FTSpacing.lg)
+                .padding(.bottom, FTSpacing.xl)
+            }
+            .scrollContentBackground(.hidden)
+            .scrollDismissesKeyboard(.interactively)
+            .background { FTBackdrop() }
+            .safeAreaInset(edge: .bottom) {
                 Button { save() } label: {
                     Text(editingGoal == nil ? "Add Goal" : "Save Changes")
                 }
