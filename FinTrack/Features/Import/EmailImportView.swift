@@ -23,8 +23,6 @@ struct EmailImportView: View {
     @State private var editingBankRule: BankEmailRule? = nil
     @State private var oauthSetupProvider: EmailProvider? = nil
     @State private var imapSignInProvider: EmailProvider? = nil
-    @State private var placesAPIKey = ""
-
 
     var body: some View {
         ScrollView {
@@ -33,7 +31,6 @@ struct EmailImportView: View {
                 accountsSection
                 connectSection
                 manualImportSection
-                merchantCategorySection
                 privacyCard
             }
             .padding(FTSpacing.screen)
@@ -320,48 +317,6 @@ struct EmailImportView: View {
                 Text(result).font(.ftCaption).foregroundStyle(FTColor.income)
             }
         }
-    }
-
-    // MARK: - Merchant category lookup
-
-    private var merchantCategorySection: some View {
-        VStack(spacing: FTSpacing.md) {
-            Text("MERCHANT CATEGORIES")
-                .font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            VStack(spacing: 0) {
-                FTToggleRow(symbol: "mappin.and.ellipse", tint: FTColor.catCoral,
-                            title: "Category from Maps",
-                            isOn: Binding(
-                                get: { MerchantCategoryService.shared.isEnabled },
-                                set: { MerchantCategoryService.shared.isEnabled = $0 }
-                            ))
-
-                Divider().opacity(0.4)
-
-                HStack(spacing: FTSpacing.md) {
-                    Text("Google Maps Key").font(.ftBody).foregroundStyle(FTColor.textSecondary).fixedSize()
-                    Spacer()
-                    TextField("optional", text: $placesAPIKey)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .multilineTextAlignment(.trailing)
-                        .font(.ftBody).foregroundStyle(FTColor.textPrimary)
-                        .onChange(of: placesAPIKey) { _, newValue in
-                            MerchantCategoryService.shared.googleAPIKey = newValue
-                        }
-                }
-                .padding(.vertical, 13)
-            }
-            .padding(.horizontal, FTSpacing.lg)
-            .ftGlass(FTRadius.md)
-
-            Text("Unknown merchants are looked up as real-world places to guess the category (e.g. ADNOC → Fuel). Works out of the box via OpenStreetMap; add a Google Places API key for better coverage. \(MerchantCategoryService.shared.cachedCount) merchants cached.")
-                .font(.ftCaption).foregroundStyle(FTColor.textMuted)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .onAppear { placesAPIKey = MerchantCategoryService.shared.googleAPIKey }
     }
 
     // MARK: - Privacy card

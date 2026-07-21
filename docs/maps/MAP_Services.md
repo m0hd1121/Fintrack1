@@ -138,7 +138,7 @@ Key methods: `totalValue/totalCost/unrealizedPnL/totalRealizedPnL(...)`, `alloca
 External APIs: none
 
 ### MerchantCategoryService.swift
-Purpose: last-resort merchant→category lookup via Google Places (if key configured) or OpenStreetMap Nominatim (keyless fallback), with permanent per-merchant caching (including negative results).
+Purpose: last-resort merchant→category lookup via Google Places (if key configured) or OpenStreetMap Nominatim (keyless fallback), with permanent per-merchant caching (including negative results). **Always on** — `isEnabled` is a hardcoded `true` (no user toggle; the old "Category from Maps"/"Google Maps Key" UI in `EmailImportView` was removed). Lookups are country-biased via `regionCode` (`Locale.current.region`, default AE); Nominatim pulls up to 10 results and walks them for the first that maps; Google reads `primaryType` before `types`. Cache key is `..._v3` (bumped when the lookup logic strengthened).
 Singleton: `.shared` | Actor: **`@MainActor @Observable`** (explicit)
 Key methods: `lookupCategory(for merchant:) async -> (category:source:)?`, `static category(forPlaceType:) -> TransactionCategory?`
 External APIs: places.googleapis.com, nominatim.openstreetmap.org
