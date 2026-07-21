@@ -78,27 +78,8 @@ struct EmailImportView: View {
                 }
             }
 
-            if bankRules.isEmpty {
-                Button { showingBankWizard = true } label: {
-                    HStack(spacing: FTSpacing.lg) {
-                        FTIconTile(symbol: "building.columns.fill", tint: FTColor.gold, size: 44)
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text("Set Up Your First Bank")
-                                .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
-                            Text("Tell the app how your bank's alert emails look — imports become fully automatic")
-                                .font(.ftCaption).foregroundStyle(FTColor.textMuted)
-                        }
-                        Spacer()
-                        Image(systemName: "chevron.right").font(.ftCaption).foregroundStyle(FTColor.textMuted)
-                    }
-                    .padding()
-                    .ftGlassInteractive(FTRadius.md)
-                }
-                .buttonStyle(.plain)
-            } else {
-                ForEach(bankRules, id: \.id) { rule in
-                    bankRuleRow(rule)
-                }
+            ForEach(bankRules, id: \.id) { rule in
+                bankRuleRow(rule)
             }
         }
     }
