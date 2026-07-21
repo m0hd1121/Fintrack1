@@ -42,6 +42,24 @@ struct FinTrackBackup: Codable {
     var familyGroups: [FamilyGroupDTO]?
     var childProfiles: [ChildProfileDTO]?
     var sharedFamilyGoals: [SharedFamilyGoalDTO]?
+    // v12+ part 2
+    var retirementPlans: [RetirementPlanDTO]?
+    var lifeEventPlans: [LifeEventPlanDTO]?
+    var advisorAccess: [AdvisorAccessDTO]?
+    var budgetEnvelopes: [BudgetEnvelopeDTO]?
+    var budgetTemplates: [BudgetTemplateDTO]?
+    var giftCards: [GiftCardDTO]?
+    var loyaltyPrograms: [LoyaltyProgramDTO]?
+    var netWorthMilestones: [NetWorthMilestoneDTO]?
+    var emailAccounts: [EmailAccountDTO]?
+    var bankEmailRules: [BankEmailRuleDTO]?
+    var categorizationRules: [CategorizationRuleDTO]?
+    var auditLog: [AuditLogEntryDTO]?
+    var importedFiles: [ImportedFileDTO]?
+    var remittanceRecords: [RemittanceRecordDTO]?
+    var insurancePolicies: [InsurancePolicyDTO]?
+    var customCategories: [CustomCategoryDTO]?
+    var documentAttachments: [DocumentAttachmentDTO]?
 
     static let currentVersion = 7
 }
@@ -359,6 +377,23 @@ final class DataTransferService {
         backup.familyGroups       = (try context.fetch(FetchDescriptor<FamilyGroup>())).map(\.backupDTO)
         backup.childProfiles      = (try context.fetch(FetchDescriptor<ChildProfile>())).map(\.backupDTO)
         backup.sharedFamilyGoals  = (try context.fetch(FetchDescriptor<SharedFamilyGoal>())).map(\.backupDTO)
+        backup.retirementPlans    = (try context.fetch(FetchDescriptor<RetirementPlan>())).map(\.backupDTO)
+        backup.lifeEventPlans     = (try context.fetch(FetchDescriptor<LifeEventPlan>())).map(\.backupDTO)
+        backup.advisorAccess      = (try context.fetch(FetchDescriptor<AdvisorAccess>())).map(\.backupDTO)
+        backup.budgetEnvelopes    = (try context.fetch(FetchDescriptor<BudgetEnvelope>())).map(\.backupDTO)
+        backup.budgetTemplates    = (try context.fetch(FetchDescriptor<BudgetTemplate>())).map(\.backupDTO)
+        backup.giftCards          = (try context.fetch(FetchDescriptor<GiftCard>())).map(\.backupDTO)
+        backup.loyaltyPrograms    = (try context.fetch(FetchDescriptor<LoyaltyProgram>())).map(\.backupDTO)
+        backup.netWorthMilestones = (try context.fetch(FetchDescriptor<NetWorthMilestone>())).map(\.backupDTO)
+        backup.emailAccounts      = (try context.fetch(FetchDescriptor<EmailAccount>())).map(\.backupDTO)
+        backup.bankEmailRules     = (try context.fetch(FetchDescriptor<BankEmailRule>())).map(\.backupDTO)
+        backup.categorizationRules = (try context.fetch(FetchDescriptor<CategorizationRule>())).map(\.backupDTO)
+        backup.auditLog           = (try context.fetch(FetchDescriptor<AuditLogEntry>())).map(\.backupDTO)
+        backup.importedFiles      = (try context.fetch(FetchDescriptor<ImportedFile>())).map(\.backupDTO)
+        backup.remittanceRecords  = (try context.fetch(FetchDescriptor<RemittanceRecord>())).map(\.backupDTO)
+        backup.insurancePolicies  = (try context.fetch(FetchDescriptor<InsurancePolicy>())).map(\.backupDTO)
+        backup.customCategories   = (try context.fetch(FetchDescriptor<CustomCategory>())).map(\.backupDTO)
+        backup.documentAttachments = (try context.fetch(FetchDescriptor<DocumentAttachment>())).map(\.backupDTO)
 
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
@@ -430,11 +465,17 @@ final class DataTransferService {
             for loan in (try? context.fetch(FetchDescriptor<Loan>())) ?? [] { loanMap[loan.id] = loan }
         }
 
+        var txMap: [UUID: Transaction] = [:]
         for dto in backup.transactions where !existingTxIds.contains(dto.id) {
             let obj = dto.toModel()
             obj.account = dto.accountId.flatMap { accountMap[$0] }
             obj.linkedLoan = dto.linkedLoanId.flatMap { loanMap[$0] }
             context.insert(obj); summary.transactions += 1
+            txMap[dto.id] = obj
+        }
+        // Existing transactions can also be attachment targets in merge mode.
+        if mode == .merge {
+            for tx in (try? context.fetch(FetchDescriptor<Transaction>())) ?? [] { txMap[tx.id] = tx }
         }
 
         for dto in backup.budgets where !existingBudgetIds.contains(dto.id) {
@@ -514,6 +555,43 @@ final class DataTransferService {
         summary.extras += restoreExtras(backup.familyGroups,      existing: FamilyGroup.self,      mode: mode, context: context)
         summary.extras += restoreExtras(backup.childProfiles,     existing: ChildProfile.self,     mode: mode, context: context)
         summary.extras += restoreExtras(backup.sharedFamilyGoals, existing: SharedFamilyGoal.self,  mode: mode, context: context)
+        summary.extras += restoreExtras(backup.retirementPlans,   existing: RetirementPlan.self,   mode: mode, context: context)
+        summary.extras += restoreExtras(backup.lifeEventPlans,    existing: LifeEventPlan.self,    mode: mode, context: context)
+        summary.extras += restoreExtras(backup.advisorAccess,     existing: AdvisorAccess.self,    mode: mode, context: context)
+        summary.extras += restoreExtras(backup.budgetEnvelopes,   existing: BudgetEnvelope.self,   mode: mode, context: context)
+        summary.extras += restoreExtras(backup.budgetTemplates,   existing: BudgetTemplate.self,   mode: mode, context: context)
+        summary.extras += restoreExtras(backup.giftCards,         existing: GiftCard.self,         mode: mode, context: context)
+        summary.extras += restoreExtras(backup.loyaltyPrograms,   existing: LoyaltyProgram.self,   mode: mode, context: context)
+        summary.extras += restoreExtras(backup.netWorthMilestones, existing: NetWorthMilestone.self, mode: mode, context: context)
+        summary.extras += restoreExtras(backup.emailAccounts,     existing: EmailAccount.self,     mode: mode, context: context)
+        summary.extras += restoreExtras(backup.bankEmailRules,    existing: BankEmailRule.self,    mode: mode, context: context)
+        summary.extras += restoreExtras(backup.categorizationRules, existing: CategorizationRule.self, mode: mode, context: context)
+        summary.extras += restoreExtras(backup.auditLog,          existing: AuditLogEntry.self,    mode: mode, context: context)
+        summary.extras += restoreExtras(backup.importedFiles,     existing: ImportedFile.self,     mode: mode, context: context)
+        summary.extras += restoreExtras(backup.remittanceRecords, existing: RemittanceRecord.self, mode: mode, context: context)
+        summary.extras += restoreExtras(backup.insurancePolicies, existing: InsurancePolicy.self,  mode: mode, context: context)
+
+        // Custom categories (self-referential): insert all, then link parents.
+        let existingCatIds = mode == .merge ? Set((try? context.fetch(FetchDescriptor<CustomCategory>()))?.map(\.id) ?? []) : []
+        var catMap: [UUID: CustomCategory] = [:]
+        for dto in (backup.customCategories ?? []) where !existingCatIds.contains(dto.id) {
+            let obj = CustomCategory.fromBackup(dto); context.insert(obj)
+            catMap[dto.id] = obj; summary.extras += 1
+        }
+        if mode == .merge {
+            for cat in (try? context.fetch(FetchDescriptor<CustomCategory>())) ?? [] { catMap[cat.id] = cat }
+        }
+        for dto in (backup.customCategories ?? []) where !existingCatIds.contains(dto.id) {
+            if let pid = dto.parentId { catMap[dto.id]?.parent = catMap[pid] }
+        }
+
+        // Document attachments: re-link to their transaction via txMap.
+        let existingAttIds = mode == .merge ? Set((try? context.fetch(FetchDescriptor<DocumentAttachment>()))?.map(\.id) ?? []) : []
+        for dto in (backup.documentAttachments ?? []) where !existingAttIds.contains(dto.id) {
+            let obj = DocumentAttachment.fromBackup(dto)
+            obj.transaction = dto.transactionId.flatMap { txMap[$0] }
+            context.insert(obj); summary.extras += 1
+        }
 
         if mode == .replace {
             if let dto = backup.userProfile  { context.insert(dto.toModel()) }
@@ -585,6 +663,9 @@ final class DataTransferService {
         try context.delete(model: AuditLogEntry.self)
         try context.delete(model: CategorizationRule.self)
         try context.delete(model: CustomCategory.self)
+        // Email-import config (mailboxes + bank rules) — restored from backup
+        try context.delete(model: EmailAccount.self)
+        try context.delete(model: BankEmailRule.self)
         // Profile / settings (restore from backup after this)
         try context.delete(model: UserProfile.self)
         try context.delete(model: AppSettings.self)

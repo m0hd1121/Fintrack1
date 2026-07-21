@@ -69,10 +69,11 @@ Singleton: `.shared` | Actor: **`@MainActor @Observable`** (explicit)
 Key methods: `convert(_:from:to:) -> Double` (core conversion used everywhere), `amountInBase(_:from:) -> Double` + `baseCurrencyCode` (lock a new transaction's `amountInBaseCurrency` at the current rate at creation — reads base from UserDefaults, needs no AppState; **every** `Transaction(...)` in a possibly-foreign currency must pass `amountInBaseCurrency:` via this so the base value is frozen at that moment), `symbol(for:)`, `info(for:)`, `fetchLiveRates(baseCurrency:) async` (chains 5 IRR fallback sources)
 External APIs: open.er-api.com, api.tetherland.com, coingecko.com, tgju.org, nobitex.ir, wallex.ir
 
-### DataTransferService.swift
-Purpose: full JSON backup/restore of the entire SwiftData store via Codable DTOs — the shared substrate under manual export, iCloud, Google Drive, and Email backup.
+### DataTransferService.swift (+ DataTransferService+ExtraBackup.swift)
+Purpose: full JSON backup/restore of the **whole** SwiftData store via Codable DTOs — the shared substrate under manual export/import, iCloud, Google Drive, and Email backup. Covers every `@Model` **except** the transient `PendingEmailTransaction` review queue.
 Singleton: `.shared` | Actor: **`@MainActor`** (explicit)
-Key methods: `exportBackup(context:) throws -> URL`, `importBackup(from:context:mode:) throws -> ImportSummary` (`.merge` dedup-by-UUID or `.replace` wipes-then-inserts), private `deleteAll(context:) throws`
+Key methods: `exportBackup(context:) throws -> URL`, `importBackup(from:context:mode:) throws -> ImportSummary` (`.merge` dedup-by-UUID or `.replace` wipes-then-inserts), private `deleteAll(context:) throws`, `restoreExtras(_:existing:mode:context:)` generic helper.
+Pattern for adding a model to the backup (see `+ExtraBackup.swift`): add a `struct XDTO: BackupDTO` mirroring the model's **stored** props (enums as `…Raw`, arrays as `…Data`), a `var backupDTO` on the model, `extension X: BackupIdentifiable {}`, an optional field on `FinTrackBackup`, one fetch line in `exportBackup`, and one `restoreExtras(...)` line in `importBackup` (relationship models like `CustomCategory`/`DocumentAttachment` are linked explicitly instead). Backup `currentVersion` = 7; new fields are optional so old backups still decode.
 External APIs: none (SwiftData only)
 
 ### DebtService.swift
