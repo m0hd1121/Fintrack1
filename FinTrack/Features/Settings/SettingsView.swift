@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UniformTypeIdentifiers
 
 struct SettingsView: View {
     @Environment(AppState.self) private var appState
@@ -21,6 +22,13 @@ struct SettingsView: View {
     @State private var showingRuleManagement = false
 
     @State private var showingClearConfirm = false
+
+    // Backup import
+    @State private var showingImporter = false
+    @State private var pendingImportURL: URL?
+    @State private var showingImportMode = false
+    @State private var showingResult = false
+    @State private var resultMessage = ""
 
     // MARK: - Bindings
 
@@ -203,6 +211,11 @@ struct SettingsView: View {
                                    title: "Email Backup", chevron: true)
                     }
                     rowDivider
+                    Button { showingImporter = true } label: {
+                        settingRow(symbol: "arrow.down.doc.fill", tint: FTColor.income,
+                                   title: "Import Backup", chevron: true)
+                    }
+                    rowDivider
                     Button(role: .destructive) { showingClearConfirm = true } label: {
                         settingRow(symbol: "trash", tint: FTColor.expense,
                                    title: "Clear All Data", titleColor: FTColor.expense, chevron: true)
@@ -256,6 +269,33 @@ struct SettingsView: View {
             Button("Cancel", role: .cancel) { }
         } message: {
             Text("This will permanently delete all financial data — transactions, accounts, budgets, investments, debts, tax records, bills, assets, and more. Your app settings and preferences will be kept. This action cannot be undone.")
+        }
+        .fileImporter(
+            isPresented: $showingImporter,
+            allowedContentTypes: [UTType(filenameExtension: "fintrack") ?? .json, .json, .data],
+            allowsMultipleSelection: false
+        ) { result in
+            switch result {
+            case .success(let urls):
+                guard let url = urls.first else { return }
+                pendingImportURL = url
+                showingImportMode = true
+            case .failure(let error):
+                resultMessage = "Could not open file: \(error.localizedDescription)"
+                showingResult = true
+            }
+        }
+        .confirmationDialog("Import Backup", isPresented: $showingImportMode, titleVisibility: .visible) {
+            Button("Merge with existing data") { runImport(mode: .merge) }
+            Button("Replace all data", role: .destructive) { runImport(mode: .replace) }
+            Button("Cancel", role: .cancel) { pendingImportURL = nil }
+        } message: {
+            Text("Merge keeps your current data and adds new items. Replace deletes everything first, then restores from the backup.")
+        }
+        .alert("Backup", isPresented: $showingResult) {
+            Button("OK") { }
+        } message: {
+            Text(resultMessage)
         }
     }
 
@@ -383,6 +423,36 @@ struct SettingsView: View {
         }
         .padding(.vertical, 13)
         .contentShape(Rectangle())
+    }
+
+    // Restore a .fintrack backup (JSON, transparently decrypted). Merge adds new
+    // items; Replace wipes first, then restores.
+
+    private func runImport(mode: DataTransferService.ImportMode) {
+        Task { await runImportAsync(mode: mode) }
+    }
+
+    private func runImportAsync(mode: DataTransferService.ImportMode) async {
+        guard let url = pendingImportURL else { return }
+        defer { pendingImportURL = nil }
+
+        // Files picked from iCloud/Files are security-scoped.
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+
+        do {
+            let rawData = try Data(contentsOf: url)
+            let plainData = try await BackupEncryptionService.decryptIfNeeded(rawData)
+            let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("FinTrack_Import_\(UUID().uuidString).fintrack")
+            try plainData.write(to: tempURL, options: .atomic)
+            defer { try? FileManager.default.removeItem(at: tempURL) }
+
+            let summary = try DataTransferService.shared.importBackup(from: tempURL, context: context, mode: mode)
+            resultMessage = summary.total > 0 ? "Imported \(summary.description)." : "Nothing new to import."
+        } catch {
+            resultMessage = "Import failed. Make sure this is a FinTrack backup file.\n\n\(error.localizedDescription)"
+        }
+        showingResult = true
     }
 
     private func clearAllData() {
