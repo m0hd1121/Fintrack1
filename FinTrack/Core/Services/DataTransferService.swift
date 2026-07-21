@@ -30,8 +30,20 @@ struct FinTrackBackup: Codable {
     var personalAssets: [PersonalAssetDTO]?      // v11+
     var digitalAssets: [DigitalAssetDTO]?        // v11+
     var netWorthSnapshots: [NetWorthSnapshotDTO]? // v11+
+    // v12+ — full-app coverage (see DataTransferService+ExtraBackup.swift)
+    var taxRecords: [TaxRecordDTO]?
+    var taxDocuments: [TaxDocumentDTO]?
+    var zakatRecords: [ZakatRecordDTO]?
+    var taxConfigurations: [TaxConfigurationDTO]?
+    var clientProfiles: [ClientProfileDTO]?
+    var businessInvoices: [BusinessInvoiceDTO]?
+    var mileageTrips: [MileageTripDTO]?
+    var businessProjects: [BusinessProjectDTO]?
+    var familyGroups: [FamilyGroupDTO]?
+    var childProfiles: [ChildProfileDTO]?
+    var sharedFamilyGoals: [SharedFamilyGoalDTO]?
 
-    static let currentVersion = 6
+    static let currentVersion = 7
 }
 
 struct AccountDTO: Codable {
@@ -335,6 +347,19 @@ final class DataTransferService {
         backup.digitalAssets        = digitalItems.map(\.dto)
         backup.netWorthSnapshots    = snapshots.map(\.dto)
 
+        // v12+ full-app coverage
+        backup.taxRecords         = (try context.fetch(FetchDescriptor<TaxRecord>())).map(\.backupDTO)
+        backup.taxDocuments       = (try context.fetch(FetchDescriptor<TaxDocument>())).map(\.backupDTO)
+        backup.zakatRecords       = (try context.fetch(FetchDescriptor<ZakatRecord>())).map(\.backupDTO)
+        backup.taxConfigurations  = (try context.fetch(FetchDescriptor<TaxConfiguration>())).map(\.backupDTO)
+        backup.clientProfiles     = (try context.fetch(FetchDescriptor<ClientProfile>())).map(\.backupDTO)
+        backup.businessInvoices   = (try context.fetch(FetchDescriptor<BusinessInvoice>())).map(\.backupDTO)
+        backup.mileageTrips       = (try context.fetch(FetchDescriptor<MileageTrip>())).map(\.backupDTO)
+        backup.businessProjects   = (try context.fetch(FetchDescriptor<BusinessProject>())).map(\.backupDTO)
+        backup.familyGroups       = (try context.fetch(FetchDescriptor<FamilyGroup>())).map(\.backupDTO)
+        backup.childProfiles      = (try context.fetch(FetchDescriptor<ChildProfile>())).map(\.backupDTO)
+        backup.sharedFamilyGoals  = (try context.fetch(FetchDescriptor<SharedFamilyGoal>())).map(\.backupDTO)
+
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -477,6 +502,19 @@ final class DataTransferService {
             context.insert(dto.toModel()); summary.netWorthSnapshots += 1
         }
 
+        // v12+ full-app coverage — restore every remaining model.
+        summary.extras += restoreExtras(backup.taxRecords,        existing: TaxRecord.self,        mode: mode, context: context)
+        summary.extras += restoreExtras(backup.taxDocuments,      existing: TaxDocument.self,      mode: mode, context: context)
+        summary.extras += restoreExtras(backup.zakatRecords,      existing: ZakatRecord.self,      mode: mode, context: context)
+        summary.extras += restoreExtras(backup.taxConfigurations, existing: TaxConfiguration.self, mode: mode, context: context)
+        summary.extras += restoreExtras(backup.clientProfiles,    existing: ClientProfile.self,    mode: mode, context: context)
+        summary.extras += restoreExtras(backup.businessInvoices,  existing: BusinessInvoice.self,  mode: mode, context: context)
+        summary.extras += restoreExtras(backup.mileageTrips,      existing: MileageTrip.self,      mode: mode, context: context)
+        summary.extras += restoreExtras(backup.businessProjects,  existing: BusinessProject.self,  mode: mode, context: context)
+        summary.extras += restoreExtras(backup.familyGroups,      existing: FamilyGroup.self,      mode: mode, context: context)
+        summary.extras += restoreExtras(backup.childProfiles,     existing: ChildProfile.self,     mode: mode, context: context)
+        summary.extras += restoreExtras(backup.sharedFamilyGoals, existing: SharedFamilyGoal.self,  mode: mode, context: context)
+
         if mode == .replace {
             if let dto = backup.userProfile  { context.insert(dto.toModel()) }
             if let dto = backup.appSettings  { context.insert(dto.toModel()) }
@@ -562,6 +600,7 @@ struct ImportSummary {
     var moneyLent = 0; var moneyBorrowed = 0; var goldHoldings = 0
     var realEstateProperties = 0; var vehicles = 0; var personalAssets = 0
     var digitalAssets = 0; var netWorthSnapshots = 0
+    var extras = 0   // tax/business/family/premium/config records (full-app coverage)
 
     var total: Int {
         accounts + transactions + budgets + goals + loans + creditCards
@@ -569,6 +608,7 @@ struct ImportSummary {
         + salaryRecords + freelanceProjects + rentalProperties
         + moneyLent + moneyBorrowed + goldHoldings
         + realEstateProperties + vehicles + personalAssets + digitalAssets + netWorthSnapshots
+        + extras
     }
 
     var description: String {
