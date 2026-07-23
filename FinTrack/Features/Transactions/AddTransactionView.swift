@@ -858,8 +858,7 @@ struct AddTransactionView: View {
                 }
             }
 
-            // Linked bill/subscription — auto-selected when the title/merchant
-            // names an active bill in this category; always overridable here.
+            // Linked bill/subscription — manual pick only (auto-selection removed).
             if type == .expense && !matchingBills.isEmpty {
                 Divider().opacity(0.4)
                 detailMenuRow(label: "Paying Bill", value: linkedBillItem?.name ?? "None") {
@@ -1319,8 +1318,6 @@ struct AddTransactionView: View {
                 }
             }
         }
-        autoLinkBillIfNeeded(text: title)
-        autoLinkBillIfNeeded(text: merchant)
     }
 
     private func updateTagSuggestions() {
@@ -1807,24 +1804,6 @@ struct AddTransactionView: View {
             }
         }
         checkMinBalance(account: account)
-    }
-
-    /// Auto-selects a matching active bill when the title/merchant text names one
-    /// (e.g. typing "Netflix" auto-links the Netflix subscription). Only fires
-    /// while nothing is linked yet, so it never overrides an explicit pick.
-    private func autoLinkBillIfNeeded(text: String) {
-        guard linkedBillItem == nil else { return }
-        let needle = text.trimmingCharacters(in: .whitespaces).lowercased()
-        guard !needle.isEmpty else { return }
-        linkedBillItem = activeBillsForLinking.first { bill in
-            let name = bill.name.lowercased()
-            let provider = bill.provider?.lowercased() ?? ""
-            return needle.contains(name) || name.contains(needle)
-                || (!provider.isEmpty && (needle.contains(provider) || provider.contains(needle)))
-        }
-        if let bill = linkedBillItem {
-            category = bill.billCategory.transactionCategory
-        }
     }
 
     private func checkMinBalance(account: Account) {
