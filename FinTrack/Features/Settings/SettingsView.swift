@@ -211,11 +211,6 @@ struct SettingsView: View {
                                    title: "Email Backup", chevron: true)
                     }
                     rowDivider
-                    NavigationLink(destination: LazyView { CloudEmailSyncView() }) {
-                        settingRow(symbol: "cloud.fill", tint: FTColor.accent,
-                                   title: "Cloud Email Sync", chevron: true)
-                    }
-                    rowDivider
                     Button { showingImporter = true } label: {
                         settingRow(symbol: "arrow.down.doc.fill", tint: FTColor.income,
                                    title: "Import Backup", chevron: true)
