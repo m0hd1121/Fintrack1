@@ -504,12 +504,10 @@ struct CustomTabBar: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
-        .background {
-            RoundedRectangle(cornerRadius: 28)
-                .fill(.ultraThinMaterial)
-                .opacity(1)
-        }
-        .shadow(color: .black.opacity(0.12), radius: 20, x: 0, y: 6)
+        // True iOS 26 Liquid Glass capsule — replaces the flat ultra-thin
+        // material for the refractive, floating "liquid glass" look.
+        .glassEffect(.regular, in: .capsule)
+        .shadow(color: .black.opacity(0.12), radius: 18, x: 0, y: 6)
         // Shrink ~20% while scrolling down (see collapsesTabBarOnScroll()).
         .scaleEffect(appState.tabBarCollapsed ? 0.8 : 1.0, anchor: .bottom)
         .animation(reduceMotion ? nil : .easeOut(duration: 0.25), value: appState.tabBarCollapsed)
@@ -537,11 +535,12 @@ struct CustomTabBar: View {
         } label: {
             VStack(spacing: 3) {
                 ZStack {
-                    // Pill highlight behind selected icon
+                    // Liquid-glass selected-tab highlight (neutral translucent
+                    // pill that adapts to light/dark, like the reference).
                     if isSelected {
                         Capsule()
-                            .fill(.thinMaterial)
-                            .frame(width: 42, height: 24)
+                            .fill(FTColor.textPrimary.opacity(0.10))
+                            .frame(width: 46, height: 30)
                             .matchedGeometryEffect(id: "tabHighlight", in: selectionNamespace)
                     }
 
