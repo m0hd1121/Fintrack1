@@ -442,7 +442,11 @@ struct SettingsView: View {
 
         do {
             let rawData = try Data(contentsOf: url)
-            let plainData = try await BackupEncryptionService.decryptIfNeeded(rawData)
+            let decrypted = try await BackupEncryptionService.decryptIfNeeded(rawData)
+            // Email backups are zlib-compressed (FTGZ1 header) before encryption;
+            // manual/iCloud/Drive backups are not. decompressIfNeeded passes
+            // uncompressed data straight through, so this handles every source.
+            let plainData = try EmailBackupService.decompressIfNeeded(decrypted)
             let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("FinTrack_Import_\(UUID().uuidString).fintrack")
             try plainData.write(to: tempURL, options: .atomic)
             defer { try? FileManager.default.removeItem(at: tempURL) }

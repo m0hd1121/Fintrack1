@@ -276,7 +276,10 @@ final class EmailBackupService {
         return compressionMagic + compressed
     }
 
-    private static func decompressIfNeeded(_ data: Data) throws -> Data {
+    /// Undo `compress` if the data carries the `FTGZ1` header; otherwise pass it
+    /// through unchanged. Internal so the manual "Import Backup" flow can restore
+    /// email-backup files (which are compressed) as well as uncompressed ones.
+    static func decompressIfNeeded(_ data: Data) throws -> Data {
         guard data.starts(with: compressionMagic) else { return data }
         let payload = data.suffix(from: compressionMagic.count)
         return try (Data(payload) as NSData).decompressed(using: .zlib) as Data
