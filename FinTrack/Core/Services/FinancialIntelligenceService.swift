@@ -405,7 +405,7 @@ final class FinancialIntelligenceService {
             results.append(IntelligencePrediction(
                 label: "Bills due in 30 days (\(upcoming.count))",
                 value: totalDue.asCompact(currency: baseCurrency),
-                confidence: 98, icon: "doc.text.circle"))
+                confidence: 98, icon: "doc.circle"))
         }
 
         // Projected yearly savings
