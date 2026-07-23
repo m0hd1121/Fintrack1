@@ -504,10 +504,8 @@ struct CustomTabBar: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
-        // Transparent Liquid Glass: the "clear" variant is see-through with no
-        // frosted/white tint (vs .regular), so the bar reads as glass without a
-        // colored background.
-        .glassEffect(.clear, in: .capsule)
+        // Liquid Glass capsule (known-good .regular; see note re: transparency).
+        .glassEffect(.regular, in: .capsule)
         .shadow(color: .black.opacity(0.10), radius: 16, x: 0, y: 5)
         // Shrink ~20% while scrolling down (see collapsesTabBarOnScroll()).
         .scaleEffect(appState.tabBarCollapsed ? 0.8 : 1.0, anchor: .bottom)
