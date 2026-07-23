@@ -76,6 +76,11 @@ Key methods: `exportBackup(context:) throws -> URL`, `importBackup(from:context:
 Pattern for adding a model to the backup (see `+ExtraBackup.swift`): add a `struct XDTO: BackupDTO` mirroring the model's **stored** props (enums as `…Raw`, arrays as `…Data`), a `var backupDTO` on the model, `extension X: BackupIdentifiable {}`, an optional field on `FinTrackBackup`, one fetch line in `exportBackup`, and one `restoreExtras(...)` line in `importBackup` (relationship models like `CustomCategory`/`DocumentAttachment` are linked explicitly instead). Backup `currentVersion` = 7; new fields are optional so old backups still decode.
 External APIs: none (SwiftData only)
 
+### RemoteEmailSyncService.swift
+Purpose: client for the Cloudflare email-sync backend (`/backend`). Registers the APNs device token, pulls new pending transactions into the local `PendingEmailTransaction` review queue, and acks them. Config (enabled/baseURL/apiKey/userId/forwardingDomain) is UserDefaults-backed (no `@Model`). `container` is set by `FinTrackApp.init`; APNs handled by `App/AppDelegate.swift` (`@UIApplicationDelegateAdaptor`). UI: `Settings → Cloud Email Sync` (`CloudEmailSyncView`). Push tap posts `.openEmailReview` → `RootView` switches to the Transactions tab. Backend lives in `/backend` (Cloudflare Worker + D1 `fintrack-email-sync`, Email Routing); requires the app to have the Push Notifications capability + Background Modes → Remote notifications.
+Singleton: `.shared` | Actor: **`@MainActor @Observable`**
+Key methods: `enablePush()`, `registerDevice()`, `syncPending() -> Int`
+
 ### DebtService.swift
 Purpose: debt payoff planning — snowball/avalanche simulators, interest-savings comparison, credit-utilization analysis.
 Singleton: `.shared` | Actor: implicit MainActor

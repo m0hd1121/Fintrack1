@@ -1,0 +1,29 @@
+{
+  // FinTrack email-transaction sync backend (Cloudflare Worker).
+  // Receives forwarded bank-alert emails via Email Routing, parses them into
+  // pending transactions (D1), and pushes an APNs notification to the user's
+  // iPhone so they can confirm / reject / edit in the app.
+  "name": "fintrack-email-sync",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-06-01",
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "fintrack-email-sync",
+      "database_id": "45339d6a-3847-472d-92ab-26070a8a1d56"
+    }
+  ],
+
+  // Non-secret vars. Secrets (APNS_KEY, APNS_KEY_ID, APNS_TEAM_ID, APP_API_KEY)
+  // are set with `wrangler secret put <NAME>` — never commit them.
+  "vars": {
+    "APNS_TOPIC": "com.mohd.fintrackpro.FinTrack",
+    "APNS_HOST": "https://api.push.apple.com"
+  },
+
+  // Daily cleanup of old, already-reviewed rows.
+  "triggers": { "crons": ["0 3 * * *"] },
+
+  "observability": { "enabled": true }
+}

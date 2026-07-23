@@ -5,6 +5,7 @@ import UserNotifications
 
 @main
 struct FinTrackApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var appState = AppState()
     @State private var currencyService = CurrencyService.shared
     @State private var cryptoPriceService = CryptoPriceService.shared
@@ -99,6 +100,8 @@ struct FinTrackApp: App {
 
     init() {
         EmailSyncService.registerBackgroundSync(container: modelContainer)
+        // Let cloud email sync write pending transactions into the store.
+        RemoteEmailSyncService.shared.container = modelContainer
     }
 
     var body: some Scene {
@@ -113,6 +116,11 @@ struct FinTrackApp: App {
                     await currencyService.fetchLiveRates()
                     await cryptoPriceService.fetchPrices()
                     _ = await NotificationService.shared.requestPermission()
+                    // Cloud email sync: register for push + pull anything waiting.
+                    if RemoteEmailSyncService.shared.isConfigured {
+                        await RemoteEmailSyncService.shared.enablePush()
+                        await RemoteEmailSyncService.shared.syncPending()
+                    }
                 }
         }
     }

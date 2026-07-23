@@ -56,6 +56,11 @@ struct RootView: View {
         .environment(\.isHighContrast, settings.first?.highContrastMode ?? false)
         .tint(resolvedAccentColor)
         .dismissKeyboardOnTap()
+        .onReceive(NotificationCenter.default.publisher(for: .openEmailReview)) { _ in
+            // A "new transaction" push was tapped — the pending items live in the
+            // Transactions tab's review banner/queue.
+            appState.selectedTab = .transactions
+        }
         .onAppear {
             ensureDefaults()
             if appState.hasCompletedOnboarding,
