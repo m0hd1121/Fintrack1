@@ -28,6 +28,7 @@ struct DashboardView: View {
     @Query private var goldHoldings: [GoldHolding]
     @Query private var giftCards: [GiftCard]
     @Query(filter: #Predicate<Bill> { $0.isActive }) private var bills: [Bill]
+    @Query private var moneyBorrowed: [MoneyBorrowed]
 
     @Query private var dashSettings: [AppSettings]
 
@@ -131,18 +132,34 @@ struct DashboardView: View {
         }
         m.netWorth = m.totalBalance + investmentValue + cryptoValue + goldValue + giftCardValue - totalDebt - ccDebt
 
+        // Every amount here is converted to the base currency so the list can be
+        // rendered/summed consistently (loans, cards and BNPL previously showed
+        // their raw foreign amounts).
         var payments: [(name: String, amount: Double, date: Date, type: String)] = []
         loans.filter { $0.isActive }.forEach { loan in
-            payments.append((loan.name, loan.emiAmount, loan.nextPaymentDate, "Loan"))
+            payments.append((loan.name,
+                             currencyService.convert(loan.emiAmount, from: loan.currency, to: baseCurrency),
+                             loan.nextPaymentDate, "Loan"))
         }
         creditCards.filter { $0.isActive }.forEach { card in
-            payments.append((card.name, card.minimumPayment, card.dueDate, "Credit Card"))
+            payments.append((card.name,
+                             currencyService.convert(card.minimumPayment, from: card.currency, to: baseCurrency),
+                             card.dueDate, "Credit Card"))
         }
         bnplPlans.filter { !$0.isCompleted }.forEach { plan in
-            payments.append((plan.name, plan.installmentAmount, plan.nextPaymentDate, "BNPL"))
+            payments.append((plan.name,
+                             currencyService.convert(plan.installmentAmount, from: plan.currency, to: baseCurrency),
+                             plan.nextPaymentDate, "BNPL"))
         }
         bills.forEach { bill in
             payments.append((bill.name, currencyService.convert(bill.amount, from: bill.currency, to: baseCurrency), bill.nextDueDate, "Bill"))
+        }
+        // Personal debts you owe (MoneyLent is incoming, so it's not a payment).
+        moneyBorrowed.forEach { item in
+            guard item.status != .writtenOff, !item.isFullyRepaid, let due = item.dueDate else { return }
+            payments.append((item.lenderName,
+                             currencyService.convert(item.remainingBalance, from: item.currency, to: baseCurrency),
+                             due, "Borrowed"))
         }
         m.upcomingPayments = payments.sorted { $0.date < $1.date }.prefix(5).map { $0 }
 

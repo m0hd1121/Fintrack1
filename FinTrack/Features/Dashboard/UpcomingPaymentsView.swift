@@ -11,6 +11,9 @@ struct UpcomingPaymentsView: View {
     @Query(filter: #Predicate<BNPLPlan> { $0.isCompleted == false }) private var bnplPlans: [BNPLPlan]
     @Query(filter: #Predicate<Transaction> { $0.isRecurring }) private var recurringExpenses: [Transaction]
     @Query(filter: #Predicate<Bill> { $0.isActive }) private var bills: [Bill]
+    // Personal debts you owe. (MoneyLent is money owed *to* you — incoming, so
+    // it deliberately isn't an upcoming payment.)
+    @Query private var moneyBorrowed: [MoneyBorrowed]
 
     @State private var selectedRange: DateRangeFilter = .month
     @State private var customStart = Date()
@@ -59,7 +62,7 @@ struct UpcomingPaymentsView: View {
         let isOverdue: Bool
 
         enum SourceType {
-            case loan, creditCard, bnpl, recurring, bill
+            case loan, creditCard, bnpl, recurring, bill, borrowed
             var label: String {
                 switch self {
                 case .loan: return "Loan"
@@ -67,6 +70,7 @@ struct UpcomingPaymentsView: View {
                 case .bnpl: return "BNPL"
                 case .recurring: return "Recurring"
                 case .bill: return "Bill"
+                case .borrowed: return "Borrowed"
                 }
             }
             var icon: String {
@@ -76,6 +80,7 @@ struct UpcomingPaymentsView: View {
                 case .bnpl: return "cart"
                 case .recurring: return "repeat"
                 case .bill: return "calendar.badge.exclamationmark"
+                case .borrowed: return "person.badge.minus"
                 }
             }
             var color: Color {
@@ -85,6 +90,7 @@ struct UpcomingPaymentsView: View {
                 case .bnpl: return .orange
                 case .recurring: return .teal
                 case .bill: return Color.fromString("teal")
+                case .borrowed: return .pink
                 }
             }
         }
@@ -172,6 +178,26 @@ struct UpcomingPaymentsView: View {
                     currency: baseCurrency,
                     date: bill.nextDueDate,
                     sourceType: .bill,
+                    isOverdue: overdue
+                ))
+            }
+        }
+
+        // Money borrowed from people — the outstanding balance is due on its
+        // due date. Skip anything already repaid or written off, and anything
+        // with no due date (nothing to schedule against).
+        for item in moneyBorrowed {
+            guard item.status != .writtenOff, !item.isFullyRepaid,
+                  let due = item.dueDate else { continue }
+            let overdue = due < today
+            if due <= rangeEnd || overdue {
+                result.append(UpcomingPayment(
+                    name: item.lenderName,
+                    subtitle: "Personal debt",
+                    amount: currencyService.convert(item.remainingBalance, from: item.currency, to: baseCurrency),
+                    currency: baseCurrency,
+                    date: due,
+                    sourceType: .borrowed,
                     isOverdue: overdue
                 ))
             }

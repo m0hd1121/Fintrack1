@@ -69,7 +69,7 @@ Part of PROJECT_MAP.md (see root for navigation). All folders under `FinTrack/Fe
 ### Features/Dashboard/
 - DashboardCustomizerView.swift — defines `DashboardWidget` enum for show/hide toggling
 - DashboardView.swift — main dashboard: net worth hero, monthly metrics, income/budget/goals/debt/portfolio/bills widgets, AI insights
-- UpcomingPaymentsView.swift — aggregated upcoming payments (loans, cards, BNPL, recurring, bills) filterable by date range
+- UpcomingPaymentsView.swift — aggregated upcoming payments (loans, cards, BNPL, recurring, bills, **money borrowed**) filterable by date range. `MoneyBorrowed` rows use `dueDate` + `remainingBalance` and skip repaid/written-off/no-due-date items; `MoneyLent` is deliberately excluded (incoming, not a payment). The Dashboard's own 5-item preview list (`DashboardView.metrics.upcomingPayments`) is built separately — keep the two in sync when adding a source.
 
 **Core features:** app home screen — widget visibility controlled by `DashboardCustomizerView`'s enum + `AppSettings.dashboardHiddenWidgets`; `UpcomingPaymentsView` is a drill-down sheet.
 
