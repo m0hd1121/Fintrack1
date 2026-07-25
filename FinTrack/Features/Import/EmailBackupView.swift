@@ -215,14 +215,11 @@ private struct EmailBackupSignInSheet: View {
 
     @State private var email = ""
     @State private var password = ""
-    @State private var smtpHost = ""
-    @State private var imapHost = ""
-    @State private var hostEdited = false
     @State private var isConnecting = false
     @State private var errorMessage: String? = nil
 
     private var canConnect: Bool {
-        email.contains("@") && !password.isEmpty && !smtpHost.isEmpty && !imapHost.isEmpty && !isConnecting
+        email.contains("@") && !password.isEmpty && !isConnecting
     }
 
     private var domain: String { email.components(separatedBy: "@").last?.lowercased() ?? "" }
@@ -261,11 +258,6 @@ private struct EmailBackupSignInSheet: View {
                                     .autocorrectionDisabled()
                                     .multilineTextAlignment(.trailing)
                                     .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
-                                    .onChange(of: email) {
-                                        guard !hostEdited else { return }
-                                        smtpHost = EmailBackupService.suggestedSMTPHost(for: email)
-                                        imapHost = EmailSyncService.suggestedIMAPHost(for: email)
-                                    }
                             }
                             .padding(.vertical, 13)
 
@@ -277,34 +269,6 @@ private struct EmailBackupSignInSheet: View {
                                 SecureField(requiresAppPassword ? "xxxx-xxxx-xxxx-xxxx" : "Password", text: $password)
                                     .multilineTextAlignment(.trailing)
                                     .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
-                            }
-                            .padding(.vertical, 13)
-
-                            Divider().opacity(0.4)
-
-                            HStack(spacing: FTSpacing.md) {
-                                Text("SMTP Server").font(.ftBody).foregroundStyle(FTColor.textSecondary).fixedSize()
-                                Spacer()
-                                TextField("smtp.example.com", text: $smtpHost)
-                                    .textInputAutocapitalization(.never)
-                                    .autocorrectionDisabled()
-                                    .multilineTextAlignment(.trailing)
-                                    .font(.ftBody).foregroundStyle(FTColor.textPrimary)
-                                    .onChange(of: smtpHost) { hostEdited = true }
-                            }
-                            .padding(.vertical, 13)
-
-                            Divider().opacity(0.4)
-
-                            HStack(spacing: FTSpacing.md) {
-                                Text("IMAP Server").font(.ftBody).foregroundStyle(FTColor.textSecondary).fixedSize()
-                                Spacer()
-                                TextField("imap.example.com", text: $imapHost)
-                                    .textInputAutocapitalization(.never)
-                                    .autocorrectionDisabled()
-                                    .multilineTextAlignment(.trailing)
-                                    .font(.ftBody).foregroundStyle(FTColor.textPrimary)
-                                    .onChange(of: imapHost) { hostEdited = true }
                             }
                             .padding(.vertical, 13)
                         }
@@ -367,8 +331,12 @@ private struct EmailBackupSignInSheet: View {
         isConnecting = true
         errorMessage = nil
         let cleanEmail = email.trimmingCharacters(in: .whitespaces)
-        let cleanSMTPHost = smtpHost.trimmingCharacters(in: .whitespaces)
-        let cleanIMAPHost = imapHost.trimmingCharacters(in: .whitespaces)
+        // Mail server hosts are derived from the email domain rather than asked
+        // for — the provider tables live in the services (see
+        // suggestedSMTPHost / suggestedIMAPHost), which fall back to
+        // smtp./imap.<domain> for anything not explicitly listed.
+        let cleanSMTPHost = EmailBackupService.suggestedSMTPHost(for: cleanEmail)
+        let cleanIMAPHost = EmailSyncService.suggestedIMAPHost(for: cleanEmail)
         // App passwords are shown in spaced groups by Google/Apple/Yahoo but
         // never contain spaces themselves — strip whatever copying dragged along.
         var cleanPassword = password

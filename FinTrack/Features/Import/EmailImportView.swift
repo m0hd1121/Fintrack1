@@ -422,13 +422,11 @@ private struct IMAPSignInSheet: View {
 
     @State private var email = ""
     @State private var password = ""
-    @State private var host = ""
-    @State private var hostEdited = false
     @State private var isConnecting = false
     @State private var errorMessage: String? = nil
 
     private var canConnect: Bool {
-        email.contains("@") && !password.isEmpty && !host.isEmpty && !isConnecting
+        email.contains("@") && !password.isEmpty && !isConnecting
     }
 
     private var domain: String { email.components(separatedBy: "@").last?.lowercased() ?? "" }
@@ -457,11 +455,14 @@ private struct IMAPSignInSheet: View {
         return "Try your regular email password first. If sign-in fails, your provider likely requires an app-specific password — check its account security settings for one."
     }
 
-    private var defaultHost: String {
+    /// IMAP host, derived rather than asked for: the provider this sheet was
+    /// opened for wins, otherwise it's resolved from the email's domain
+    /// (`suggestedIMAPHost` falls back to `imap.<domain>`).
+    private var resolvedHost: String {
         switch provider {
         case .gmail:  return "imap.gmail.com"
         case .icloud: return "imap.mail.me.com"
-        default:      return ""
+        default:      return EmailSyncService.suggestedIMAPHost(for: email.trimmingCharacters(in: .whitespaces))
         }
     }
 
@@ -482,10 +483,6 @@ private struct IMAPSignInSheet: View {
                                     .autocorrectionDisabled()
                                     .multilineTextAlignment(.trailing)
                                     .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
-                                    .onChange(of: email) {
-                                        guard !hostEdited else { return }
-                                        host = EmailSyncService.suggestedIMAPHost(for: email)
-                                    }
                             }
                             .padding(.vertical, 13)
 
@@ -497,24 +494,6 @@ private struct IMAPSignInSheet: View {
                                 SecureField(requiresAppPassword ? "xxxx-xxxx-xxxx-xxxx" : "Password", text: $password)
                                     .multilineTextAlignment(.trailing)
                                     .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
-                            }
-                            .padding(.vertical, 13)
-
-                            Divider().opacity(0.4)
-
-                            HStack(spacing: FTSpacing.md) {
-                                Text("IMAP Server").font(.ftBody).foregroundStyle(FTColor.textSecondary).fixedSize()
-                                Spacer()
-                                TextField("imap.mail.me.com", text: $host)
-                                    .textInputAutocapitalization(.never)
-                                    .autocorrectionDisabled()
-                                    .multilineTextAlignment(.trailing)
-                                    .font(.ftBody).foregroundStyle(FTColor.textPrimary)
-                                    .onChange(of: host) { _, _ in
-                                        if host != EmailSyncService.suggestedIMAPHost(for: email) {
-                                            hostEdited = true
-                                        }
-                                    }
                             }
                             .padding(.vertical, 13)
                         }
@@ -570,9 +549,6 @@ private struct IMAPSignInSheet: View {
                     Button("Cancel") { dismiss() }
                 }
             }
-            .onAppear {
-                if host.isEmpty { host = defaultHost }
-            }
         }
     }
 
@@ -580,7 +556,7 @@ private struct IMAPSignInSheet: View {
         isConnecting = true
         errorMessage = nil
         let cleanEmail = email.trimmingCharacters(in: .whitespaces)
-        let cleanHost = host.trimmingCharacters(in: .whitespaces)
+        let cleanHost = resolvedHost.trimmingCharacters(in: .whitespaces)
         // Google/Apple/Yahoo app passwords never contain spaces, but the
         // providers display them in spaced groups — strip whatever copying
         // dragged along so a pasted password just works.
