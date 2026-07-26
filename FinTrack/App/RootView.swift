@@ -20,6 +20,9 @@ struct RootView: View {
     @Query private var moneyLent: [MoneyLent]
     @Query private var moneyBorrowed: [MoneyBorrowed]
     @Query(filter: #Predicate<CreditCard> { $0.isActive }) private var activeCreditCards: [CreditCard]
+    /// Drives the app-icon badge — "Pending" is `PendingImportStatus.pending.rawValue`.
+    @Query(filter: #Predicate<PendingEmailTransaction> { $0.statusRaw == "Pending" })
+    private var pendingReviewItems: [PendingEmailTransaction]
     @Environment(\.modelContext) private var context
     @Environment(\.scenePhase) private var scenePhase
     @Environment(CurrencyService.self) private var currencyService
@@ -56,8 +59,14 @@ struct RootView: View {
         .environment(\.isHighContrast, settings.first?.highContrastMode ?? false)
         .tint(resolvedAccentColor)
         .dismissKeyboardOnTap()
+        // Keep the icon badge equal to the real review-queue count, so it clears
+        // once everything is reviewed instead of sticking at an old number.
+        .onChange(of: pendingReviewItems.count) { _, count in
+            NotificationService.shared.setBadgeCount(count)
+        }
         .onAppear {
             ensureDefaults()
+            NotificationService.shared.setBadgeCount(pendingReviewItems.count)
             if appState.hasCompletedOnboarding,
                let setting = settings.first,
                setting.useBiometrics || setting.usePIN {
@@ -93,6 +102,8 @@ struct RootView: View {
                 EmailBackupService.shared.scheduleAutomaticBackupIfNeeded(context: context)
             }
             if phase == .active {
+                // A notification may have stamped a badge while backgrounded.
+                NotificationService.shared.setBadgeCount(pendingReviewItems.count)
                 Task { await EmailSyncService.shared.runSyncPass(context: context) }
                 processRecurringTransactions()
                 processScheduledTransactions()

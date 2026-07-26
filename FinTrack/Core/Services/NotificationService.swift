@@ -312,6 +312,17 @@ final class NotificationService {
         UNUserNotificationCenter.current().add(request)
     }
 
+    // MARK: – App icon badge
+
+    /// Keeps the app-icon badge honest. `sendEmailImportAlert` stamps a badge
+    /// number onto its notification, and iOS leaves that number on the icon
+    /// forever unless someone resets it — so the app syncs the badge to the
+    /// number of transactions actually waiting in the review queue (0 clears
+    /// it) whenever it becomes active or that queue changes.
+    func setBadgeCount(_ count: Int) {
+        UNUserNotificationCenter.current().setBadgeCount(max(0, count))
+    }
+
     // MARK: – Helpers
     func cancelNotification(id: String) {
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [id])
