@@ -58,23 +58,22 @@ struct AddRentalPropertyView: View {
 
     var body: some View {
         NavigationStack {
-            ZStack(alignment: .bottom) {
-                FTBackdrop()
-
-                ScrollView {
-                    VStack(spacing: FTSpacing.lg) {
-                        propertyInfoSection
-                        financialsSection
-                        appearanceSection
-                        notesSection
-                        Color.clear.frame(height: 90)
-                    }
-                    .padding(.horizontal, FTSpacing.screen)
-                    .padding(.top, FTSpacing.lg)
+            // FTBackdrop lives in .background and the CTA in .safeAreaInset: as ZStack
+            // siblings their .ignoresSafeArea() inflated the stack, so the ScrollView laid
+            // out wider than the screen (clipped section labels, edge-to-edge cards) and
+            // the button overlapped the last section. See PROJECT_MAP section 8.
+            ScrollView {
+                VStack(spacing: FTSpacing.lg) {
+                    propertyInfoSection
+                    financialsSection
+                    appearanceSection
+                    notesSection
                 }
-
-                saveButtonArea
+                .padding(.horizontal, FTSpacing.screen)
+                .padding(.top, FTSpacing.lg)
             }
+            .background { FTBackdrop() }
+            .safeAreaInset(edge: .bottom) { saveButtonArea }
             .navigationTitle(editingProperty == nil ? "New Property" : "Edit Property")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

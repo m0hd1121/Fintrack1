@@ -85,28 +85,27 @@ struct AddGoldHoldingView: View {
 
     var body: some View {
         NavigationStack {
-            ZStack(alignment: .bottom) {
-                FTBackdrop()
-
-                ScrollView {
-                    VStack(spacing: FTSpacing.lg) {
-                        metalFormSection
-                        weightSection
-                        pricingSection
-                        purchaseDetailsSection
-                        dubaiGoldSoukSection
-                        notesSection
-                        Color.clear.frame(height: 96)
-                    }
-                    .padding(.horizontal, FTSpacing.screen)
-                    .padding(.top, FTSpacing.lg)
-                    .animation(.snappy(duration: 0.25), value: isDubaiGoldSouk)
-                    .animation(.snappy(duration: 0.2), value: selectedMetal)
-                    .animation(.snappy(duration: 0.2), value: selectedForm)
+            // FTBackdrop lives in .background and the CTA in .safeAreaInset: as ZStack
+            // siblings their .ignoresSafeArea() inflated the stack, so the ScrollView laid
+            // out wider than the screen (clipped section labels, edge-to-edge cards) and
+            // the button overlapped the last section. See PROJECT_MAP section 8.
+            ScrollView {
+                VStack(spacing: FTSpacing.lg) {
+                    metalFormSection
+                    weightSection
+                    pricingSection
+                    purchaseDetailsSection
+                    dubaiGoldSoukSection
+                    notesSection
                 }
-
-                saveButtonArea
+                .padding(.horizontal, FTSpacing.screen)
+                .padding(.top, FTSpacing.lg)
+                .animation(.snappy(duration: 0.25), value: isDubaiGoldSouk)
+                .animation(.snappy(duration: 0.2), value: selectedMetal)
+                .animation(.snappy(duration: 0.2), value: selectedForm)
             }
+            .background { FTBackdrop() }
+            .safeAreaInset(edge: .bottom) { saveButtonArea }
             .navigationTitle(editingItem == nil ? "Add Gold / Metal" : "Edit Holding")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

@@ -70,29 +70,28 @@ struct AddInvestmentView: View {
 
     var body: some View {
         NavigationStack {
-            ZStack(alignment: .bottom) {
-                FTBackdrop()
-
-                ScrollView {
-                    VStack(spacing: FTSpacing.lg) {
-                        basicInfoSection
-                        purchaseDetailsSection
-                        if showFundDetails {
-                            fundDetailsSection
-                        }
-                        purchaseLotsSection
-                        notesSection
-                        Color.clear.frame(height: 96)
+            // FTBackdrop lives in .background and the CTA in .safeAreaInset: as ZStack
+            // siblings their .ignoresSafeArea() inflated the stack, so the ScrollView laid
+            // out wider than the screen (clipped section labels, edge-to-edge cards) and
+            // the button overlapped the last section. See PROJECT_MAP section 8.
+            ScrollView {
+                VStack(spacing: FTSpacing.lg) {
+                    basicInfoSection
+                    purchaseDetailsSection
+                    if showFundDetails {
+                        fundDetailsSection
                     }
-                    .padding(.horizontal, FTSpacing.screen)
-                    .padding(.top, FTSpacing.lg)
-                    .animation(.snappy(duration: 0.25), value: showFundDetails)
-                    .animation(.snappy(duration: 0.25), value: trackLots)
-                    .animation(.snappy(duration: 0.25), value: showingAddLot)
+                    purchaseLotsSection
+                    notesSection
                 }
-
-                saveButtonArea
+                .padding(.horizontal, FTSpacing.screen)
+                .padding(.top, FTSpacing.lg)
+                .animation(.snappy(duration: 0.25), value: showFundDetails)
+                .animation(.snappy(duration: 0.25), value: trackLots)
+                .animation(.snappy(duration: 0.25), value: showingAddLot)
             }
+            .background { FTBackdrop() }
+            .safeAreaInset(edge: .bottom) { saveButtonArea }
             .navigationTitle(editingItem == nil ? "Add Investment" : "Edit Investment")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
