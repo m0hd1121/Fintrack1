@@ -90,27 +90,24 @@ struct AddMoneyLentView: View {
 
     var body: some View {
         NavigationStack {
-            ZStack(alignment: .bottom) {
-                FTBackdrop()
-
-                ScrollView {
-                    VStack(spacing: FTSpacing.lg) {
-                        personInfoSection
-                        amountDatesSection
-                        remindersSection
-                        appearanceSection
-                        notesSection
-
-                        // Bottom padding for the save button
-                        Color.clear.frame(height: 100)
-                    }
-                    .padding(.horizontal, FTSpacing.screen)
-                    .padding(.top, FTSpacing.lg)
+            // FTBackdrop in .background (not a ZStack sibling — its
+            // .ignoresSafeArea() inflated the container and pushed the form wider
+            // than the screen); CTA pinned with .safeAreaInset so it can't
+            // overlap content. Same fix as AddMoneyBorrowedView.
+            ScrollView {
+                VStack(spacing: FTSpacing.lg) {
+                    personInfoSection
+                    amountDatesSection
+                    remindersSection
+                    appearanceSection
+                    notesSection
                 }
-
-                // Save button pinned to bottom
-                saveButtonArea
+                .padding(.horizontal, FTSpacing.screen)
+                .padding(.top, FTSpacing.lg)
+                .padding(.bottom, FTSpacing.lg)
             }
+            .background { FTBackdrop() }
+            .safeAreaInset(edge: .bottom) { saveButtonArea }
             .navigationTitle(editingItem == nil ? "Lend Money" : "Edit Lent Record")
             .navigationBarTitleDisplayMode(.inline)
             .onAppear {
