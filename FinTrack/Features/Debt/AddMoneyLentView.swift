@@ -90,24 +90,29 @@ struct AddMoneyLentView: View {
 
     var body: some View {
         NavigationStack {
-            // FTBackdrop in .background (not a ZStack sibling — its
-            // .ignoresSafeArea() inflated the container and pushed the form wider
-            // than the screen); CTA pinned with .safeAreaInset so it can't
-            // overlap content. Same fix as AddMoneyBorrowedView.
-            ScrollView {
-                VStack(spacing: FTSpacing.lg) {
-                    personInfoSection
-                    amountDatesSection
-                    remindersSection
-                    appearanceSection
-                    notesSection
+            // Content column hard-pinned to sheet-width − 2×gutter via a root
+            // GeometryReader (same as AddSavingsGoalView / AddMoneyBorrowedView):
+            // an explicit frame width can't be defeated by container sizing.
+            GeometryReader { geo in
+                let columnWidth = max(geo.size.width - FTSpacing.screen * 2, 0)
+                ScrollView {
+                    VStack(spacing: FTSpacing.lg) {
+                        personInfoSection
+                        amountDatesSection
+                        remindersSection
+                        appearanceSection
+                        notesSection
+                    }
+                    .frame(width: columnWidth)
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, FTSpacing.lg)
+                    .padding(.bottom, FTSpacing.lg)
                 }
-                .padding(.horizontal, FTSpacing.screen)
-                .padding(.top, FTSpacing.lg)
-                .padding(.bottom, FTSpacing.lg)
+                .background { FTBackdrop() }
+                .safeAreaInset(edge: .bottom) {
+                    saveButtonArea.frame(width: geo.size.width)
+                }
             }
-            .background { FTBackdrop() }
-            .safeAreaInset(edge: .bottom) { saveButtonArea }
             .navigationTitle(editingItem == nil ? "Lend Money" : "Edit Lent Record")
             .navigationBarTitleDisplayMode(.inline)
             .onAppear {
