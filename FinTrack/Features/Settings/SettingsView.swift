@@ -225,7 +225,7 @@ struct SettingsView: View {
                 sectionCard("About") {
                     Button { showingAbout = true } label: {
                         settingRow(symbol: "info.circle", tint: FTColor.accent, title: "About FinTrack",
-                                   value: "v1.0.0", chevron: true)
+                                   value: "v1.0.1", chevron: true)
                     }
                     rowDivider
                     NavigationLink(destination: LazyView { PrivacyPolicyView() }) {
@@ -603,7 +603,7 @@ struct AboutView: View {
                             .font(.ftDisplay)
                             .foregroundStyle(FTColor.textPrimary)
 
-                        Text("Version 1.0.0")
+                        Text("Version 1.0.1")
                             .font(.ftBody)
                             .foregroundStyle(FTColor.textSecondary)
                     }

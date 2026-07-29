@@ -60,36 +60,42 @@ struct AddSavingsGoalView: View {
 
     var body: some View {
         NavigationStack {
-            // Match the working screens (e.g. EmailImportView): backdrop as a
-            // .background and the CTA pinned via .safeAreaInset — NOT a
-            // ZStack(alignment:.bottom) wrapping the ScrollView, which was
-            // swallowing the content's horizontal padding here.
-            ScrollView {
-                VStack(spacing: FTSpacing.lg) {
-                    if editingGoal == nil {
-                        typeSection
+            // The content column is pinned to an explicit width measured from the
+            // sheet itself (GeometryReader at the root), instead of relying on
+            // padding/contentMargins insetting a container whose own width we
+            // don't control. Whatever size the ScrollView ends up, the column is
+            // hard-capped at sheet-width − 2×screen gutter and centred.
+            GeometryReader { geo in
+                let columnWidth = max(geo.size.width - FTSpacing.screen * 2, 0)
+                ScrollView {
+                    VStack(spacing: FTSpacing.lg) {
+                        if editingGoal == nil {
+                            typeSection
+                        }
+                        detailsSection
+                        templateSection
+                        autoContributionSection
+                        notesSection
                     }
-                    detailsSection
-                    templateSection
-                    autoContributionSection
-                    notesSection
+                    .frame(width: columnWidth)
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, FTSpacing.lg)
+                    .padding(.bottom, FTSpacing.xl)
                 }
-                .padding(.horizontal, FTSpacing.screen)
-                .padding(.top, FTSpacing.lg)
-                .padding(.bottom, FTSpacing.xl)
-            }
-            .scrollContentBackground(.hidden)
-            .scrollDismissesKeyboard(.interactively)
-            .background { FTBackdrop() }
-            .safeAreaInset(edge: .bottom) {
-                Button { save() } label: {
-                    Text(editingGoal == nil ? "Add Goal" : "Save Changes")
+                .scrollContentBackground(.hidden)
+                .scrollDismissesKeyboard(.interactively)
+                .background { FTBackdrop() }
+                .safeAreaInset(edge: .bottom) {
+                    Button { save() } label: {
+                        Text(editingGoal == nil ? "Add Goal" : "Save Changes")
+                    }
+                    .buttonStyle(.ftPrimary)
+                    .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty || AmountTextField.double(from: targetAmount) <= 0)
+                    .opacity(name.trimmingCharacters(in: .whitespaces).isEmpty || AmountTextField.double(from: targetAmount) <= 0 ? 0.55 : 1)
+                    .frame(width: columnWidth)
+                    .frame(maxWidth: .infinity)
+                    .padding(.bottom, FTSpacing.sm)
                 }
-                .buttonStyle(.ftPrimary)
-                .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty || AmountTextField.double(from: targetAmount) <= 0)
-                .opacity(name.trimmingCharacters(in: .whitespaces).isEmpty || AmountTextField.double(from: targetAmount) <= 0 ? 0.55 : 1)
-                .padding(.horizontal, FTSpacing.screen)
-                .padding(.bottom, FTSpacing.sm)
             }
             .navigationTitle(editingGoal == nil ? "New Savings Goal" : "Edit Goal")
             .navigationBarTitleDisplayMode(.inline)
