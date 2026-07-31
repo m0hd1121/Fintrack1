@@ -2463,7 +2463,9 @@ struct BudgetRecommendationsView: View {
             if rec.type == .createBudget || rec.type == .increaseBudget || rec.type == .decreaseBudget,
                let amount = rec.suggestedAmount, let cat = rec.category {
                 HStack(spacing: FTSpacing.sm) {
-                    Text("Suggested: \(amount.formatted(as: budgets.first?.currency ?? "AED"))")
+                    // Suggested amounts are base-currency values (see
+                    // BudgetService.generateRecommendations) — label them as such.
+                    Text("Suggested: \(amount.formatted(as: CurrencyService.shared.baseCurrencyCode))")
                         .font(.ftCallout).foregroundStyle(FTColor.textPrimary)
                     Spacer()
                     Button {

@@ -334,7 +334,11 @@ final class BudgetService {
         }
 
         let budgetedCategories = Set(budgets.filter { $0.isActive }.map { $0.category })
-        let sampleCurrency = budgets.first?.currency ?? "AED"
+        // All averages below come from spendingPairs (amountInBaseCurrency), so
+        // they must be labeled with the BASE currency — not budgets.first's
+        // currency, which showed AED-scale numbers as "IRR" when the user's
+        // first budget happened to be a foreign-currency one.
+        let sampleCurrency = CurrencyService.shared.baseCurrencyCode
 
         // Suggest creating a budget for frequently-spent unbudgeted categories
         let candidatesForNewBudget: [TransactionCategory] = [
@@ -353,21 +357,26 @@ final class BudgetService {
             ))
         }
 
-        // Recommend increasing budgets consistently over-spent
+        // Recommend increasing budgets consistently over-spent. The averages are
+        // base-currency, so convert each budget's limit to base before comparing
+        // — comparing raw against a foreign-currency budget (e.g. an IRR one)
+        // produced nonsense like "you only spend 0% of your budget".
         for budget in budgets where budget.isActive {
             guard let avg = avgByCategory[budget.category] else { continue }
-            if avg > budget.amount * 1.15 {
-                let overPct = Int((avg / budget.amount - 1) * 100)
+            let limitInBase = CurrencyService.shared.convert(budget.amount, from: budget.currency, to: sampleCurrency)
+            guard limitInBase > 0 else { continue }
+            if avg > limitInBase * 1.15 {
+                let overPct = Int((avg / limitInBase - 1) * 100)
                 recs.append(BudgetRecommendation(
                     type: .increaseBudget,
                     title: "Adjust \(budget.name)",
-                    description: "Your 3-month average for \(budget.category.rawValue) is \(avg.formatted(as: sampleCurrency)) — \(overPct)% over your \(budget.amount.formatted(as: sampleCurrency)) budget.",
+                    description: "Your 3-month average for \(budget.category.rawValue) is \(avg.formatted(as: sampleCurrency)) — \(overPct)% over your \(limitInBase.formatted(as: sampleCurrency)) budget.",
                     suggestedAmount: (avg * 1.05).rounded(),
                     category: budget.category
                 ))
-            } else if avg < budget.amount * 0.6 && avg > 10 {
+            } else if avg < limitInBase * 0.6 && avg > 10 {
                 // Budget consistently under-spent — suggest decreasing
-                let underPct = Int((avg / budget.amount) * 100)
+                let underPct = Int((avg / limitInBase) * 100)
                 recs.append(BudgetRecommendation(
                     type: .decreaseBudget,
                     title: "Optimize \(budget.name)",
@@ -391,8 +400,10 @@ final class BudgetService {
             ))
         }
 
-        // Savings opportunity: total historical < total budgeted
-        let totalBudgeted = budgets.filter { $0.isActive }.reduce(0) { $0 + $1.amount }
+        // Savings opportunity: total historical < total budgeted (in base currency)
+        let totalBudgeted = budgets.filter { $0.isActive }.reduce(0.0) {
+            $0 + CurrencyService.shared.convert($1.amount, from: $1.currency, to: sampleCurrency)
+        }
         let totalHistAvg = avgByCategory.values.reduce(0, +)
         if totalBudgeted > 0, totalHistAvg < totalBudgeted * 0.75 {
             let savingsPotential = totalBudgeted - totalHistAvg
