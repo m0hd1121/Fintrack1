@@ -465,7 +465,11 @@ struct AddMoneyBorrowedView: View {
     }
 
     private var colorSwatches: some View {
-        HStack(spacing: FTSpacing.sm) {
+        // Adaptive grid, not a fixed HStack — see AddMoneyLentView.colorSwatches:
+        // 8 fixed circles + the preview tile exceed the content column and an
+        // over-wide child stretches the whole form. A grid wraps instead.
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 32), spacing: FTSpacing.sm)],
+                  alignment: .leading, spacing: FTSpacing.sm) {
             ForEach(availableColors, id: \.name) { item in
                 let isSelected = selectedColorName == item.name
 
@@ -493,7 +497,6 @@ struct AddMoneyBorrowedView: View {
                 .buttonStyle(.plain)
                 .animation(.snappy(duration: 0.2), value: isSelected)
             }
-            Spacer()
         }
     }
 

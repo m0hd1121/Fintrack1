@@ -465,7 +465,12 @@ struct AddMoneyLentView: View {
     }
 
     private var colorSwatches: some View {
-        HStack(spacing: FTSpacing.sm) {
+        // Adaptive grid, not a fixed HStack: 8 fixed 32pt circles + the preview
+        // tile exceed the content column on standard iPhones, and an over-wide
+        // child stretches the whole form (the root cause of the month-long
+        // edge-to-edge layout bug on this form). A grid wraps instead.
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 32), spacing: FTSpacing.sm)],
+                  alignment: .leading, spacing: FTSpacing.sm) {
             ForEach(availableColors, id: \.name) { item in
                 let isSelected = selectedColorName == item.name
 
@@ -493,7 +498,6 @@ struct AddMoneyLentView: View {
                 .buttonStyle(.plain)
                 .animation(.snappy(duration: 0.2), value: isSelected)
             }
-            Spacer()
         }
     }
 

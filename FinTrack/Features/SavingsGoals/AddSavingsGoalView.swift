@@ -255,10 +255,14 @@ struct AddSavingsGoalView: View {
             }
             .padding(FTSpacing.lg).frame(maxWidth: .infinity, alignment: .leading).ftGlass(FTRadius.md)
 
-            // Color picker
+            // Color picker. Adaptive grid, NOT a fixed HStack: 8×36pt circles +
+            // spacing exceed the content column, and one over-wide child was
+            // stretching this whole form edge-to-edge (the real cause of the
+            // long-standing margin bug on this screen). A grid wraps instead.
             VStack(alignment: .leading, spacing: FTSpacing.sm) {
                 Text("COLOR").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
-                HStack(spacing: 12) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 36), spacing: 12)],
+                          alignment: .leading, spacing: 12) {
                     ForEach(colors, id: \.self) { color in
                         Circle()
                             .fill(Color.fromString(color))

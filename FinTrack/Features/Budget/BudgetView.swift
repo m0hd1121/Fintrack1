@@ -1873,10 +1873,13 @@ struct AddEnvelopeView: View {
                         }
                         .padding(FTSpacing.lg).ftGlass(FTRadius.md)
 
-                        // Color
+                        // Color. Adaptive grid, not a fixed HStack — 8×36pt
+                        // circles overflow the card width and an over-wide child
+                        // stretches the whole sheet (see PROJECT_MAP §8).
                         VStack(alignment: .leading, spacing: FTSpacing.sm) {
                             Text("COLOR").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
-                            HStack(spacing: 10) {
+                            LazyVGrid(columns: [GridItem(.adaptive(minimum: 36), spacing: 10)],
+                                      alignment: .leading, spacing: 10) {
                                 ForEach(paletteColors, id: \.hex) { item in
                                     Circle()
                                         .fill(Color(hex: item.hex))
