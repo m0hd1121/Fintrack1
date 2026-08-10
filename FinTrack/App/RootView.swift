@@ -79,8 +79,7 @@ struct RootView: View {
             processDebtAlerts()
             drainPendingIntentQueue()
             if settings.first?.cloudSyncEnabled == true {
-                let wifiOnly = settings.first?.backupWifiOnly ?? false
-                iCloudBackupService.shared.scheduleAutomaticBackupIfNeeded(context: context, wifiOnly: wifiOnly)
+                LocalBackupService.shared.scheduleAutomaticBackupIfNeeded(context: context)
             }
             if isGoogleDriveBackupEnabled { GoogleDriveBackupService.shared.syncIfDue(context: context) }
             EmailBackupService.shared.scheduleAutomaticBackupIfNeeded(context: context)
@@ -95,8 +94,7 @@ struct RootView: View {
                 }
                 // Backup before the OS might suspend/kill the app
                 if settings.first?.cloudSyncEnabled == true {
-                    let wifiOnly = settings.first?.backupWifiOnly ?? false
-                    iCloudBackupService.shared.scheduleAutomaticBackupIfNeeded(context: context, wifiOnly: wifiOnly)
+                    LocalBackupService.shared.scheduleAutomaticBackupIfNeeded(context: context)
                 }
                 if isGoogleDriveBackupEnabled { GoogleDriveBackupService.shared.syncIfDue(context: context) }
                 EmailBackupService.shared.scheduleAutomaticBackupIfNeeded(context: context)
@@ -113,8 +111,7 @@ struct RootView: View {
                 drainPendingIntentQueue()
                 // Periodic backup check on every resume from background
                 if settings.first?.cloudSyncEnabled == true {
-                    let wifiOnly = settings.first?.backupWifiOnly ?? false
-                    iCloudBackupService.shared.scheduleAutomaticBackupIfNeeded(context: context, wifiOnly: wifiOnly)
+                    LocalBackupService.shared.scheduleAutomaticBackupIfNeeded(context: context)
                 }
                 if isGoogleDriveBackupEnabled { GoogleDriveBackupService.shared.syncIfDue(context: context) }
                 EmailBackupService.shared.scheduleAutomaticBackupIfNeeded(context: context)

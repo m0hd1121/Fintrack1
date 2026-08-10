@@ -15,7 +15,7 @@ Key methods: `suggestCategory(for:amount:type:)`, `predictCategory(for:merchant:
 External APIs: NaturalLanguage (imported, keyword matching only)
 
 ### BackupEncryptionService.swift
-Purpose: **mandatory, always-on** AES-GCM encryption for `.fintrack` backup files — shared by manual export, iCloud, Google Drive, Email backup. Not user-configurable (no toggle, no passphrase). The key is a random 256-bit value generated once and stored **only** in this device's Keychain (`kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`), so a backup can only ever be opened by this FinTrack install on this device — no other app can read it, and (by design) it can't be restored on a different device or after reinstall.
+Purpose: **mandatory, always-on** AES-GCM encryption for `.fintrack` backup files — shared by manual export, offline (local) backup, Google Drive, Email backup. Not user-configurable (no toggle, no passphrase). The key is a random 256-bit value generated once and stored **only** in this device's Keychain (`kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`), so a backup can only ever be opened by this FinTrack install on this device — no other app can read it, and (by design) it can't be restored on a different device or after reinstall.
 Singleton: no (enum namespace, all static) | Actor: **`nonisolated enum`** — opts out of MainActor isolation so `Task.detached` PBKDF2 work (100k iterations) never bounces back to main actor.
 Key methods: `private encryptionKey` (lazily provisions + Keychain-caches the random key, NSLock-guarded against first-run races), `isEncrypted(_:) -> Bool` (checks 5-byte "FTBK1" header), `encryptIfEnabled(_:) async throws` (always encrypts — name kept for call sites), `decryptIfNeeded(_:) async throws` (decrypts if the header is present, else passes legacy plain files through; throws `.cannotOpen` on wrong-device/corrupt), `encrypt/decrypt(_:key:)`. Removed: the old user `storedPassphrase`/`isEnabled` and the `.passphraseRequired`/`.wrongPassphraseOrCorruptFile` errors (now a single `.cannotOpen`).
 External APIs: CryptoKit (AES.GCM, HMAC<SHA256> manual PBKDF2), Security (SecRandomCopyBytes)
@@ -70,7 +70,7 @@ Key methods: `convert(_:from:to:) -> Double` (core conversion used everywhere), 
 External APIs: open.er-api.com, api.tetherland.com, coingecko.com, tgju.org, nobitex.ir, wallex.ir
 
 ### DataTransferService.swift (+ DataTransferService+ExtraBackup.swift)
-Purpose: full JSON backup/restore of the **whole** SwiftData store via Codable DTOs — the shared substrate under manual export/import, iCloud, Google Drive, and Email backup. Covers every `@Model` **except** the transient `PendingEmailTransaction` review queue.
+Purpose: full JSON backup/restore of the **whole** SwiftData store via Codable DTOs — the shared substrate under manual export/import, offline (local) backup, Google Drive, and Email backup. Covers every `@Model` **except** the transient `PendingEmailTransaction` review queue.
 Singleton: `.shared` | Actor: **`@MainActor`** (explicit)
 Key methods: `exportBackup(context:) throws -> URL`, `importBackup(from:context:mode:) throws -> ImportSummary` (`.merge` dedup-by-UUID or `.replace` wipes-then-inserts), private `deleteAll(context:) throws`, `restoreExtras(_:existing:mode:context:)` generic helper.
 Pattern for adding a model to the backup (see `+ExtraBackup.swift`): add a `struct XDTO: BackupDTO` mirroring the model's **stored** props (enums as `…Raw`, arrays as `…Data`), a `var backupDTO` on the model, `extension X: BackupIdentifiable {}`, an optional field on `FinTrackBackup`, one fetch line in `exportBackup`, and one `restoreExtras(...)` line in `importBackup` (relationship models like `CustomCategory`/`DocumentAttachment` are linked explicitly instead). Backup `currentVersion` = 7; new fields are optional so old backups still decode.
@@ -87,7 +87,7 @@ Purpose: automatic backup-to-self-inbox via plain SMTP/IMAP (app-specific passwo
 Singleton: `.shared` | Actor: **`@MainActor @Observable`** (explicit)
 Key methods: `connect(email:password:smtpHost:imapHost:) async throws` (verifies SMTP+IMAP up front), `disconnect()`, `performBackup(context:) async -> Bool`, `restoreFromEmail(context:mode:) async -> String`, `scheduleAutomaticBackupIfNeeded/startAutoBackup/stopAutoBackup`, `static suggestedSMTPHost(for:)`. **Server hosts are never shown to the user** — the sign-in sheets ask only for email + password and derive SMTP/IMAP via `suggestedSMTPHost`/`EmailSyncService.suggestedIMAPHost` (provider table + `smtp./imap.<domain>` fallback). Add new providers to those tables, not to the UI.
 External APIs: SMTPClient, IMAPClient (custom raw-socket clients), Keychain
-Note: hourly auto-backup interval + a real foreground polling loop (`startAutoBackup`), added this session because scene-phase-only checks weren't reliable. Pipeline order is compress (zlib, always) → encrypt (always, via `BackupEncryptionService`) on backup, decrypt → decompress on restore; a private `"FTGZ1"` magic header lets restore detect and skip decompression for backup emails sent before compression was added. This compression step is local to `EmailBackupService` — `GoogleDriveBackupService`/iCloud/manual export still send uncompressed (only encryption is shared via `BackupEncryptionService`).
+Note: hourly auto-backup interval + a real foreground polling loop (`startAutoBackup`), added this session because scene-phase-only checks weren't reliable. Pipeline order is compress (zlib, always) → encrypt (always, via `BackupEncryptionService`) on backup, decrypt → decompress on restore; a private `"FTGZ1"` magic header lets restore detect and skip decompression for backup emails sent before compression was added. This compression step is local to `EmailBackupService` — `GoogleDriveBackupService`/local/manual export still send uncompressed (only encryption is shared via `BackupEncryptionService`).
 
 ### EmailSyncService.swift
 Purpose: orchestrates the whole email → pending-transaction pipeline — Gmail/Outlook OAuth2+PKCE, IMAP app-password, background sync, bank-email parsing, dedup, auto-approval to ledger.
@@ -109,7 +109,7 @@ Key methods: `healthScore(transactions:accounts:budgets:goals:loans:) -> Financi
 External APIs: none
 
 ### GoogleDriveBackupService.swift
-Purpose: OAuth2+PKCE (drive.file scope only) backup/restore/two-way sync to Google Drive — free alternative to iCloud.
+Purpose: OAuth2+PKCE (drive.file scope only) backup/restore/two-way sync to Google Drive — cloud alternative to the on-device offline backup.
 Singleton: `.shared` | Actor: **`@MainActor @Observable`** (explicit), NSObject subclass for auth presentation
 Key methods: `connect() async throws`, `disconnect()`, `performBackup(context:) async -> Bool`, `restoreFromDrive(context:mode:) async -> String`, `syncNow(context:) async` (two-way "gossip" merge, create-only — no field-level conflict resolution), `startAutoSync/stopAutoSync/syncIfDue(context:)` (2-min-floor loop)
 External APIs: Google Drive v3 REST API, ASWebAuthenticationSession, Keychain (via KeychainStore)
@@ -228,11 +228,12 @@ Singleton: `.shared` | Actor: implicit MainActor
 Key methods: `updateAll(netWorth:currency:transactions:budgets:bills:payments:)` (+ `WidgetCenter.shared.reloadAllTimelines()`), `update(netWorth:currency:recentTransactions:)` (legacy/partial), `enqueuePendingTransaction(_:)`, `dequeuePendingTransactions() -> [PendingWidgetTransaction]` (drained by RootView)
 External APIs: WidgetKit, `UserDefaults(suiteName: "group.com.fintrack.shared")`
 
-### iCloudBackupService.swift
-Purpose: backup/restore to the app's iCloud Drive ubiquity container (requires paid Apple Developer Program).
-Singleton: `.shared` | Actor: implicit MainActor, `@Observable` (not explicitly `@MainActor`, but `resolveUbiquityURL` explicitly runs off-main via `Task.detached` since Apple requires that call not be on the main thread; results written back via `MainActor.run`)
-Key methods: `performBackup(context:wifiOnly:) async -> Bool`, `restoreFromCloud(context:mode:) async -> String`, `scheduleAutomaticBackupIfNeeded(context:wifiOnly:)` (24h interval)
-External APIs: FileManager ubiquity container APIs
+### LocalBackupService.swift
+Purpose: **offline, on-device** backup/restore — replaced `iCloudBackupService` (which needed a paid-developer ubiquity container). Writes timestamped encrypted `.fintrack` files to `Documents/Backups`, exposed in the Files app via `UIFileSharingEnabled` + `LSSupportsOpeningDocumentsInPlace` in `FinTrack-Info.plist`.
+Singleton: `.shared` | Actor: implicit MainActor, `@Observable`; state published via `await MainActor.run`
+Key methods: `performBackup(context:) async -> Bool` (export → encrypt → write → prune to 10 newest), `listBackups() -> [BackupFile]` (newest first), `restore(from:context:mode:) async -> String`, `deleteBackup(_:)`, `scheduleAutomaticBackupIfNeeded(context:)` (24h), `backupsDirectory`, `totalSizeLabel`
+Note: the automatic-backup switch reuses `AppSettings.cloudSyncEnabled` (meaning changed from "iCloud sync" → "automatic offline backup"; no schema bump). `AppSettings.backupWifiOnly` is now **orphaned** (offline backups need no network) — left in place because removing a non-optional property forces a schema wipe.
+External APIs: none (local filesystem only)
 
 ---
 
@@ -254,5 +255,5 @@ Project has **Default Actor Isolation = MainActor** (Xcode build setting) — pl
 - **`KeychainStore`** (defined inside `EmailSyncService.swift`, not its own file) — `nonisolated enum`, so it can be called synchronously from other nonisolated code (e.g. BackupEncryptionService) as well as MainActor callers.
 - **`EmailSyncService.presentationAnchor(for:)`** / **`GoogleDriveBackupService.presentationAnchor(for:)`** — both `nonisolated func` (required by `ASWebAuthenticationPresentationContextProviding`) but wrap their body in `MainActor.assumeIsolated { ... }` to touch `UIApplication.shared` safely.
 - **`IMAPClient`** / **`SMTPClient`** are the only services **not** MainActor singletons — `final class ...: @unchecked Sendable`, per-connection, own `DispatchQueue`. Intentionally not actor-isolated since they're short-lived stateful network sessions, not app-wide singletons.
-- **`iCloudBackupService`** mixes patterns: the class is a plain `@Observable` singleton (implicit MainActor), but `resolveUbiquityURL()` runs inside `Task.detached` (Apple prohibits that call on the main thread), writing results back via `await MainActor.run { ... }`.
+- **`LocalBackupService`** is a plain `@Observable` singleton (implicit MainActor) doing its file IO inline and publishing state back via `await MainActor.run { ... }`.
 - Most other singletons (`CurrencyService`, `CryptoPriceService`, `StockPriceService`, `MerchantCategoryService`, `EmailBackupService`, `GoogleDriveBackupService`, `SpeechTransactionService`, `ReceiptScannerService`, `DataTransferService`) are **explicitly** `@MainActor @Observable` even though that's the project-wide default — for clarity given they do async network/IO and mutate `@Observable` state from completion callbacks.

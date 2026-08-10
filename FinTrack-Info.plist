@@ -12,5 +12,11 @@
 	<array>
 		<string>fetch</string>
 	</array>
+	<!-- Expose Documents/ in the Files app so offline backups are reachable
+	     under On My iPhone → FinTrack → Backups (see LocalBackupService). -->
+	<key>UIFileSharingEnabled</key>
+	<true/>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
 </dict>
 </plist>

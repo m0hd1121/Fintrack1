@@ -56,10 +56,6 @@ struct SettingsView: View {
         Binding(get: { setting?.billRemindersEnabled ?? true },
                 set: { setting?.billRemindersEnabled = $0; try? context.save() })
     }
-    private var cloudSyncBinding: Binding<Bool> {
-        Binding(get: { setting?.cloudSyncEnabled ?? false },
-                set: { setting?.cloudSyncEnabled = $0; try? context.save() })
-    }
     private var autoLockBinding: Binding<Int> {
         Binding(get: { setting?.autoLockMinutes ?? 5 },
                 set: { setting?.autoLockMinutes = $0; try? context.save() })
@@ -194,9 +190,9 @@ struct SettingsView: View {
                 }
 
                 sectionCard("Data & Privacy") {
-                    NavigationLink(destination: LazyView { iCloudSyncView() }) {
-                        settingRow(symbol: "icloud.fill", tint: FTColor.catBlue,
-                                   title: "iCloud Backup", chevron: true)
+                    NavigationLink(destination: LazyView { LocalBackupView() }) {
+                        settingRow(symbol: "internaldrive.fill", tint: FTColor.catBlue,
+                                   title: "Offline Backup", chevron: true)
                     }
                     rowDivider
                     if DisableableFeature.googleDriveBackup.isEnabled {
@@ -628,7 +624,7 @@ struct AboutView: View {
                         HStack(spacing: 32) {
                             FeatureBadge(icon: "chart.pie.fill", label: "Analytics")
                             FeatureBadge(icon: "bell.fill", label: "Reminders")
-                            FeatureBadge(icon: "icloud.fill", label: "iCloud")
+                            FeatureBadge(icon: "internaldrive.fill", label: "Offline Backup")
                         }
                     }
 

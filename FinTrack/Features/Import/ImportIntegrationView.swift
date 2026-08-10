@@ -100,10 +100,10 @@ struct ImportIntegrationView: View {
             }
             .buttonStyle(.plain)
 
-            NavigationLink(destination: iCloudSyncView()) {
-                methodRow(icon: "icloud.fill", color: FTColor.accent,
-                          title: "iCloud & CloudKit Sync",
-                          subtitle: "End-to-end encrypted · All your Apple devices")
+            NavigationLink(destination: LocalBackupView()) {
+                methodRow(icon: "internaldrive.fill", color: FTColor.accent,
+                          title: "Offline Backup",
+                          subtitle: "Encrypted · Saved on this device, visible in Files")
             }
             .buttonStyle(.plain)
         }
