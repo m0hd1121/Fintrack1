@@ -42,9 +42,40 @@ struct RootView: View {
 
     private var isGoogleDriveBackupEnabled: Bool { DisableableFeature.googleDriveBackup.isEnabled }
 
+    /// True only on a reinstall where the store is empty but the device still
+    /// holds the protected Keychain snapshot. Cheap synchronous checks, so the
+    /// normal launch path never waits.
+    @State private var isRestoringSnapshot: Bool = !UserDefaults.standard.bool(forKey: "has_completed_onboarding")
+        && LocalBackupService.shared.hasDeviceSnapshot
+
+    private var snapshotRestoreScreen: some View {
+        ZStack {
+            FTBackdrop()
+            VStack(spacing: FTSpacing.lg) {
+                ProgressView().scaleEffect(1.2)
+                Text("Restoring your data…")
+                    .font(.ftBody).foregroundStyle(FTColor.textSecondary)
+            }
+        }
+        .task {
+            let restored = await LocalBackupService.shared
+                .restoreFromDeviceSnapshotIfNeeded(container: context.container)
+            if restored {
+                // Data is back, so skip onboarding.
+                appState.completeOnboarding(currency: appState.baseCurrency)
+            }
+            isRestoringSnapshot = false
+        }
+    }
+
     var body: some View {
         Group {
-            if !appState.hasCompletedOnboarding {
+            if isRestoringSnapshot {
+                // Fresh install on a device that still holds a protected copy
+                // (Keychain survives app deletion) — rehydrate before deciding
+                // whether to show onboarding, so the user never sees a blank app.
+                snapshotRestoreScreen
+            } else if !appState.hasCompletedOnboarding {
                 OnboardingView()
             } else if appState.isLocked {
                 LockScreenView()

@@ -1,9 +1,10 @@
 import SwiftUI
 import SwiftData
 
-// Offline, on-device backups (replaces the old iCloud sync screen). Backups are
-// written to Documents/Backups and are visible in the Files app under
-// On My iPhone → FinTrack → Backups.
+// Backup status + restore. Backups are intentionally read-only from the user's
+// side: they live in Application Support (invisible to the Files app) and this
+// screen offers no delete, rename or share action — only "Back Up Now" and
+// "Restore". See LocalBackupService for the two protection layers.
 struct LocalBackupView: View {
     @Environment(\.modelContext) private var context
     @Query private var allSettings: [AppSettings]
@@ -12,10 +13,8 @@ struct LocalBackupView: View {
 
     @State private var backups: [LocalBackupService.BackupFile] = []
     @State private var pendingRestore: LocalBackupService.BackupFile?
-    @State private var pendingDelete: LocalBackupService.BackupFile?
     @State private var resultMessage = ""
     @State private var showingResult = false
-    @State private var exportURL: URL?
 
     private var settings: AppSettings? { allSettings.first }
 
@@ -61,20 +60,6 @@ struct LocalBackupView: View {
         } message: {
             Text("Merge keeps your current data and adds anything missing. Replace deletes everything first, then restores from this backup.")
         }
-        .alert("Delete Backup?", isPresented: Binding(get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } })) {
-            Button("Delete", role: .destructive) {
-                if let target = pendingDelete { service.deleteBackup(target) }
-                pendingDelete = nil
-                reload()
-            }
-            Button("Cancel", role: .cancel) { pendingDelete = nil }
-        } message: {
-            Text("This permanently removes the backup file from this device.")
-        }
-        .sheet(item: Binding(get: { exportURL.map { ShareItem(url: $0) } },
-                             set: { if $0 == nil { exportURL = nil } })) { item in
-            ShareSheet(url: item.url)
-        }
     }
 
     // MARK: Status
@@ -86,12 +71,12 @@ struct LocalBackupView: View {
                     Circle()
                         .fill((backups.isEmpty ? FTColor.textMuted : FTColor.income).opacity(0.12))
                         .frame(width: 56, height: 56)
-                    Image(systemName: backups.isEmpty ? "internaldrive" : "checkmark.shield.fill")
+                    Image(systemName: backups.isEmpty ? "lock.open" : "lock.shield.fill")
                         .font(.ftTitle)
                         .foregroundStyle(backups.isEmpty ? FTColor.textMuted : FTColor.income)
                 }
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(backups.isEmpty ? "No Backups Yet" : "Backed Up on This Device")
+                    Text(backups.isEmpty ? "No Backups Yet" : "Protected")
                         .font(.ftHeadline).foregroundStyle(FTColor.textPrimary)
                     Text(lastBackupLabel)
                         .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
@@ -102,6 +87,10 @@ struct LocalBackupView: View {
             HStack(spacing: FTSpacing.sm) {
                 statTile("Backups", value: "\(backups.count)", icon: "doc.on.doc.fill", color: FTColor.catBlue)
                 statTile("Total Size", value: service.totalSizeLabel, icon: "internaldrive.fill", color: FTColor.accent)
+                statTile("Reinstall-safe",
+                         value: service.hasDeviceSnapshot ? "Yes" : "No",
+                         icon: service.hasDeviceSnapshot ? "checkmark.seal.fill" : "xmark.seal",
+                         color: service.hasDeviceSnapshot ? FTColor.income : FTColor.textMuted)
             }
         }
         .padding()
@@ -110,7 +99,7 @@ struct LocalBackupView: View {
 
     private var lastBackupLabel: String {
         guard let date = service.lastBackupDate else {
-            return "Create a backup to keep a copy on this device"
+            return "Create a backup to protect your data"
         }
         return "Last backup \(date.relativeFormatted)"
     }
@@ -120,6 +109,7 @@ struct LocalBackupView: View {
             Image(systemName: icon).font(.ftCaption).foregroundStyle(color)
             Text(value).font(.ftCallout).foregroundStyle(color).lineLimit(1).minimumScaleFactor(0.7)
             Text(label).font(.ftCaption).foregroundStyle(FTColor.textMuted)
+                .lineLimit(1).minimumScaleFactor(0.7)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, FTSpacing.md)
@@ -185,20 +175,15 @@ struct LocalBackupView: View {
                     .font(.ftCaption).foregroundStyle(FTColor.textMuted)
             }
             Spacer()
-            Menu {
-                Button { pendingRestore = backup } label: {
-                    Label("Restore", systemImage: "arrow.counterclockwise")
-                }
-                Button { exportURL = backup.url } label: {
-                    Label("Share / Save to Files", systemImage: "square.and.arrow.up")
-                }
-                Button(role: .destructive) { pendingDelete = backup } label: {
-                    Label("Delete", systemImage: "trash")
-                }
-            } label: {
-                Image(systemName: "ellipsis.circle")
-                    .font(.ftHeadline).foregroundStyle(FTColor.textMuted)
+            // Restore is the only action — backups can't be deleted or edited.
+            Button { pendingRestore = backup } label: {
+                Text("Restore")
+                    .font(.ftCallout)
+                    .padding(.horizontal, 12).padding(.vertical, 6)
+                    .background(FTColor.accent.opacity(0.14), in: .capsule)
+                    .foregroundStyle(FTColor.accent)
             }
+            .buttonStyle(.plain)
         }
         .padding(.vertical, 12)
     }
@@ -208,15 +193,21 @@ struct LocalBackupView: View {
     private var infoCard: some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
             HStack(alignment: .top, spacing: FTSpacing.sm) {
-                Image(systemName: "folder.fill")
+                Image(systemName: "eye.slash.fill")
                     .font(.ftCaption).foregroundStyle(FTColor.catBlue).frame(width: 20)
-                Text("Backups are saved on this device and appear in the Files app under On My iPhone → FinTrack → Backups. The 10 most recent are kept automatically.")
+                Text("Backups are stored in a protected area of the app and are encrypted. They don't appear in the Files app and can't be opened, edited or deleted — not even by you.")
+                    .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+            }
+            HStack(alignment: .top, spacing: FTSpacing.sm) {
+                Image(systemName: "arrow.clockwise.circle.fill")
+                    .font(.ftCaption).foregroundStyle(FTColor.income).frame(width: 20)
+                Text("A protected copy of your records is also kept outside the app. If FinTrack is deleted and installed again on this device, that copy is restored automatically on first launch.")
                     .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
             }
             HStack(alignment: .top, spacing: FTSpacing.sm) {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.ftCaption).foregroundStyle(FTColor.gold).frame(width: 20)
-                Text("Because they live only on this device, deleting the app removes them too. Use Share to keep a copy somewhere safe.")
+                Text("Receipt images and documents aren't part of that reinstall copy, and nothing survives erasing the device or moving to a new one — use Google Drive or Email Backup for an off-device copy.")
                     .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
             }
         }
@@ -236,7 +227,7 @@ struct LocalBackupView: View {
             let ok = await service.performBackup(context: context)
             reload()
             resultMessage = ok
-                ? "Backup saved to this device."
+                ? "Backup saved and protected on this device."
                 : (service.lastError ?? "Backup failed.")
             showingResult = true
         }
@@ -250,21 +241,4 @@ struct LocalBackupView: View {
             showingResult = true
         }
     }
-}
-
-// MARK: - Share sheet plumbing
-
-private struct ShareItem: Identifiable {
-    let url: URL
-    var id: URL { url }
-}
-
-private struct ShareSheet: UIViewControllerRepresentable {
-    let url: URL
-
-    func makeUIViewController(context: Context) -> UIActivityViewController {
-        UIActivityViewController(activityItems: [url], applicationActivities: nil)
-    }
-
-    func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
 }

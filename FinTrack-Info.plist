@@ -12,11 +12,8 @@
 	<array>
 		<string>fetch</string>
 	</array>
-	<!-- Expose Documents/ in the Files app so offline backups are reachable
-	     under On My iPhone → FinTrack → Backups (see LocalBackupService). -->
-	<key>UIFileSharingEnabled</key>
-	<true/>
-	<key>LSSupportsOpeningDocumentsInPlace</key>
-	<true/>
+	<!-- Deliberately NOT set: UIFileSharingEnabled / LSSupportsOpeningDocumentsInPlace.
+	     Backups live in Application Support (see LocalBackupService) and must stay
+	     invisible and un-editable in the Files app. -->
 </dict>
 </plist>

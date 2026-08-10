@@ -276,6 +276,12 @@ final class EmailBackupService {
         return compressionMagic + compressed
     }
 
+    /// Same zlib+header format, exposed so `LocalBackupService` can shrink its
+    /// Keychain device snapshot (`decompressIfNeeded` reverses either source).
+    static func compressForSnapshot(_ data: Data) throws -> Data {
+        try compress(data)
+    }
+
     /// Undo `compress` if the data carries the `FTGZ1` header; otherwise pass it
     /// through unchanged. Internal so the manual "Import Backup" flow can restore
     /// email-backup files (which are compressed) as well as uncompressed ones.

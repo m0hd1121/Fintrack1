@@ -100,7 +100,7 @@ Part of PROJECT_MAP.md (see root for navigation). All folders under `FinTrack/Fe
 - ImportIntegrationView.swift — import & integration hub: sync status, links, history
 - OFXImportView.swift — step-based OFX/QIF/QFX file import
 - PDFImportView.swift — step-based bank statement PDF import
-- LocalBackupView.swift — backup hub (titled just "Backup" in the UI; offline/on-device): status, Back Up Now, automatic-daily toggle, saved-backup list (restore / share to Files / delete). Replaced `iCloudSyncView`.
+- LocalBackupView.swift — backup hub (titled just "Backup"; on-device, read-only to the user — Back Up Now, automatic-daily toggle, Restore per backup; deliberately **no** delete/share): Replaced `iCloudSyncView`.
 
 **Core features:** email-based bank ingestion (`EmailImportView` + `BankSetupWizardView` + `EmailReviewQueueView`, driven by `EmailSyncService`); file-based import (`OFXImportView`, `PDFImportView`, `ImportIntegrationView`); 3 backup/restore providers (`LocalBackupView` (offline/on-device), `EmailBackupView`, `GoogleDriveBackupView`), each wrapping its own `*BackupService.shared`.
 

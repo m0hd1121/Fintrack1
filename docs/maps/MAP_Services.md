@@ -229,11 +229,12 @@ Key methods: `updateAll(netWorth:currency:transactions:budgets:bills:payments:)`
 External APIs: WidgetKit, `UserDefaults(suiteName: "group.com.fintrack.shared")`
 
 ### LocalBackupService.swift
-Purpose: **offline, on-device** backup/restore — replaced `iCloudBackupService` (which needed a paid-developer ubiquity container). Writes timestamped encrypted `.fintrack` files to `Documents/Backups`, exposed in the Files app via `UIFileSharingEnabled` + `LSSupportsOpeningDocumentsInPlace` in `FinTrack-Info.plist`.
-Singleton: `.shared` | Actor: implicit MainActor, `@Observable`; state published via `await MainActor.run`
-Key methods: `performBackup(context:) async -> Bool` (export → encrypt → write → prune to 10 newest), `listBackups() -> [BackupFile]` (newest first), `restore(from:context:mode:) async -> String`, `deleteBackup(_:)`, `scheduleAutomaticBackupIfNeeded(context:)` (24h), `backupsDirectory`, `totalSizeLabel`
-Note: the automatic-backup switch reuses `AppSettings.cloudSyncEnabled` (meaning changed from "iCloud sync" → "automatic offline backup"; no schema bump). `AppSettings.backupWifiOnly` is now **orphaned** (offline backups need no network) — left in place because removing a non-optional property forces a schema wipe.
-External APIs: none (local filesystem only)
+Purpose: **protected on-device backup/restore** — replaced `iCloudBackupService`. Two layers: (1) encrypted `.fintrack` files in **Application Support/Backups** (sandboxed, *not* Documents — `UIFileSharingEnabled`/`LSSupportsOpeningDocumentsInPlace` are deliberately ABSENT from `FinTrack-Info.plist` so backups never appear in the Files app and can't be edited/deleted by the user; the UI offers no delete/share either); (2) a **Keychain "device snapshot"** — iOS erases the whole app container on delete, so files cannot survive an uninstall, but Keychain items do and are reclaimed by the same bundle id on reinstall.
+Singleton: `.shared` | Actor: implicit MainActor, `@Observable`
+Key methods: `performBackup(context:) async -> Bool` (export → encrypt → write file → prune to 10 → refresh snapshot), `listBackups()`, `restore(from:context:mode:) async -> String`, `restoreFromDeviceSnapshotIfNeeded(container:) async -> Bool` (auto-restore at launch), `hasDeviceSnapshot`, `scheduleAutomaticBackupIfNeeded(context:)` (24h), `backupsDirectory` (also migrates legacy `Documents/Backups`).
+Snapshot details: payload is slimmed (`receiptImageData`, tax `fileData`, attachment `data` stripped) → zlib via `EmailBackupService.compressForSnapshot` → encrypted → Keychain, capped at 2 MB (over-cap deletes the stale item rather than keeping it). Auto-restore only fires into a **genuinely empty store** (0 transactions AND 0 accounts) so it can never clobber existing data; `RootView` gates launch on it and calls `completeOnboarding` when data comes back.
+Caveats to preserve: images/documents are NOT in the snapshot, and nothing survives erasing the device or moving to another one — Google Drive / Email Backup remain the off-device options.
+External APIs: none (local filesystem + Keychain)
 
 ---
 
