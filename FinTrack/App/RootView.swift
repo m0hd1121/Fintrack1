@@ -109,9 +109,6 @@ struct RootView: View {
             processIncomeAlerts()
             processDebtAlerts()
             drainPendingIntentQueue()
-            if settings.first?.cloudSyncEnabled == true {
-                LocalBackupService.shared.scheduleAutomaticBackupIfNeeded(context: context)
-            }
             if isGoogleDriveBackupEnabled { GoogleDriveBackupService.shared.syncIfDue(context: context) }
             EmailBackupService.shared.scheduleAutomaticBackupIfNeeded(context: context)
         }
@@ -122,10 +119,6 @@ struct RootView: View {
                    setting.useBiometrics || setting.usePIN,
                    appState.hasCompletedOnboarding {
                     appState.lock()
-                }
-                // Backup before the OS might suspend/kill the app
-                if settings.first?.cloudSyncEnabled == true {
-                    LocalBackupService.shared.scheduleAutomaticBackupIfNeeded(context: context)
                 }
                 if isGoogleDriveBackupEnabled { GoogleDriveBackupService.shared.syncIfDue(context: context) }
                 EmailBackupService.shared.scheduleAutomaticBackupIfNeeded(context: context)
@@ -140,10 +133,6 @@ struct RootView: View {
                 processIncomeAlerts()
                 processDebtAlerts()
                 drainPendingIntentQueue()
-                // Periodic backup check on every resume from background
-                if settings.first?.cloudSyncEnabled == true {
-                    LocalBackupService.shared.scheduleAutomaticBackupIfNeeded(context: context)
-                }
                 if isGoogleDriveBackupEnabled { GoogleDriveBackupService.shared.syncIfDue(context: context) }
                 EmailBackupService.shared.scheduleAutomaticBackupIfNeeded(context: context)
             }
@@ -161,6 +150,8 @@ struct RootView: View {
         }
         .task {
             EmailSyncService.shared.startAutoSync(context: context)
+            // Back up after each edit rather than on a launch/resume schedule.
+            LocalBackupService.shared.startObservingChanges(container: context.container)
             if isGoogleDriveBackupEnabled { GoogleDriveBackupService.shared.startAutoSync(context: context) }
             EmailBackupService.shared.startAutoBackup(context: context)
             await cryptoPriceService.fetchPrices()

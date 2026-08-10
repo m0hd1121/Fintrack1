@@ -136,7 +136,7 @@ struct LocalBackupView: View {
             Divider().opacity(0.4)
 
             FTToggleRow(symbol: "clock.arrow.circlepath", tint: FTColor.catTeal,
-                        title: "Automatic Daily Backup",
+                        title: "Back Up After Every Change",
                         isOn: autoBackupBinding)
         }
         .padding(.horizontal, FTSpacing.lg)
@@ -196,6 +196,12 @@ struct LocalBackupView: View {
                 Image(systemName: "eye.slash.fill")
                     .font(.ftCaption).foregroundStyle(FTColor.catBlue).frame(width: 20)
                 Text("Backups are stored in a protected area of the app and are encrypted. They don't appear in the Files app and can't be opened, edited or deleted — not even by you.")
+                    .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+            }
+            HStack(alignment: .top, spacing: FTSpacing.sm) {
+                Image(systemName: "bolt.fill")
+                    .font(.ftCaption).foregroundStyle(FTColor.catTeal).frame(width: 20)
+                Text("With automatic backup on, a new backup is saved moments after you add or change anything — not on a fixed schedule. The 10 most recent backups are kept.")
                     .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
             }
             HStack(alignment: .top, spacing: FTSpacing.sm) {

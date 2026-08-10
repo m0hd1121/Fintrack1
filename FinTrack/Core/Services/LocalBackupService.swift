@@ -28,7 +28,6 @@ final class LocalBackupService {
     static let shared = LocalBackupService()
 
     private let lastBackupKey = "local_last_backup_date"
-    private let autoBackupIntervalHours: Double = 24
     /// Auto-pruning keeps this many newest backup files.
     private let maxKeptBackups = 10
 
@@ -42,6 +41,13 @@ final class LocalBackupService {
     var isBackingUp = false
     var isRestoring = false
     var lastError: String?
+
+    /// Coalesces a burst of edits into one backup.
+    private let changeDebounceSeconds: Double = 4
+    private var changeObserver: NSObjectProtocol?
+    private var pendingBackupTask: Task<Void, Never>?
+    /// Set while restoring so the import's own `save()` can't trigger a backup.
+    private var suppressAutoBackup = false
 
     private init() {}
 
@@ -182,9 +188,11 @@ final class LocalBackupService {
         await MainActor.run { isRestoring = true; lastError = nil }
 
         do {
-            let rawData = try Data(contentsOf: backup.url)
-            let plainData = try await decodePayload(rawData)
-            let summary = try importPayload(plainData, context: context, mode: mode)
+            let summary = try await withAutoBackupSuppressed {
+                let rawData = try Data(contentsOf: backup.url)
+                let plainData = try await decodePayload(rawData)
+                return try importPayload(plainData, context: context, mode: mode)
+            }
             await MainActor.run { isRestoring = false }
             return summary.total > 0 ? "Restored \(summary.description) successfully." : "Backup imported — nothing new to add."
         } catch {
@@ -245,9 +253,11 @@ final class LocalBackupService {
         guard existing == 0, accounts == 0 else { return false }
 
         do {
-            let plain = try await decodePayload(stored)
-            let summary = try importPayload(plain, context: context, mode: .replace)
-            return summary.total > 0
+            return try await withAutoBackupSuppressed {
+                let plain = try await decodePayload(stored)
+                let summary = try importPayload(plain, context: context, mode: .replace)
+                return summary.total > 0
+            }
         } catch {
             return false
         }
@@ -270,14 +280,54 @@ final class LocalBackupService {
         return try DataTransferService.shared.importBackup(from: tempURL, context: context, mode: mode)
     }
 
-    // MARK: Automatic backups
+    // MARK: Automatic backups (change-driven, not launch-driven)
 
-    /// Triggers a backup if the daily interval has elapsed. Callers gate this on
-    /// the user's automatic-backup toggle (`AppSettings.cloudSyncEnabled`).
-    func scheduleAutomaticBackupIfNeeded(context: ModelContext) {
-        let last = lastBackupDate ?? .distantPast
-        guard Date().timeIntervalSince(last) >= autoBackupIntervalHours * 3600 else { return }
-        Task { await performBackup(context: context) }
+    /// Starts backing up after every data change. Listens for SwiftData's
+    /// `didSave` and debounces, so a burst of edits produces one backup instead
+    /// of one per write. Call once at launch; repeat calls are ignored.
+    func startObservingChanges(container: ModelContainer) {
+        guard changeObserver == nil else { return }
+        changeObserver = NotificationCenter.default.addObserver(
+            forName: ModelContext.didSave, object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.scheduleBackupAfterChange(container: container)
+        }
+    }
+
+    /// Debounced backup triggered by an edit.
+    private func scheduleBackupAfterChange(container: ModelContainer) {
+        guard !suppressAutoBackup else { return }
+        pendingBackupTask?.cancel()
+        pendingBackupTask = Task { [weak self] in
+            guard let self else { return }
+            try? await Task.sleep(for: .seconds(changeDebounceSeconds))
+            guard !Task.isCancelled, !self.suppressAutoBackup else { return }
+
+            // Wait for any in-flight backup/restore instead of dropping this
+            // edit, so the newest change always makes it into a backup.
+            while self.isBackingUp || self.isRestoring {
+                try? await Task.sleep(for: .seconds(1))
+                guard !Task.isCancelled else { return }
+            }
+            guard !self.suppressAutoBackup else { return }
+
+            let context = ModelContext(container)
+            // The user's automatic-backup switch (AppSettings.cloudSyncEnabled).
+            let enabled = (try? context.fetch(FetchDescriptor<AppSettings>()))?
+                .first?.cloudSyncEnabled ?? false
+            guard enabled else { return }
+            await self.performBackup(context: context)
+        }
+    }
+
+    /// Runs `body` with automatic backups muted — a restore writes through the
+    /// same `ModelContext.didSave` we listen to, and re-backing-up the data we
+    /// just imported is pointless work.
+    private func withAutoBackupSuppressed<T>(_ body: () async throws -> T) async rethrows -> T {
+        suppressAutoBackup = true
+        pendingBackupTask?.cancel()
+        defer { suppressAutoBackup = false }
+        return try await body()
     }
 
     @MainActor func clearError() { lastError = nil }
