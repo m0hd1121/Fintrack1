@@ -192,7 +192,7 @@ struct SettingsView: View {
                 sectionCard("Data & Privacy") {
                     NavigationLink(destination: LazyView { LocalBackupView() }) {
                         settingRow(symbol: "internaldrive.fill", tint: FTColor.catBlue,
-                                   title: "Offline Backup", chevron: true)
+                                   title: "Backup", chevron: true)
                     }
                     rowDivider
                     if DisableableFeature.googleDriveBackup.isEnabled {
@@ -624,7 +624,7 @@ struct AboutView: View {
                         HStack(spacing: 32) {
                             FeatureBadge(icon: "chart.pie.fill", label: "Analytics")
                             FeatureBadge(icon: "bell.fill", label: "Reminders")
-                            FeatureBadge(icon: "internaldrive.fill", label: "Offline Backup")
+                            FeatureBadge(icon: "internaldrive.fill", label: "Backup")
                         }
                     }
 

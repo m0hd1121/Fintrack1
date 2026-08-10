@@ -102,7 +102,7 @@ struct ImportIntegrationView: View {
 
             NavigationLink(destination: LocalBackupView()) {
                 methodRow(icon: "internaldrive.fill", color: FTColor.accent,
-                          title: "Offline Backup",
+                          title: "Backup",
                           subtitle: "Encrypted · Saved on this device, visible in Files")
             }
             .buttonStyle(.plain)

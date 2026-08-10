@@ -42,7 +42,7 @@ struct LocalBackupView: View {
         }
         .scrollContentBackground(.hidden)
         .background { FTBackdrop() }
-        .navigationTitle("Offline Backup")
+        .navigationTitle("Backup")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { reload() }
         .alert("Backup", isPresented: $showingResult) {

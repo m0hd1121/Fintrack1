@@ -5,7 +5,7 @@ struct PrivacyPolicyView: View {
 
     private let sections: [(title: String, body: String)] = [
         ("Data Storage", "All your financial data is stored exclusively on your device using Apple's SwiftData framework. FinTrack never transmits your personal financial data to external servers without your explicit consent."),
-        ("Offline Backup", "Backups are written as encrypted files on this device and listed in the Files app. They never leave your device unless you choose to share them, or you separately enable a cloud backup option such as Google Drive or Email Backup."),
+        ("Backup", "Backups are written as encrypted files on this device and listed in the Files app. They never leave your device unless you choose to share them, or you separately enable a cloud backup option such as Google Drive or Email Backup."),
         ("Biometric & PIN Authentication", "Face ID, Touch ID, and PIN authentication are handled entirely by iOS. FinTrack never stores your biometric data. PIN hashes are stored locally on-device using a one-way cryptographic hash."),
         ("AI Categorization", "Transaction categorization and AI insights are computed on-device. No transaction data is sent to external AI services. The AI features use pattern matching against your local data only."),
         ("Exchange Rates", "Live exchange rate data is fetched from a public rates API. This request includes no personal or financial information — only the base currency code."),
