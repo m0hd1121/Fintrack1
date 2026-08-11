@@ -33,7 +33,6 @@ struct LocalBackupView: View {
                 statusCard
                 actionsCard
                 backupsList
-                infoCard
             }
             .padding(.horizontal, FTSpacing.screen)
             .padding(.top, FTSpacing.lg)
@@ -85,8 +84,7 @@ struct LocalBackupView: View {
             }
 
             HStack(spacing: FTSpacing.sm) {
-                statTile("Backups", value: "\(backups.count)", icon: "doc.on.doc.fill", color: FTColor.catBlue)
-                statTile("Total Size", value: service.totalSizeLabel, icon: "internaldrive.fill", color: FTColor.accent)
+                statTile("Size", value: service.totalSizeLabel, icon: "internaldrive.fill", color: FTColor.accent)
                 statTile("Reinstall-safe",
                          value: service.hasDeviceSnapshot ? "Yes" : "No",
                          icon: service.hasDeviceSnapshot ? "checkmark.seal.fill" : "xmark.seal",
@@ -149,7 +147,7 @@ struct LocalBackupView: View {
     private var backupsList: some View {
         if !backups.isEmpty {
             VStack(alignment: .leading, spacing: FTSpacing.sm) {
-                Text("SAVED BACKUPS")
+                Text("LATEST BACKUP")
                     .font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false)
                     .foregroundStyle(FTColor.textMuted)
 
@@ -188,43 +186,10 @@ struct LocalBackupView: View {
         .padding(.vertical, 12)
     }
 
-    // MARK: Info
-
-    private var infoCard: some View {
-        VStack(alignment: .leading, spacing: FTSpacing.md) {
-            HStack(alignment: .top, spacing: FTSpacing.sm) {
-                Image(systemName: "eye.slash.fill")
-                    .font(.ftCaption).foregroundStyle(FTColor.catBlue).frame(width: 20)
-                Text("Backups are stored in a protected area of the app and are encrypted. They don't appear in the Files app and can't be opened, edited or deleted — not even by you.")
-                    .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
-            }
-            HStack(alignment: .top, spacing: FTSpacing.sm) {
-                Image(systemName: "bolt.fill")
-                    .font(.ftCaption).foregroundStyle(FTColor.catTeal).frame(width: 20)
-                Text("With automatic backup on, a new backup is saved moments after you add or change anything — not on a fixed schedule. The 10 most recent backups are kept.")
-                    .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
-            }
-            HStack(alignment: .top, spacing: FTSpacing.sm) {
-                Image(systemName: "arrow.clockwise.circle.fill")
-                    .font(.ftCaption).foregroundStyle(FTColor.income).frame(width: 20)
-                Text("A protected copy of your records is also kept outside the app. If FinTrack is deleted and installed again on this device, that copy is restored automatically on first launch.")
-                    .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
-            }
-            HStack(alignment: .top, spacing: FTSpacing.sm) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.ftCaption).foregroundStyle(FTColor.gold).frame(width: 20)
-                Text("Receipt images and documents aren't part of that reinstall copy, and nothing survives erasing the device or moving to a new one — use Google Drive or Email Backup for an off-device copy.")
-                    .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
-            }
-        }
-        .padding()
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .ftGlass(FTRadius.md)
-    }
-
     // MARK: Operations
 
     private func reload() {
+        service.pruneOldBackups()
         backups = service.listBackups()
     }
 

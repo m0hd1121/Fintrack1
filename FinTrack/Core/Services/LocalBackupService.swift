@@ -28,8 +28,8 @@ final class LocalBackupService {
     static let shared = LocalBackupService()
 
     private let lastBackupKey = "local_last_backup_date"
-    /// Auto-pruning keeps this many newest backup files.
-    private let maxKeptBackups = 10
+    /// Only the newest backup is kept — every new one replaces the last.
+    private let maxKeptBackups = 1
 
     /// Keychain item holding the uninstall-proof snapshot.
     private let snapshotKeychainKey = "ft_device_snapshot_v1"
@@ -172,8 +172,9 @@ final class LocalBackupService {
         }
     }
 
-    /// Keep only the newest `maxKeptBackups` files.
-    private func pruneOldBackups() {
+    /// Keep only the newest `maxKeptBackups` files. Also called when the Backup
+    /// screen loads, so extras left by an earlier retention policy get cleared.
+    func pruneOldBackups() {
         let backups = listBackups()
         guard backups.count > maxKeptBackups else { return }
         for old in backups.dropFirst(maxKeptBackups) {
