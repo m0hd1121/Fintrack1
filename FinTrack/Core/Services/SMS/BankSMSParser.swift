@@ -25,37 +25,29 @@ enum BankSMSParser {
         "insufficient funds", "was not successful", "unsuccessful",
     ]
 
-    struct Outcome {
-        var results: [ParsedBankEmail]
-        /// "template" or "on-device model" — read by `SMSIngestService` to
-        /// decide auto-approve eligibility and shown in the explanation trail.
-        var source: String
-    }
-
     /// `userTemplates` — sender IDs configured per bank in `SMSImportView` —
     /// are consulted ahead of the bundled/remote list; see
-    /// `BankSMSTemplateStore.identify`.
-    static func parse(rawText: String, senderId: String?, userTemplates: [BankSMSTemplate] = []) async -> Outcome {
+    /// `BankSMSTemplateStore.identify`. Which tier produced a result is
+    /// recorded in each `ParsedBankEmail.explanationLines`, not in a
+    /// separate return value — neither tier ever auto-approves, so
+    /// `SMSIngestService` has no need to distinguish them structurally.
+    static func parse(rawText: String, senderId: String?, userTemplates: [BankSMSTemplate] = []) async -> [ParsedBankEmail] {
         let normalized = TextNormalizer.normalize(rawText).normalized
         let lower = normalized.lowercased()
 
-        guard !skipKeywords.contains(where: { lower.contains($0) }) else {
-            return Outcome(results: [], source: "template")
-        }
+        guard !skipKeywords.contains(where: { lower.contains($0) }) else { return [] }
 
         if let templateResult = parseWithTemplate(normalized, senderId: senderId, userTemplates: userTemplates) {
-            return Outcome(results: [templateResult], source: "template")
+            return [templateResult]
         }
 
         guard FoundationModelsSMSExtractor.isAvailable,
               let extraction = try? await FoundationModelsSMSExtractor.extract(normalized)
-        else {
-            return Outcome(results: [], source: "on-device model")
-        }
-        let grounded = extraction.transactions.compactMap {
+        else { return [] }
+
+        return extraction.transactions.compactMap {
             groundedResult(from: $0, rawText: normalized)
         }
-        return Outcome(results: grounded, source: "on-device model")
     }
 
     // MARK: - Template path (deterministic, reuses BankEmailParser's grammar)

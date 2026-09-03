@@ -156,7 +156,7 @@ struct SMSImportView: View {
             }
 
             if smsRules.isEmpty {
-                Text("Add a bank to link its SMS to an account and, optionally, auto-approve high-confidence transactions.")
+                Text("Add a bank to link its SMS to an account. Every parsed transaction still waits for your approval in the review queue.")
                     .font(.ftCaption).foregroundStyle(FTColor.textMuted)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding()
@@ -174,9 +174,6 @@ struct SMSImportView: View {
                                     .font(.ftCaption).foregroundStyle(FTColor.textMuted)
                             }
                             Spacer()
-                            if rule.autoApprove {
-                                BadgeView(text: "Auto ≥\(Int(rule.confidenceThreshold * 100))%", color: FTColor.income)
-                            }
                             Image(systemName: "chevron.right").font(.ftCaption).foregroundStyle(FTColor.textMuted)
                         }
                         .padding()
@@ -201,7 +198,7 @@ struct SMSImportView: View {
             HStack(alignment: .top, spacing: FTSpacing.sm) {
                 Image(systemName: "tray.fill")
                     .font(.ftCaption).foregroundStyle(FTColor.catBlue).frame(width: 20)
-                Text("Every parsed SMS lands in the same review queue as email imports — nothing reaches your transactions until you approve it, unless you turn on auto-approve for a bank above.")
+                Text("Every parsed SMS waits in the same review queue as email imports — nothing is ever added to your transactions without you tapping Approve.")
                     .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
             }
         }
@@ -227,8 +224,6 @@ struct SMSBankRuleSheet: View {
     @State private var customBankName = ""
     @State private var senderId = ""
     @State private var linkedAccountId: UUID? = nil
-    @State private var autoApprove = false
-    @State private var confidenceThreshold = 0.92
 
     @Query(sort: \Account.name) private var accounts: [Account]
 
@@ -246,7 +241,6 @@ struct SMSBankRuleSheet: View {
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
                         bankSection
-                        automationSection
                         Color.clear.frame(height: 110)
                     }
                     .padding(.horizontal, FTSpacing.screen)
@@ -313,33 +307,6 @@ struct SMSBankRuleSheet: View {
         .ftGlass(FTRadius.md)
     }
 
-    private var automationSection: some View {
-        VStack(spacing: 0) {
-            FTToggleRow(symbol: "checkmark.seal.fill", tint: FTColor.income,
-                        title: "Auto-Approve High Confidence", isOn: $autoApprove)
-            if autoApprove {
-                Divider().opacity(0.4)
-                VStack(alignment: .leading, spacing: FTSpacing.sm) {
-                    HStack {
-                        Text("Confidence Threshold")
-                            .font(.ftBody).foregroundStyle(FTColor.textSecondary)
-                        Spacer()
-                        Text("\(Int(confidenceThreshold * 100))%")
-                            .font(.ftBodySemibold).foregroundStyle(FTColor.accent)
-                    }
-                    Slider(value: $confidenceThreshold, in: 0.5...0.99, step: 0.01)
-                        .tint(FTColor.accent)
-                    Text("Only messages matched by the on-device bank template can auto-approve — anything the model has to guess always waits for you.")
-                        .font(.ftCaption).foregroundStyle(FTColor.textMuted)
-                }
-                .padding(.vertical, FTSpacing.md)
-            }
-        }
-        .padding(.horizontal, FTSpacing.lg)
-        .ftGlass(FTRadius.md)
-        .animation(.snappy(duration: 0.25), value: autoApprove)
-    }
-
     private func wizardField(_ label: String, @ViewBuilder content: () -> some View) -> some View {
         HStack(spacing: FTSpacing.md) {
             Text(label).font(.ftBody).foregroundStyle(FTColor.textSecondary).fixedSize()
@@ -362,8 +329,6 @@ struct SMSBankRuleSheet: View {
         }
         senderId = rule.keywords.first ?? ""
         linkedAccountId = rule.linkedAccountId
-        autoApprove = rule.autoApprove
-        confidenceThreshold = rule.confidenceThreshold
     }
 
     private func save() {
@@ -377,16 +342,12 @@ struct SMSBankRuleSheet: View {
             rule.senderEmail = tag
             rule.keywords = senderKeywords
             rule.linkedAccountId = linkedAccountId
-            rule.autoApprove = autoApprove
-            rule.confidenceThreshold = confidenceThreshold
         } else {
             let rule = BankEmailRule(
                 bankName: name,
                 senderEmail: tag,
                 keywords: senderKeywords,
-                linkedAccountId: linkedAccountId,
-                autoApprove: autoApprove,
-                confidenceThreshold: confidenceThreshold
+                linkedAccountId: linkedAccountId
             )
             context.insert(rule)
         }

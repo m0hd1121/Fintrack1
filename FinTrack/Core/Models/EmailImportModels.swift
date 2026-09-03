@@ -96,9 +96,13 @@ final class EmailAccount {
 
 // MARK: - BankEmailRule
 
-/// One bank configured in the setup wizard. Drives detection (sender/subject/
-/// keyword matching beyond the built-in UAE whitelist) and automation
-/// (auto-approval above the user's confidence threshold).
+/// One bank configured in the setup wizard (or, tagged `"sms:<slug>"` on
+/// `senderEmail`, an SMS bank configured from `SMSImportView`). Drives
+/// detection (sender/subject/keyword matching beyond the built-in UAE
+/// whitelist) and which account a match posts to. `autoApprove`/
+/// `confidenceThreshold` are kept for backward-compat model shape but are no
+/// longer read anywhere — every automated import (email or SMS) always
+/// waits in the review queue for the user's own approval.
 @Model
 final class BankEmailRule {
     var id: UUID
@@ -114,9 +118,9 @@ final class BankEmailRule {
     var accountTypeRaw: String
     /// Ledger account transactions from this bank should post to (overrides card-digit matching)
     var linkedAccountId: UUID?
-    // Automation
+    // Unused — kept only so old backups/rows still decode; see class doc.
     var autoApprove: Bool
-    var confidenceThreshold: Double  // 0.5...0.99 — auto-approve at/above this
+    var confidenceThreshold: Double
     var isEnabled: Bool
     var createdAt: Date
     var matchedCount: Int            // how many emails this rule has caught

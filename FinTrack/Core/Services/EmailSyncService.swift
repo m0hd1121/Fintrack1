@@ -391,7 +391,7 @@ final class EmailSyncService: NSObject {
         let receivedAt: Date
     }
 
-    /// Classify → parse → learn → categorize → dedup → enqueue → auto-approve.
+    /// Classify → parse → learn → categorize → dedup → enqueue for review.
     /// Detection accepts either the built-in UAE whitelist or a user-defined
     /// BankEmailRule from the setup wizard. Returns true when a pending item
     /// was created.
@@ -505,17 +505,12 @@ final class EmailSyncService: NSObject {
             item.parseExplanation += "\nBNPL provider detected — link an installment plan before approving"
         }
 
-        // Auto-approval: only via an explicit per-bank opt-in, and never for
-        // duplicates, suspicious parses, or BNPL charges — those always
-        // require human eyes (BNPL needs a plan selection).
-        if let rule = matchedRule,
-           rule.autoApprove,
-           !verdict.isDuplicate,
-           !parsed.isSuspicious,
-           !item.isBNPLMerchant,
-           item.confidence >= rule.confidenceThreshold {
-            approveToLedger(item: item, context: context, autoApproved: true)
-        }
+        // No automated path ever posts straight to the ledger — every email
+        // import waits in the review queue for the user's own approval
+        // (`EmailReviewQueueView`'s "Approve N high-confidence" button is
+        // still available there, but that's an explicit tap, never automatic).
+        // `BankEmailRule.autoApprove`/`.confidenceThreshold` are kept on the
+        // model (no schema bump) but are no longer read here.
 
         let pendingStatusRaw = PendingImportStatus.pending.rawValue
         let pendingCount = (try? context.fetchCount(
@@ -601,11 +596,15 @@ final class EmailSyncService: NSObject {
         return (best.account, best.reason.joined(separator: " · "))
     }
 
-    // MARK: - Ledger posting (shared by auto-approval and the review queue)
+    // MARK: - Ledger posting (only ever reached via the user's own tap in the review queue)
 
     /// Creates the permanent Transaction for a queue item, links the right
     /// account (bank rule's linked account first, then card last-4 match),
-    /// adjusts its balance, and feeds the learning loops.
+    /// adjusts its balance, and feeds the learning loops. `autoApproved` is
+    /// no longer set by any automated path (see `processEmail`/
+    /// `SMSIngestService`) — the parameter and the `wasAutoApproved`/notes
+    /// wording it drives are kept only so a manually-triggered call retains
+    /// the option, not because anything calls it with `true` today.
     func approveToLedger(item: PendingEmailTransaction, context: ModelContext, autoApproved: Bool = false) {
         guard item.status == .pending else { return }
         // BNPL charges must have a plan selection (or an explicit "no plan")

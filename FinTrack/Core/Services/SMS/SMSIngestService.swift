@@ -2,9 +2,12 @@ import Foundation
 import SwiftData
 import CryptoKit
 
-/// Turns a raw SMS message into a `PendingEmailTransaction` and drives the
-/// same review-queue / auto-approve / ledger pipeline the email importer
-/// uses — see `EmailSyncService.processEmail` / `.approveToLedger`.
+/// Turns a raw SMS message into a `PendingEmailTransaction` and files it in
+/// the same review queue the email importer uses — see
+/// `EmailSyncService.processEmail` / `.approveToLedger`. Nothing from this
+/// pipeline ever posts straight to the ledger: every SMS-derived transaction
+/// waits for the user's own approval in `EmailReviewQueueView`, exactly like
+/// every email-derived one.
 ///
 /// SMS items are *tagged*, not modeled separately: `PendingEmailTransaction
 /// .senderAddress` and `BankEmailRule.senderEmail` carry an `"sms:<bank
@@ -13,12 +16,6 @@ import CryptoKit
 /// feature needed no new `@Model` and no schema bump.
 @MainActor
 enum SMSIngestService {
-
-    /// Auto-approve only ever fires for a template-matched (never a
-    /// model-guessed) parse, at a high bar — the same spirit as the email
-    /// importer's per-bank rule, used here as the *default* when no
-    /// `BankEmailRule` has been configured for the bank via `SMSImportView`.
-    private static let minTemplateAutoApproveConfidence = 0.92
 
     static func senderTag(bankName: String) -> String {
         "sms:" + BankSMSTemplateStore.slug(bankName)
@@ -34,12 +31,12 @@ enum SMSIngestService {
             .filter { $0.isEnabled && $0.senderEmail.hasPrefix("sms:") && !$0.keywords.isEmpty }
             .map { BankSMSTemplate(bankId: BankSMSTemplateStore.slug($0.bankName), bankName: $0.bankName, senderIds: $0.keywords) }
 
-        let outcome = await BankSMSParser.parse(rawText: rawText, senderId: senderId, userTemplates: userTemplates)
-        guard !outcome.results.isEmpty else { return false }
+        let results = await BankSMSParser.parse(rawText: rawText, senderId: senderId, userTemplates: userTemplates)
+        guard !results.isEmpty else { return false }
 
         var created = false
-        for parsed in outcome.results
-        where file(parsed, source: outcome.source, rawText: rawText, receivedAt: receivedAt, context: context) {
+        for parsed in results
+        where file(parsed, rawText: rawText, receivedAt: receivedAt, context: context) {
             created = true
         }
         if created { try? context.save() }
@@ -48,7 +45,7 @@ enum SMSIngestService {
 
     @discardableResult
     private static func file(
-        _ parsed: ParsedBankEmail, source: String, rawText: String, receivedAt: Date, context: ModelContext
+        _ parsed: ParsedBankEmail, rawText: String, receivedAt: Date, context: ModelContext
     ) -> Bool {
         let tag = senderTag(bankName: parsed.bankName)
         let bankRules = (try? context.fetch(FetchDescriptor<BankEmailRule>())) ?? []
@@ -132,16 +129,8 @@ enum SMSIngestService {
             item.parseExplanation += "\nBNPL provider detected — link an installment plan before approving"
         }
 
-        let ruleAutoApprove = matchedRule?.autoApprove == true
-            && !verdict.isDuplicate && !parsed.isSuspicious && !item.isBNPLMerchant
-            && item.confidence >= (matchedRule?.confidenceThreshold ?? 1)
-        let defaultAutoApprove = matchedRule == nil && source == "template"
-            && !verdict.isDuplicate && !parsed.isSuspicious && !item.isBNPLMerchant
-            && item.confidence >= minTemplateAutoApproveConfidence
-
-        if ruleAutoApprove || defaultAutoApprove {
-            EmailSyncService.shared.approveToLedger(item: item, context: context, autoApproved: true)
-        }
+        // Every SMS import waits here for the user's own approval — no
+        // confidence bar or bank rule ever posts straight to the ledger.
 
         let pendingStatusRaw = PendingImportStatus.pending.rawValue
         let pendingCount = (try? context.fetchCount(

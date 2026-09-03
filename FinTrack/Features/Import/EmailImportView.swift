@@ -95,9 +95,6 @@ struct EmailImportView: View {
                         .font(.ftCaption).foregroundStyle(FTColor.textMuted).lineLimit(1)
                 }
                 Spacer()
-                if rule.autoApprove {
-                    BadgeView(text: "Auto ≥\(Int(rule.confidenceThreshold * 100))%", color: FTColor.income)
-                }
                 Menu {
                     Toggle("Enabled", isOn: Binding(
                         get: { rule.isEnabled },

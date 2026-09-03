@@ -3,9 +3,9 @@ import SwiftData
 
 // MARK: - BankSetupWizardView
 // Add/edit one bank's email notification profile: what the bank's alert
-// emails look like (sender, subject, keywords) and how automation should
-// behave (auto-approval + confidence threshold). Configured once — after
-// that, imports from this bank are fully automatic.
+// emails look like (sender, subject, keywords) and which account to post
+// its transactions to. Every detected transaction still waits in the
+// review queue for approval — see EmailReviewQueueView.
 
 struct BankSetupWizardView: View {
     @Environment(\.modelContext) private var context
@@ -25,10 +25,6 @@ struct BankSetupWizardView: View {
     @State private var senderDomain = ""
     @State private var subjectPattern = ""
     @State private var keywordsText = ""
-
-    // Automation
-    @State private var autoApprove = false
-    @State private var confidenceThreshold = 0.9
 
     @Query(sort: \Account.name) private var accounts: [Account]
 
@@ -52,8 +48,6 @@ struct BankSetupWizardView: View {
                         bankSection
                         stepHeader(2, "How the Bank Emails You")
                         matchingSection
-                        stepHeader(3, "Automation")
-                        automationSection
                         Color.clear.frame(height: 110)
                     }
                     .padding(.horizontal, FTSpacing.screen)
@@ -178,36 +172,6 @@ struct BankSetupWizardView: View {
         .ftGlass(FTRadius.md)
     }
 
-    // MARK: - Step 3: Automation
-
-    private var automationSection: some View {
-        VStack(spacing: 0) {
-            FTToggleRow(symbol: "checkmark.seal.fill", tint: FTColor.income,
-                        title: "Auto-Approve High Confidence", isOn: $autoApprove)
-
-            if autoApprove {
-                Divider().opacity(0.4)
-                VStack(alignment: .leading, spacing: FTSpacing.sm) {
-                    HStack {
-                        Text("Confidence Threshold")
-                            .font(.ftBody).foregroundStyle(FTColor.textSecondary)
-                        Spacer()
-                        Text("\(Int(confidenceThreshold * 100))%")
-                            .font(.ftBodySemibold).foregroundStyle(FTColor.accent)
-                    }
-                    Slider(value: $confidenceThreshold, in: 0.5...0.99, step: 0.01)
-                        .tint(FTColor.accent)
-                    Text("Transactions at or above this confidence are added automatically. Duplicates and suspicious parses always require review.")
-                        .font(.ftCaption).foregroundStyle(FTColor.textMuted)
-                }
-                .padding(.vertical, FTSpacing.md)
-            }
-        }
-        .padding(.horizontal, FTSpacing.lg)
-        .ftGlass(FTRadius.md)
-        .animation(.snappy(duration: 0.25), value: autoApprove)
-    }
-
     private func wizardField(_ label: String, @ViewBuilder content: () -> some View) -> some View {
         HStack(spacing: FTSpacing.md) {
             Text(label).font(.ftBody).foregroundStyle(FTColor.textSecondary).fixedSize()
@@ -230,8 +194,6 @@ struct BankSetupWizardView: View {
         senderDomain = rule.senderDomain
         subjectPattern = rule.subjectPattern
         keywordsText = rule.keywords.joined(separator: ", ")
-        autoApprove = rule.autoApprove
-        confidenceThreshold = rule.confidenceThreshold
     }
 
     private func save() {
@@ -250,8 +212,6 @@ struct BankSetupWizardView: View {
             rule.senderDomain = senderDomain.trimmingCharacters(in: .whitespaces)
             rule.subjectPattern = subjectPattern.trimmingCharacters(in: .whitespaces)
             rule.keywords = keywords
-            rule.autoApprove = autoApprove
-            rule.confidenceThreshold = confidenceThreshold
         } else {
             let rule = BankEmailRule(
                 bankName: bankName.trimmingCharacters(in: .whitespaces),
@@ -262,14 +222,11 @@ struct BankSetupWizardView: View {
                 keywords: keywords,
                 currency: currency,
                 accountType: accountType,
-                linkedAccountId: linkedAccountId,
-                autoApprove: autoApprove,
-                confidenceThreshold: confidenceThreshold
+                linkedAccountId: linkedAccountId
             )
             context.insert(rule)
         }
-        AuditLogService.log(context: context,
-            "\(isEditing ? "Updated" : "Added") bank email rule: \(bankName) (auto-approve \(autoApprove ? "on, ≥\(Int(confidenceThreshold * 100))%" : "off"))")
+        AuditLogService.log(context: context, "\(isEditing ? "Updated" : "Added") bank email rule: \(bankName)")
         try? context.save()
         dismiss()
     }
