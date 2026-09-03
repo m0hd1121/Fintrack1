@@ -127,9 +127,10 @@ Key methods: `connect()/login(user:password:)/selectInbox()/uidSearch(_:) -> [In
 External APIs: Network.framework (raw NWConnection/TLS)
 
 ### ImportLearningService.swift
-Purpose: on-device learning memory for the email-import review queue — merchant rename aliases, tag suggestions, rejection tracking, weighted duplicate-detection scoring.
+Purpose: on-device learning memory for the email/SMS import review queue — merchant rename aliases, tag suggestions, rejection tracking, weighted duplicate-detection scoring.
 Singleton: `.shared` | Actor: implicit MainActor
 Key methods: `static merchantKey/normalizedMerchant(for:)`, `recordMerchantRename(raw:cleanName:)`, `static cosmeticCleanup(_:)`, `suggestedTags(for:)`, `recordApprovedTags(rawMerchant:tags:)`, `recordRejection/isUsuallyRejected(rawMerchant:)`, `duplicateCheck(...) -> DuplicateVerdict`, `static similarityScore/tokenOverlap`
+`duplicateCheck`'s weighted scoring runs against **both** `existingTransactions` and `pendingItems` (two `static similarityScore` overloads sharing a private `score(...)` helper) — the second loop exists specifically to catch the same real-world transaction reported by both email and SMS, which lands as two separate pending items with rarely-identical fingerprints (SMS often has no reference number, or a shorter merchant string) so the exact-match short-circuits above it usually miss the pair. A hit against the queue produces a reason like `"87% match with a pending SMS import (…)"`. `EmailReviewQueueView.approve(_:)` and the edit sheet's Approve both route a flagged item through a confirmation dialog ("Approve Anyway") rather than posting straight to the ledger — see PROJECT_MAP §8.
 External APIs: none
 
 ### IncomeService.swift

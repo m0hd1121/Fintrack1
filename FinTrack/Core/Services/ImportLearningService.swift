@@ -159,9 +159,15 @@ final class ImportLearningService {
             }
         }
 
-        // Weighted scoring against the ledger
+        // Weighted scoring against the ledger AND the pending queue — a
+        // transaction reported by both email and SMS lands as two separate
+        // pending items (different channels rarely produce an identical
+        // fingerprint: SMS often omits the reference number email carries,
+        // or extracts a shorter merchant string), so without this second
+        // loop a same-day cross-channel duplicate would only get caught by
+        // the exact-match short-circuits above, which usually miss it.
         var bestScore = 0.0
-        var bestMatch: Transaction?
+        var bestReason: String?
         for tx in existingTransactions {
             let score = Self.similarityScore(
                 amount: amount, currency: currency, date: date,
@@ -169,16 +175,23 @@ final class ImportLearningService {
                 against: tx)
             if score > bestScore {
                 bestScore = score
-                bestMatch = tx
+                bestReason = "\(Int(score * 100))% match with “\(tx.title)” (\(currency) \(String(format: "%.2f", amount))) on \(tx.date.formatted(date: .abbreviated, time: .omitted))"
+            }
+        }
+        for item in pendingItems where item.status != .rejected {
+            let score = Self.similarityScore(
+                amount: amount, currency: currency, date: date,
+                cardLast4: cardLast4, merchant: merchant,
+                against: item)
+            if score > bestScore {
+                bestScore = score
+                let channel = item.senderAddress.hasPrefix("sms:") ? "SMS" : "email"
+                bestReason = "\(Int(score * 100))% match with a pending \(channel) import (“\(item.merchantNormalized)”, \(currency) \(String(format: "%.2f", amount)))"
             }
         }
 
-        if bestScore >= Self.duplicateThreshold, let match = bestMatch {
-            return DuplicateVerdict(
-                isDuplicate: true,
-                reason: "\(Int(bestScore * 100))% match with “\(match.title)” (\(currency) \(String(format: "%.2f", amount))) on \(match.date.formatted(date: .abbreviated, time: .omitted))",
-                score: bestScore
-            )
+        if bestScore >= Self.duplicateThreshold, let reason = bestReason {
+            return DuplicateVerdict(isDuplicate: true, reason: reason, score: bestScore)
         }
         return DuplicateVerdict(isDuplicate: false, reason: nil, score: bestScore)
     }
@@ -191,31 +204,53 @@ final class ImportLearningService {
         cardLast4: String?, merchant: String,
         against tx: Transaction
     ) -> Double {
+        score(amount: amount, currency: currency, date: date, cardLast4: cardLast4, merchant: merchant,
+              targetAmount: tx.amount, targetCurrency: tx.currency, targetDate: tx.date,
+              targetCardLast4: tx.account?.accountNumber, targetMerchant: tx.merchant ?? tx.title)
+    }
+
+    /// Same weighting, against one item already sitting in the review
+    /// queue — the cross-channel (email vs SMS) duplicate check.
+    static func similarityScore(
+        amount: Double, currency: String, date: Date,
+        cardLast4: String?, merchant: String,
+        against item: PendingEmailTransaction
+    ) -> Double {
+        score(amount: amount, currency: currency, date: date, cardLast4: cardLast4, merchant: merchant,
+              targetAmount: item.amount, targetCurrency: item.currency, targetDate: item.transactionDate,
+              targetCardLast4: item.cardLast4, targetMerchant: item.merchantNormalized)
+    }
+
+    /// `targetCardLast4`/`cardLast4` compare by suffix (a full account number
+    /// on one side, a bare last-4 on the other — both shapes occur depending
+    /// on which of the two overloads above called in).
+    private static func score(
+        amount: Double, currency: String, date: Date, cardLast4: String?, merchant: String,
+        targetAmount: Double, targetCurrency: String, targetDate: Date,
+        targetCardLast4: String?, targetMerchant: String
+    ) -> Double {
         // Amount is the gate: >1% difference means not the same transaction
-        let amountDelta = abs(tx.amount - amount)
+        let amountDelta = abs(targetAmount - amount)
         guard amountDelta < max(0.01, amount * 0.01) else { return 0 }
         var score = 0.35
 
-        if tx.currency == currency { score += 0.05 }
+        if targetCurrency == currency { score += 0.05 }
 
-        let hours = abs(tx.date.timeIntervalSince(date)) / 3600
+        let hours = abs(targetDate.timeIntervalSince(date)) / 3600
         if hours <= 2 { score += 0.25 }
         else if hours <= 12 { score += 0.20 }
         else if hours <= 36 { score += 0.12 }
         else if hours > 72 { return 0 }   // too far apart to be the same event
 
-        let txMerchant = tx.merchant ?? tx.title
         let candidateKey = merchantKey(merchant)
-        let txKey = merchantKey(txMerchant)
-        if !candidateKey.isEmpty && !txKey.isEmpty {
-            if candidateKey == txKey { score += 0.25 }
-            else if txKey.contains(candidateKey) || candidateKey.contains(txKey) { score += 0.20 }
-            else { score += tokenOverlap(merchant, txMerchant) * 0.20 }
+        let targetKey = merchantKey(targetMerchant)
+        if !candidateKey.isEmpty && !targetKey.isEmpty {
+            if candidateKey == targetKey { score += 0.25 }
+            else if targetKey.contains(candidateKey) || candidateKey.contains(targetKey) { score += 0.20 }
+            else { score += tokenOverlap(merchant, targetMerchant) * 0.20 }
         }
 
-        if let last4 = cardLast4,
-           let accountNumber = tx.account?.accountNumber,
-           accountNumber.hasSuffix(last4) {
+        if let last4 = cardLast4, let targetCardLast4, targetCardLast4.hasSuffix(last4) {
             score += 0.10
         }
 

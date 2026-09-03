@@ -23,6 +23,10 @@ struct EmailReviewQueueView: View {
     @State private var showRejected = false
     @State private var showClearHistoryConfirm = false
     @State private var showRejectAllConfirm = false
+    /// Set instead of approving directly when `item.isPossibleDuplicate` —
+    /// requires an explicit "Approve Anyway" tap, so a same transaction
+    /// reported by both email and SMS can't be posted twice by accident.
+    @State private var pendingDuplicateApproval: PendingEmailTransaction? = nil
 
     private var pendingItems: [PendingEmailTransaction] {
         allItems.filter { $0.status == .pending }
@@ -172,14 +176,26 @@ struct EmailReviewQueueView: View {
         } message: {
             Text("None of these will be added to your transactions. This can't be undone.")
         }
+        .confirmationDialog("Possible duplicate", isPresented: Binding(
+            get: { pendingDuplicateApproval != nil },
+            set: { if !$0 { pendingDuplicateApproval = nil } }
+        ), titleVisibility: .visible) {
+            Button("Approve Anyway") {
+                if let item = pendingDuplicateApproval {
+                    EmailSyncService.shared.approveToLedger(item: item, context: context)
+                }
+                pendingDuplicateApproval = nil
+            }
+            Button("Cancel", role: .cancel) { pendingDuplicateApproval = nil }
+        } message: {
+            Text(pendingDuplicateApproval?.duplicateReason ?? "This looks like a transaction you already have — often the same alert reported by both email and SMS.")
+        }
         .sheet(item: $editingItem) { item in
             EditPendingEmailSheet(
                 item: item,
                 accounts: accounts.filter { !$0.isArchived },
                 bnplPlans: bnplPlans.filter { !$0.isCompleted },
-                onApprove: {
-                    EmailSyncService.shared.approveToLedger(item: item, context: context)
-                }
+                onApprove: { approve(item) }
             )
         }
     }
@@ -208,6 +224,12 @@ struct EmailReviewQueueView: View {
         // BNPL charges need a plan selection first — route to the edit sheet
         if item.isBNPLMerchant && !item.bnplResolved {
             editingItem = item
+            return
+        }
+        // Flagged duplicates (commonly the same transaction reported by both
+        // email and SMS) need an explicit "Approve Anyway" before posting.
+        if item.isPossibleDuplicate {
+            pendingDuplicateApproval = item
             return
         }
         EmailSyncService.shared.approveToLedger(item: item, context: context)
@@ -361,6 +383,7 @@ private struct EditPendingEmailSheet: View {
     let onApprove: () -> Void
 
     private var bnplBlocked: Bool { item.isBNPLMerchant && !item.bnplResolved }
+    private var isSMSSource: Bool { item.senderAddress.hasPrefix("sms:") }
 
     @State private var amountText: String = ""
     @State private var tagsText: String = ""
@@ -373,6 +396,21 @@ private struct EditPendingEmailSheet: View {
 
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
+                        if item.isPossibleDuplicate {
+                            HStack(alignment: .top, spacing: FTSpacing.sm) {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .font(.ftCallout).foregroundStyle(FTColor.gold)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Possible Duplicate").font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                                    Text(item.duplicateReason ?? "This looks like a transaction you already have.")
+                                        .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                                }
+                                Spacer(minLength: 0)
+                            }
+                            .padding(FTSpacing.md)
+                            .background(FTColor.gold.opacity(0.12), in: RoundedRectangle(cornerRadius: FTRadius.md))
+                        }
+
                         // Merchant + amount
                         VStack(spacing: 0) {
                             fieldRow("Merchant") {
@@ -480,10 +518,11 @@ private struct EditPendingEmailSheet: View {
 
                         // Source context (read-only audit trail)
                         VStack(alignment: .leading, spacing: FTSpacing.sm) {
-                            Text("SOURCE EMAIL")
+                            Text(isSMSSource ? "SOURCE SMS" : "SOURCE EMAIL")
                                 .font(.ftLabel).tracking(1.4).foregroundStyle(FTColor.textMuted)
                             Text(item.emailSubject).font(.ftCallout).foregroundStyle(FTColor.textSecondary)
-                            Text(item.senderAddress).font(.ftCaption).foregroundStyle(FTColor.textMuted)
+                            Text(isSMSSource ? item.bankName : item.senderAddress)
+                                .font(.ftCaption).foregroundStyle(FTColor.textMuted)
                             Text(item.emailSnippet)
                                 .font(.ftCaption).foregroundStyle(FTColor.textMuted)
                                 .lineLimit(4)
