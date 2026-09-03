@@ -116,9 +116,7 @@ struct LogTransactionFromText: AppIntent {
     /// blank appear directly in the action card so "Shortcut Input" (or any
     /// other variable) is obviously insertable there.
     static var parameterSummary: some ParameterSummary {
-        Summary("Log transaction from \(\.$raw)") {
-            \.$senderId
-        }
+        Summary("Log transaction from \(\.$raw) sent by \(\.$senderId)")
     }
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
