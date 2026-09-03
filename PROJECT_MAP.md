@@ -1,4 +1,4 @@
-Last verified: 2026-08-10 @ 078e239
+Last verified: 2026-09-03 @ e083986
 
 # PROJECT_MAP.md
 
