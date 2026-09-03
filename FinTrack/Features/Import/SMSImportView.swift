@@ -23,6 +23,7 @@ struct SMSImportView: View {
 
     @State private var showingAddBank = false
     @State private var editingRule: BankEmailRule? = nil
+    @State private var unparsed: [SMSIngestService.UnparsedSMS] = []
 
     private let setupStartedKey = "ft_sms_setup_started_at"
 
@@ -31,6 +32,7 @@ struct SMSImportView: View {
             VStack(spacing: FTSpacing.xxl) {
                 statusCard
                 shortcutsCard
+                unrecognizedSection
                 banksSection
                 privacyCard
             }
@@ -44,6 +46,7 @@ struct SMSImportView: View {
             if UserDefaults.standard.object(forKey: setupStartedKey) == nil {
                 UserDefaults.standard.set(Date(), forKey: setupStartedKey)
             }
+            unparsed = SMSIngestService.unparsedMessages
         }
         .sheet(isPresented: $showingAddBank) { SMSBankRuleSheet() }
         .sheet(item: $editingRule) { rule in SMSBankRuleSheet(editingRule: rule) }
@@ -141,6 +144,51 @@ struct SMSImportView: View {
                 .background(FTColor.accent, in: .circle)
             Text(text)
                 .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+        }
+    }
+
+    // MARK: - Messages that arrived but produced no transaction
+
+    @ViewBuilder
+    private var unrecognizedSection: some View {
+        if !unparsed.isEmpty {
+            VStack(spacing: FTSpacing.md) {
+                HStack {
+                    Text("NOT RECOGNIZED")
+                        .font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false)
+                        .foregroundStyle(FTColor.textMuted)
+                    Spacer()
+                    Button {
+                        SMSIngestService.clearUnparsed()
+                        unparsed = []
+                    } label: {
+                        Text("Clear").font(.ftCaption).foregroundStyle(FTColor.accent)
+                    }
+                }
+
+                Text("These messages reached FinTrack but no transaction could be read from them — either they weren't about a payment, or the bank's wording isn't recognized yet.")
+                    .font(.ftCaption).foregroundStyle(FTColor.textMuted)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                ForEach(unparsed) { item in
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text(item.senderId?.isEmpty == false ? item.senderId! : "Unknown sender")
+                                .font(.ftCallout).foregroundStyle(FTColor.textSecondary)
+                            Spacer()
+                            Text(item.receivedAt.relativeFormatted)
+                                .font(.ftCaption).foregroundStyle(FTColor.textMuted)
+                        }
+                        Text(item.rawText.isEmpty ? "(empty message)" : item.rawText)
+                            .font(.ftCaption)
+                            .foregroundStyle(item.rawText.isEmpty ? FTColor.expense : FTColor.textPrimary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .padding()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .ftGlass(FTRadius.md)
+                }
+            }
         }
     }
 

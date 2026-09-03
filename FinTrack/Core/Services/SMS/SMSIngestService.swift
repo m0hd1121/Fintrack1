@@ -32,7 +32,15 @@ enum SMSIngestService {
             .map { BankSMSTemplate(bankId: BankSMSTemplateStore.slug($0.bankName), bankName: $0.bankName, senderIds: $0.keywords) }
 
         let results = await BankSMSParser.parse(rawText: rawText, senderId: senderId, userTemplates: userTemplates)
-        guard !results.isEmpty else { return false }
+        guard !results.isEmpty else {
+            // Never drop a message silently: an unparsed SMS is either a
+            // non-transaction (fine) or a bank that changed its wording
+            // (needs a template fix). Either way the user should be able to
+            // see what actually arrived — see `SMSImportView`'s
+            // "Not recognized" section.
+            recordUnparsed(rawText: rawText, senderId: senderId, receivedAt: receivedAt)
+            return false
+        }
 
         var created = false
         for parsed in results
@@ -41,6 +49,41 @@ enum SMSIngestService {
         }
         if created { try? context.save() }
         return created
+    }
+
+    // MARK: - Unparsed message log
+
+    /// One SMS that reached the app but produced no transaction. Kept in
+    /// UserDefaults (no schema change) and capped — this is a diagnostic
+    /// trail, not an archive.
+    struct UnparsedSMS: Codable, Identifiable {
+        var id: UUID = UUID()
+        var rawText: String
+        var senderId: String?
+        var receivedAt: Date
+    }
+
+    static let unparsedKey = "ft_sms_unparsed_v1"
+    private static let maxUnparsedKept = 20
+
+    static var unparsedMessages: [UnparsedSMS] {
+        guard let data = UserDefaults.standard.data(forKey: unparsedKey),
+              let list = try? JSONDecoder().decode([UnparsedSMS].self, from: data)
+        else { return [] }
+        return list.sorted { $0.receivedAt > $1.receivedAt }
+    }
+
+    static func clearUnparsed() {
+        UserDefaults.standard.removeObject(forKey: unparsedKey)
+    }
+
+    private static func recordUnparsed(rawText: String, senderId: String?, receivedAt: Date) {
+        var list = unparsedMessages
+        list.insert(UnparsedSMS(rawText: rawText, senderId: senderId, receivedAt: receivedAt), at: 0)
+        list = Array(list.prefix(maxUnparsedKept))
+        if let data = try? JSONEncoder().encode(list) {
+            UserDefaults.standard.set(data, forKey: unparsedKey)
+        }
     }
 
     @discardableResult
