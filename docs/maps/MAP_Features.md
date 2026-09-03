@@ -24,7 +24,7 @@ Part of PROJECT_MAP.md (see root for navigation). All folders under `FinTrack/Fe
 **Core features:** bank account CRUD & balance dashboard (`AccountsView`/`AddAccountView`/`AccountDetailView`); Loan and BNPL add/edit forms live here too (`AddLoanView`, `AddBNPLView`), separate from their detail/repayment UI in Features/Debt/.
 
 ### Features/AppIntents/
-- FinTrackIntents.swift — Siri/Shortcuts intents: `LogExpenseIntent`, `LogIncomeIntent`, `LogTransactionFromText` (silent SMS→review-queue intent fed by a per-bank Shortcuts "When I receive a message" automation, see `SMSImportView`), `GetBalanceIntent`, `GetBudgetStatusIntent`, `TransactionEntity`, `FinTrackShortcuts` provider
+- FinTrackIntents.swift — Siri/Shortcuts intents: `LogExpenseIntent`, `LogIncomeIntent`, `LogTransactionFromText` (silent SMS→review-queue intent fed by a Shortcuts "When I receive a message" automation, see `SMSImportView`; **deliberately absent from `FinTrackShortcuts.appShortcuts`** — an App Shortcut is a fixed, parameterless entry point with no bindable fields, so registering it there made the automation picker offer an unconfigurable tile that prompted "enter a message" at every run), `GetBalanceIntent`, `GetBudgetStatusIntent`, `TransactionEntity`, `FinTrackShortcuts` provider
 
 **Core features:** Siri & Shortcuts integration — intents enqueue into `WidgetDataService`'s pending transaction queue, drained by `RootView`.
 

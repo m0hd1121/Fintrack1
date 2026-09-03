@@ -106,8 +106,9 @@ struct SMSImportView: View {
             VStack(alignment: .leading, spacing: FTSpacing.sm) {
                 stepRow(1, "Open Shortcuts → Automation → “+” → Message")
                 stepRow(2, "Under “When”, tap From and select every bank you get SMS alerts from — one automation covers all of them at once")
-                stepRow(3, "Add Action → FinTrack → Log Transaction, set Message to “Shortcut Input”")
-                stepRow(4, "Turn off “Ask Before Running”, then Done — that's the only setup needed")
+                stepRow(3, "For what it does, choose “Create New Shortcut” — not the ready-made “Log Transaction” tile, which can't take the message text")
+                stepRow(4, "In the editor: Add Action → search FinTrack → Log Transaction, then tap the Message field and insert the “Shortcut Input” variable")
+                stepRow(5, "Turn off “Ask Before Running”, then Done")
             }
             Text("Which bank sent it, what the transaction was, and matching it to an account all happen automatically inside FinTrack — nothing below is required for that to work.")
                 .font(.ftCaption).foregroundStyle(FTColor.textMuted)

@@ -226,15 +226,17 @@ struct FinTrackShortcuts: AppShortcutsProvider {
             shortTitle: "Log Income",
             systemImageName: "arrow.down.circle.fill"
         )
-        AppShortcut(
-            intent: LogTransactionFromText(),
-            phrases: [
-                "Log transaction in \(.applicationName)",
-                "Parse bank message in \(.applicationName)"
-            ],
-            shortTitle: "Log Transaction",
-            systemImageName: "message.fill"
-        )
+        // NOTE: `LogTransactionFromText` is deliberately NOT an App Shortcut.
+        // App Shortcuts are fixed, zero-configuration entry points — they
+        // expose no parameter fields, can't be bound to variables, and can't
+        // be tapped into and edited. Registering it here made the Shortcuts
+        // automation picker offer that unconfigurable tile, so the required
+        // `raw` (Message) parameter had no way to receive the incoming SMS
+        // and iOS prompted "enter a message" at every run instead. Left out
+        // of this list, the intent still appears in the Shortcuts editor as a
+        // normal, fully configurable action (every AppIntent does) — which is
+        // the only form that can take "Shortcut Input". A voice phrase would
+        // be useless for it anyway: it needs a whole SMS body as input.
         AppShortcut(
             intent: GetBalanceIntent(),
             phrases: [
