@@ -26,6 +26,12 @@ Singleton: `.shared` | Actor: implicit MainActor
 Key methods: `bankName(forSender:)` (18 UAE banks), `isLikelyBankTransactionEmail(sender:subject:)`, `static gmailSenderQuery(extraSenders:)`, `parse(sender:subject:body:receivedAt:) -> ParsedBankEmail?` (confidence + suspicion heuristics), `static fingerprint(...)`, `static normalize(body:)`
 External APIs: none (NSRegularExpression only)
 
+### BankSMSParser.swift (+ SMS/BankSMSTemplateStore.swift, SMS/FoundationModelsSMSExtractor.swift, SMS/TextNormalizer.swift, SMS/ISO4217.swift, SMS/SMSExtractionTypes.swift, SMS/TransactionExtractionPrompt.swift)
+Purpose: extracts a transaction from one raw SMS message (fed by the `LogTransactionFromText` AppIntent — there is no iOS read API for SMS, so this only ever sees text a Shortcuts automation hands over). Two tiers: (1) **template match** — `BankSMSTemplateStore.identify(senderId:text:extraTemplates:)` names the bank from its bundled/remote/user-configured sender-ID list or by scanning the message for the bank's name, then the SAME generic extraction grammar `BankEmailParser` uses for email (`extractAmount/Direction/Merchant/CardLast4/Date`, all `static`/internal on that type) runs against the SMS text — deterministic, instant, inherently grounded; (2) **on-device model fallback** — only when no template match is found, `FoundationModelsSMSExtractor` asks Apple's on-device model (`FoundationModels` framework, `SystemLanguageModel`/`LanguageModelSession`) using `TransactionExtractionPrompt.text` as instructions and the `@Generable` types in `SMSExtractionTypes.swift` (`SMSExtractionResult` → `[SMSExtractedTransaction]`) as the structured-output schema; every evidence span it returns is checked with `SMS/TextNormalizer.isGrounded(_:in:)` before being trusted, and a result never surfaces above 0.85 confidence. Both tiers converge on the SAME `ParsedBankEmail` struct `BankEmailParser` already defines, so `SMSIngestService` (below) doesn't care which tier produced a result. `SMS/TextNormalizer.swift`/`SMS/ISO4217.swift` are dependency-free helpers (Unicode digit/separator normalization + evidence-grounding fold; ISO 4217 validity + minor-units) used only inside this pipeline.
+Singleton: no (all `enum`, static namespaces) | Actor: none isolated — safe to call from anywhere
+Key methods: `BankSMSParser.parse(rawText:senderId:userTemplates:) async -> Outcome` (`.results: [ParsedBankEmail]`, `.source: "template"|"on-device model"`), `BankSMSTemplateStore.active/identify(senderId:text:extraTemplates:)/refreshFromRemote(url:)` (opt-in remote JSON refresh — inert until a URL is actually configured, ships fully working offline on the bundled UAE-bank list), `FoundationModelsSMSExtractor.isAvailable/unavailableReason/extract(_:) async throws`
+External APIs: FoundationModels (on-device only — nothing about a message ever leaves the phone)
+
 ### BillService.swift
 Purpose: bill payment recording, reminders, auto-pay-missed detection, subscription waste analysis, price-change/overdue alerts.
 Singleton: `.shared` | Actor: implicit MainActor
@@ -180,6 +186,12 @@ Singleton: `.shared` | Actor: implicit MainActor
 Key methods: `generatePDF(title:periodLabel:sections:) -> URL?`, `writeCSV(_:filename:) -> URL?`, `share(url:)`
 External APIs: UIKit (UIGraphicsPDFRenderer, UIActivityViewController)
 
+### SMSIngestService.swift
+Purpose: files a `BankSMSParser` result into the review queue and drives auto-approve — the SMS-side mirror of `EmailSyncService.processEmail`/`.approveToLedger`, reusing both directly rather than duplicating the pipeline. **No new `@Model` and no schema bump**: an SMS-sourced item is a normal `PendingEmailTransaction` whose `senderAddress` (and the matching `BankEmailRule.senderEmail`) carries an `"sms:<BankSMSTemplateStore.slug(bankName)>"` sentinel instead of an email address/domain — the same trick this codebase already uses for `AppSettings.cloudSyncEnabled`. `EmailSyncService.sync(account:context:)`'s email-fetch sender whitelist explicitly excludes `senderEmail.hasPrefix("sms:")` rules so they can't leak into a Gmail/IMAP/Outlook search. Auto-approve: a matching `BankEmailRule` (configured via `SMSImportView`) behaves exactly like the email flow; with no rule configured, a **template-matched only** (never a model-guessed) parse at ≥92% still auto-approves as the default.
+Singleton: no (`@MainActor enum`) | Actor: `@MainActor`
+Key methods: `ingest(rawText:senderId:receivedAt:context:) async -> Bool` (drained from `RootView.drainPendingSMSTexts()`, called from the same foreground hooks as the Siri/Watch pending-intent queue), `senderTag(bankName:) -> String`
+External APIs: none (delegates to BankSMSParser + EmailSyncService)
+
 ### SMTPClient.swift
 Purpose: minimal hand-rolled SMTP client over implicit TLS (port 465) — EHLO/AUTH LOGIN/MAIL FROM/RCPT TO/DATA/QUIT, MIME multipart with base64 attachment.
 Singleton: no (`final class SMTPClient: @unchecked Sendable`, per-connection) | Actor: not actor-isolated
@@ -225,7 +237,7 @@ External APIs: none
 ### WidgetDataService.swift
 Purpose: writes lightweight snapshots into the shared App Group UserDefaults so FinTrackWidget/Watch/Siri can read data without touching SwiftData; also the pending-intent queue for Siri/Watch quick-add.
 Singleton: `.shared` | Actor: implicit MainActor
-Key methods: `updateAll(netWorth:currency:transactions:budgets:bills:payments:)` (+ `WidgetCenter.shared.reloadAllTimelines()`), `update(netWorth:currency:recentTransactions:)` (legacy/partial), `enqueuePendingTransaction(_:)`, `dequeuePendingTransactions() -> [PendingWidgetTransaction]` (drained by RootView)
+Key methods: `updateAll(netWorth:currency:transactions:budgets:bills:payments:)` (+ `WidgetCenter.shared.reloadAllTimelines()`), `update(netWorth:currency:recentTransactions:)` (legacy/partial), `enqueuePendingTransaction(_:)`, `dequeuePendingTransactions() -> [PendingWidgetTransaction]` (drained by RootView), `enqueuePendingSMS(_:)`/`dequeuePendingSMS() -> [PendingSMSText]` (same pattern, key `"pending_sms_texts"` — `LogTransactionFromText` enqueues raw SMS text here since an AppIntent can't reliably touch SwiftData; `RootView.drainPendingSMSTexts()` hands each to `SMSIngestService.ingest`)
 External APIs: WidgetKit, `UserDefaults(suiteName: "group.com.fintrack.shared")`
 
 ### LocalBackupService.swift

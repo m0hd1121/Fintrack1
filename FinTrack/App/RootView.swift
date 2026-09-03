@@ -109,6 +109,7 @@ struct RootView: View {
             processIncomeAlerts()
             processDebtAlerts()
             drainPendingIntentQueue()
+            drainPendingSMSTexts()
             if isGoogleDriveBackupEnabled { GoogleDriveBackupService.shared.syncIfDue(context: context) }
             EmailBackupService.shared.scheduleAutomaticBackupIfNeeded(context: context)
         }
@@ -133,6 +134,7 @@ struct RootView: View {
                 processIncomeAlerts()
                 processDebtAlerts()
                 drainPendingIntentQueue()
+            drainPendingSMSTexts()
                 if isGoogleDriveBackupEnabled { GoogleDriveBackupService.shared.syncIfDue(context: context) }
                 EmailBackupService.shared.scheduleAutomaticBackupIfNeeded(context: context)
             }
@@ -240,6 +242,22 @@ struct RootView: View {
             context.insert(tx)
         }
         try? context.save()
+    }
+
+    /// Drains `LogTransactionFromText`'s queue — parsing (template match /
+    /// on-device model) runs here, on the main app process, not inside the
+    /// AppIntent itself; see `SMSIngestService`.
+    private func drainPendingSMSTexts() {
+        let pending = WidgetDataService.shared.dequeuePendingSMS()
+        guard !pending.isEmpty else { return }
+        Task {
+            for sms in pending {
+                await SMSIngestService.ingest(
+                    rawText: sms.rawText, senderId: sms.senderId,
+                    receivedAt: sms.receivedAt, context: context
+                )
+            }
+        }
     }
 
     // MARK: – Spotlight deep linking

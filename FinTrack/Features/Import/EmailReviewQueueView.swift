@@ -277,6 +277,9 @@ private struct PendingEmailRow: View {
                     Text(item.merchantNormalized)
                         .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary).lineLimit(1)
                     HStack(spacing: 4) {
+                        if item.senderAddress.hasPrefix("sms:") {
+                            Image(systemName: "message.fill").font(.system(size: 9))
+                        }
                         Text(item.bankName)
                         if let last4 = item.cardLast4 {
                             Text("· •\(last4)")

@@ -90,6 +90,34 @@ struct LogIncomeIntent: AppIntent {
     }
 }
 
+// MARK: – Log Transaction From Text (SMS → Shortcuts automation)
+
+/// Fed by a Shortcuts "When I receive a message" personal automation — set
+/// up per bank sender, see `SMSImportView`. Silent by design
+/// (`openAppWhenRun = false`): the raw text is queued and parsed the next
+/// time FinTrack is foregrounded, exactly like `LogExpenseIntent`/
+/// `LogIncomeIntent` above — AppIntents don't reliably get to touch
+/// SwiftData in-process, so nothing here does either.
+struct LogTransactionFromText: AppIntent {
+    static var title: LocalizedStringResource = "Log Transaction"
+    static var description = IntentDescription("Parses a bank SMS on-device and files it in FinTrack's review queue.")
+    static var openAppWhenRun: Bool = false
+
+    @Parameter(title: "Message", description: "The bank SMS text")
+    var raw: String
+
+    @Parameter(title: "Sender", description: "The message's sender name or ID, if Shortcuts can supply it")
+    var senderId: String?
+
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        await MainActor.run {
+            let sms = PendingSMSText(rawText: raw, senderId: senderId)
+            WidgetDataService.shared.enqueuePendingSMS(sms)
+        }
+        return .result(dialog: "Got it — FinTrack will file that next time it's open.")
+    }
+}
+
 // MARK: – Get Balance Intent
 
 struct GetBalanceIntent: AppIntent {
@@ -187,6 +215,15 @@ struct FinTrackShortcuts: AppShortcutsProvider {
             ],
             shortTitle: "Log Income",
             systemImageName: "arrow.down.circle.fill"
+        )
+        AppShortcut(
+            intent: LogTransactionFromText(),
+            phrases: [
+                "Log transaction in \(.applicationName)",
+                "Parse bank message in \(.applicationName)"
+            ],
+            shortTitle: "Log Transaction",
+            systemImageName: "message.fill"
         )
         AppShortcut(
             intent: GetBalanceIntent(),

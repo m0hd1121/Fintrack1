@@ -343,7 +343,10 @@ final class EmailSyncService: NSObject {
     private func sync(account: EmailAccount, context: ModelContext) async throws -> (scanned: Int, imported: Int) {
         // User bank rules extend the sender whitelist for fetching
         let rules = (try? context.fetch(FetchDescriptor<BankEmailRule>())) ?? []
-        let ruleSenders = rules.filter(\.isEnabled)
+        // SMS-only rules (senderEmail tagged "sms:…", configured from
+        // SMSImportView) aren't email senders — never fold them into the
+        // fetch whitelist.
+        let ruleSenders = rules.filter { $0.isEnabled && !$0.senderEmail.hasPrefix("sms:") }
             .flatMap { [$0.senderEmail, $0.senderDomain] }
             .filter { !$0.isEmpty }
 

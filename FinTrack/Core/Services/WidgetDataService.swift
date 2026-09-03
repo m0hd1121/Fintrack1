@@ -72,6 +72,30 @@ final class WidgetDataService {
         defaults.removeObject(forKey: "pending_transactions")
         return queue
     }
+
+    // MARK: – Pending SMS queue (parsed by SMSIngestService on next foreground)
+
+    func enqueuePendingSMS(_ sms: PendingSMSText) {
+        guard let defaults = UserDefaults(suiteName: suiteName) else { return }
+        var queue: [PendingSMSText] = []
+        if let data = defaults.data(forKey: "pending_sms_texts"),
+           let existing = try? JSONDecoder().decode([PendingSMSText].self, from: data) {
+            queue = existing
+        }
+        queue.append(sms)
+        if let data = try? JSONEncoder().encode(queue) {
+            defaults.set(data, forKey: "pending_sms_texts")
+        }
+    }
+
+    func dequeuePendingSMS() -> [PendingSMSText] {
+        guard let defaults = UserDefaults(suiteName: suiteName),
+              let data = defaults.data(forKey: "pending_sms_texts"),
+              let queue = try? JSONDecoder().decode([PendingSMSText].self, from: data)
+        else { return [] }
+        defaults.removeObject(forKey: "pending_sms_texts")
+        return queue
+    }
 }
 
 // MARK: – Shared snapshot types
@@ -153,5 +177,24 @@ struct PendingWidgetTransaction: Codable {
         self.categoryName = categoryName
         self.date = Date()
         self.createdAt = Date()
+    }
+}
+
+/// Raw SMS text queued by `LogTransactionFromText` — an AppIntent process
+/// can't reliably touch SwiftData, so it only captures the message; parsing
+/// (template match / on-device model) and filing into the review queue
+/// happen in `SMSIngestService` when the app is next foregrounded, exactly
+/// like `PendingWidgetTransaction` above.
+struct PendingSMSText: Codable {
+    var id: UUID
+    var rawText: String
+    var senderId: String?
+    var receivedAt: Date
+
+    init(rawText: String, senderId: String? = nil) {
+        self.id = UUID()
+        self.rawText = rawText
+        self.senderId = senderId
+        self.receivedAt = Date()
     }
 }

@@ -75,7 +75,9 @@ struct EmailImportView: View {
                 }
             }
 
-            ForEach(bankRules, id: \.id) { rule in
+            // SMS-only rules (senderEmail tagged "sms:…", see SMSImportView)
+            // are configured on their own screen, not here.
+            ForEach(bankRules.filter { !$0.senderEmail.hasPrefix("sms:") }, id: \.id) { rule in
                 bankRuleRow(rule)
             }
         }

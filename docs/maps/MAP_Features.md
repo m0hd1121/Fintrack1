@@ -24,7 +24,7 @@ Part of PROJECT_MAP.md (see root for navigation). All folders under `FinTrack/Fe
 **Core features:** bank account CRUD & balance dashboard (`AccountsView`/`AddAccountView`/`AccountDetailView`); Loan and BNPL add/edit forms live here too (`AddLoanView`, `AddBNPLView`), separate from their detail/repayment UI in Features/Debt/.
 
 ### Features/AppIntents/
-- FinTrackIntents.swift — Siri/Shortcuts intents: `LogExpenseIntent`, `LogIncomeIntent`, `GetBalanceIntent`, `GetBudgetStatusIntent`, `TransactionEntity`, `FinTrackShortcuts` provider
+- FinTrackIntents.swift — Siri/Shortcuts intents: `LogExpenseIntent`, `LogIncomeIntent`, `LogTransactionFromText` (silent SMS→review-queue intent fed by a per-bank Shortcuts "When I receive a message" automation, see `SMSImportView`), `GetBalanceIntent`, `GetBudgetStatusIntent`, `TransactionEntity`, `FinTrackShortcuts` provider
 
 **Core features:** Siri & Shortcuts integration — intents enqueue into `WidgetDataService`'s pending transaction queue, drained by `RootView`.
 
@@ -100,9 +100,10 @@ Part of PROJECT_MAP.md (see root for navigation). All folders under `FinTrack/Fe
 - ImportIntegrationView.swift — import & integration hub: sync status, links, history
 - OFXImportView.swift — step-based OFX/QIF/QFX file import
 - PDFImportView.swift — step-based bank statement PDF import
-- LocalBackupView.swift — backup hub (titled just "Backup"; on-device, read-only to the user — Back Up Now, automatic-daily toggle, Restore per backup; deliberately **no** delete/share): Replaced `iCloudSyncView`.
+- LocalBackupView.swift — backup hub (titled just "Backup"; on-device, read-only to the user — Back Up Now, "Back Up After Every Change" toggle (change-driven via `LocalBackupService.startObservingChanges`, not a schedule), Restore for the single retained backup; deliberately **no** delete/share): replaced `iCloudSyncView`.
+- SMSImportView.swift (+ `SMSBankRuleSheet`) — SMS import hub: Shortcuts setup walkthrough (`shortcuts://create-shortcut` deep link), per-bank automation config (bank picker + SMS sender ID + linked account + auto-approve, reusing `BankEmailRule` tagged `"sms:…"`), first-SMS-within-24h status card. See `BankSMSParser`/`SMSIngestService` (MAP_Services.md).
 
-**Core features:** email-based bank ingestion (`EmailImportView` + `BankSetupWizardView` + `EmailReviewQueueView`, driven by `EmailSyncService`); file-based import (`OFXImportView`, `PDFImportView`, `ImportIntegrationView`); 3 backup/restore providers (`LocalBackupView` (offline/on-device), `EmailBackupView`, `GoogleDriveBackupView`), each wrapping its own `*BackupService.shared`.
+**Core features:** email-based bank ingestion (`EmailImportView` + `BankSetupWizardView` + `EmailReviewQueueView`, driven by `EmailSyncService`); SMS-based bank ingestion (`SMSImportView`, driven by `BankSMSParser`/`SMSIngestService`, filed into the same `EmailReviewQueueView`); file-based import (`OFXImportView`, `PDFImportView`, `ImportIntegrationView`); 3 backup/restore providers (`LocalBackupView` (offline/on-device), `EmailBackupView`, `GoogleDriveBackupView`), each wrapping its own `*BackupService.shared`.
 
 ### Features/Income/
 - AddDividendView.swift — add/edit dividend payment

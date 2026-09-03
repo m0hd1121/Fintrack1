@@ -86,6 +86,13 @@ struct ImportIntegrationView: View {
             }
             .buttonStyle(.plain)
 
+            NavigationLink(destination: SMSImportView()) {
+                methodRow(icon: "message.fill", color: FTColor.catPurple,
+                          title: "SMS Import",
+                          subtitle: "Via Shortcuts automation · parsed entirely on-device")
+            }
+            .buttonStyle(.plain)
+
             NavigationLink(destination: PDFImportView()) {
                 methodRow(icon: "doc.fill", color: FTColor.expense,
                           title: "PDF Bank Statement",
