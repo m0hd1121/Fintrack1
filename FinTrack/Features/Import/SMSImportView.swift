@@ -105,10 +105,12 @@ struct SMSImportView: View {
 
             VStack(alignment: .leading, spacing: FTSpacing.sm) {
                 stepRow(1, "Open Shortcuts → Automation → “+” → Message")
-                stepRow(2, "Set “When” to your bank's SMS sender, then Add Action → FinTrack → Log Transaction")
-                stepRow(3, "Set Message to “Shortcut Input”, turn off “Ask Before Running”, Done")
-                stepRow(4, "Repeat once per bank — each automation points at the same action")
+                stepRow(2, "Under “When”, tap From and select every bank you get SMS alerts from — one automation covers all of them at once")
+                stepRow(3, "Add Action → FinTrack → Log Transaction, set Message to “Shortcut Input”")
+                stepRow(4, "Turn off “Ask Before Running”, then Done — that's the only setup needed")
             }
+            Text("Which bank sent it, what the transaction was, and matching it to an account all happen automatically inside FinTrack — nothing below is required for that to work.")
+                .font(.ftCaption).foregroundStyle(FTColor.textMuted)
 
             Button {
                 if let url = URL(string: "shortcuts://create-shortcut") {
@@ -146,7 +148,7 @@ struct SMSImportView: View {
     private var banksSection: some View {
         VStack(spacing: FTSpacing.md) {
             HStack {
-                Text("MY BANKS")
+                Text("MY BANKS (OPTIONAL)")
                     .font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
                 Spacer()
                 Button { showingAddBank = true } label: {
@@ -156,7 +158,7 @@ struct SMSImportView: View {
             }
 
             if smsRules.isEmpty {
-                Text("Add a bank to link its SMS to an account. Every parsed transaction still waits for your approval in the review queue.")
+                Text("Nothing to set up here — SMS from any bank is recognized and parsed automatically. Add one only if you want its transactions pinned to a specific account.")
                     .font(.ftCaption).foregroundStyle(FTColor.textMuted)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding()
