@@ -109,6 +109,18 @@ struct LogTransactionFromText: AppIntent {
     @Parameter(title: "Sender", description: "The message's sender name or ID, if Shortcuts can supply it")
     var senderId: String?
 
+    /// Without this, Shortcuts falls back to showing the bare action title
+    /// with no visible field for Message — easy to leave unbound, at which
+    /// point iOS prompts for it as plain text every time the automation
+    /// fires instead of using the incoming SMS. This makes the Message
+    /// blank appear directly in the action card so "Shortcut Input" (or any
+    /// other variable) is obviously insertable there.
+    static var parameterSummary: some ParameterSummary {
+        Summary("Log transaction from \(\.$raw)") {
+            \.$senderId
+        }
+    }
+
     func perform() async throws -> some IntentResult & ProvidesDialog {
         await MainActor.run {
             let sms = PendingSMSText(rawText: raw, senderId: senderId)
