@@ -126,10 +126,10 @@ struct LogTransactionFromText: AppIntent {
             )
         }
         guard stored else {
-            // Reporting success while storing nothing hides a broken App Group
-            // entitlement completely: the automation looks fine and the message
-            // is gone. Say so instead.
-            return .result(dialog: "FinTrack couldn't save that message — its shared storage isn't available.")
+            // Reporting success while storing nothing hid a broken queue
+            // completely: the automation looked fine and the message was gone.
+            // Say so instead.
+            return .result(dialog: "FinTrack couldn't save that message.")
         }
         return .result(dialog: "Got it — FinTrack will file that next time it's open.")
     }

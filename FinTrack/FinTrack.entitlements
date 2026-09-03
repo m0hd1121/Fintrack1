@@ -2,12 +2,26 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<!-- Required for the shared UserDefaults suite the Siri/Shortcuts intents,
-	     widgets and Watch app all read and write ("group.com.fintrack.shared",
-	     see WidgetDataService). Without this entitlement
-	     UserDefaults(suiteName:) returns nil at runtime and every enqueue and
-	     dequeue silently no-ops — an AppIntent appears to succeed while
-	     storing nothing. -->
+	<!-- NOT currently wired into the build: `CODE_SIGN_ENTITLEMENTS` is
+	     deliberately absent from project.pbxproj, so this file is inert.
+
+	     App Groups requires a PAID Apple Developer Program membership. If this
+	     file were referenced by the build under free personal-team signing,
+	     code signing would fail outright ("provisioning profile doesn't
+	     include the com.apple.security.application-groups entitlement").
+
+	     What depends on it:
+	       · widgets (FinTrackWidget) and the Watch app reading the snapshots
+	         WidgetDataService writes
+	       · the Siri/Watch quick-add queue ("pending_transactions")
+	     What does NOT: SMS import. Its queue ("pending_sms_texts") is written
+	     and read entirely inside the app's own process, so
+	     WidgetDataService.smsDefaults falls back to standard defaults and
+	     works without any entitlement.
+
+	     To enable (paid account only): Xcode → FinTrack target → Signing &
+	     Capabilities → + Capability → App Groups → tick
+	     group.com.fintrack.shared. Xcode wires CODE_SIGN_ENTITLEMENTS itself. -->
 	<key>com.apple.security.application-groups</key>
 	<array>
 		<string>group.com.fintrack.shared</string>

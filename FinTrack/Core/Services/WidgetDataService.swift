@@ -9,6 +9,22 @@ final class WidgetDataService {
 
     private let suiteName = "group.com.fintrack.shared"
 
+    /// Store for the SMS queue, which — unlike the widget snapshots and the
+    /// Siri/Watch `pending_transactions` queue — is only ever written and read
+    /// **inside this app's own process**: `LogTransactionFromText` runs in the
+    /// app (there is no separate App Intents Extension target) and
+    /// `RootView.drainPendingSMSTexts()` reads it back.
+    ///
+    /// So it does not need the App Group, which matters because App Groups
+    /// require a paid Apple Developer Program membership. Prefer the shared
+    /// suite when the entitlement is actually provisioned, and fall back to
+    /// standard defaults when it isn't. Both enqueue and dequeue resolve
+    /// through here, so the two sides can never disagree about which store
+    /// they're using.
+    private var smsDefaults: UserDefaults {
+        UserDefaults(suiteName: suiteName) ?? .standard
+    }
+
     // MARK: – Full update (preferred)
 
     func updateAll(
@@ -75,13 +91,12 @@ final class WidgetDataService {
 
     // MARK: – Pending SMS queue (parsed by SMSIngestService on next foreground)
 
-    /// Returns false when the message could not be stored — in practice that
-    /// means the App Group entitlement is missing, so `UserDefaults(suiteName:)`
-    /// hands back nil and the queue silently goes nowhere. `LogTransactionFromText`
-    /// surfaces that instead of reporting a success it didn't have.
+    /// Returns false only if the payload itself couldn't be encoded — the store
+    /// is always available now (see `smsDefaults`). `LogTransactionFromText`
+    /// surfaces a false instead of reporting a success it didn't have.
     @discardableResult
     func enqueuePendingSMS(_ sms: PendingSMSText) -> Bool {
-        guard let defaults = UserDefaults(suiteName: suiteName) else { return false }
+        let defaults = smsDefaults
         var queue: [PendingSMSText] = []
         if let data = defaults.data(forKey: "pending_sms_texts"),
            let existing = try? JSONDecoder().decode([PendingSMSText].self, from: data) {
@@ -94,8 +109,8 @@ final class WidgetDataService {
     }
 
     func dequeuePendingSMS() -> [PendingSMSText] {
-        guard let defaults = UserDefaults(suiteName: suiteName),
-              let data = defaults.data(forKey: "pending_sms_texts"),
+        let defaults = smsDefaults
+        guard let data = defaults.data(forKey: "pending_sms_texts"),
               let queue = try? JSONDecoder().decode([PendingSMSText].self, from: data)
         else { return [] }
         defaults.removeObject(forKey: "pending_sms_texts")
