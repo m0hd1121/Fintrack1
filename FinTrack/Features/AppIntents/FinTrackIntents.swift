@@ -120,9 +120,16 @@ struct LogTransactionFromText: AppIntent {
     }
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        await MainActor.run {
-            let sms = PendingSMSText(rawText: raw, senderId: senderId)
-            WidgetDataService.shared.enqueuePendingSMS(sms)
+        let stored = await MainActor.run {
+            WidgetDataService.shared.enqueuePendingSMS(
+                PendingSMSText(rawText: raw, senderId: senderId)
+            )
+        }
+        guard stored else {
+            // Reporting success while storing nothing hides a broken App Group
+            // entitlement completely: the automation looks fine and the message
+            // is gone. Say so instead.
+            return .result(dialog: "FinTrack couldn't save that message — its shared storage isn't available.")
         }
         return .result(dialog: "Got it — FinTrack will file that next time it's open.")
     }

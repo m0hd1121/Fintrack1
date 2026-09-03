@@ -75,17 +75,22 @@ final class WidgetDataService {
 
     // MARK: – Pending SMS queue (parsed by SMSIngestService on next foreground)
 
-    func enqueuePendingSMS(_ sms: PendingSMSText) {
-        guard let defaults = UserDefaults(suiteName: suiteName) else { return }
+    /// Returns false when the message could not be stored — in practice that
+    /// means the App Group entitlement is missing, so `UserDefaults(suiteName:)`
+    /// hands back nil and the queue silently goes nowhere. `LogTransactionFromText`
+    /// surfaces that instead of reporting a success it didn't have.
+    @discardableResult
+    func enqueuePendingSMS(_ sms: PendingSMSText) -> Bool {
+        guard let defaults = UserDefaults(suiteName: suiteName) else { return false }
         var queue: [PendingSMSText] = []
         if let data = defaults.data(forKey: "pending_sms_texts"),
            let existing = try? JSONDecoder().decode([PendingSMSText].self, from: data) {
             queue = existing
         }
         queue.append(sms)
-        if let data = try? JSONEncoder().encode(queue) {
-            defaults.set(data, forKey: "pending_sms_texts")
-        }
+        guard let data = try? JSONEncoder().encode(queue) else { return false }
+        defaults.set(data, forKey: "pending_sms_texts")
+        return true
     }
 
     func dequeuePendingSMS() -> [PendingSMSText] {
