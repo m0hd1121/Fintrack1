@@ -235,6 +235,7 @@ External APIs: Speech (SFSpeechRecognizer), AVFoundation
 ### SpotlightService.swift
 Purpose: CoreSpotlight indexing of transactions/accounts for iOS system search + deep-link resolution back into the app.
 Singleton: `.shared` | Actor: implicit MainActor
+**Re-index throttle**: `indexTransactions`/`indexAccounts` hash the fields they actually index and skip a batch identical to the last one. `DashboardView.refreshDashboard()` calls both on every tab return and every data change, so without this each one rebuilt and rewrote up to 200 CoreSpotlight items for no change. The stamps are in-memory (so every launch indexes once) and are reset by `clearTransactionIndex()`/`clearAllIndexes()`.
 Key methods: `indexTransactions/indexAccounts(_:)`, `removeTransactionFromIndex/removeAccountFromIndex(id:)`, `clearTransactionIndex/clearAllIndexes()`, `handleUserActivity(_:) -> SpotlightDeepLink?` (`.transaction(UUID)`/`.account(UUID)`/`.unknown(UUID)`)
 External APIs: CoreSpotlight
 

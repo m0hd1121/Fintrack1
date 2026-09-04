@@ -79,9 +79,15 @@ struct TransactionsListView: View {
             let matchesDate = !dateFilterActive || (tx.date >= rangeStart && tx.date <= rangeEnd)
             return matchesSearch && matchesType && matchesCategory && matchesDate
         }
+        // Resolved once instead of per row: this closure runs for every
+        // filtered transaction, and it was building a fresh `Date()` and doing
+        // calendar arithmetic on each pass — two calendar operations per row
+        // for a value that is the same for the whole regroup.
+        let today = Date()
+        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: today) ?? today
         let grouped = Dictionary(grouping: filtered) { tx -> String in
-            if tx.date.isSameDay(as: Date()) { return "Today" }
-            if tx.date.isSameDay(as: Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date()) { return "Yesterday" }
+            if tx.date.isSameDay(as: today) { return "Today" }
+            if tx.date.isSameDay(as: yesterday) { return "Yesterday" }
             return tx.date.formatted
         }
         groupedCache = grouped.sorted { lhs, rhs in
