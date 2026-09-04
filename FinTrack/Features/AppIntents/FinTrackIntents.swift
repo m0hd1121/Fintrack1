@@ -135,6 +135,69 @@ struct LogTransactionFromText: AppIntent {
     }
 }
 
+// MARK: – Log Apple Pay Transaction (Wallet → Shortcuts "Transaction" automation)
+
+/// Fed by a Shortcuts **Transaction** Personal Automation (Automation → + →
+/// Transaction), which fires on an Apple Pay payment and hands over Wallet's
+/// own structured fields.
+///
+/// This is the more reliable of the two automation channels where it's
+/// available: amount/merchant/date arrive as real typed values, so there's
+/// no text to parse and no bank wording that can drift. It just covers less
+/// — only payments actually made through Apple Pay, not chip-and-PIN,
+/// transfers or cash, which is what the SMS channel is still for.
+///
+/// Like every other intent here it only enqueues; `RootView` does the
+/// SwiftData work on next foreground. See PROJECT_MAP §8. Deliberately not
+/// an App Shortcut — it takes real input, so it must stay a configurable
+/// editor action.
+struct LogApplePayTransaction: AppIntent {
+    static var title: LocalizedStringResource = "Log Apple Pay Transaction"
+    static var description = IntentDescription("Files an Apple Pay transaction in FinTrack's review queue.")
+    static var openAppWhenRun: Bool = false
+
+    @Parameter(title: "Amount")
+    var amount: Double
+
+    @Parameter(title: "Merchant")
+    var merchant: String
+
+    @Parameter(title: "Currency", description: "3-letter code; defaults to your base currency")
+    var currency: String?
+
+    @Parameter(title: "Date")
+    var date: Date?
+
+    @Parameter(title: "Category", description: "Wallet's own category, if available")
+    var walletCategory: String?
+
+    @Parameter(title: "Card")
+    var card: String?
+
+    @Parameter(title: "Is Refund", default: false)
+    var isRefund: Bool
+
+    static var parameterSummary: some ParameterSummary {
+        Summary("Log Apple Pay \(\.$amount) at \(\.$merchant) on \(\.$date)")
+    }
+
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        let stored = await MainActor.run {
+            WidgetDataService.shared.enqueuePendingApplePay(
+                PendingApplePayTransaction(
+                    amount: amount, merchant: merchant, currency: currency,
+                    date: date, walletCategory: walletCategory,
+                    card: card, isRefund: isRefund
+                )
+            )
+        }
+        guard stored else {
+            return .result(dialog: "FinTrack couldn't save that transaction.")
+        }
+        return .result(dialog: "Got it — \(merchant) is waiting in FinTrack's review queue.")
+    }
+}
+
 // MARK: – Get Balance Intent
 
 struct GetBalanceIntent: AppIntent {

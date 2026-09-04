@@ -1,6 +1,5 @@
 import Foundation
 import SwiftData
-import CryptoKit
 
 /// Turns a raw SMS message into a `PendingEmailTransaction` and files it in
 /// the same review queue the email importer uses — see
@@ -18,7 +17,7 @@ import CryptoKit
 enum SMSIngestService {
 
     static func senderTag(bankName: String) -> String {
-        "sms:" + BankSMSTemplateStore.slug(bankName)
+        ImportFiler.tag(channel: .sms, bankName: bankName)
     }
 
     /// Parses and files one SMS. Returns true when at least one pending item
@@ -98,114 +97,17 @@ enum SMSIngestService {
         }
     }
 
+    /// Filing is shared with every other automation channel (Apple Pay
+    /// today) — see `ImportFiler`.
     @discardableResult
     private static func file(
         _ parsed: ParsedBankEmail, rawText: String, receivedAt: Date, context: ModelContext
     ) -> Bool {
-        let tag = senderTag(bankName: parsed.bankName)
-        let bankRules = (try? context.fetch(FetchDescriptor<BankEmailRule>())) ?? []
-        let matchedRule = bankRules.first { $0.matches(sender: tag, subject: "") }
-
-        let learning = ImportLearningService.shared
-        let normalized = learning.normalizedMerchant(for: parsed.merchant)
-
-        let rules = (try? context.fetch(FetchDescriptor<CategorizationRule>())) ?? []
-        let prediction = AICategorizationService.shared.predictCategory(
-            for: normalized, merchant: normalized,
-            amount: parsed.amount, type: parsed.direction.transactionType,
-            rules: rules
-        )
-
-        let fingerprint = BankEmailParser.fingerprint(
-            amount: parsed.amount, currency: parsed.currency, date: parsed.date,
-            cardLast4: parsed.cardLast4, merchant: parsed.merchant, reference: parsed.referenceNumber
-        )
-
-        let existingTxs = (try? context.fetch(FetchDescriptor<Transaction>())) ?? []
-        let pendingItems = (try? context.fetch(FetchDescriptor<PendingEmailTransaction>())) ?? []
-
-        // One messageId per distinct raw message text — a message that
-        // yields several transactions shares a prefix but stays distinct
-        // per parsed result via the fingerprint-based dedup check below.
-        let messageId = "sms-" + Self.hash(rawText + "|\(parsed.amount)|\(parsed.merchant)")
-        if pendingItems.contains(where: { $0.messageId == messageId }) { return false }
-
-        let verdict = learning.duplicateCheck(
-            fingerprint: fingerprint, amount: parsed.amount, currency: parsed.currency,
-            date: parsed.date, cardLast4: parsed.cardLast4, merchant: parsed.merchant,
-            reference: parsed.referenceNumber,
-            existingTransactions: existingTxs, pendingItems: pendingItems
-        )
-
-        var explanation = parsed.explanationLines
-        explanation.append("Category \(prediction.category.rawValue) — \(prediction.confidenceLabel)")
-
-        let item = PendingEmailTransaction(
-            bankName: parsed.bankName,
-            senderAddress: tag,
-            emailSubject: "SMS transaction alert",
-            emailSnippet: String(rawText.prefix(200)),
-            receivedAt: receivedAt,
-            messageId: messageId,
-            amount: parsed.amount,
-            currency: parsed.currency,
-            merchantRaw: parsed.merchant,
-            merchantNormalized: normalized,
-            transactionDate: parsed.date,
-            cardLast4: parsed.cardLast4,
-            direction: parsed.direction,
-            availableBalance: parsed.availableBalance,
-            referenceNumber: parsed.referenceNumber,
-            suggestedCategory: prediction.category,
-            confidence: min(parsed.confidence, max(prediction.confidence, 0.3)) * 0.3 + parsed.confidence * 0.7,
-            suggestedTags: learning.suggestedTags(for: parsed.merchant),
-            parseExplanation: explanation.joined(separator: "\n"),
-            isSuspiciousParse: parsed.isSuspicious,
-            suspiciousReason: parsed.suspiciousReason,
-            fingerprint: fingerprint,
-            isPossibleDuplicate: verdict.isDuplicate,
-            duplicateReason: verdict.reason
-        )
-        item.matchedRuleId = matchedRule?.id
-
-        let accounts = (try? context.fetch(FetchDescriptor<Account>())) ?? []
-        if let match = EmailSyncService.recognizeAccount(
-            bankName: parsed.bankName, cardLast4: parsed.cardLast4,
-            currency: parsed.currency, accounts: accounts) {
-            item.matchedAccountId = match.account.id
-            item.accountMatchReason = match.reason
-            item.parseExplanation += "\nRecognized account “\(match.account.name)” (\(match.reason))"
-        }
-
-        context.insert(item)
-        matchedRule?.matchedCount += 1
-
-        if item.isBNPLMerchant {
-            item.parseExplanation += "\nBNPL provider detected — link an installment plan before approving"
-        }
-
-        // Every SMS import waits here for the user's own approval — no
-        // confidence bar or bank rule ever posts straight to the ledger.
-
-        let pendingStatusRaw = PendingImportStatus.pending.rawValue
-        let pendingCount = (try? context.fetchCount(
-            FetchDescriptor<PendingEmailTransaction>(predicate: #Predicate { $0.statusRaw == pendingStatusRaw })
-        )) ?? 0
-        NotificationService.shared.sendEmailImportAlert(
-            merchant: item.merchantNormalized, amount: item.amount, currency: item.currency,
-            category: item.suggestedCategory.rawValue,
-            autoApproved: item.status == PendingImportStatus.approved,
-            pendingReviewCount: pendingCount
-        )
-        UserDefaults.standard.set(Date(), forKey: lastImportKey)
-        return true
+        ImportFiler.file(parsed, channel: .sms, rawText: rawText,
+                         receivedAt: receivedAt, context: context)
     }
 
     /// Read by `SMSImportView` for its 24-hour "first SMS landed" check.
-    static let lastImportKey = "ft_last_sms_import_at"
+    static var lastImportKey: String { ImportChannel.sms.lastImportKey }
 
-    private static func hash(_ text: String) -> String {
-        let digest = SHA256.hash(data: Data(text.utf8))
-        return String(digest.map { String(format: "%02x", $0) }.joined().prefix(24))
-    }
 }

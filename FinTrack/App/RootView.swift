@@ -110,6 +110,7 @@ struct RootView: View {
             processDebtAlerts()
             drainPendingIntentQueue()
             drainPendingSMSTexts()
+            drainPendingApplePay()
             if isGoogleDriveBackupEnabled { GoogleDriveBackupService.shared.syncIfDue(context: context) }
             EmailBackupService.shared.scheduleAutomaticBackupIfNeeded(context: context)
         }
@@ -135,6 +136,7 @@ struct RootView: View {
                 processDebtAlerts()
                 drainPendingIntentQueue()
                 drainPendingSMSTexts()
+                drainPendingApplePay()
                 if isGoogleDriveBackupEnabled { GoogleDriveBackupService.shared.syncIfDue(context: context) }
                 EmailBackupService.shared.scheduleAutomaticBackupIfNeeded(context: context)
             }
@@ -257,6 +259,21 @@ struct RootView: View {
                     receivedAt: sms.receivedAt, context: context
                 )
             }
+        }
+    }
+
+    /// Drains `LogApplePayTransaction`'s queue. Wallet's fields arrive
+    /// already structured, so unlike the SMS drain there's nothing to parse —
+    /// see `ApplePayIngestService`.
+    private func drainPendingApplePay() {
+        let pending = WidgetDataService.shared.dequeuePendingApplePay()
+        guard !pending.isEmpty else { return }
+        for tx in pending {
+            ApplePayIngestService.ingest(
+                amount: tx.amount, merchant: tx.merchant, currency: tx.currency,
+                date: tx.date, walletCategory: tx.walletCategory, card: tx.card,
+                isRefund: tx.isRefund, context: context
+            )
         }
     }
 

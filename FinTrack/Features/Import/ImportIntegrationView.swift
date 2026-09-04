@@ -93,6 +93,13 @@ struct ImportIntegrationView: View {
             }
             .buttonStyle(.plain)
 
+            NavigationLink(destination: ApplePayImportView()) {
+                methodRow(icon: "creditcard.fill", color: FTColor.income,
+                          title: "Apple Pay Import",
+                          subtitle: "Via Shortcuts automation · structured, no text parsing")
+            }
+            .buttonStyle(.plain)
+
             NavigationLink(destination: PDFImportView()) {
                 methodRow(icon: "doc.fill", color: FTColor.expense,
                           title: "PDF Bank Statement",

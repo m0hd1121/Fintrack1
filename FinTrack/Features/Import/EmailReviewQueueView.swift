@@ -301,6 +301,8 @@ private struct PendingEmailRow: View {
                     HStack(spacing: 4) {
                         if item.senderAddress.hasPrefix("sms:") {
                             Image(systemName: "message.fill").font(.system(size: 9))
+                        } else if item.senderAddress.hasPrefix("applepay:") {
+                            Image(systemName: "creditcard.fill").font(.system(size: 9))
                         }
                         Text(item.bankName)
                         if let last4 = item.cardLast4 {
@@ -384,6 +386,7 @@ private struct EditPendingEmailSheet: View {
 
     private var bnplBlocked: Bool { item.isBNPLMerchant && !item.bnplResolved }
     private var isSMSSource: Bool { item.senderAddress.hasPrefix("sms:") }
+    private var isApplePaySource: Bool { item.senderAddress.hasPrefix("applepay:") }
 
     @State private var amountText: String = ""
     @State private var tagsText: String = ""
@@ -518,10 +521,11 @@ private struct EditPendingEmailSheet: View {
 
                         // Source context (read-only audit trail)
                         VStack(alignment: .leading, spacing: FTSpacing.sm) {
-                            Text(isSMSSource ? "SOURCE SMS" : "SOURCE EMAIL")
+                            Text(isApplePaySource ? "SOURCE APPLE PAY"
+                                 : isSMSSource ? "SOURCE SMS" : "SOURCE EMAIL")
                                 .font(.ftLabel).tracking(1.4).foregroundStyle(FTColor.textMuted)
                             Text(item.emailSubject).font(.ftCallout).foregroundStyle(FTColor.textSecondary)
-                            Text(isSMSSource ? item.bankName : item.senderAddress)
+                            Text(isSMSSource || isApplePaySource ? item.bankName : item.senderAddress)
                                 .font(.ftCaption).foregroundStyle(FTColor.textMuted)
                             Text(item.emailSnippet)
                                 .font(.ftCaption).foregroundStyle(FTColor.textMuted)

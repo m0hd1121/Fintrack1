@@ -126,6 +126,18 @@ Singleton: no (`final class IMAPClient: @unchecked Sendable`, per-connection) | 
 Key methods: `connect()/login(user:password:)/selectInbox()/uidSearch(_:) -> [Int]/fetchMessage(uid:)/fetchRawMessage(uid:) -> Data/logout()/close()`; `enum MIMEDecoder`: `readableBody`, `extractAttachment(from:filenameContains:)`, `decodeQuotedPrintable`, `decodeEncodedWords`, `headerValue`
 External APIs: Network.framework (raw NWConnection/TLS)
 
+### ImportFiler.swift
+Purpose: the shared last step for **every automation-fed channel** — turns a `ParsedBankEmail` into a `PendingEmailTransaction` in the review queue, running the same normalization, categorization, dedup and account-matching as `EmailSyncService.processEmail`. Extracted out of `SMSIngestService` once Apple Pay became a second channel, so the two can't drift.
+Singleton: no (`@MainActor enum`) | Actor: `@MainActor`
+Key methods: `file(_:channel:rawText:receivedAt:categoryOverride:context:) -> Bool` (false = exact repeat already queued), `tag(channel:bankName:)`, `hash(_:)`. `enum ImportChannel { .sms, .applePay }` carries the per-channel differences and nothing else: `tagPrefix` (`"sms:"`/`"applepay:"` sentinel on `senderAddress`), `messageIdPrefix`, `subjectLabel`, `lastImportKey`. `categoryOverride` beats the merchant-based prediction — used when the source already knows the category (Wallet does).
+External APIs: none
+
+### ApplePayIngestService.swift
+Purpose: files an Apple Pay/Wallet transaction delivered by a Shortcuts **"Transaction"** Personal Automation. Unlike SMS this channel is **already structured** — Wallet hands Shortcuts real amount/merchant/date/category fields — so there is no parsing step and no bank wording that can drift; it's more accurate than SMS wherever it applies, but only covers payments actually made through Apple Pay. Builds a `ParsedBankEmail` (confidence 0.95) straight from those fields and hands it to `ImportFiler`.
+Singleton: no (`@MainActor enum`) | Actor: `@MainActor`
+Key methods: `ingest(amount:merchant:currency:date:walletCategory:card:isRefund:context:) -> Bool` (drained from `RootView.drainPendingApplePay()`), `mappedCategory(_:)` (Wallet category string → `TransactionCategory`, nil falls through to merchant prediction), `receivedTransactions`/`clearReceived()` for the same "what actually arrived" diagnostics the SMS channel has.
+External APIs: none
+
 ### ImportLearningService.swift
 Purpose: on-device learning memory for the email/SMS import review queue — merchant rename aliases, tag suggestions, rejection tracking, weighted duplicate-detection scoring.
 Singleton: `.shared` | Actor: implicit MainActor

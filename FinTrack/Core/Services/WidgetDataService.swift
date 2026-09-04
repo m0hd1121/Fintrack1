@@ -126,6 +126,65 @@ final class WidgetDataService {
         defaults.removeObject(forKey: "pending_sms_texts")
         return queue
     }
+
+    // MARK: – Pending Apple Pay queue
+
+    @discardableResult
+    func enqueuePendingApplePay(_ tx: PendingApplePayTransaction) -> Bool {
+        let defaults = smsDefaults
+        var queue: [PendingApplePayTransaction] = []
+        if let data = defaults.data(forKey: "pending_applepay"),
+           let existing = try? JSONDecoder().decode([PendingApplePayTransaction].self, from: data) {
+            queue = existing
+        }
+        queue.append(tx)
+        guard let data = try? JSONEncoder().encode(queue) else { return false }
+        defaults.set(data, forKey: "pending_applepay")
+        return true
+    }
+
+    /// Peek, without draining — see `pendingSMSCount`.
+    var pendingApplePayCount: Int {
+        guard let data = smsDefaults.data(forKey: "pending_applepay"),
+              let queue = try? JSONDecoder().decode([PendingApplePayTransaction].self, from: data)
+        else { return 0 }
+        return queue.count
+    }
+
+    func dequeuePendingApplePay() -> [PendingApplePayTransaction] {
+        let defaults = smsDefaults
+        guard let data = defaults.data(forKey: "pending_applepay"),
+              let queue = try? JSONDecoder().decode([PendingApplePayTransaction].self, from: data)
+        else { return [] }
+        defaults.removeObject(forKey: "pending_applepay")
+        return queue
+    }
+}
+
+/// Structured Apple Pay transaction queued by `LogApplePayTransaction`.
+/// Wallet hands Shortcuts real fields rather than text, so unlike
+/// `PendingSMSText` there is nothing here left to parse.
+struct PendingApplePayTransaction: Codable {
+    var id: UUID
+    var amount: Double
+    var merchant: String
+    var currency: String?
+    var date: Date?
+    var walletCategory: String?
+    var card: String?
+    var isRefund: Bool
+
+    init(amount: Double, merchant: String, currency: String? = nil, date: Date? = nil,
+         walletCategory: String? = nil, card: String? = nil, isRefund: Bool = false) {
+        self.id = UUID()
+        self.amount = amount
+        self.merchant = merchant
+        self.currency = currency
+        self.date = date
+        self.walletCategory = walletCategory
+        self.card = card
+        self.isRefund = isRefund
+    }
 }
 
 // MARK: – Shared snapshot types
