@@ -127,6 +127,12 @@ final class ImportLearningService {
     /// Score at/above which a candidate is treated as a duplicate.
     static let duplicateThreshold = 0.6
 
+    /// `score(...)` returns 0 once two records are further apart than this, so
+    /// a candidate can only ever match a ledger row inside this window. Import
+    /// callers bound their `Transaction` fetch by it instead of materializing
+    /// the whole ledger for every message — keep the two locked together.
+    static let duplicateTimeWindow: TimeInterval = 72 * 3600
+
     /// Checks a parsed candidate against the permanent ledger and the pending
     /// queue. Instead of exact matching, each existing record gets a weighted
     /// similarity score — amount, currency, time delta, merchant similarity,
@@ -240,7 +246,7 @@ final class ImportLearningService {
         if hours <= 2 { score += 0.25 }
         else if hours <= 12 { score += 0.20 }
         else if hours <= 36 { score += 0.12 }
-        else if hours > 72 { return 0 }   // too far apart to be the same event
+        else if hours > duplicateTimeWindow / 3600 { return 0 }   // too far apart to be the same event
 
         let candidateKey = merchantKey(merchant)
         let targetKey = merchantKey(targetMerchant)

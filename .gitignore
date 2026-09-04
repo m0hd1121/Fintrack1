@@ -1,0 +1,14 @@
+# Xcode per-user state — never part of the build, and it churns on every open.
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+
+# Build products
+build/
+DerivedData/
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# macOS
+.DS_Store

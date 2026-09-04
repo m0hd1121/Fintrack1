@@ -18,7 +18,11 @@ struct DashboardView: View {
     @Environment(\.modelContext) private var context
 
     @Query private var accounts: [Account]
-    @Query private var transactions: [Transaction]
+    /// Sorted newest-first in the query rather than in Swift: the aggregate
+    /// loop below can then stop as soon as it walks past the window it cares
+    /// about, and `prefix(n)` is already "most recent" without an O(n log n)
+    /// sort per refresh.
+    @Query(sort: \Transaction.date, order: .reverse) private var transactions: [Transaction]
     @Query private var loans: [Loan]
     @Query private var creditCards: [CreditCard]
     @Query private var investments: [Investment]
@@ -65,6 +69,10 @@ struct DashboardView: View {
         var netWorth: Double = 0
         var totalBalance: Double = 0
         var spendingByCategory: [(category: TransactionCategory, amount: Double)] = []
+        /// Every category's month-to-date spend, not just the top 6 shown on
+        /// the card. `pushWidgetData` reads each budget's figure straight out
+        /// of here instead of re-scanning the ledger per budget.
+        var spendingTotals: [TransactionCategory: Double] = [:]
         var upcomingPayments: [(name: String, amount: Double, date: Date, type: String)] = []
         var recentTransactions: [Transaction] = []
 
@@ -73,6 +81,7 @@ struct DashboardView: View {
 
     @State private var metrics: DashboardMetrics = .empty
     @State private var cachedInsights: [FinancialInsight] = []
+    @State private var hasAppeared = false
 
     // Cheap key that changes when any queried collection changes size.
     // Tradeoff: in-place edits don't change counts, so we also refresh on .onAppear (tab return).
@@ -83,22 +92,50 @@ struct DashboardView: View {
         return a &+ b &+ c
     }
 
-    private func computeMetrics() -> DashboardMetrics {
+    /// Aggregates plus the two month slices the insight generator needs, all
+    /// from **one** walk of the ledger. Previously the current and previous
+    /// month were each filtered out again in `refreshDashboard`, so a refresh
+    /// made three full passes and called `Calendar.isDate(_:equalTo:)` — which
+    /// is far from free — once per transaction per pass.
+    private func computeMetrics() -> (metrics: DashboardMetrics,
+                                      currentMonth: [Transaction],
+                                      previousMonth: [Transaction]) {
         var m = DashboardMetrics()
         let now = Date()
+
+        // Month boundaries resolved once, then compared with plain `<`/`>=`.
+        // Same result as `isSameMonth(as:)` per row, without the calendar work.
+        let calendar = Calendar.current
+        let monthStart = now.startOfMonth
+        let nextMonthStart = calendar.date(byAdding: .month, value: 1, to: monthStart) ?? now
+        let prevMonthStart = calendar.date(byAdding: .month, value: -1, to: monthStart) ?? monthStart
 
         // Single pass: monthly income/expenses + category spending.
         // spendingPairs handles splits, excludes pending/scheduled automatically.
         var spendingTotals: [TransactionCategory: Double] = [:]
-        for tx in transactions where tx.date.isSameMonth(as: now) {
-            if tx.type == .income && !tx.isPending && !tx.isScheduled {
-                m.monthlyIncome += tx.amountInBaseCurrency
-            }
-            for (cat, amount) in tx.spendingPairs {
-                m.monthlyExpenses += amount
-                spendingTotals[cat, default: 0] += amount
+        var currentMonth: [Transaction] = []
+        var previousMonth: [Transaction] = []
+        for tx in transactions {
+            let date = tx.date
+            // The query is sorted newest-first, so once we're past the previous
+            // month every remaining row is older still — nothing left to do.
+            if date < prevMonthStart { break }
+            guard date < nextMonthStart else { continue }   // future/scheduled rows
+
+            if date >= monthStart {
+                currentMonth.append(tx)
+                if tx.type == .income && !tx.isPending && !tx.isScheduled {
+                    m.monthlyIncome += tx.amountInBaseCurrency
+                }
+                for (cat, amount) in tx.spendingPairs {
+                    m.monthlyExpenses += amount
+                    spendingTotals[cat, default: 0] += amount
+                }
+            } else {
+                previousMonth.append(tx)
             }
         }
+        m.spendingTotals = spendingTotals
         m.monthlyNet = m.monthlyIncome - m.monthlyExpenses
         m.savingsRate = m.monthlyIncome > 0
             ? ((m.monthlyIncome - m.monthlyExpenses) / m.monthlyIncome) * 100 : 0
@@ -163,29 +200,29 @@ struct DashboardView: View {
         }
         m.upcomingPayments = payments.sorted { $0.date < $1.date }.prefix(5).map { $0 }
 
-        m.recentTransactions = transactions
-            .sorted(by: { $0.date > $1.date })
-            .prefix(5)
-            .map { $0 }
+        // Already newest-first from the query.
+        m.recentTransactions = Array(transactions.prefix(5))
 
-        return m
+        return (m, currentMonth, previousMonth)
     }
 
-    /// Single refresh path for both cached metrics and AI insights.
+    /// Single refresh path for both cached metrics and AI insights. The two
+    /// month slices come back from the same pass that produced the aggregates,
+    /// so nothing here re-walks the ledger.
     private func refreshDashboard() {
-        metrics = computeMetrics()
+        let computed = computeMetrics()
+        metrics = computed.metrics
 
-        let now = Date()
-        let previousMonth = Calendar.current.date(byAdding: .month, value: -1, to: now) ?? now
-        let currentMonthTransactions = transactions.filter { $0.date.isSameMonth(as: now) }
-        let prevTransactions = transactions.filter { $0.date.isSameMonth(as: previousMonth) }
         cachedInsights = AICategorizationService.shared.generateInsights(
-            transactions: currentMonthTransactions,
-            previousMonthTransactions: prevTransactions,
+            transactions: computed.currentMonth,
+            previousMonthTransactions: computed.previousMonth,
             baseCurrency: baseCurrency
         )
 
         pushWidgetData()
+        // Newest-first from the query, so this is the most recent 200 rather
+        // than an arbitrary 200. Re-indexing identical content is skipped
+        // inside the service — see `SpotlightService`.
         SpotlightService.shared.indexTransactions(Array(transactions.prefix(200)))
         SpotlightService.shared.indexAccounts(accounts)
     }
@@ -203,13 +240,12 @@ struct DashboardView: View {
             )
         }
 
-        let now = Date()
         let budgetSnapshots = budgets.map { b -> WidgetBudgetSnapshot in
-            let spent = transactions
-                .filter { $0.date.isSameMonth(as: now) }
-                .flatMap { $0.spendingPairs }
-                .filter { $0.0 == b.category }
-                .reduce(0) { $0 + $1.1 }
+            // Was: a fresh full-ledger filter + flatMap per budget, i.e.
+            // O(budgets × transactions) with a calendar comparison and a
+            // `spendingPairs` array built for every cell. The same figure is
+            // already in the single-pass totals.
+            let spent = metrics.spendingTotals[b.category] ?? 0
             return WidgetBudgetSnapshot(
                 id: b.id,
                 name: b.name.isEmpty ? b.category.rawValue : b.name,
@@ -337,7 +373,13 @@ struct DashboardView: View {
                 UpcomingPaymentsView()
             }
             .task(id: dataStamp) { refreshDashboard() }
-            .onAppear { refreshDashboard() }
+            // `.task(id:)` already covers the first appearance, so refreshing
+            // here too made launch compute everything twice. This is only for
+            // *returning* to the tab, where in-place edits may have changed
+            // values without changing `dataStamp`.
+            .onAppear {
+                if hasAppeared { refreshDashboard() } else { hasAppeared = true }
+            }
             // Tapping the Dashboard tab pops any pushed screen back here.
             .onChange(of: appState.popToRootTick) { dashRoute = nil }
         }

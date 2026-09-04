@@ -439,7 +439,28 @@ final class EmailSyncService: NSObject {
             cardLast4: parsed.cardLast4, merchant: parsed.merchant, reference: parsed.referenceNumber
         )
 
-        let existingTxs = (try? context.fetch(FetchDescriptor<Transaction>())) ?? []
+        // The scoring loop can only ever match a row inside
+        // `duplicateTimeWindow` (`score(...)` returns 0 beyond it), so fetching
+        // the whole ledger for every imported message was wasted work — it
+        // materialized every `Transaction` the user has ever recorded, once per
+        // message. Bound the fetch to that window instead.
+        //
+        // The one check that *isn't* time-bounded is the reference-number
+        // identity check, which must still see the entire ledger (an approved
+        // import writes " · Ref: <n>" into its notes, and a bank can re-send an
+        // old alert). So when the message carries a reference we keep the full
+        // fetch, and only the far more common no-reference case is narrowed.
+        let existingTxs: [Transaction]
+        if !(parsed.referenceNumber ?? "").isEmpty {
+            existingTxs = (try? context.fetch(FetchDescriptor<Transaction>())) ?? []
+        } else {
+            let window = ImportLearningService.duplicateTimeWindow
+            let earliest = parsed.date.addingTimeInterval(-window)
+            let latest = parsed.date.addingTimeInterval(window)
+            existingTxs = (try? context.fetch(FetchDescriptor<Transaction>(
+                predicate: #Predicate { $0.date >= earliest && $0.date <= latest }
+            ))) ?? []
+        }
         let pendingItems = (try? context.fetch(FetchDescriptor<PendingEmailTransaction>())) ?? []
 
         // Exact re-parse of an email that was already queued/approved → skip silently.

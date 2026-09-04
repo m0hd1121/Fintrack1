@@ -10,9 +10,37 @@ final class SpotlightService {
     private let transactionDomain = "com.fintrack.transactions"
     private let accountDomain    = "com.fintrack.accounts"
 
+    /// Content stamp of the last batch handed to each domain.
+    ///
+    /// `DashboardView.refreshDashboard()` runs on every return to the tab and
+    /// on every data change, and each run used to rebuild 200 attribute sets
+    /// and push them into CoreSpotlight again — almost always byte-identical
+    /// to what was already indexed. Spotlight's own store isn't cheap to write
+    /// to, so skipping an unchanged batch removes real CPU and disk work from
+    /// a very hot path. The stamp covers only the fields that get indexed, so
+    /// an edit that changes any of them still re-indexes.
+    private var lastTransactionStamp: Int?
+    private var lastAccountStamp: Int?
+
     // MARK: – Indexing
 
     func indexTransactions(_ transactions: [Transaction]) {
+        var hasher = Hasher()
+        for tx in transactions {
+            hasher.combine(tx.id)
+            hasher.combine(tx.title)
+            hasher.combine(tx.amount)
+            hasher.combine(tx.currency)
+            hasher.combine(tx.category)
+            hasher.combine(tx.merchant)
+            hasher.combine(tx.notes)
+            hasher.combine(tx.date)
+            hasher.combine(tx.type)
+        }
+        let stamp = hasher.finalize()
+        guard stamp != lastTransactionStamp else { return }
+        lastTransactionStamp = stamp
+
         let items = transactions.map { tx in
             let attr = CSSearchableItemAttributeSet(contentType: .text)
             attr.title = tx.title
@@ -38,7 +66,21 @@ final class SpotlightService {
     }
 
     func indexAccounts(_ accounts: [Account]) {
-        let items = accounts.filter { !$0.isArchived }.map { account in
+        let visible = accounts.filter { !$0.isArchived }
+        var hasher = Hasher()
+        for account in visible {
+            hasher.combine(account.id)
+            hasher.combine(account.name)
+            hasher.combine(account.type)
+            hasher.combine(account.currency)
+            hasher.combine(account.balance)
+            hasher.combine(account.bankName)
+        }
+        let stamp = hasher.finalize()
+        guard stamp != lastAccountStamp else { return }
+        lastAccountStamp = stamp
+
+        let items = visible.map { account in
             let attr = CSSearchableItemAttributeSet(contentType: .text)
             attr.title = account.name
             attr.contentDescription = "\(account.type.rawValue) · \(account.currency) \(String(format: "%.2f", account.balance))"
@@ -67,10 +109,13 @@ final class SpotlightService {
     }
 
     func clearTransactionIndex() {
+        lastTransactionStamp = nil
         CSSearchableIndex.default().deleteSearchableItems(withDomainIdentifiers: [transactionDomain]) { _ in }
     }
 
     func clearAllIndexes() {
+        lastTransactionStamp = nil
+        lastAccountStamp = nil
         CSSearchableIndex.default().deleteAllSearchableItems { _ in }
     }
 
