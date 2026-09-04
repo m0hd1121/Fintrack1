@@ -106,19 +106,17 @@ enum ApplePayIngestService {
             suspiciousReason: nil
         )
 
-        let created = ImportFiler.file(
+        let resolution = ImportFiler.file(
             parsed, channel: .applePay,
             rawText: "\(trimmedMerchant) \(resolvedCurrency) \(amount)",
             receivedAt: date ?? Date(),
             categoryOverride: mappedCategory(walletCategory),
             context: context
         )
-        if created { try? context.save() }
-        record(outcome: created
-                   ? "Added to the review queue"
-                   : "Already imported (duplicate)",
+        try? context.save()
+        record(outcome: resolution?.summary ?? "Already imported (duplicate)",
                merchant: trimmedMerchant, amount: amount, receivedAt: date ?? Date())
-        return created
+        return resolution?.createdNewRow ?? false
     }
 
     /// Wallet card names often end in the last four digits ("Visa •••• 1234"),

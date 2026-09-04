@@ -126,6 +126,14 @@ Singleton: no (`final class IMAPClient: @unchecked Sendable`, per-connection) | 
 Key methods: `connect()/login(user:password:)/selectInbox()/uidSearch(_:) -> [Int]/fetchMessage(uid:)/fetchRawMessage(uid:) -> Data/logout()/close()`; `enum MIMEDecoder`: `readableBody`, `extractAttachment(from:filenameContains:)`, `decodeQuotedPrintable`, `decodeEncodedWords`, `headerValue`
 External APIs: Network.framework (raw NWConnection/TLS)
 
+### ImportDeduper.swift
+Purpose: collapses **the same real-world transaction arriving on more than one channel** (email + SMS + Apple Pay all fire for one card payment) into a single review-queue row holding the best data. Replaces the old behaviour of inserting each copy flagged "possible duplicate", which left the user rejecting two rows per purchase. On a match it keeps the higher-quality reading and **absorbs the loser's complementary fields first** — SMS often has a reference number Apple Pay lacks, email usually has the running balance, Apple Pay has an exact merchant/category — so the surviving row beats what any one channel produced alone.
+Singleton: no (`@MainActor enum`) | Actor: `@MainActor`
+Key methods: `file(_:channel:pendingItems:context:) -> Resolution` (call **instead of** `context.insert`), `bestMatch(for:in:)` (reuses `ImportLearningService.similarityScore(...against: PendingEmailTransaction)` at the shared 0.6 threshold), `quality(of:channel:)`, `absorb(into:from:)`, `isPlaceholderMerchant(_:)`. `Resolution` = `.inserted` / `.upgradedExisting(replacedChannel:)` / `.keptExisting(winningChannel:)`, with `createdNewRow` + `summary` for callers' diagnostics.
+Quality = `ImportChannel.trustWeight` (Apple Pay 0.30 structured > email 0.22 verbose-but-parsed > SMS 0.15 terse — *correctness*) + half the parse confidence + field-completeness bonuses (card last4, reference, balance, non-placeholder merchant) − a suspicious-parse penalty. Completeness being scored separately is what lets a detailed email outrank a bare Apple Pay row.
+**Scope**: merges only against items still `.pending`. A match against an already-approved ledger transaction keeps the old "possible duplicate" flag instead — silently dropping there could hide a genuine second purchase, and approving a flagged row already needs an explicit "Approve Anyway" tap. `absorb` clears the duplicate flag only when its reason named a *queued* sibling (the one just merged), never a ledger match.
+External APIs: none
+
 ### ImportFiler.swift
 Purpose: the shared last step for **every automation-fed channel** — turns a `ParsedBankEmail` into a `PendingEmailTransaction` in the review queue, running the same normalization, categorization, dedup and account-matching as `EmailSyncService.processEmail`. Extracted out of `SMSIngestService` once Apple Pay became a second channel, so the two can't drift.
 Singleton: no (`@MainActor enum`) | Actor: `@MainActor`

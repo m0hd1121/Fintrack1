@@ -498,12 +498,17 @@ final class EmailSyncService: NSObject {
             item.parseExplanation += "\nRecognized account “\(match.account.name)” (\(match.reason))"
         }
 
-        context.insert(item)
-        matchedRule?.matchedCount += 1
-
         if item.isBNPLMerchant {
             item.parseExplanation += "\nBNPL provider detected — link an installment plan before approving"
         }
+
+        // One row per real transaction: the same payment often also arrives by
+        // SMS and/or Apple Pay, so merge with a queued copy from another
+        // channel (keeping whichever reading is better) instead of adding a
+        // second flagged duplicate. See `ImportDeduper`.
+        let resolution = ImportDeduper.file(item, channel: .email,
+                                            pendingItems: pendingItems, context: context)
+        matchedRule?.matchedCount += 1
 
         // No automated path ever posts straight to the ledger — every email
         // import waits in the review queue for the user's own approval
@@ -519,22 +524,26 @@ final class EmailSyncService: NSObject {
             )
         )) ?? 0
 
-        NotificationService.shared.sendEmailImportAlert(
-            merchant: item.merchantNormalized,
-            amount: item.amount,
-            currency: item.currency,
-            category: item.suggestedCategory.rawValue,
-            autoApproved: item.status == PendingImportStatus.approved,
-            pendingReviewCount: pendingCount
-        )
+        // A merge into an existing row isn't a new thing to review, so don't
+        // alert twice for the same purchase arriving on a second channel.
+        if resolution.createdNewRow {
+            NotificationService.shared.sendEmailImportAlert(
+                merchant: item.merchantNormalized,
+                amount: item.amount,
+                currency: item.currency,
+                category: item.suggestedCategory.rawValue,
+                autoApproved: item.status == PendingImportStatus.approved,
+                pendingReviewCount: pendingCount
+            )
+        }
 
         // When rules/learning/keywords all came up empty, ask the maps
         // services what kind of place this merchant is (async — the queue
         // item updates in place when the answer arrives).
-        if prediction.confidence <= 0.5 {
+        if prediction.confidence <= 0.5, resolution.createdNewRow {
             enrichCategoryFromMaps(itemId: item.id, context: context)
         }
-        return true
+        return resolution.createdNewRow
     }
 
     /// Looks the merchant up via Google Places / OpenStreetMap and refines

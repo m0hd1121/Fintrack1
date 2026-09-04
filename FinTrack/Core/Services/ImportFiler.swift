@@ -6,14 +6,18 @@ import CryptoKit
 /// sentinel prefixes differ per channel — everything else about filing one is
 /// identical, which is why `ImportFiler` is shared rather than duplicated.
 enum ImportChannel {
+    case email
     case sms
     case applePay
 
     /// Prefix on `PendingEmailTransaction.senderAddress` (and the matching
     /// `BankEmailRule.senderEmail`), so a channel's rows stay identifiable
-    /// without adding a field to the model. See PROJECT_MAP §8.
+    /// without adding a field to the model. See PROJECT_MAP §8. Email keeps
+    /// the real sender address, so it has no prefix — which is exactly how
+    /// `of(_:)` recognizes it.
     var tagPrefix: String {
         switch self {
+        case .email:    return ""
         case .sms:      return "sms:"
         case .applePay: return "applepay:"
         }
@@ -21,6 +25,7 @@ enum ImportChannel {
 
     var messageIdPrefix: String {
         switch self {
+        case .email:    return ""
         case .sms:      return "sms-"
         case .applePay: return "applepay-"
         }
@@ -29,6 +34,7 @@ enum ImportChannel {
     /// Stands in for the email subject line in the review queue's source card.
     var subjectLabel: String {
         switch self {
+        case .email:    return ""
         case .sms:      return "SMS transaction alert"
         case .applePay: return "Apple Pay transaction"
         }
@@ -37,9 +43,44 @@ enum ImportChannel {
     /// UserDefaults key holding the last successful import for this channel.
     var lastImportKey: String {
         switch self {
+        case .email:    return "ft_last_email_import_at"
         case .sms:      return "ft_last_sms_import_at"
         case .applePay: return "ft_last_applepay_import_at"
         }
+    }
+
+    var displayName: String {
+        switch self {
+        case .email:    return "email"
+        case .sms:      return "SMS"
+        case .applePay: return "Apple Pay"
+        }
+    }
+
+    /// How much to trust this channel's *reading* of a transaction, used by
+    /// `ImportDeduper` when the same payment arrives on more than one.
+    ///
+    /// Apple Pay ranks highest because Wallet hands over typed fields —
+    /// amount/merchant/date cannot be misread at all. Email comes next: it's
+    /// regex-parsed, but bank emails are verbose and consistent. SMS is last,
+    /// being the tersest and most wording-sensitive. Note this measures
+    /// *correctness*, not completeness — richer field coverage (reference
+    /// number, balance, card digits) is scored separately, which is how a
+    /// detailed email can still beat a bare Apple Pay entry.
+    var trustWeight: Double {
+        switch self {
+        case .applePay: return 0.30
+        case .email:    return 0.22
+        case .sms:      return 0.15
+        }
+    }
+
+    /// Which channel an existing queue item came from, read back off its
+    /// `senderAddress` sentinel.
+    static func of(_ item: PendingEmailTransaction) -> ImportChannel {
+        if item.senderAddress.hasPrefix(ImportChannel.sms.tagPrefix) { return .sms }
+        if item.senderAddress.hasPrefix(ImportChannel.applePay.tagPrefix) { return .applePay }
+        return .email
     }
 }
 
@@ -57,8 +98,11 @@ enum ImportFiler {
         channel.tagPrefix + BankSMSTemplateStore.slug(bankName)
     }
 
-    /// Returns true when a new pending item was created. False means it was
-    /// an exact repeat of something already queued.
+    /// Files one parsed transaction, collapsing it with any queued copy of
+    /// the same payment from another channel (`ImportDeduper`) rather than
+    /// creating a second row. `nil` means it was an exact repeat of something
+    /// already queued and nothing was done.
+    ///
     /// `categoryOverride` wins over the merchant-based prediction — used when
     /// the source already told us the category (Apple Pay/Wallet does), which
     /// is more trustworthy than guessing from the merchant name.
@@ -70,7 +114,7 @@ enum ImportFiler {
         receivedAt: Date,
         categoryOverride: TransactionCategory? = nil,
         context: ModelContext
-    ) -> Bool {
+    ) -> ImportDeduper.Resolution? {
         let senderTag = tag(channel: channel, bankName: parsed.bankName)
         let bankRules = (try? context.fetch(FetchDescriptor<BankEmailRule>())) ?? []
         let matchedRule = bankRules.first { $0.matches(sender: senderTag, subject: "") }
@@ -97,7 +141,7 @@ enum ImportFiler {
         // several transactions shares a prefix but stays distinct per result
         // via the fingerprint-based dedup check below.
         let messageId = channel.messageIdPrefix + hash(rawText + "|\(parsed.amount)|\(parsed.merchant)")
-        if pendingItems.contains(where: { $0.messageId == messageId }) { return false }
+        if pendingItems.contains(where: { $0.messageId == messageId }) { return nil }
 
         let verdict = learning.duplicateCheck(
             fingerprint: fingerprint, amount: parsed.amount, currency: parsed.currency,
@@ -151,12 +195,21 @@ enum ImportFiler {
             item.parseExplanation += "\nRecognized account “\(match.account.name)” (\(match.reason))"
         }
 
-        context.insert(item)
-        matchedRule?.matchedCount += 1
-
         if item.isBNPLMerchant {
             item.parseExplanation += "\nBNPL provider detected — link an installment plan before approving"
         }
+
+        // One row per real transaction: merge with a queued copy from another
+        // channel instead of adding a second flagged duplicate.
+        let resolution = ImportDeduper.file(item, channel: channel,
+                                            pendingItems: pendingItems, context: context)
+        matchedRule?.matchedCount += 1
+        UserDefaults.standard.set(Date(), forKey: channel.lastImportKey)
+
+        // Only announce a transaction the user hasn't been told about yet —
+        // a merge into an already-queued copy was already announced by
+        // whichever channel got here first.
+        guard resolution.createdNewRow else { return resolution }
 
         let pendingStatusRaw = PendingImportStatus.pending.rawValue
         let pendingCount = (try? context.fetchCount(
@@ -168,8 +221,7 @@ enum ImportFiler {
             autoApproved: item.status == PendingImportStatus.approved,
             pendingReviewCount: pendingCount
         )
-        UserDefaults.standard.set(Date(), forKey: channel.lastImportKey)
-        return true
+        return resolution
     }
 
     static func hash(_ text: String) -> String {

@@ -43,15 +43,19 @@ enum SMSIngestService {
         }
 
         var created = false
-        for parsed in results
-        where file(parsed, rawText: rawText, receivedAt: receivedAt, context: context) {
-            created = true
+        var outcomes: [String] = []
+        for parsed in results {
+            guard let resolution = file(parsed, rawText: rawText,
+                                        receivedAt: receivedAt, context: context) else {
+                outcomes.append("Already imported (duplicate of an earlier message)")
+                continue
+            }
+            if resolution.createdNewRow { created = true }
+            outcomes.append(resolution.summary)
         }
-        if created { try? context.save() }
+        try? context.save()
         record(rawText: rawText, senderId: senderId, receivedAt: receivedAt,
-               outcome: created
-                   ? "Added to the review queue"
-                   : "Already imported (duplicate of an earlier message)")
+               outcome: outcomes.joined(separator: " · "))
         return created
     }
 
@@ -97,12 +101,12 @@ enum SMSIngestService {
         }
     }
 
-    /// Filing is shared with every other automation channel (Apple Pay
-    /// today) — see `ImportFiler`.
-    @discardableResult
+    /// Filing is shared with every other automation channel (email, Apple
+    /// Pay) — see `ImportFiler`, which also collapses the same payment
+    /// arriving on more than one of them into a single queue row.
     private static func file(
         _ parsed: ParsedBankEmail, rawText: String, receivedAt: Date, context: ModelContext
-    ) -> Bool {
+    ) -> ImportDeduper.Resolution? {
         ImportFiler.file(parsed, channel: .sms, rawText: rawText,
                          receivedAt: receivedAt, context: context)
     }
