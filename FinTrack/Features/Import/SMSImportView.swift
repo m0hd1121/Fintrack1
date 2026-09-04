@@ -23,7 +23,8 @@ struct SMSImportView: View {
 
     @State private var showingAddBank = false
     @State private var editingRule: BankEmailRule? = nil
-    @State private var unparsed: [SMSIngestService.UnparsedSMS] = []
+    @State private var received: [SMSIngestService.ReceivedSMS] = []
+    @State private var queuedCount = 0
 
     private let setupStartedKey = "ft_sms_setup_started_at"
 
@@ -46,7 +47,8 @@ struct SMSImportView: View {
             if UserDefaults.standard.object(forKey: setupStartedKey) == nil {
                 UserDefaults.standard.set(Date(), forKey: setupStartedKey)
             }
-            unparsed = SMSIngestService.unparsedMessages
+            received = SMSIngestService.receivedMessages
+            queuedCount = WidgetDataService.shared.pendingSMSCount
         }
         .sheet(isPresented: $showingAddBank) { SMSBankRuleSheet() }
         .sheet(item: $editingRule) { rule in SMSBankRuleSheet(editingRule: rule) }
@@ -147,39 +149,58 @@ struct SMSImportView: View {
         }
     }
 
-    // MARK: - Messages that arrived but produced no transaction
+    // MARK: - What the automation actually delivered
 
-    @ViewBuilder
     private var unrecognizedSection: some View {
-        if !unparsed.isEmpty {
-            VStack(spacing: FTSpacing.md) {
-                HStack {
-                    Text("NOT RECOGNIZED")
-                        .font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false)
-                        .foregroundStyle(FTColor.textMuted)
-                    Spacer()
+        VStack(spacing: FTSpacing.md) {
+            HStack {
+                Text("RECENT MESSAGES")
+                    .font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false)
+                    .foregroundStyle(FTColor.textMuted)
+                Spacer()
+                if !received.isEmpty {
                     Button {
-                        SMSIngestService.clearUnparsed()
-                        unparsed = []
+                        SMSIngestService.clearReceived()
+                        received = []
                     } label: {
                         Text("Clear").font(.ftCaption).foregroundStyle(FTColor.accent)
                     }
                 }
+            }
 
-                Text("These messages reached FinTrack but no transaction could be read from them — either they weren't about a payment, or the bank's wording isn't recognized yet.")
+            if queuedCount > 0 {
+                HStack(alignment: .top, spacing: FTSpacing.sm) {
+                    Image(systemName: "clock.fill")
+                        .font(.ftCaption).foregroundStyle(FTColor.gold).frame(width: 20)
+                    Text("\(queuedCount) message\(queuedCount == 1 ? "" : "s") waiting to be processed — reopening this screen should clear them.")
+                        .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                }
+                .padding()
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(FTColor.gold.opacity(0.12), in: RoundedRectangle(cornerRadius: FTRadius.md))
+            }
+
+            if received.isEmpty {
+                Text("Nothing has arrived from the Shortcuts automation yet. If you've already triggered it and this stays empty, the message isn't reaching FinTrack at all — check the automation's Message field is set to Shortcut Input.")
                     .font(.ftCaption).foregroundStyle(FTColor.textMuted)
                     .frame(maxWidth: .infinity, alignment: .leading)
-
-                ForEach(unparsed) { item in
+                    .padding()
+                    .ftGlass(FTRadius.md)
+            } else {
+                ForEach(received) { item in
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
-                            Text(item.senderId?.isEmpty == false ? item.senderId! : "Unknown sender")
-                                .font(.ftCallout).foregroundStyle(FTColor.textSecondary)
+                            Image(systemName: item.succeeded ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                                .font(.ftCaption)
+                                .foregroundStyle(item.succeeded ? FTColor.income : FTColor.gold)
+                            Text(item.outcome)
+                                .font(.ftCallout)
+                                .foregroundStyle(item.succeeded ? FTColor.income : FTColor.textSecondary)
                             Spacer()
                             Text(item.receivedAt.relativeFormatted)
                                 .font(.ftCaption).foregroundStyle(FTColor.textMuted)
                         }
-                        Text(item.rawText.isEmpty ? "(empty message)" : item.rawText)
+                        Text(item.rawText.isEmpty ? "(empty message — nothing was passed in)" : item.rawText)
                             .font(.ftCaption)
                             .foregroundStyle(item.rawText.isEmpty ? FTColor.expense : FTColor.textPrimary)
                             .frame(maxWidth: .infinity, alignment: .leading)

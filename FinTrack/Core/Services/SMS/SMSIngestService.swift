@@ -37,8 +37,9 @@ enum SMSIngestService {
             // non-transaction (fine) or a bank that changed its wording
             // (needs a template fix). Either way the user should be able to
             // see what actually arrived — see `SMSImportView`'s
-            // "Not recognized" section.
-            recordUnparsed(rawText: rawText, senderId: senderId, receivedAt: receivedAt)
+            // "Recent Messages" section.
+            record(rawText: rawText, senderId: senderId, receivedAt: receivedAt,
+                   outcome: "No transaction found in this message")
             return false
         }
 
@@ -48,41 +49,52 @@ enum SMSIngestService {
             created = true
         }
         if created { try? context.save() }
+        record(rawText: rawText, senderId: senderId, receivedAt: receivedAt,
+               outcome: created
+                   ? "Added to the review queue"
+                   : "Already imported (duplicate of an earlier message)")
         return created
     }
 
-    // MARK: - Unparsed message log
+    // MARK: - Received message log
 
-    /// One SMS that reached the app but produced no transaction. Kept in
-    /// UserDefaults (no schema change) and capped — this is a diagnostic
-    /// trail, not an archive.
-    struct UnparsedSMS: Codable, Identifiable {
+    /// Every SMS that actually reached `ingest`, with what became of it.
+    /// Recording all of them (not just failures) is what makes "the
+    /// automation says it sent something but nothing appeared" diagnosable:
+    /// an empty log means the message never got past the queue, while an
+    /// entry pins the problem to parsing. Kept in UserDefaults (no schema
+    /// change) and capped — a diagnostic trail, not an archive.
+    struct ReceivedSMS: Codable, Identifiable {
         var id: UUID = UUID()
         var rawText: String
         var senderId: String?
         var receivedAt: Date
+        var outcome: String
+        /// True when this one made it into the review queue.
+        var succeeded: Bool { outcome == "Added to the review queue" }
     }
 
-    static let unparsedKey = "ft_sms_unparsed_v1"
-    private static let maxUnparsedKept = 20
+    static let receivedKey = "ft_sms_received_v1"
+    private static let maxReceivedKept = 20
 
-    static var unparsedMessages: [UnparsedSMS] {
-        guard let data = UserDefaults.standard.data(forKey: unparsedKey),
-              let list = try? JSONDecoder().decode([UnparsedSMS].self, from: data)
+    static var receivedMessages: [ReceivedSMS] {
+        guard let data = UserDefaults.standard.data(forKey: receivedKey),
+              let list = try? JSONDecoder().decode([ReceivedSMS].self, from: data)
         else { return [] }
         return list.sorted { $0.receivedAt > $1.receivedAt }
     }
 
-    static func clearUnparsed() {
-        UserDefaults.standard.removeObject(forKey: unparsedKey)
+    static func clearReceived() {
+        UserDefaults.standard.removeObject(forKey: receivedKey)
     }
 
-    private static func recordUnparsed(rawText: String, senderId: String?, receivedAt: Date) {
-        var list = unparsedMessages
-        list.insert(UnparsedSMS(rawText: rawText, senderId: senderId, receivedAt: receivedAt), at: 0)
-        list = Array(list.prefix(maxUnparsedKept))
+    private static func record(rawText: String, senderId: String?, receivedAt: Date, outcome: String) {
+        var list = receivedMessages
+        list.insert(ReceivedSMS(rawText: rawText, senderId: senderId,
+                                receivedAt: receivedAt, outcome: outcome), at: 0)
+        list = Array(list.prefix(maxReceivedKept))
         if let data = try? JSONEncoder().encode(list) {
-            UserDefaults.standard.set(data, forKey: unparsedKey)
+            UserDefaults.standard.set(data, forKey: receivedKey)
         }
     }
 

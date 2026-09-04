@@ -108,6 +108,16 @@ final class WidgetDataService {
         return true
     }
 
+    /// Messages sitting in the queue that no drain has picked up yet. Read by
+    /// `SMSImportView`'s diagnostics: a non-zero count means the Shortcuts
+    /// automation delivered something but `RootView` hasn't processed it.
+    var pendingSMSCount: Int {
+        guard let data = smsDefaults.data(forKey: "pending_sms_texts"),
+              let queue = try? JSONDecoder().decode([PendingSMSText].self, from: data)
+        else { return 0 }
+        return queue.count
+    }
+
     func dequeuePendingSMS() -> [PendingSMSText] {
         let defaults = smsDefaults
         guard let data = defaults.data(forKey: "pending_sms_texts"),

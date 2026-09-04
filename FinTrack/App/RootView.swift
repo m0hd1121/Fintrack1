@@ -134,7 +134,7 @@ struct RootView: View {
                 processIncomeAlerts()
                 processDebtAlerts()
                 drainPendingIntentQueue()
-            drainPendingSMSTexts()
+                drainPendingSMSTexts()
                 if isGoogleDriveBackupEnabled { GoogleDriveBackupService.shared.syncIfDue(context: context) }
                 EmailBackupService.shared.scheduleAutomaticBackupIfNeeded(context: context)
             }
