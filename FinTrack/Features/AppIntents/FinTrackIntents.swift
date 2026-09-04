@@ -120,8 +120,12 @@ struct LogTransactionFromText: AppIntent {
     }
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        let sms = PendingSMSText(rawText: raw, senderId: senderId)
+        // Everything here stays inside the hop: the target has MainActor
+        // default actor isolation, so `PendingSMSText`'s init is itself
+        // main-actor-isolated and can't be called from a nonisolated
+        // `perform()`.
         let stored = await MainActor.run {
+            let sms = PendingSMSText(rawText: raw, senderId: senderId)
             let ok = WidgetDataService.shared.enqueuePendingSMS(sms)
             if ok {
                 // Log it here, not just in `SMSIngestService.ingest`, so the
