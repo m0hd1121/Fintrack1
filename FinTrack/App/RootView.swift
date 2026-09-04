@@ -256,7 +256,7 @@ struct RootView: View {
             for sms in pending {
                 await SMSIngestService.ingest(
                     rawText: sms.rawText, senderId: sms.senderId,
-                    receivedAt: sms.receivedAt, context: context
+                    receivedAt: sms.receivedAt, queueId: sms.id, context: context
                 )
             }
         }

@@ -23,7 +23,8 @@ enum SMSIngestService {
     /// Parses and files one SMS. Returns true when at least one pending item
     /// was created (a message can contain more than one transaction).
     @discardableResult
-    static func ingest(rawText: String, senderId: String?, receivedAt: Date, context: ModelContext) async -> Bool {
+    static func ingest(rawText: String, senderId: String?, receivedAt: Date,
+                       queueId: UUID? = nil, context: ModelContext) async -> Bool {
         // Sender IDs the user typed into a bank's SMS setup sheet — tried
         // ahead of the bundled best-effort list (see BankSMSTemplateStore).
         let userTemplates: [BankSMSTemplate] = ((try? context.fetch(FetchDescriptor<BankEmailRule>())) ?? [])
@@ -38,7 +39,7 @@ enum SMSIngestService {
             // see what actually arrived — see `SMSImportView`'s
             // "Recent Messages" section.
             record(rawText: rawText, senderId: senderId, receivedAt: receivedAt,
-                   outcome: "No transaction found in this message")
+                   outcome: "No transaction found in this message", queueId: queueId)
             return false
         }
 
@@ -55,7 +56,7 @@ enum SMSIngestService {
         }
         try? context.save()
         record(rawText: rawText, senderId: senderId, receivedAt: receivedAt,
-               outcome: outcomes.joined(separator: " · "))
+               outcome: outcomes.joined(separator: " · "), queueId: queueId)
         return created
     }
 
@@ -73,8 +74,32 @@ enum SMSIngestService {
         var senderId: String?
         var receivedAt: Date
         var outcome: String
-        /// True when this one made it into the review queue.
-        var succeeded: Bool { outcome == "Added to the review queue" }
+        /// The `PendingSMSText` this entry came from, when it arrived through
+        /// the Shortcuts automation. It's what lets the "waiting in the queue"
+        /// entry written by the intent be *replaced* by the parse result later
+        /// rather than duplicated. Nil for a message pasted in by hand.
+        var queueId: UUID?
+        /// True when this one reached the review queue — either as a new row
+        /// or by merging into a copy another channel had already delivered
+        /// (`ImportDeduper`), which is just as much a success.
+        var succeeded: Bool {
+            outcome.hasPrefix("Added to the review queue") || outcome.hasPrefix("Merged into")
+        }
+        /// Still sitting in the queue — the automation delivered it but the
+        /// app hasn't processed it yet.
+        var isWaiting: Bool { outcome == Self.waitingOutcome }
+
+        static let waitingOutcome = "Delivered by Shortcuts — waiting for FinTrack to process it"
+    }
+
+    /// Logged by `LogTransactionFromText` the moment a message is queued, so
+    /// "Recent Messages" distinguishes the two halves of the pipeline: an
+    /// entry stuck on `waitingOutcome` means Shortcuts delivered the SMS and
+    /// the drain never ran, while no entry at all means the automation never
+    /// reached the app. Previously both looked identical (an empty list).
+    static func recordQueued(id: UUID, rawText: String, senderId: String?, receivedAt: Date) {
+        record(rawText: rawText, senderId: senderId, receivedAt: receivedAt,
+               outcome: ReceivedSMS.waitingOutcome, queueId: id)
     }
 
     static let receivedKey = "ft_sms_received_v1"
@@ -91,10 +116,18 @@ enum SMSIngestService {
         UserDefaults.standard.removeObject(forKey: receivedKey)
     }
 
-    private static func record(rawText: String, senderId: String?, receivedAt: Date, outcome: String) {
+    private static func record(rawText: String, senderId: String?, receivedAt: Date,
+                               outcome: String, queueId: UUID? = nil) {
         var list = receivedMessages
-        list.insert(ReceivedSMS(rawText: rawText, senderId: senderId,
-                                receivedAt: receivedAt, outcome: outcome), at: 0)
+        // Update the intent's "waiting" entry in place instead of logging the
+        // same message twice.
+        if let queueId, let index = list.firstIndex(where: { $0.queueId == queueId }) {
+            list[index].outcome = outcome
+        } else {
+            list.insert(ReceivedSMS(rawText: rawText, senderId: senderId,
+                                    receivedAt: receivedAt, outcome: outcome,
+                                    queueId: queueId), at: 0)
+        }
         list = Array(list.prefix(maxReceivedKept))
         if let data = try? JSONEncoder().encode(list) {
             UserDefaults.standard.set(data, forKey: receivedKey)

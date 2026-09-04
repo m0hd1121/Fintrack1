@@ -190,9 +190,9 @@ struct SMSImportView: View {
                 ForEach(received) { item in
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
-                            Image(systemName: item.succeeded ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                            Image(systemName: Self.outcomeSymbol(for: item))
                                 .font(.ftCaption)
-                                .foregroundStyle(item.succeeded ? FTColor.income : FTColor.gold)
+                                .foregroundStyle(Self.outcomeTint(for: item))
                             Text(item.outcome)
                                 .font(.ftCallout)
                                 .foregroundStyle(item.succeeded ? FTColor.income : FTColor.textSecondary)
@@ -285,6 +285,24 @@ struct SMSImportView: View {
 /// Add/edit one bank's SMS automation. Reuses `BankEmailRule` — `senderEmail`
 /// carries the `"sms:<slug>"` tag `SMSIngestService` matches against instead
 /// of an email address.
+/// Three distinct states, not two: a message can be waiting in the queue
+/// (Shortcuts delivered it, the app hasn't drained it yet), parsed into the
+/// review queue, or received but unreadable. Collapsing "waiting" into the
+/// failure icon made a working automation look broken.
+private extension SMSImportView {
+    static func outcomeSymbol(for item: SMSIngestService.ReceivedSMS) -> String {
+        if item.succeeded { return "checkmark.circle.fill" }
+        if item.isWaiting { return "clock.fill" }
+        return "exclamationmark.circle.fill"
+    }
+
+    static func outcomeTint(for item: SMSIngestService.ReceivedSMS) -> Color {
+        if item.succeeded { return FTColor.income }
+        if item.isWaiting { return FTColor.accent }
+        return FTColor.gold
+    }
+}
+
 struct SMSBankRuleSheet: View {
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss

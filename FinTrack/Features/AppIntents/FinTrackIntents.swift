@@ -120,10 +120,17 @@ struct LogTransactionFromText: AppIntent {
     }
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
+        let sms = PendingSMSText(rawText: raw, senderId: senderId)
         let stored = await MainActor.run {
-            WidgetDataService.shared.enqueuePendingSMS(
-                PendingSMSText(rawText: raw, senderId: senderId)
-            )
+            let ok = WidgetDataService.shared.enqueuePendingSMS(sms)
+            if ok {
+                // Log it here, not just in `SMSIngestService.ingest`, so the
+                // "Recent Messages" list can tell "Shortcuts never reached the
+                // app" apart from "it arrived but the app never processed it".
+                SMSIngestService.recordQueued(id: sms.id, rawText: sms.rawText,
+                                              senderId: sms.senderId, receivedAt: sms.receivedAt)
+            }
+            return ok
         }
         guard stored else {
             // Reporting success while storing nothing hid a broken queue

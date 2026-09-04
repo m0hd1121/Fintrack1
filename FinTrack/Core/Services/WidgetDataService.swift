@@ -9,20 +9,40 @@ final class WidgetDataService {
 
     private let suiteName = "group.com.fintrack.shared"
 
-    /// Store for the SMS queue, which — unlike the widget snapshots and the
-    /// Siri/Watch `pending_transactions` queue — is only ever written and read
-    /// **inside this app's own process**: `LogTransactionFromText` runs in the
-    /// app (there is no separate App Intents Extension target) and
-    /// `RootView.drainPendingSMSTexts()` reads it back.
+    /// Store for the SMS and Apple Pay queues, which — unlike the widget
+    /// snapshots — are only ever written and read **inside this app's own
+    /// process**: `LogTransactionFromText`/`LogApplePayTransaction` run in the
+    /// app itself (the project has a single application target, no App Intents
+    /// Extension), and `RootView.drainPendingSMSTexts()` reads them back.
     ///
-    /// So it does not need the App Group, which matters because App Groups
-    /// require a paid Apple Developer Program membership. Prefer the shared
-    /// suite when the entitlement is actually provisioned, and fall back to
-    /// standard defaults when it isn't. Both enqueue and dequeue resolve
-    /// through here, so the two sides can never disagree about which store
-    /// they're using.
-    private var smsDefaults: UserDefaults {
-        UserDefaults(suiteName: suiteName) ?? .standard
+    /// So this is deliberately `.standard`, not the App Group suite. App
+    /// Groups need a paid Apple Developer Program membership, and without that
+    /// entitlement the suite is not merely unavailable — it fails *silently*:
+    /// `UserDefaults(suiteName:)` still returns a perfectly valid object (it
+    /// only returns nil for a nil name, the app's own bundle id, or the global
+    /// domain), so a `?? .standard` fallback never fires. Values written to it
+    /// live in that process's in-memory cache and are never persisted, because
+    /// the container directory the plist belongs in doesn't exist. The
+    /// Shortcuts automation background-launches the app, the intent writes and
+    /// reports success, the process is suspended, and the queue is empty by
+    /// the time the user opens the app — which is exactly the "the shortcut
+    /// says Got it but nothing reaches the review queue" symptom.
+    ///
+    /// `.standard` is the app's own container: it always exists, always
+    /// persists, and is shared between the intent and the UI because they are
+    /// the same process. Both enqueue and dequeue resolve through here, so the
+    /// two sides can never disagree about which store they're using.
+    private var smsDefaults: UserDefaults { .standard }
+
+    /// Anything stranded in the App Group suite by an earlier build (on an
+    /// install where the entitlement *was* provisioned) is moved across the
+    /// first time we look, so a queued message isn't lost to the fix.
+    private func migrateLegacyQueue(forKey key: String) {
+        guard let legacy = UserDefaults(suiteName: suiteName),
+              let data = legacy.data(forKey: key) else { return }
+        legacy.removeObject(forKey: key)
+        guard smsDefaults.data(forKey: key) == nil else { return }
+        smsDefaults.set(data, forKey: key)
     }
 
     // MARK: – Full update (preferred)
@@ -91,11 +111,13 @@ final class WidgetDataService {
 
     // MARK: – Pending SMS queue (parsed by SMSIngestService on next foreground)
 
-    /// Returns false only if the payload itself couldn't be encoded — the store
-    /// is always available now (see `smsDefaults`). `LogTransactionFromText`
-    /// surfaces a false instead of reporting a success it didn't have.
+    /// `LogTransactionFromText` reports the returned value rather than
+    /// assuming success, so this reads the queue back after writing: a store
+    /// that accepts a write and drops it is precisely the failure mode this
+    /// queue has already been bitten by (see `smsDefaults`).
     @discardableResult
     func enqueuePendingSMS(_ sms: PendingSMSText) -> Bool {
+        migrateLegacyQueue(forKey: "pending_sms_texts")
         let defaults = smsDefaults
         var queue: [PendingSMSText] = []
         if let data = defaults.data(forKey: "pending_sms_texts"),
@@ -105,7 +127,7 @@ final class WidgetDataService {
         queue.append(sms)
         guard let data = try? JSONEncoder().encode(queue) else { return false }
         defaults.set(data, forKey: "pending_sms_texts")
-        return true
+        return defaults.data(forKey: "pending_sms_texts") == data
     }
 
     /// Messages sitting in the queue that no drain has picked up yet. Read by
@@ -119,6 +141,7 @@ final class WidgetDataService {
     }
 
     func dequeuePendingSMS() -> [PendingSMSText] {
+        migrateLegacyQueue(forKey: "pending_sms_texts")
         let defaults = smsDefaults
         guard let data = defaults.data(forKey: "pending_sms_texts"),
               let queue = try? JSONDecoder().decode([PendingSMSText].self, from: data)
@@ -129,8 +152,10 @@ final class WidgetDataService {
 
     // MARK: – Pending Apple Pay queue
 
+    /// Verified the same way as `enqueuePendingSMS`.
     @discardableResult
     func enqueuePendingApplePay(_ tx: PendingApplePayTransaction) -> Bool {
+        migrateLegacyQueue(forKey: "pending_applepay")
         let defaults = smsDefaults
         var queue: [PendingApplePayTransaction] = []
         if let data = defaults.data(forKey: "pending_applepay"),
@@ -140,7 +165,7 @@ final class WidgetDataService {
         queue.append(tx)
         guard let data = try? JSONEncoder().encode(queue) else { return false }
         defaults.set(data, forKey: "pending_applepay")
-        return true
+        return defaults.data(forKey: "pending_applepay") == data
     }
 
     /// Peek, without draining — see `pendingSMSCount`.
@@ -152,6 +177,7 @@ final class WidgetDataService {
     }
 
     func dequeuePendingApplePay() -> [PendingApplePayTransaction] {
+        migrateLegacyQueue(forKey: "pending_applepay")
         let defaults = smsDefaults
         guard let data = defaults.data(forKey: "pending_applepay"),
               let queue = try? JSONDecoder().decode([PendingApplePayTransaction].self, from: data)
