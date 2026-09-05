@@ -167,8 +167,15 @@ struct LogApplePayTransaction: AppIntent {
     static var description = IntentDescription("Files an Apple Pay transaction in FinTrack's review queue.")
     static var openAppWhenRun: Bool = false
 
+    /// Text, not `Double`, on purpose. Wallet hands Shortcuts its amount as a
+    /// *formatted* value — "AED 45.00", "1,234.56", a currency symbol, or a
+    /// negative for a refund — and Shortcuts will not coerce any of those into
+    /// a Number parameter: the automation just fails with "couldn't convert
+    /// from Text to Number" and the transaction is lost. Taking the string and
+    /// parsing it here (`TextNormalizer.decimalValue`) accepts whatever Wallet
+    /// actually provides, in any locale or digit script.
     @Parameter(title: "Amount")
-    var amount: Double
+    var amount: String
 
     @Parameter(title: "Merchant")
     var merchant: String
@@ -193,12 +200,20 @@ struct LogApplePayTransaction: AppIntent {
     }
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
+        guard let parsed = TextNormalizer.decimalValue(in: amount), parsed.magnitude > 0 else {
+            return .result(dialog: "FinTrack couldn't read an amount from “\(amount)”.")
+        }
+        // Wallet signs a refund by handing over a negative amount, so honour
+        // that as well as the explicit toggle. The queue always carries a
+        // positive magnitude plus the flag.
+        let refund = isRefund || parsed.isNegative
+
         let stored = await MainActor.run {
             WidgetDataService.shared.enqueuePendingApplePay(
                 PendingApplePayTransaction(
-                    amount: amount, merchant: merchant, currency: currency,
+                    amount: parsed.magnitude, merchant: merchant, currency: currency,
                     date: date, walletCategory: walletCategory,
-                    card: card, isRefund: isRefund
+                    card: card, isRefund: refund
                 )
             )
         }

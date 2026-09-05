@@ -106,6 +106,66 @@ enum TextNormalizer {
         return head + "\n[…]\n" + tail
     }
 
+    // MARK: - Amount parsing
+
+    /// Reads a decimal amount out of text that may be formatted for display.
+    ///
+    /// Shortcuts hands over Wallet's amount as *text* — "AED 45.00",
+    /// "‏1,234.56 د.إ", "$1 234,56", "-45.00" — and refuses to coerce any of
+    /// those to a Number, which is what made the Apple Pay automation fail
+    /// with "couldn't convert from Text to Number". So the intent takes a
+    /// string and comes here instead of declaring a `Double` parameter.
+    ///
+    /// Returns the magnitude and whether the value was negative; callers
+    /// decide what a negative means (for Apple Pay it's a refund). Nil when
+    /// there is no digit at all to read.
+    static func decimalValue(in text: String) -> (magnitude: Double, isNegative: Bool)? {
+        // Folds Eastern Arabic/Persian digits to ASCII and Arabic decimal and
+        // thousands separators to "." and ",".
+        let normalized = normalize(text, maxCharacters: .max).normalized
+
+        var digits = String()
+        var isNegative = false
+        var seenDigit = false
+        for ch in normalized {
+            if ch.isNumber || ch == "." || ch == "," {
+                if ch.isNumber { seenDigit = true }
+                digits.append(ch)
+            } else if (ch == "-" || ch == "\u{2212}") && !seenDigit {
+                // Only a leading minus is a sign; a dash between other tokens
+                // (a date, a masked card) is not.
+                isNegative = true
+            }
+        }
+        guard seenDigit else { return nil }
+
+        // Whichever separator comes last is the decimal point ("1,234.56" and
+        // "1.234,56" are both real). A lone separator is a decimal point only
+        // when exactly two digits follow it, otherwise it groups thousands.
+        let lastDot = digits.lastIndex(of: ".")
+        let lastComma = digits.lastIndex(of: ",")
+        var decimalIndex: String.Index?
+        switch (lastDot, lastComma) {
+        case let (dot?, comma?):
+            decimalIndex = dot > comma ? dot : comma
+        case let (dot?, nil):
+            decimalIndex = digits.distance(from: dot, to: digits.endIndex) == 3 ? dot : nil
+        case let (nil, comma?):
+            decimalIndex = digits.distance(from: comma, to: digits.endIndex) == 3 ? comma : nil
+        case (nil, nil):
+            decimalIndex = nil
+        }
+
+        var cleaned = String()
+        for index in digits.indices {
+            let ch = digits[index]
+            if ch.isNumber { cleaned.append(ch) }
+            else if index == decimalIndex { cleaned.append(".") }
+        }
+        guard let value = Double(cleaned) else { return nil }
+        return (abs(value), isNegative)
+    }
+
     // MARK: - Grounding comparison
 
     /// Aggressive fold used only to test whether an evidence span really came
