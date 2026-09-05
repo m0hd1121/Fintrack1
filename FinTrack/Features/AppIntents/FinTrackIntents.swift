@@ -200,27 +200,36 @@ struct LogApplePayTransaction: AppIntent {
     }
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        guard let parsed = TextNormalizer.decimalValue(in: amount), parsed.magnitude > 0 else {
-            return .result(dialog: "FinTrack couldn't read an amount from “\(amount)”.")
-        }
-        // Wallet signs a refund by handing over a negative amount, so honour
-        // that as well as the explicit toggle. The queue always carries a
-        // positive magnitude plus the flag.
-        let refund = isRefund || parsed.isNegative
+        enum Outcome { case unreadableAmount, notStored, queued }
 
-        let stored = await MainActor.run {
-            WidgetDataService.shared.enqueuePendingApplePay(
+        // Parsing and queueing share one hop: the target has MainActor default
+        // actor isolation, so `TextNormalizer` is main-actor-isolated too and
+        // can't be reached from a nonisolated `perform()`.
+        let outcome: Outcome = await MainActor.run {
+            guard let parsed = TextNormalizer.decimalValue(in: amount), parsed.magnitude > 0 else {
+                return Outcome.unreadableAmount
+            }
+            // Wallet signs a refund by handing over a negative amount, so
+            // honour that as well as the explicit toggle. The queue always
+            // carries a positive magnitude plus the flag.
+            let stored = WidgetDataService.shared.enqueuePendingApplePay(
                 PendingApplePayTransaction(
                     amount: parsed.magnitude, merchant: merchant, currency: currency,
                     date: date, walletCategory: walletCategory,
-                    card: card, isRefund: refund
+                    card: card, isRefund: isRefund || parsed.isNegative
                 )
             )
+            return stored ? Outcome.queued : Outcome.notStored
         }
-        guard stored else {
+
+        switch outcome {
+        case .unreadableAmount:
+            return .result(dialog: "FinTrack couldn't read an amount from “\(amount)”.")
+        case .notStored:
             return .result(dialog: "FinTrack couldn't save that transaction.")
+        case .queued:
+            return .result(dialog: "Got it — \(merchant) is waiting in FinTrack's review queue.")
         }
-        return .result(dialog: "Got it — \(merchant) is waiting in FinTrack's review queue.")
     }
 }
 
