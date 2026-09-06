@@ -183,8 +183,15 @@ struct LogApplePayTransaction: AppIntent {
     @Parameter(title: "Currency", description: "3-letter code; defaults to your base currency")
     var currency: String?
 
+    /// Text for the same reason `amount` is: Shortcuts hands Wallet's date
+    /// over as a locale-formatted string and won't coerce it into a `Date`
+    /// parameter, failing the automation with "couldn't convert from Text to
+    /// Date". Parsed by `TextNormalizer.dateValue(in:)`; an unreadable one
+    /// stays nil, and the ingest service already falls back to the time the
+    /// payment arrived, which is within seconds of correct for a live
+    /// automation. Never worth losing a transaction over.
     @Parameter(title: "Date")
-    var date: Date?
+    var date: String?
 
     @Parameter(title: "Category", description: "Wallet's own category, if available")
     var walletCategory: String?
@@ -215,7 +222,8 @@ struct LogApplePayTransaction: AppIntent {
             let stored = WidgetDataService.shared.enqueuePendingApplePay(
                 PendingApplePayTransaction(
                     amount: parsed.magnitude, merchant: merchant, currency: currency,
-                    date: date, walletCategory: walletCategory,
+                    date: date.flatMap { TextNormalizer.dateValue(in: $0) },
+                    walletCategory: walletCategory,
                     card: card, isRefund: isRefund || parsed.isNegative
                 )
             )

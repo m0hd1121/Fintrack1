@@ -88,7 +88,7 @@ enum ApplePayIngestService {
             lines.append("Wallet category: \(walletCategory)")
         }
         // Structured input — no text was parsed, so nothing can be misread.
-        lines.append("Amount, merchant and date came through as real fields, not parsed text")
+        lines.append("Came from Wallet via Shortcuts — merchant and category are exact; amount and date are read from the values Shortcuts supplies as text")
 
         let parsed = ParsedBankEmail(
             amount: amount,
