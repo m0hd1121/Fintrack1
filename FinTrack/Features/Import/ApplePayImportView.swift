@@ -74,7 +74,7 @@ struct ApplePayImportView: View {
                 stepRow(1, "Open Shortcuts → Automation → “+” → Transaction")
                 stepRow(2, "Pick the card(s) you pay with; leave merchant and category unset to catch everything")
                 stepRow(3, "For what it does, choose “Create New Shortcut” — not a ready-made tile")
-                stepRow(4, "Add Action → FinTrack → Log Apple Pay Transaction, then map Amount, Merchant and Date to the automation's own variables")
+                stepRow(4, "Add Action → FinTrack → Log Apple Pay Transaction, then map Amount and Merchant to the automation's own variables. Leave Date empty — FinTrack uses the moment the payment happened, which is what the automation fires on")
                 stepRow(5, "Turn off “Ask Before Running”, then Done")
             }
 

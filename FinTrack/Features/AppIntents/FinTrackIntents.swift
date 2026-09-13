@@ -183,15 +183,18 @@ struct LogApplePayTransaction: AppIntent {
     @Parameter(title: "Currency", description: "3-letter code; defaults to your base currency")
     var currency: String?
 
-    /// Text for the same reason `amount` is: Shortcuts hands Wallet's date
-    /// over as a locale-formatted string and won't coerce it into a `Date`
-    /// parameter, failing the automation with "couldn't convert from Text to
-    /// Date". Parsed by `TextNormalizer.dateValue(in:)`; an unreadable one
-    /// stays nil, and the ingest service already falls back to the time the
-    /// payment arrived, which is within seconds of correct for a live
-    /// automation. Never worth losing a transaction over.
+    /// A real `Date`, unlike `amount` — Wallet's trigger supplies a genuine
+    /// date value, and Shortcuts coerces **nothing**: binding it to a Text
+    /// parameter fails with "couldn't convert from Date to Text" just as
+    /// binding text to a Date parameter fails the other way. The bound
+    /// variable's type has to match exactly.
+    ///
+    /// Optional, and safe to leave unbound: the automation fires at the moment
+    /// of payment, so `ApplePayIngestService`'s `date ?? Date()` fallback is
+    /// accurate to within seconds. Leaving it empty is the failure-proof
+    /// setup — see `ApplePayImportView`'s walkthrough.
     @Parameter(title: "Date")
-    var date: String?
+    var date: Date?
 
     @Parameter(title: "Category", description: "Wallet's own category, if available")
     var walletCategory: String?
@@ -222,8 +225,7 @@ struct LogApplePayTransaction: AppIntent {
             let stored = WidgetDataService.shared.enqueuePendingApplePay(
                 PendingApplePayTransaction(
                     amount: parsed.magnitude, merchant: merchant, currency: currency,
-                    date: date.flatMap { TextNormalizer.dateValue(in: $0) },
-                    walletCategory: walletCategory,
+                    date: date, walletCategory: walletCategory,
                     card: card, isRefund: isRefund || parsed.isNegative
                 )
             )

@@ -166,69 +166,6 @@ enum TextNormalizer {
         return (abs(value), isNegative)
     }
 
-    /// Reads a date out of text that was formatted for display.
-    ///
-    /// The companion to `decimalValue(in:)`, and needed for the same reason:
-    /// Shortcuts hands Wallet's date over as text and refuses to coerce it
-    /// into a `Date` parameter ("couldn't convert from Text to Date"), which
-    /// fails the whole automation. Formatting is the user's locale, so the
-    /// locale-aware styles are tried before any fixed pattern.
-    ///
-    /// Returns nil rather than guessing wildly — callers treat that as "no
-    /// date supplied" and fall back to the time the payment came in, which is
-    /// within seconds of correct for a live automation.
-    static func dateValue(in text: String) -> Date? {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return nil }
-        // Also try an ASCII-digit copy, so Eastern Arabic/Persian numerals
-        // parse even against the fixed patterns below.
-        var candidates = [trimmed]
-        let asciiDigits = normalize(trimmed, maxCharacters: .max).normalized
-        if asciiDigits != trimmed { candidates.append(asciiDigits) }
-
-        let iso = ISO8601DateFormatter()
-        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        for candidate in candidates {
-            if let date = iso.date(from: candidate) { return date }
-        }
-        iso.formatOptions = [.withInternetDateTime]
-        for candidate in candidates {
-            if let date = iso.date(from: candidate) { return date }
-        }
-
-        let formatter = DateFormatter()
-        formatter.locale = .current
-        let styles: [(DateFormatter.Style, DateFormatter.Style)] = [
-            (.medium, .short), (.short, .short), (.long, .short), (.full, .short),
-            (.medium, .medium), (.short, .medium),
-            (.medium, .none), (.short, .none), (.long, .none), (.full, .none)
-        ]
-        for (dateStyle, timeStyle) in styles {
-            formatter.dateStyle = dateStyle
-            formatter.timeStyle = timeStyle
-            for candidate in candidates {
-                if let date = formatter.date(from: candidate) { return date }
-            }
-        }
-
-        // Last resort. Day-first before month-first: this is a UAE-focused app,
-        // and the locale-aware pass above already handled the regions where
-        // that ordering would be wrong.
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateStyle = .none
-        formatter.timeStyle = .none
-        for pattern in ["yyyy-MM-dd'T'HH:mm:ssZ", "yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd HH:mm",
-                        "yyyy-MM-dd", "dd/MM/yyyy HH:mm", "dd/MM/yyyy", "MM/dd/yyyy HH:mm",
-                        "MM/dd/yyyy", "dd-MM-yyyy", "d MMM yyyy", "MMM d, yyyy",
-                        "d MMMM yyyy", "MMMM d, yyyy"] {
-            formatter.dateFormat = pattern
-            for candidate in candidates {
-                if let date = formatter.date(from: candidate) { return date }
-            }
-        }
-        return nil
-    }
-
     // MARK: - Grounding comparison
 
     /// Aggressive fold used only to test whether an evidence span really came
