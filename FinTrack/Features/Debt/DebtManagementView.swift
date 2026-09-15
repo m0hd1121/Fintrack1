@@ -229,30 +229,35 @@ struct DebtManagementView: View {
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(FTColor.accent)
             }
+            .accessibilityLabel("Add loan")
         case 5:
             Button { showingAddLent = true } label: {
                 Image(systemName: "plus")
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(FTColor.accent)
             }
+            .accessibilityLabel("Add money lent")
         case 6:
             Button { showingAddBorrowed = true } label: {
                 Image(systemName: "plus")
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(FTColor.accent)
             }
+            .accessibilityLabel("Add money borrowed")
         case 7:
             Button { showingAddBNPL = true } label: {
                 Image(systemName: "plus")
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(FTColor.accent)
             }
+            .accessibilityLabel("Add BNPL plan")
         case 9:
             Button { showingAddBill = true } label: {
                 Image(systemName: "plus")
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(FTColor.accent)
             }
+            .accessibilityLabel("Add bill")
         default:
             EmptyView()
         }
@@ -1898,6 +1903,7 @@ struct BNPLDetailSheet: View {
                                                     .frame(width: 28, height: 28)
                                                     .background(.regularMaterial, in: .circle)
                                             }
+                                            .accessibilityLabel("Delete payment")
                                             .buttonStyle(.plain)
                                         }
                                         .padding(.horizontal, FTSpacing.screen)
@@ -1933,6 +1939,7 @@ struct BNPLDetailSheet: View {
                         Image(systemName: "trash")
                             .foregroundStyle(FTColor.expense)
                     }
+                    .accessibilityLabel("Delete")
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     HStack(spacing: FTSpacing.md) {
@@ -2268,6 +2275,7 @@ private struct ExtraPaymentControl: View {
                         .background(.regularMaterial, in: .circle)
                         .overlay(Circle().strokeBorder(.white.opacity(0.25), lineWidth: 0.5))
                 }
+                .accessibilityLabel("Decrease amount")
                 .buttonStyle(.plain)
                 .disabled(amount <= range.lowerBound)
 
@@ -2298,6 +2306,7 @@ private struct ExtraPaymentControl: View {
                         .background(.regularMaterial, in: .circle)
                         .overlay(Circle().strokeBorder(.white.opacity(0.25), lineWidth: 0.5))
                 }
+                .accessibilityLabel("Increase amount")
                 .buttonStyle(.plain)
                 .disabled(amount >= range.upperBound)
             }
@@ -2559,6 +2568,7 @@ struct MoneyLentDetailSheet: View {
                                                         .frame(width: 28, height: 28)
                                                         .background(.regularMaterial, in: .circle)
                                                 }
+                                                .accessibilityLabel("Edit repayment")
                                                 .buttonStyle(.plain)
                                                 Button { deleteRepayment(repayment) } label: {
                                                     Image(systemName: "trash")
@@ -2567,6 +2577,7 @@ struct MoneyLentDetailSheet: View {
                                                         .frame(width: 28, height: 28)
                                                         .background(.regularMaterial, in: .circle)
                                                 }
+                                                .accessibilityLabel("Delete repayment")
                                                 .buttonStyle(.plain)
                                             }
                                         }
@@ -2603,6 +2614,7 @@ struct MoneyLentDetailSheet: View {
                         Image(systemName: "trash")
                             .foregroundStyle(FTColor.expense)
                     }
+                    .accessibilityLabel("Delete")
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     HStack(spacing: FTSpacing.md) {
@@ -3021,6 +3033,7 @@ struct MoneyBorrowedDetailSheet: View {
                                                         .frame(width: 28, height: 28)
                                                         .background(.regularMaterial, in: .circle)
                                                 }
+                                                .accessibilityLabel("Edit repayment")
                                                 .buttonStyle(.plain)
                                                 Button { deleteRepayment(repayment) } label: {
                                                     Image(systemName: "trash")
@@ -3029,6 +3042,7 @@ struct MoneyBorrowedDetailSheet: View {
                                                         .frame(width: 28, height: 28)
                                                         .background(.regularMaterial, in: .circle)
                                                 }
+                                                .accessibilityLabel("Delete repayment")
                                                 .buttonStyle(.plain)
                                             }
                                         }
@@ -3064,6 +3078,7 @@ struct MoneyBorrowedDetailSheet: View {
                         Image(systemName: "trash")
                             .foregroundStyle(FTColor.expense)
                     }
+                    .accessibilityLabel("Delete")
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     HStack(spacing: FTSpacing.md) {
@@ -3337,6 +3352,7 @@ struct LoanDetailSheet: View {
                                                     .frame(width: 28, height: 28)
                                                     .background(.regularMaterial, in: .circle)
                                             }
+                                            .accessibilityLabel("Delete payment")
                                             .buttonStyle(.plain)
                                         }
                                         .padding(.horizontal, FTSpacing.screen)
@@ -3372,6 +3388,7 @@ struct LoanDetailSheet: View {
                         Image(systemName: "trash")
                             .foregroundStyle(FTColor.expense)
                     }
+                    .accessibilityLabel("Delete")
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     HStack(spacing: FTSpacing.md) {

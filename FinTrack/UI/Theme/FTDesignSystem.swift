@@ -230,6 +230,10 @@ struct FTIconTile: View {
             .foregroundStyle(tint)
             .frame(width: size, height: size)
             .background(tint.opacity(0.14), in: .rect(cornerRadius: size * 0.3))
+            // Purely decorative: it always sits beside text that says the same
+            // thing. Left visible, VoiceOver reads the raw symbol name
+            // ("cart dot fill") before every row.
+            .accessibilityHidden(true)
     }
 }
 
@@ -243,12 +247,18 @@ struct FTChip: View {
     var body: some View {
         HStack(spacing: 7) {
             Image(systemName: symbol).font(.system(size: 14, weight: .semibold))
+                .accessibilityHidden(true)
             Text(title).font(.ftCallout)
         }
         .padding(.horizontal, 13)
         .padding(.vertical, 9)
         .foregroundStyle(selected ? .white : FTColor.textPrimary)
         .modifier(FTChipBackground(selected: selected))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(title)
+        // Selection is otherwise carried only by the fill colour, which
+        // VoiceOver and colour-blind users can't see.
+        .accessibilityAddTraits(selected ? [.isSelected] : [])
     }
 }
 
@@ -272,6 +282,18 @@ struct FTProgressBar: View {
     var value: Double
     var color: Color = FTColor.accent
     var height: CGFloat = 9
+    /// What the bar measures. Optional so the 58 existing call sites are
+    /// unaffected, but worth passing — "Budget used, 64%" beats "64%".
+    var accessibilityTitle: String = "Progress"
+
+    /// The bar carries no text at all, so without this VoiceOver skips it
+    /// entirely and the figure it represents is simply unavailable. Over-budget
+    /// is called out because past 100% the bar looks identical to full — only
+    /// the colour differs, and colour alone isn't information.
+    private var spokenValue: String {
+        let percent = Int((value * 100).rounded())
+        return value > 1 ? "\(percent) percent, over budget" : "\(percent) percent"
+    }
 
     var body: some View {
         GeometryReader { geo in
@@ -282,6 +304,9 @@ struct FTProgressBar: View {
             }
         }
         .frame(height: height)
+        .accessibilityElement()
+        .accessibilityLabel(accessibilityTitle)
+        .accessibilityValue(spokenValue)
     }
 }
 
@@ -336,8 +361,13 @@ struct FTToggleRow: View {
         HStack(spacing: FTSpacing.md) {
             FTIconTile(symbol: symbol, tint: tint, size: 36)
             Text(title).font(.ftBody).foregroundStyle(FTColor.textPrimary)
+                .accessibilityHidden(true)
             Spacer()
-            Toggle("", isOn: $isOn).labelsHidden().tint(FTColor.accent)
+            // The title goes *into* the Toggle rather than beside it:
+            // `labelsHidden()` keeps it off screen but VoiceOver still reads
+            // it, so the switch stops announcing as an unlabelled control.
+            // The separate Text above is hidden to avoid saying it twice.
+            Toggle(title, isOn: $isOn).labelsHidden().tint(FTColor.accent)
         }
         .padding(.vertical, 13)
     }
@@ -353,6 +383,16 @@ struct FTTransactionRow: View {
     let amount: String
     var amountColor: Color = FTColor.expense
 
+    /// Amounts are formatted for the eye ("−AED 184.50"). U+2212 MINUS and a
+    /// leading "+" are punctuation to VoiceOver, so the sign — the difference
+    /// between money in and money out — is the part most likely to be dropped.
+    private var spokenAmount: String {
+        amount
+            .replacingOccurrences(of: "\u{2212}", with: "minus ")
+            .replacingOccurrences(of: "-", with: "minus ")
+            .replacingOccurrences(of: "+", with: "plus ")
+    }
+
     var body: some View {
         HStack(spacing: FTSpacing.md) {
             FTIconTile(symbol: symbol, tint: tint)
@@ -364,6 +404,11 @@ struct FTTransactionRow: View {
             Text(amount).font(.ftBodySemibold.weight(.bold)).foregroundStyle(amountColor)
         }
         .padding(.vertical, 13)
+        // One swipe per transaction instead of three: title, then subtitle and
+        // amount as the value.
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(title)
+        .accessibilityValue("\(subtitle), \(spokenAmount)")
     }
 }
 
@@ -379,6 +424,9 @@ struct FTGlassTabBar: View {
     @Binding var selection: Int
     var onAdd: () -> Void
     private let tabs = ["house.fill", "creditcard.fill", "chart.bar.fill", "person.fill"]
+    /// The app's primary navigation was five icon-only buttons with no labels,
+    /// so VoiceOver announced them by SF Symbol name — "house dot fill, button".
+    private let tabNames = ["Dashboard", "Transactions", "Budget", "Accounts"]
 
     var body: some View {
         ZStack {
@@ -403,8 +451,10 @@ struct FTGlassTabBar: View {
                     .shadow(color: Color(hex: 0x0C8478).opacity(0.45), radius: 18, y: 8)
             }
             .offset(y: -28)
+            .accessibilityLabel("Add transaction")
         }
         .padding(.horizontal, FTSpacing.screen)
+        .accessibilityElement(children: .contain)
     }
 
     private func tabButton(_ i: Int, _ symbol: String) -> some View {
@@ -412,7 +462,14 @@ struct FTGlassTabBar: View {
             Image(systemName: symbol)
                 .font(.system(size: 22, weight: .semibold))
                 .foregroundStyle(selection == i ? FTColor.accent : FTColor.textMuted)
+                // The glyph is ~26pt, well under the 44pt minimum target. The
+                // icon stays where it was; only the tappable area grows.
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(.rect)
         }
+        .accessibilityLabel(tabNames[i])
+        // Which tab is current was previously conveyed by tint alone.
+        .accessibilityAddTraits(selection == i ? [.isButton, .isSelected] : [.isButton])
     }
 }
 
