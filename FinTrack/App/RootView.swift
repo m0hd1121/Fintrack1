@@ -111,6 +111,7 @@ struct RootView: View {
             drainPendingIntentQueue()
             drainPendingSMSTexts()
             drainPendingApplePay()
+            drainPendingNavigation()
             if isGoogleDriveBackupEnabled { GoogleDriveBackupService.shared.syncIfDue(context: context) }
             EmailBackupService.shared.scheduleAutomaticBackupIfNeeded(context: context)
         }
@@ -137,6 +138,7 @@ struct RootView: View {
                 drainPendingIntentQueue()
                 drainPendingSMSTexts()
                 drainPendingApplePay()
+                drainPendingNavigation()
                 if isGoogleDriveBackupEnabled { GoogleDriveBackupService.shared.syncIfDue(context: context) }
                 EmailBackupService.shared.scheduleAutomaticBackupIfNeeded(context: context)
             }
@@ -260,6 +262,19 @@ struct RootView: View {
                 )
             }
         }
+    }
+
+    /// Applies a section requested by one of the Open… intents. Those run
+    /// with `openAppWhenRun`, which brings the app forward but gives the
+    /// intent no handle on the live `AppState`, so it leaves a request behind
+    /// and this picks it up — the same shape as the other drains above.
+    /// `consume()` clears as it reads, so a request is never applied twice.
+    private func drainPendingNavigation() {
+        guard let target = NavigationRequestStore.consume() else { return }
+        appState.selectedTab = target.tab
+        // Pop any screen the target tab still had pushed, so the section the
+        // user asked for is actually what they land on.
+        appState.popToRootTick &+= 1
     }
 
     /// Drains `LogApplePayTransaction`'s queue. Wallet's fields arrive

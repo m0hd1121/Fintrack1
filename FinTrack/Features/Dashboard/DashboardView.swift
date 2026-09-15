@@ -33,6 +33,9 @@ struct DashboardView: View {
     @Query private var giftCards: [GiftCard]
     @Query(filter: #Predicate<Bill> { $0.isActive }) private var bills: [Bill]
     @Query private var moneyBorrowed: [MoneyBorrowed]
+    /// Not rendered here — this feeds the App Intents snapshot so Siri can
+    /// resolve a goal by name (`GoalEntity`). Goal counts are small.
+    @Query private var savingsGoals: [SavingsGoal]
 
     @Query private var dashSettings: [AppSettings]
 
@@ -293,13 +296,33 @@ struct DashboardView: View {
         let allPayments = (billPayments + bnplPayments + scheduledPayments)
             .sorted { $0.dueDate < $1.dueDate }
 
+        // Accounts and goals are here purely so the App Intents can resolve
+        // them by name — an AppIntent can't reliably build a ModelContext, so
+        // it reads these snapshots instead (PROJECT_MAP §8).
+        let accountSnapshots = accounts.filter { !$0.isArchived }.map { account in
+            WidgetAccountSnapshot(
+                id: account.id, name: account.name, type: account.type.rawValue,
+                balance: account.balance, currency: account.currency,
+                bankName: account.bankName
+            )
+        }
+        let goalSnapshots = savingsGoals.map { goal in
+            WidgetGoalSnapshot(
+                id: goal.id, name: goal.name, current: goal.currentAmount,
+                target: goal.targetAmount, currency: goal.currency,
+                isCompleted: goal.isCompleted
+            )
+        }
+
         WidgetDataService.shared.updateAll(
             netWorth: metrics.netWorth,
             currency: baseCurrency,
             transactions: Array(txSnapshots),
             budgets: budgetSnapshots,
             bills: billSnapshots,
-            payments: allPayments
+            payments: allPayments,
+            accounts: accountSnapshots,
+            goals: goalSnapshots
         )
     }
 

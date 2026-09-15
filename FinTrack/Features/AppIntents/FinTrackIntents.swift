@@ -20,9 +20,38 @@ struct TransactionEntity: AppEntity {
     }
 }
 
-struct TransactionEntityQuery: EntityQuery {
-    func entities(for identifiers: [UUID]) async throws -> [TransactionEntity] { [] }
-    func suggestedEntities() async throws -> [TransactionEntity] { [] }
+/// Was a stub returning empty arrays from both methods, so a `TransactionEntity`
+/// parameter could never resolve to anything — the entity existed in the
+/// Shortcuts UI but was inert. It now resolves against the same snapshot the
+/// other entities use (`IntentSnapshotSource`); that covers the recent
+/// transactions the dashboard publishes, which is what a Siri query is asking
+/// about in practice.
+struct TransactionEntityQuery: EntityStringQuery {
+    private func snapshots() async -> [WidgetTxSnapshot] {
+        await MainActor.run {
+            WidgetDataService.shared.snapshot([WidgetTxSnapshot].self,
+                                              forKey: "widget_recent_transactions")
+        }
+    }
+
+    private func entity(_ s: WidgetTxSnapshot) -> TransactionEntity {
+        TransactionEntity(id: s.id, title: s.title, amount: s.amount,
+                          currency: s.currency, type: s.type, categoryName: s.categoryIcon)
+    }
+
+    func entities(for identifiers: [UUID]) async throws -> [TransactionEntity] {
+        await snapshots().filter { identifiers.contains($0.id) }.map(entity)
+    }
+
+    func entities(matching string: String) async throws -> [TransactionEntity] {
+        let needle = string.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !needle.isEmpty else { return try await suggestedEntities() }
+        return await snapshots().filter { $0.title.lowercased().contains(needle) }.map(entity)
+    }
+
+    func suggestedEntities() async throws -> [TransactionEntity] {
+        await snapshots().map(entity)
+    }
 }
 
 // MARK: – Log Expense Intent
@@ -251,11 +280,14 @@ struct GetBalanceIntent: AppIntent {
     static var openAppWhenRun: Bool = false
 
     func perform() async throws -> some IntentResult & ProvidesDialog & ReturnsValue<Double> {
-        guard let defaults = UserDefaults(suiteName: "group.com.fintrack.shared") else {
-            return .result(value: 0, dialog: "Net worth unavailable.")
+        // Was reading the App Group suite, which this app has no entitlement
+        // for: the read silently returned 0 and Siri answered "your net worth
+        // is 0.00". `WidgetDataService` writes the snapshot to `.standard`,
+        // which is the same process this intent runs in. See PROJECT_MAP §8.
+        let (netWorth, currency) = await MainActor.run {
+            let store = WidgetDataService.shared
+            return (store.snapshotNetWorth, store.snapshotCurrency)
         }
-        let netWorth = defaults.double(forKey: "widget_net_worth")
-        let currency = defaults.string(forKey: "widget_currency") ?? "AED"
         let formatted = formatCompact(netWorth, currency: currency)
         return .result(value: netWorth, dialog: "Your current net worth is \(formatted).")
     }
@@ -279,11 +311,12 @@ struct GetBudgetStatusIntent: AppIntent {
     var budgetName: String?
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        guard let defaults = UserDefaults(suiteName: "group.com.fintrack.shared"),
-              let data = defaults.data(forKey: "widget_budgets"),
-              let budgets = try? JSONDecoder().decode([BudgetIntentSnapshot].self, from: data),
-              !budgets.isEmpty
-        else {
+        // Same fix as `GetBalanceIntent`: the App Group read never returned
+        // anything, so this always said there was no budget data.
+        let budgets = await MainActor.run {
+            WidgetDataService.shared.snapshot([BudgetIntentSnapshot].self, forKey: "widget_budgets")
+        }
+        guard !budgets.isEmpty else {
             return .result(dialog: "No budget data available. Open FinTrack to set up budgets.")
         }
 
@@ -309,7 +342,7 @@ struct GetBudgetStatusIntent: AppIntent {
 }
 
 // Lightweight snapshot for App Intents (no @Model dependency)
-private struct BudgetIntentSnapshot: Codable {
+struct BudgetIntentSnapshot: Codable {
     var id: UUID
     var name: String
     var spent: Double
@@ -371,6 +404,39 @@ struct FinTrackShortcuts: AppShortcutsProvider {
             ],
             shortTitle: "Budget Status",
             systemImageName: "chart.pie.fill"
+        )
+        // Navigation shortcuts are parameterless by design — an App Shortcut
+        // tile can't be configured, which is the whole reason
+        // `LogTransactionFromText` had to stay out of this list. The
+        // configurable `OpenFinTrackSectionIntent` covers the same ground in
+        // the Shortcuts editor, where a parameter *can* be bound.
+        AppShortcut(
+            intent: OpenTransactionsIntent(),
+            phrases: [
+                "Open transactions in \(.applicationName)",
+                "Show my transactions in \(.applicationName)",
+                "Open my spending in \(.applicationName)"
+            ],
+            shortTitle: "Open Transactions",
+            systemImageName: "arrow.left.arrow.right.circle.fill"
+        )
+        AppShortcut(
+            intent: OpenBudgetIntent(),
+            phrases: [
+                "Open my budget in \(.applicationName)",
+                "Show my budget in \(.applicationName)"
+            ],
+            shortTitle: "Open Budget",
+            systemImageName: "chart.pie.fill"
+        )
+        AppShortcut(
+            intent: OpenAccountsIntent(),
+            phrases: [
+                "Open my accounts in \(.applicationName)",
+                "Show my accounts in \(.applicationName)"
+            ],
+            shortTitle: "Open Accounts",
+            systemImageName: "building.columns.fill"
         )
     }
 }

@@ -47,31 +47,74 @@ final class WidgetDataService {
 
     // MARK: – Full update (preferred)
 
+    /// Snapshot stores, in the order they're written.
+    ///
+    /// `.standard` is the one that actually works today and is what the App
+    /// Intents read: they run in this app's process (single application
+    /// target, no App Intents Extension), so the app's own container is
+    /// shared with them and always persists. The App Group suite is written
+    /// too — it is inert without the paid entitlement, but costs nothing and
+    /// means a future widget/Watch target works the moment it's provisioned.
+    ///
+    /// Before this, every snapshot went **only** to the App Group. That write
+    /// is silently discarded (see `smsDefaults`), so `GetBalanceIntent` read
+    /// back 0 and confidently told the user their net worth was zero, and
+    /// `GetBudgetStatusIntent` always said there was no budget data.
+    private var snapshotStores: [UserDefaults] {
+        var stores: [UserDefaults] = [.standard]
+        if let group = UserDefaults(suiteName: suiteName), group != .standard {
+            stores.append(group)
+        }
+        return stores
+    }
+
     func updateAll(
         netWorth: Double,
         currency: String,
         transactions: [WidgetTxSnapshot],
         budgets: [WidgetBudgetSnapshot],
         bills: [WidgetBillSnapshot],
-        payments: [WidgetPaymentSnapshot] = []
+        payments: [WidgetPaymentSnapshot] = [],
+        accounts: [WidgetAccountSnapshot] = [],
+        goals: [WidgetGoalSnapshot] = []
     ) {
-        guard let defaults = UserDefaults(suiteName: suiteName) else { return }
-        defaults.set(netWorth, forKey: "widget_net_worth")
-        defaults.set(currency, forKey: "widget_currency")
-        if let data = try? JSONEncoder().encode(transactions) {
-            defaults.set(data, forKey: "widget_recent_transactions")
-        }
-        if let data = try? JSONEncoder().encode(budgets) {
-            defaults.set(data, forKey: "widget_budgets")
-        }
-        if let data = try? JSONEncoder().encode(bills) {
-            defaults.set(data, forKey: "widget_bills")
-        }
-        if let data = try? JSONEncoder().encode(payments) {
-            defaults.set(data, forKey: "widget_upcoming_payments")
+        for defaults in snapshotStores {
+            defaults.set(netWorth, forKey: "widget_net_worth")
+            defaults.set(currency, forKey: "widget_currency")
+            if let data = try? JSONEncoder().encode(transactions) {
+                defaults.set(data, forKey: "widget_recent_transactions")
+            }
+            if let data = try? JSONEncoder().encode(budgets) {
+                defaults.set(data, forKey: "widget_budgets")
+            }
+            if let data = try? JSONEncoder().encode(bills) {
+                defaults.set(data, forKey: "widget_bills")
+            }
+            if let data = try? JSONEncoder().encode(payments) {
+                defaults.set(data, forKey: "widget_upcoming_payments")
+            }
+            // Only overwrite when the caller supplied them, so a legacy call
+            // site can't blank out entities Siri resolves against.
+            if !accounts.isEmpty, let data = try? JSONEncoder().encode(accounts) {
+                defaults.set(data, forKey: "widget_accounts")
+            }
+            if !goals.isEmpty, let data = try? JSONEncoder().encode(goals) {
+                defaults.set(data, forKey: "widget_goals")
+            }
         }
         WidgetCenter.shared.reloadAllTimelines()
     }
+
+    /// Read side for the App Intents — always the store that persists.
+    func snapshot<T: Decodable>(_ type: [T].Type, forKey key: String) -> [T] {
+        guard let data = UserDefaults.standard.data(forKey: key),
+              let decoded = try? JSONDecoder().decode([T].self, from: data)
+        else { return [] }
+        return decoded
+    }
+
+    var snapshotNetWorth: Double { UserDefaults.standard.double(forKey: "widget_net_worth") }
+    var snapshotCurrency: String { UserDefaults.standard.string(forKey: "widget_currency") ?? "AED" }
 
     // MARK: – Legacy (transactions only)
 
@@ -214,6 +257,28 @@ struct PendingApplePayTransaction: Codable {
 }
 
 // MARK: – Shared snapshot types
+
+/// Account and goal snapshots exist for the App Intents (`AccountEntity`,
+/// `GoalEntity`) rather than for any widget — Siri resolves names against
+/// these without the intent needing a `ModelContext`, which AppIntents can't
+/// reliably build (see PROJECT_MAP §8).
+struct WidgetAccountSnapshot: Codable, Identifiable {
+    var id: UUID
+    var name: String
+    var type: String
+    var balance: Double
+    var currency: String
+    var bankName: String
+}
+
+struct WidgetGoalSnapshot: Codable, Identifiable {
+    var id: UUID
+    var name: String
+    var current: Double
+    var target: Double
+    var currency: String
+    var isCompleted: Bool
+}
 
 struct WidgetTxSnapshot: Codable, Identifiable {
     var id: UUID
