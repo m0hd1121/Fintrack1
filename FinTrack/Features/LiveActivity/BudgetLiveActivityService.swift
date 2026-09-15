@@ -3,8 +3,15 @@ import ActivityKit
 
 // MARK: – Activity Attributes (matches FinTrackWidget's BudgetLiveActivityAttributes)
 
-public struct BudgetActivityAttributes: ActivityAttributes {
-    public struct ContentState: Codable, Hashable {
+// `nonisolated`, not inheriting the project-wide `SWIFT_DEFAULT_ACTOR_ISOLATION
+// = MainActor` default: ActivityKit runs `Activity<T>.update`/`.end` and the
+// `.activities` sequence off the main actor, and under strict concurrency
+// checking a MainActor-isolated `ActivityAttributes` conformance can't be
+// used from that context ("cannot be used in @concurrent context"). The type
+// is plain Codable/Hashable data (Double/String), so nothing here actually
+// needs main-actor isolation — this removes it rather than working around it.
+nonisolated public struct BudgetActivityAttributes: ActivityAttributes {
+    nonisolated public struct ContentState: Codable, Hashable {
         public var spent: Double
         public var total: Double
         public var currency: String
