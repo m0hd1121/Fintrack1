@@ -118,25 +118,53 @@ extension Font {
 
 // MARK: - Liquid Glass surfaces
 
-/// Applies `.glassEffect` and, when High Contrast Mode is enabled, adds a
-/// 1.5 pt border so glass surfaces remain legible at all contrast levels.
+/// Applies `.glassEffect`, and degrades it to an opaque surface when the
+/// system asks for less transparency or more contrast.
+///
+/// **Reduce Transparency** (Settings → Accessibility → Display & Text Size) is
+/// the closest thing iOS exposes publicly to "the user's Liquid Glass
+/// preference": there is no public API for reading the glass
+/// transparency/intensity level itself, and the private preference must not be
+/// touched. Apple's own materials already dim themselves under this setting,
+/// but reading it directly lets a surface become genuinely opaque rather than
+/// merely less translucent — which is what the setting is actually asking for,
+/// and it also skips the blur pass entirely.
+///
+/// `colorSchemeContrast` is the *system* Increase Contrast setting; the app's
+/// own `isHighContrast` toggle is separate, so either one turns the border on.
 private struct FTGlassModifier: ViewModifier {
     let radius: CGFloat
     var interactive: Bool = false
     @Environment(\.isHighContrast) private var isHighContrast
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
+
+    private var wantsHighContrast: Bool {
+        isHighContrast || colorSchemeContrast == .increased
+    }
 
     func body(content: Content) -> some View {
-        content
-            .glassEffect(interactive ? .regular.interactive() : .regular,
-                         in: .rect(cornerRadius: radius))
-            .overlay(
-                RoundedRectangle(cornerRadius: radius)
-                    .strokeBorder(
-                        isHighContrast ? FTColor.textPrimary.opacity(0.45) : Color.clear,
-                        lineWidth: 1.5
-                    )
-                    .allowsHitTesting(false)
-            )
+        Group {
+            if reduceTransparency {
+                // Opaque, no blur and no offscreen pass. Bordered unconditionally:
+                // without the glass edge the surface would otherwise have no
+                // boundary against the page background.
+                content.background(FTColor.bgElevated, in: .rect(cornerRadius: radius))
+            } else {
+                content.glassEffect(interactive ? .regular.interactive() : .regular,
+                                    in: .rect(cornerRadius: radius))
+            }
+        }
+        .overlay(
+            RoundedRectangle(cornerRadius: radius)
+                .strokeBorder(
+                    (wantsHighContrast || reduceTransparency)
+                        ? FTColor.textPrimary.opacity(wantsHighContrast ? 0.45 : 0.14)
+                        : Color.clear,
+                    lineWidth: wantsHighContrast ? 1.5 : 1
+                )
+                .allowsHitTesting(false)
+        )
     }
 }
 
@@ -424,10 +452,18 @@ extension Color {
 
 struct FTBackdrop: View {
     @Environment(\.isOLEDMode) private var isOLEDMode
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
         if isOLEDMode {
             Color.black.ignoresSafeArea()
+        } else if reduceTransparency {
+            // Three 55pt-blurred blobs inside a `drawingGroup()` mean an
+            // offscreen Metal pass behind essentially every screen in the app.
+            // Reduce Transparency is a request to drop exactly this kind of
+            // decorative depth, so the flat ground is both the accessible
+            // answer and the cheap one — it costs a single fill.
+            FTColor.bgBase.ignoresSafeArea()
         } else {
             ZStack {
                 FTColor.bgBase.ignoresSafeArea()

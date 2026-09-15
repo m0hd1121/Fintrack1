@@ -215,7 +215,7 @@ Part of PROJECT_MAP.md (see root for navigation). All folders under `FinTrack/Fe
 ## UI/
 - AmountTextField.swift — `TextField` wrapper auto-inserting thousands separators; `AmountTextField.double(from:)` parses back
 - AppTheme.swift — semantic token layer: `AppColors`, `AppSpacing`, `AppRadius`, `Color(hex: String)`, component library (`GlassCard`, `Card`, `PrimaryButton`, `AmountDisplayView`, `SectionHeader`, `EmptyStateView`, `BadgeView`, `IconBadge`)
-- FTDesignSystem.swift — canonical design-system source: `Color(light:dark:)`/`Color(hex: UInt)`, `FTColor`, `FTSpacing`, `FTRadius`, font extensions, `.ftGlass`/`.ftGlassInteractive` modifiers, components (`FTCard`, `FTIconTile`, `FTChip`, `FTProgressBar`, `FTSegmentedControl`, `FTToggleRow`, `FTTransactionRow`, `FTTab`, `FTGlassTabBar`, `FTBackdrop`)
+- FTDesignSystem.swift — canonical design-system source: `Color(light:dark:)`/`Color(hex: UInt)`, `FTColor`, `FTSpacing`, `FTRadius`, font extensions, `.ftGlass`/`.ftGlassInteractive` modifiers, components (`FTCard`, `FTIconTile`, `FTChip`, `FTProgressBar`, `FTSegmentedControl`, `FTToggleRow`, `FTTransactionRow`, `FTTab`, `FTGlassTabBar`, `FTBackdrop`) — **`ftGlass`/`FTBackdrop` are system-appearance aware**: `accessibilityReduceTransparency` swaps glass for an opaque surface and the blurred backdrop for a flat fill; `colorSchemeContrast` is ORed with the app's own high-contrast toggle (see PROJECT_MAP §8).
 - FTSampleScreens.swift — reference/mock screens (`FTRootView`, `FTDashboardView`) demonstrating design-system composition with placeholder data; not wired to real queries, a template for new screens
 
 **Core features:** `FTDesignSystem.swift` is the single source of truth; `AppTheme.swift` layers older/parallel semantic aliases on top.
