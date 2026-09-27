@@ -142,6 +142,7 @@ External APIs: none
 
 ### ApplePayIngestService.swift
 Purpose: files an Apple Pay/Wallet transaction delivered by a Shortcuts **"Transaction"** Personal Automation. Unlike SMS this channel is **already structured** — Wallet hands Shortcuts real amount/merchant/date/category fields — so there is no parsing step and no bank wording that can drift; it's more accurate than SMS wherever it applies, but only covers payments actually made through Apple Pay. Builds a `ParsedBankEmail` (confidence 0.95) straight from those fields and hands it to `ImportFiler`.
+**Enable flag**: `nonisolated static let enabledKey` (`"ft_applepay_import_enabled"`) + `static var isEnabled` (defaults **true**, so pre-toggle setups keep working). Stored in UserDefaults, not `AppSettings`, to avoid a schema bump. Read by `LogApplePayTransaction` inside its main-actor hop; already-queued items still drain when it's off.
 Singleton: no (`@MainActor enum`) | Actor: `@MainActor`
 Key methods: `ingest(amount:merchant:currency:date:walletCategory:card:isRefund:context:) -> Bool` (drained from `RootView.drainPendingApplePay()`), `mappedCategory(_:)` (Wallet category string → `TransactionCategory`, nil falls through to merchant prediction), `receivedTransactions`/`clearReceived()` for the same "what actually arrived" diagnostics the SMS channel has.
 External APIs: none
