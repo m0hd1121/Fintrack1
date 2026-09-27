@@ -11,14 +11,12 @@ import SwiftData
 struct ApplePayImportView: View {
     @State private var received: [ApplePayIngestService.ReceivedApplePay] = []
     @State private var queuedCount = 0
-    @AppStorage(ApplePayIngestService.enabledKey) private var isEnabled = true
 
     var body: some View {
         ScrollView {
             VStack(spacing: FTSpacing.xxl) {
-                toggleCard
                 statusCard
-                if isEnabled { setupCard } else { removeCard }
+                setupCard
                 recentSection
                 infoCard
             }
@@ -40,107 +38,28 @@ struct ApplePayImportView: View {
         UserDefaults.standard.object(forKey: ImportChannel.applePay.lastImportKey) as? Date
     }
 
-    private var isWorking: Bool { isEnabled && lastImportAt != nil }
-
-    private var statusTitle: String {
-        if !isEnabled { return "Apple Pay Import Off" }
-        return lastImportAt != nil ? "Apple Pay Import Working" : "Not Set Up Yet"
-    }
-
-    private var statusDetail: String {
-        if !isEnabled { return "FinTrack ignores Apple Pay payments while this is off" }
-        return lastImportAt != nil
-            ? "Last one \(lastImportAt?.relativeFormatted ?? "")"
-            : "Create the Shortcuts automation below to capture Apple Pay payments"
-    }
-
     private var statusCard: some View {
         HStack(spacing: FTSpacing.lg) {
             ZStack {
                 Circle()
-                    .fill((isWorking ? FTColor.income : FTColor.textMuted).opacity(0.12))
+                    .fill((lastImportAt != nil ? FTColor.income : FTColor.textMuted).opacity(0.12))
                     .frame(width: 56, height: 56)
-                Image(systemName: !isEnabled ? "pause.circle.fill"
-                      : (lastImportAt != nil ? "checkmark.circle.fill" : "creditcard.fill"))
+                Image(systemName: lastImportAt != nil ? "checkmark.circle.fill" : "creditcard.fill")
                     .font(.ftTitle)
-                    .foregroundStyle(isWorking ? FTColor.income : FTColor.textMuted)
-                    .accessibilityHidden(true)
+                    .foregroundStyle(lastImportAt != nil ? FTColor.income : FTColor.textMuted)
             }
             VStack(alignment: .leading, spacing: 3) {
-                Text(statusTitle)
+                Text(lastImportAt != nil ? "Apple Pay Import Working" : "Not Set Up Yet")
                     .font(.ftHeadline).foregroundStyle(FTColor.textPrimary)
-                Text(statusDetail)
+                Text(lastImportAt != nil
+                     ? "Last one \(lastImportAt?.relativeFormatted ?? "")"
+                     : "Create the Shortcuts automation below to capture Apple Pay payments")
                     .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
             }
             Spacer(minLength: 0)
         }
         .padding()
         .ftGlass(FTRadius.xl)
-        .accessibilityElement(children: .combine)
-    }
-
-    // MARK: Toggle
-
-    /// Controls whether FinTrack accepts transactions from the automation.
-    /// It can't create or delete the automation itself — iOS exposes no API
-    /// for apps to manage Shortcuts automations — so the cards below guide the
-    /// user through the Shortcuts side in each direction.
-    private var toggleCard: some View {
-        VStack(alignment: .leading, spacing: FTSpacing.xs) {
-            FTToggleRow(symbol: "creditcard.fill", tint: FTColor.income,
-                        title: "Import Apple Pay Transactions", isOn: $isEnabled)
-            Text(isEnabled
-                 ? "Payments from your Shortcuts automation go to the review queue."
-                 : "Turned off. New Apple Pay payments are ignored; anything already received stays in the review queue.")
-                .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .padding(.horizontal)
-        .padding(.bottom, FTSpacing.md)
-        .ftGlass(FTRadius.xl)
-    }
-
-    // MARK: Remove (shown when off)
-
-    private var removeCard: some View {
-        VStack(alignment: .leading, spacing: FTSpacing.md) {
-            Text("REMOVE THE AUTOMATION")
-                .font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false)
-                .foregroundStyle(FTColor.textMuted)
-
-            Text("While it exists, Shortcuts keeps running the automation after every Apple Pay payment. FinTrack now ignores it, but only you can delete it:")
-                .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
-
-            VStack(alignment: .leading, spacing: FTSpacing.sm) {
-                stepRow(1, "Open Shortcuts → Automation")
-                stepRow(2, "Swipe left on the Transaction automation that runs Log Apple Pay Transaction")
-                stepRow(3, "Tap Delete")
-            }
-
-            openShortcutsButton(url: "shortcuts://")
-        }
-        .padding()
-        .ftGlass(FTRadius.xl)
-    }
-
-    private func openShortcutsButton(url: String) -> some View {
-        Button {
-            if let url = URL(string: url) {
-                UIApplication.shared.open(url)
-            }
-        } label: {
-            HStack {
-                Image(systemName: "arrow.up.forward.app.fill")
-                    .accessibilityHidden(true)
-                Text("Open Shortcuts")
-            }
-            .font(.ftBodySemibold)
-            .foregroundStyle(.white)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 13)
-            .background(FTColor.accent, in: RoundedRectangle(cornerRadius: FTRadius.md))
-        }
     }
 
     // MARK: Setup
@@ -159,7 +78,21 @@ struct ApplePayImportView: View {
                 stepRow(5, "Turn off “Ask Before Running”, then Done")
             }
 
-            openShortcutsButton(url: "shortcuts://create-shortcut")
+            Button {
+                if let url = URL(string: "shortcuts://create-shortcut") {
+                    UIApplication.shared.open(url)
+                }
+            } label: {
+                HStack {
+                    Image(systemName: "arrow.up.forward.app.fill")
+                    Text("Open Shortcuts")
+                }
+                .font(.ftBodySemibold)
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 13)
+                .background(FTColor.accent, in: RoundedRectangle(cornerRadius: FTRadius.md))
+            }
         }
         .padding()
         .ftGlass(FTRadius.xl)

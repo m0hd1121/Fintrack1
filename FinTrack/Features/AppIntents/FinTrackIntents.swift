@@ -239,16 +239,12 @@ struct LogApplePayTransaction: AppIntent {
     }
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        enum Outcome { case disabled, unreadableAmount, notStored, queued }
+        enum Outcome { case unreadableAmount, notStored, queued }
 
         // Parsing and queueing share one hop: the target has MainActor default
         // actor isolation, so `TextNormalizer` is main-actor-isolated too and
         // can't be reached from a nonisolated `perform()`.
         let outcome: Outcome = await MainActor.run {
-            // Turned off in Settings: don't queue anything. The automation will
-            // still fire until the user removes it in Shortcuts — apps can't
-            // disable an automation — so say why nothing happened.
-            guard ApplePayIngestService.isEnabled else { return Outcome.disabled }
             guard let parsed = TextNormalizer.decimalValue(in: amount), parsed.magnitude > 0 else {
                 return Outcome.unreadableAmount
             }
@@ -266,8 +262,6 @@ struct LogApplePayTransaction: AppIntent {
         }
 
         switch outcome {
-        case .disabled:
-            return .result(dialog: "Apple Pay import is turned off in FinTrack. Remove this automation in Shortcuts to stop these runs.")
         case .unreadableAmount:
             return .result(dialog: "FinTrack couldn't read an amount from “\(amount)”.")
         case .notStored:

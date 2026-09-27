@@ -139,23 +139,6 @@ enum ApplePayIngestService {
     }
 
     static let receivedKey = "ft_applepay_received_v1"
-
-    /// The Settings toggle ("Import Apple Pay Transactions"). Stored in
-    /// UserDefaults rather than `AppSettings` so it needs no `@Model` change —
-    /// adding a property there would mean a schema bump, which wipes local
-    /// data. `nonisolated` so `@AppStorage` can name it from a view's stored
-    /// property initializer without an actor hop.
-    ///
-    /// This controls whether FinTrack *accepts* Apple Pay transactions; it
-    /// cannot create or remove the Shortcuts automation itself — iOS gives
-    /// apps no API for that, so `ApplePayImportView` walks the user through it.
-    nonisolated static let enabledKey = "ft_applepay_import_enabled"
-
-    /// Defaults to on, so anyone who set the automation up before this toggle
-    /// existed keeps importing without having to find it.
-    static var isEnabled: Bool {
-        UserDefaults.standard.object(forKey: enabledKey) as? Bool ?? true
-    }
     private static let maxReceivedKept = 20
 
     static var receivedTransactions: [ReceivedApplePay] {
