@@ -28,8 +28,30 @@ struct EmailReviewQueueView: View {
     /// reported by both email and SMS can't be posted twice by accident.
     @State private var pendingDuplicateApproval: PendingEmailTransaction? = nil
 
+    // Multi-select. BNPL charges each need a plan chosen before they can be
+    // approved, which used to mean opening the edit sheet once per charge;
+    // selecting several lets one plan choice cover all of them.
+    @State private var isSelecting = false
+    @State private var selectedIDs: Set<UUID> = []
+    @State private var showRejectSelectedConfirm = false
+    @State private var bulkResultMessage: String? = nil
+
     private var pendingItems: [PendingEmailTransaction] {
         allItems.filter { $0.status == .pending }
+    }
+
+    private var pendingBNPLItems: [PendingEmailTransaction] {
+        pendingItems.filter { $0.isBNPLMerchant }
+    }
+
+    /// Only items still pending count — an item approved or rejected from
+    /// another screen while selecting drops out of the selection on its own.
+    private var selectedItems: [PendingEmailTransaction] {
+        pendingItems.filter { selectedIDs.contains($0.id) }
+    }
+
+    private var selectedBNPLItems: [PendingEmailTransaction] {
+        selectedItems.filter { $0.isBNPLMerchant }
     }
 
     private var reviewedItems: [PendingEmailTransaction] {
@@ -77,22 +99,59 @@ struct EmailReviewQueueView: View {
                     }
                 }
 
+                if pendingBNPLItems.count >= 2 && !isSelecting {
+                    Section {
+                        Button { startSelectingBNPL() } label: {
+                            HStack(spacing: FTSpacing.md) {
+                                FTIconTile(symbol: "checklist", tint: FTColor.catPurple, size: 36)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Select \(pendingBNPLItems.count) BNPL charges")
+                                        .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                                    Text("Link them to a plan and approve together")
+                                        .font(.ftCaption).foregroundStyle(FTColor.textMuted)
+                                }
+                                Spacer()
+                            }
+                        }
+                        .listRowBackground(Color.clear)
+                        .listRowInsets(EdgeInsets(top: 4, leading: FTSpacing.screen, bottom: 4, trailing: FTSpacing.screen))
+                    }
+                }
+
                 Section {
                     ForEach(pendingItems, id: \.id) { item in
-                        PendingEmailRow(item: item, accountName: accountName(for: item))
+                        let isChecked = selectedIDs.contains(item.id)
+                        HStack(spacing: FTSpacing.md) {
+                            if isSelecting {
+                                Image(systemName: isChecked ? "checkmark.circle.fill" : "circle")
+                                    .font(.title3)
+                                    .foregroundStyle(isChecked ? FTColor.accent : FTColor.textMuted)
+                                    .accessibilityHidden(true)
+                            }
+                            PendingEmailRow(item: item, accountName: accountName(for: item))
+                        }
                             .contentShape(.rect)
-                            .onTapGesture { editingItem = item }
-                            .swipeActions(edge: .leading, allowsFullSwipe: true) {
-                                Button { approve(item) } label: {
-                                    Label("Approve", systemImage: "checkmark")
-                                }
-                                .tint(.green)
+                            .onTapGesture {
+                                if isSelecting { toggleSelection(item) } else { editingItem = item }
                             }
-                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                Button(role: .destructive) { reject(item) } label: {
-                                    Label("Reject", systemImage: "xmark")
+                            // While selecting, a tap must only check the row —
+                            // an accidental swipe shouldn't approve or reject it.
+                            .swipeActions(edge: .leading, allowsFullSwipe: !isSelecting) {
+                                if !isSelecting {
+                                    Button { approve(item) } label: {
+                                        Label("Approve", systemImage: "checkmark")
+                                    }
+                                    .tint(.green)
                                 }
                             }
+                            .swipeActions(edge: .trailing, allowsFullSwipe: !isSelecting) {
+                                if !isSelecting {
+                                    Button(role: .destructive) { reject(item) } label: {
+                                        Label("Reject", systemImage: "xmark")
+                                    }
+                                }
+                            }
+                            .accessibilityAddTraits(isSelecting && isChecked ? [.isSelected] : [])
                             .listRowBackground(Color.clear)
                             .listRowSeparator(.hidden)
                             .listRowInsets(EdgeInsets(top: 4, leading: FTSpacing.screen, bottom: 4, trailing: FTSpacing.screen))
@@ -142,6 +201,13 @@ struct EmailReviewQueueView: View {
         .navigationTitle("Review Queue")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            if !pendingItems.isEmpty {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(isSelecting ? "Done" : "Select") {
+                        if isSelecting { stopSelecting() } else { isSelecting = true }
+                    }
+                }
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
                     if !reviewedItems.isEmpty {
@@ -190,6 +256,28 @@ struct EmailReviewQueueView: View {
         } message: {
             Text(pendingDuplicateApproval?.duplicateReason ?? "This looks like a transaction you already have — often the same alert reported by both email and SMS.")
         }
+        .safeAreaInset(edge: .bottom) {
+            if isSelecting { selectionBar }
+        }
+        .confirmationDialog("Reject selected?", isPresented: $showRejectSelectedConfirm, titleVisibility: .visible) {
+            Button("Reject \(selectedItems.count) Items", role: .destructive) { rejectSelected() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("None of these will be added to your transactions. This can't be undone.")
+        }
+        .alert("Some items were skipped", isPresented: Binding(
+            get: { bulkResultMessage != nil },
+            set: { if !$0 { bulkResultMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) { bulkResultMessage = nil }
+        } message: {
+            Text(bulkResultMessage ?? "")
+        }
+        // Nothing left to select (everything approved/rejected) — leave the
+        // mode rather than strand the user in an empty selection bar.
+        .onChange(of: pendingItems.isEmpty) { _, isEmpty in
+            if isEmpty { stopSelecting() }
+        }
         .sheet(item: $editingItem) { item in
             EditPendingEmailSheet(
                 item: item,
@@ -216,6 +304,139 @@ struct EmailReviewQueueView: View {
         .padding(FTSpacing.md)
         .ftGlass(FTRadius.sm)
         .opacity(0.7)
+    }
+
+    // MARK: - Multi-select
+
+    private func toggleSelection(_ item: PendingEmailTransaction) {
+        if selectedIDs.contains(item.id) { selectedIDs.remove(item.id) }
+        else { selectedIDs.insert(item.id) }
+    }
+
+    private func startSelectingBNPL() {
+        isSelecting = true
+        selectedIDs = Set(pendingBNPLItems.map(\.id))
+    }
+
+    private func stopSelecting() {
+        isSelecting = false
+        selectedIDs.removeAll()
+    }
+
+    private var selectionSummary: String {
+        let total = selectedItems.count
+        guard total > 0 else { return "Tap items to select them" }
+        let bnpl = selectedBNPLItems.count
+        return bnpl > 0 ? "\(total) selected · \(bnpl) BNPL" : "\(total) selected"
+    }
+
+    /// Menu choices are stored exactly as the edit sheet's picker stores them
+    /// (`"none"` or a plan's UUID string), so an item linked here and one
+    /// linked there are indistinguishable to `approveToLedger`.
+    private func assignPlan(_ raw: String) {
+        for item in selectedBNPLItems { item.bnplSelectionRaw = raw }
+        try? context.save()
+    }
+
+    private var selectionBar: some View {
+        VStack(spacing: FTSpacing.sm) {
+            Text(selectionSummary)
+                .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+
+            // Four labelled actions would clip at large Dynamic Type in a
+            // single row, so fall back to a vertical stack when they don't fit.
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: FTSpacing.sm) { barActions }
+                VStack(spacing: FTSpacing.sm) { barActions }
+            }
+        }
+        .padding(FTSpacing.md)
+        .frame(maxWidth: .infinity)
+        .ftGlass(FTRadius.lg)
+        .padding(.horizontal, FTSpacing.screen)
+        .padding(.bottom, FTSpacing.sm)
+    }
+
+    @ViewBuilder
+    private var barActions: some View {
+        Menu {
+            Button("All BNPL (\(pendingBNPLItems.count))") {
+                selectedIDs = Set(pendingBNPLItems.map(\.id))
+            }
+            .disabled(pendingBNPLItems.isEmpty)
+            Button("All pending (\(pendingItems.count))") {
+                selectedIDs = Set(pendingItems.map(\.id))
+            }
+            Button("None") { selectedIDs.removeAll() }
+        } label: {
+            Label("Select", systemImage: "checklist")
+        }
+
+        Menu {
+            Button("No linked plan") { assignPlan("none") }
+            ForEach(bnplPlans.filter { !$0.isCompleted }) { plan in
+                Button("\(plan.name) (\(plan.paidInstallments)/\(plan.totalInstallments))") {
+                    assignPlan(plan.id.uuidString)
+                }
+            }
+        } label: {
+            Label("Plan", systemImage: "link")
+        }
+        .disabled(selectedBNPLItems.isEmpty)
+
+        Button { approveSelected() } label: {
+            Label("Approve", systemImage: "checkmark")
+                .fontWeight(.semibold)
+        }
+        .disabled(selectedItems.isEmpty)
+
+        Button(role: .destructive) { showRejectSelectedConfirm = true } label: {
+            Label("Reject", systemImage: "xmark")
+        }
+        .disabled(selectedItems.isEmpty)
+    }
+
+    /// Approves the selection, applying the same gates a single approval has.
+    /// A BNPL charge with no plan chosen can't be posted, and a flagged
+    /// duplicate must still go through its explicit "Approve Anyway" — a bulk
+    /// action isn't allowed to be the way around either. Skipped items stay
+    /// selected so the user can fix them and go again.
+    private func approveSelected() {
+        var approved = 0, needsPlan = 0, duplicates = 0
+        for item in selectedItems {
+            if item.isBNPLMerchant && !item.bnplResolved { needsPlan += 1; continue }
+            if item.isPossibleDuplicate { duplicates += 1; continue }
+            EmailSyncService.shared.approveToLedger(item: item, context: context)
+            if item.status == .approved {
+                approved += 1
+                selectedIDs.remove(item.id)
+            }
+        }
+
+        var skipped: [String] = []
+        if needsPlan > 0 {
+            skipped.append("\(needsPlan) BNPL charge\(needsPlan == 1 ? "" : "s") with no plan chosen — use Plan first")
+        }
+        if duplicates > 0 {
+            skipped.append("\(duplicates) possible duplicate\(duplicates == 1 ? "" : "s") — approve \(duplicates == 1 ? "it" : "those") individually")
+        }
+        if skipped.isEmpty {
+            stopSelecting()
+        } else {
+            bulkResultMessage = "Approved \(approved). Skipped " + skipped.joined(separator: " and ") + "."
+        }
+    }
+
+    private func rejectSelected() {
+        let items = selectedItems
+        for item in items {
+            item.status = .rejected
+            item.reviewedAt = Date()
+            ImportLearningService.shared.recordRejection(rawMerchant: item.merchantRaw)
+        }
+        AuditLogService.log(context: context, "Rejected \(items.count) selected email imports in bulk")
+        try? context.save()
+        stopSelecting()
     }
 
     // MARK: - Approve
