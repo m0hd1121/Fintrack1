@@ -27,6 +27,7 @@ struct EmailReviewQueueView: View {
     /// requires an explicit "Approve Anyway" tap, so a same transaction
     /// reported by both email and SMS can't be posted twice by accident.
     @State private var pendingDuplicateApproval: PendingEmailTransaction? = nil
+    @State private var pendingDuplicateLentTo: String? = nil
 
     // Multi-select. BNPL charges each need a plan chosen before they can be
     // approved, which used to mean opening the edit sheet once per charge;
@@ -248,11 +249,16 @@ struct EmailReviewQueueView: View {
         ), titleVisibility: .visible) {
             Button("Approve Anyway") {
                 if let item = pendingDuplicateApproval {
-                    EmailSyncService.shared.approveToLedger(item: item, context: context)
+                    EmailSyncService.shared.approveToLedger(
+                        item: item, context: context, lentTo: pendingDuplicateLentTo)
                 }
                 pendingDuplicateApproval = nil
+                pendingDuplicateLentTo = nil
             }
-            Button("Cancel", role: .cancel) { pendingDuplicateApproval = nil }
+            Button("Cancel", role: .cancel) {
+                pendingDuplicateApproval = nil
+                pendingDuplicateLentTo = nil
+            }
         } message: {
             Text(pendingDuplicateApproval?.duplicateReason ?? "This looks like a transaction you already have — often the same alert reported by both email and SMS.")
         }
@@ -283,7 +289,7 @@ struct EmailReviewQueueView: View {
                 item: item,
                 accounts: accounts.filter { !$0.isArchived },
                 bnplPlans: bnplPlans.filter { !$0.isCompleted },
-                onApprove: { approve(item) }
+                onApprove: { lentTo in approve(item, lentTo: lentTo) }
             )
         }
     }
@@ -441,7 +447,9 @@ struct EmailReviewQueueView: View {
 
     // MARK: - Approve
 
-    private func approve(_ item: PendingEmailTransaction) {
+    /// `lentTo` is only ever supplied by the edit sheet, where the user marked
+    /// the payment as money they lent. Swipe and bulk approvals never pass it.
+    private func approve(_ item: PendingEmailTransaction, lentTo: String? = nil) {
         // BNPL charges need a plan selection first — route to the edit sheet
         if item.isBNPLMerchant && !item.bnplResolved {
             editingItem = item
@@ -451,9 +459,12 @@ struct EmailReviewQueueView: View {
         // email and SMS) need an explicit "Approve Anyway" before posting.
         if item.isPossibleDuplicate {
             pendingDuplicateApproval = item
+            // Remembered across the dialog, or confirming would silently drop
+            // the "lent" choice and post a plain expense.
+            pendingDuplicateLentTo = lentTo
             return
         }
-        EmailSyncService.shared.approveToLedger(item: item, context: context)
+        EmailSyncService.shared.approveToLedger(item: item, context: context, lentTo: lentTo)
     }
 
     // MARK: - Reject
@@ -603,9 +614,19 @@ private struct EditPendingEmailSheet: View {
     @Bindable var item: PendingEmailTransaction
     let accounts: [Account]
     var bnplPlans: [BNPLPlan] = []
-    let onApprove: () -> Void
+    /// Receives the borrower's name when the payment was marked as money lent,
+    /// otherwise nil.
+    let onApprove: (String?) -> Void
 
     private var bnplBlocked: Bool { item.isBNPLMerchant && !item.bnplResolved }
+    /// Money in (a refund, a salary) isn't something you lend, and a BNPL
+    /// instalment is a payment against a plan rather than a loan to a person.
+    private var canMarkAsLent: Bool { item.direction == .debit && !item.isBNPLMerchant }
+    @State private var markAsLent = false
+    @State private var borrowerName = ""
+    private var lentNameMissing: Bool {
+        markAsLent && borrowerName.trimmingCharacters(in: .whitespaces).isEmpty
+    }
     private var isSMSSource: Bool { item.senderAddress.hasPrefix("sms:") }
     private var isApplePaySource: Bool { item.senderAddress.hasPrefix("applepay:") }
 
@@ -740,6 +761,36 @@ private struct EditPendingEmailSheet: View {
                             .ftGlass(FTRadius.md)
                         }
 
+                        // Money lent — an outgoing payment that someone owes back.
+                        if canMarkAsLent {
+                            VStack(spacing: 0) {
+                                Toggle(isOn: $markAsLent) {
+                                    Text("This was money I lent")
+                                        .font(.ftBody).foregroundStyle(FTColor.textPrimary)
+                                }
+                                .tint(FTColor.accent)
+                                .padding(.vertical, FTSpacing.sm)
+
+                                if markAsLent {
+                                    fieldRow("Borrower") {
+                                        TextField("Name", text: $borrowerName)
+                                            .multilineTextAlignment(.trailing)
+                                            .foregroundStyle(FTColor.textPrimary)
+                                    }
+                                }
+
+                                Text(markAsLent
+                                     ? "Approving records this payment as “Lent to \(borrowerName.isEmpty ? "…" : borrowerName)” and adds it to Money Lent so you can track repayments. The account is debited once, by this payment."
+                                     : "Turn on if someone owes you this back — it will be tracked under Money Lent.")
+                                    .font(.ftCaption)
+                                    .foregroundStyle(lentNameMissing ? FTColor.gold : FTColor.textMuted)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.bottom, FTSpacing.sm)
+                            }
+                            .padding(.horizontal, FTSpacing.lg)
+                            .ftGlass(FTRadius.md)
+                        }
+
                         // Source context (read-only audit trail)
                         VStack(alignment: .leading, spacing: FTSpacing.sm) {
                             Text(isApplePaySource ? "SOURCE APPLE PAY"
@@ -763,12 +814,13 @@ private struct EditPendingEmailSheet: View {
                 }
 
                 VStack(spacing: FTSpacing.sm) {
-                    PrimaryButton("Save & Approve", icon: "checkmark.circle.fill") {
+                    PrimaryButton(markAsLent ? "Save & Record as Lent" : "Save & Approve",
+                                  icon: "checkmark.circle.fill") {
                         commitEdits()
-                        onApprove()
+                        onApprove(markAsLent ? borrowerName : nil)
                         dismiss()
                     }
-                    .disabled(bnplBlocked)
+                    .disabled(bnplBlocked || lentNameMissing)
                     Button("Save Changes Only") {
                         commitEdits()
                         dismiss()
@@ -789,6 +841,9 @@ private struct EditPendingEmailSheet: View {
                 amountText = AmountTextField.format(String(format: "%.2f", item.amount))
                 tagsText = item.suggestedTags.joined(separator: ", ")
                 originalMerchant = item.merchantNormalized
+                // Bank transfers usually carry the recipient's name as the
+                // merchant, so it's the best starting guess for the borrower.
+                if borrowerName.isEmpty { borrowerName = item.merchantNormalized }
             }
         }
     }

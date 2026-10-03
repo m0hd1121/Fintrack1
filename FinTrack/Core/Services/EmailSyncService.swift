@@ -635,13 +635,31 @@ final class EmailSyncService: NSObject {
     /// `SMSIngestService`) — the parameter and the `wasAutoApproved`/notes
     /// wording it drives are kept only so a manually-triggered call retains
     /// the option, not because anything calls it with `true` today.
-    func approveToLedger(item: PendingEmailTransaction, context: ModelContext, autoApproved: Bool = false) {
+    /// `lentTo`: the borrower's name when the user marked this outgoing
+    /// payment as money they lent. The bank movement is the real outflow, so
+    /// this is a *variant of the one posting*, not a second one: the ledger
+    /// transaction is recorded as "Lent to …" under `.personalLent`, linked to
+    /// a new `MoneyLent` record, and the account is debited exactly once by
+    /// the shared account logic below. (Creating a lent record by hand posts
+    /// its own outflow — see `AddMoneyLentView` — which would double-count
+    /// here, since the money has already left the account.)
+    func approveToLedger(item: PendingEmailTransaction, context: ModelContext,
+                         autoApproved: Bool = false, lentTo: String? = nil) {
         guard item.status == .pending else { return }
         // BNPL charges must have a plan selection (or an explicit "no plan")
         // before they can enter the ledger.
         guard !item.isBNPLMerchant || item.bnplResolved else { return }
 
         let type = item.direction.transactionType
+
+        // Lending only makes sense for money going out, and a BNPL instalment
+        // is a payment against a plan, not a loan to a person.
+        let borrower: String? = {
+            guard type == .expense, !item.isBNPLMerchant,
+                  let name = lentTo?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !name.isEmpty else { return nil }
+            return name
+        }()
         let baseCurrency = UserDefaults.standard.string(forKey: "base_currency") ?? "AED"
         let baseAmount = CurrencyService.shared.convert(item.amount, from: item.currency, to: baseCurrency)
 
@@ -664,12 +682,12 @@ final class EmailSyncService: NSObject {
             : (item.cardLast4 != nil ? .debitCard : .bankTransfer)
 
         let tx = Transaction(
-            title: item.merchantNormalized,
+            title: borrower.map { "Lent to \($0)" } ?? item.merchantNormalized,
             amount: item.amount,
             currency: item.currency,
             amountInBaseCurrency: baseAmount,
             type: type,
-            category: item.suggestedCategory,
+            category: borrower != nil ? .personalLent : item.suggestedCategory,
             date: item.transactionDate,
             notes: notes,
             merchant: item.merchantNormalized,
@@ -677,6 +695,18 @@ final class EmailSyncService: NSObject {
             tags: item.suggestedTags,
             isVerified: true
         )
+
+        if let borrower {
+            let lent = MoneyLent(
+                borrowerName: borrower,
+                amount: item.amount,
+                currency: item.currency,
+                lendingDate: item.transactionDate,
+                notes: "From \(item.bankName) review queue"
+            )
+            context.insert(lent)
+            tx.linkedMoneyLentId = lent.id
+        }
 
         // Advance the BNPL plan: one installment paid, next due a month out
         if let plan = linkedPlan, type == .expense {
@@ -722,13 +752,17 @@ final class EmailSyncService: NSObject {
         item.approvedTransactionId = tx.id
         item.wasAutoApproved = autoApproved
 
-        CategoryLearningService.shared.recordCorrection(
-            merchant: item.merchantNormalized, category: item.suggestedCategory)
+        // A lent payment didn't use the suggested category, so it must not
+        // count as the user confirming it.
+        if borrower == nil {
+            CategoryLearningService.shared.recordCorrection(
+                merchant: item.merchantNormalized, category: item.suggestedCategory)
+        }
         ImportLearningService.shared.recordApprovedTags(
             rawMerchant: item.merchantRaw, tags: item.suggestedTags)
 
         AuditLogService.log(context: context,
-            "\(autoApproved ? "Auto-approved" : "Approved") email import: \(item.merchantNormalized) \(item.currency) \(String(format: "%.2f", item.amount)) from \(item.bankName)\(autoApproved ? " (\(item.confidencePercent)% ≥ threshold)" : "")")
+            "\(autoApproved ? "Auto-approved" : "Approved") email import: \(item.merchantNormalized) \(item.currency) \(String(format: "%.2f", item.amount)) from \(item.bankName)\(autoApproved ? " (\(item.confidencePercent)% ≥ threshold)" : "")\(borrower.map { " — recorded as money lent to \($0)" } ?? "")")
         try? context.save()
     }
 
