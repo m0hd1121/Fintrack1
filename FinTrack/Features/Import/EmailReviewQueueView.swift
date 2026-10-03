@@ -62,7 +62,7 @@ struct EmailReviewQueueView: View {
     private var highConfidenceItems: [PendingEmailTransaction] {
         pendingItems.filter {
             $0.confidence >= 0.9 && !$0.isPossibleDuplicate && !$0.isSuspiciousParse
-                && !($0.isBNPLMerchant && !$0.bnplResolved)
+                && !($0.isBNPLMerchant && (!$0.bnplResolved || $0.bnplNeedsAmountFix))
         }
     }
 
@@ -410,7 +410,7 @@ struct EmailReviewQueueView: View {
     private func approveSelected() {
         var approved = 0, needsPlan = 0, duplicates = 0
         for item in selectedItems {
-            if item.isBNPLMerchant && !item.bnplResolved { needsPlan += 1; continue }
+            if item.isBNPLMerchant && (!item.bnplResolved || item.bnplNeedsAmountFix) { needsPlan += 1; continue }
             if item.isPossibleDuplicate { duplicates += 1; continue }
             EmailSyncService.shared.approveToLedger(item: item, context: context)
             if item.status == .approved {
@@ -450,8 +450,10 @@ struct EmailReviewQueueView: View {
     /// `lentShares` is only ever supplied by the edit sheet, where the user said
     /// they paid for someone else. Swipe and bulk approvals never pass it.
     private func approve(_ item: PendingEmailTransaction, lentShares: [LentShare] = []) {
-        // BNPL charges need a plan selection first — route to the edit sheet
-        if item.isBNPLMerchant && !item.bnplResolved {
+        // BNPL charges need a plan selection first — route to the edit sheet.
+        // Also when a charge pays several plans but its per-plan amounts don't
+        // add up to the charge, which only the sheet can fix.
+        if item.isBNPLMerchant && (!item.bnplResolved || item.bnplNeedsAmountFix) {
             editingItem = item
             return
         }
@@ -516,6 +518,13 @@ private struct PendingEmailRow: View {
         item.direction == .credit ? FTColor.income : FTColor.expense
     }
 
+    private var bnplBadgeText: String {
+        guard item.bnplResolved else { return "BNPL · select plan" }
+        let plans = item.bnplAllocations.count
+        if plans >= 2 { return item.bnplNeedsAmountFix ? "BNPL · \(plans) plans · set amounts" : "BNPL · \(plans) plans" }
+        return "BNPL"
+    }
+
     private var confidenceColor: Color {
         if item.confidence >= 0.85 { return FTColor.income }
         if item.confidence >= 0.6 { return FTColor.gold }
@@ -556,8 +565,8 @@ private struct PendingEmailRow: View {
             HStack(spacing: FTSpacing.xs) {
                 BadgeView(text: "AI \(item.confidencePercent)%", color: confidenceColor)
                 if item.isBNPLMerchant {
-                    BadgeView(text: item.bnplResolved ? "BNPL" : "BNPL · select plan",
-                              color: item.bnplResolved ? FTColor.catPurple : FTColor.gold)
+                    BadgeView(text: bnplBadgeText,
+                              color: item.bnplResolved && !item.bnplNeedsAmountFix ? FTColor.catPurple : FTColor.gold)
                 }
                 if let accountName {
                     BadgeView(text: "→ \(accountName)", color: FTColor.accent)
@@ -619,6 +628,98 @@ private struct EditPendingEmailSheet: View {
     let onApprove: ([LentShare]) -> Void
 
     private var bnplBlocked: Bool { item.isBNPLMerchant && !item.bnplResolved }
+
+    /// What each selected plan received, as typed. Kept as text so a half-typed
+    /// number isn't rewritten under the user's cursor; pushed into the item's
+    /// encoded selection on every change.
+    @State private var allocationTexts: [UUID: String] = [:]
+
+    /// Why a multi-plan charge can't be approved yet, or nil when it can.
+    private var bnplAllocationProblem: String? {
+        let allocations = item.bnplAllocations
+        guard allocations.count >= 2 else { return nil }
+        if allocations.contains(where: { ($0.amount ?? 0) <= 0 }) {
+            return "Enter how much of this charge went to each plan."
+        }
+        let total = allocations.reduce(0) { $0 + ($1.amount ?? 0) }
+        if abs(total - currentAmount) > 0.005 {
+            return "The plan amounts add up to \(total.formatted(as: item.currency)), but this charge is \(currentAmount.formatted(as: item.currency))."
+        }
+        return nil
+    }
+
+    private var bnplExplanation: String {
+        if bnplBlocked {
+            return "This is a BNPL charge — pick the installment plan(s) it pays (or “No linked plan”) to enable approval."
+        }
+        if let problem = bnplAllocationProblem { return problem }
+        let count = item.bnplAllocations.count
+        if count >= 2 {
+            return "Approving records one payment per plan and advances each plan by one installment. Your account is debited once, for the whole charge."
+        }
+        return "Approving records this as a BNPL payment\(count == 1 ? " and advances the plan by one installment." : ".")"
+    }
+
+    private func bnplChoiceRow(title: String, subtitle: String?, isOn: Bool,
+                               action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: FTSpacing.md) {
+                Image(systemName: isOn ? "checkmark.circle.fill" : "circle")
+                    .font(.title3)
+                    .foregroundStyle(isOn ? FTColor.accent : FTColor.textMuted)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title).font(.ftBody).foregroundStyle(FTColor.textPrimary)
+                    if let subtitle {
+                        Text(subtitle).font(.ftCaption).foregroundStyle(FTColor.textMuted)
+                    }
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.vertical, FTSpacing.sm)
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isOn ? [.isSelected] : [])
+    }
+
+    /// Picking a plan clears "No linked plan"; picking a second one starts the
+    /// per-plan amounts at each plan's own instalment, since a combined charge
+    /// is usually exactly the instalments added together.
+    private func togglePlan(_ plan: BNPLPlan) {
+        var allocations = item.bnplAllocations
+        if let index = allocations.firstIndex(where: { $0.planId == plan.id }) {
+            allocations.remove(at: index)
+            allocationTexts[plan.id] = nil
+        } else {
+            allocations.append(BNPLAllocation(planId: plan.id, amount: nil))
+        }
+        if allocations.count >= 2 {
+            for index in allocations.indices where allocations[index].amount == nil {
+                let id = allocations[index].planId
+                let suggested = bnplPlans.first(where: { $0.id == id })?.installmentAmount ?? 0
+                allocations[index].amount = suggested
+                allocationTexts[id] = String(format: "%.2f", suggested)
+            }
+        } else {
+            for index in allocations.indices { allocations[index].amount = nil }
+        }
+        item.setBNPLAllocations(allocations)
+    }
+
+    private func allocationTextBinding(for planId: UUID) -> Binding<String> {
+        Binding(
+            get: { allocationTexts[planId] ?? "" },
+            set: { newValue in
+                allocationTexts[planId] = newValue
+                var allocations = item.bnplAllocations
+                guard allocations.count >= 2,
+                      let index = allocations.firstIndex(where: { $0.planId == planId }) else { return }
+                allocations[index].amount = Double(newValue.replacingOccurrences(of: ",", with: ""))
+                item.setBNPLAllocations(allocations)
+            }
+        )
+    }
 
     // "I paid for someone else" — the user bought things at this merchant for
     // friends and wants to be paid back. The purchase stays at the merchant;
@@ -777,31 +878,42 @@ private struct EditPendingEmailSheet: View {
                         .padding(.horizontal, FTSpacing.lg)
                         .ftGlass(FTRadius.md)
 
-                        // BNPL plan selection — required for Tabby/Tamara-style merchants
+                        // BNPL plan(s) — required for Tabby/Tamara-style merchants. One
+                        // charge can pay several plans, so this is a multi-select.
                         if item.isBNPLMerchant {
                             VStack(spacing: 0) {
-                                fieldRow("BNPL Plan") {
-                                    Picker("", selection: Binding(
-                                        get: { item.bnplSelectionRaw ?? "" },
-                                        set: { item.bnplSelectionRaw = $0.isEmpty ? nil : $0 }
-                                    )) {
-                                        Text("Choose…").tag("")
-                                        Text("No linked plan").tag("none")
-                                        ForEach(bnplPlans) { plan in
-                                            Text("\(plan.name) (\(plan.paidInstallments)/\(plan.totalInstallments))")
-                                                .tag(plan.id.uuidString)
+                                bnplChoiceRow(title: "No linked plan", subtitle: nil,
+                                              isOn: item.bnplSelectionRaw == "none") {
+                                    item.bnplSelectionRaw = item.bnplSelectionRaw == "none" ? nil : "none"
+                                }
+                                ForEach(bnplPlans) { plan in
+                                    bnplChoiceRow(
+                                        title: plan.name,
+                                        subtitle: "\(plan.paidInstallments)/\(plan.totalInstallments) paid · \(plan.installmentAmount.formatted(as: plan.currency)) each",
+                                        isOn: item.bnplAllocations.contains { $0.planId == plan.id }
+                                    ) { togglePlan(plan) }
+                                }
+
+                                // With two or more plans, say how much of the charge
+                                // each one received. They must add up to the charge.
+                                if item.bnplAllocations.count >= 2 {
+                                    ForEach(item.bnplAllocations, id: \.planId) { allocation in
+                                        if let plan = bnplPlans.first(where: { $0.id == allocation.planId }) {
+                                            fieldRow("\(plan.name) (\(item.currency))") {
+                                                TextField("0.00", text: allocationTextBinding(for: plan.id))
+                                                    .keyboardType(.decimalPad)
+                                                    .multilineTextAlignment(.trailing)
+                                                    .foregroundStyle(FTColor.textPrimary)
+                                            }
                                         }
                                     }
-                                    .pickerStyle(.menu)
-                                    .accentColor(FTColor.accent)
                                 }
-                                Text(bnplBlocked
-                                     ? "This is a BNPL charge — pick the installment plan it pays (or “No linked plan”) to enable approval."
-                                     : "Approving records this as a BNPL payment\(item.linkedBNPLPlanId != nil ? " and advances the plan by one installment." : ".")")
+
+                                Text(bnplExplanation)
                                     .font(.ftCaption)
-                                    .foregroundStyle(bnplBlocked ? FTColor.gold : FTColor.textMuted)
+                                    .foregroundStyle(bnplBlocked || bnplAllocationProblem != nil ? FTColor.gold : FTColor.textMuted)
                                     .frame(maxWidth: .infinity, alignment: .leading)
-                                    .padding(.bottom, FTSpacing.sm)
+                                    .padding(.vertical, FTSpacing.sm)
                             }
                             .padding(.horizontal, FTSpacing.lg)
                             .ftGlass(FTRadius.md)
@@ -903,7 +1015,7 @@ private struct EditPendingEmailSheet: View {
                         onApprove(lentShares)
                         dismiss()
                     }
-                    .disabled(bnplBlocked || sharesProblem != nil)
+                    .disabled(bnplBlocked || bnplAllocationProblem != nil || sharesProblem != nil)
                     Button("Save Changes Only") {
                         commitEdits()
                         dismiss()
@@ -924,6 +1036,9 @@ private struct EditPendingEmailSheet: View {
                 amountText = AmountTextField.format(String(format: "%.2f", item.amount))
                 tagsText = item.suggestedTags.joined(separator: ", ")
                 originalMerchant = item.merchantNormalized
+                for allocation in item.bnplAllocations {
+                    allocationTexts[allocation.planId] = allocation.amount.map { String(format: "%.2f", $0) } ?? ""
+                }
             }
         }
     }

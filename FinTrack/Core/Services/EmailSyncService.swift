@@ -643,6 +643,40 @@ final class EmailSyncService: NSObject {
     /// `SMSIngestService`) — the parameter and the `wasAutoApproved`/notes
     /// wording it drives are kept only so a manually-triggered call retains
     /// the option, not because anything calls it with `true` today.
+    /// Splits one BNPL charge across the plans it paid.
+    ///
+    /// The portions **always sum to exactly `total`**, whatever the stored
+    /// amounts say: the ledger has to match what actually left the bank, so a
+    /// stale or hand-edited allocation is scaled rather than trusted. A plan
+    /// with no stated amount is weighted by its own instalment; if none state
+    /// one, the charge is split evenly. Rounding drift (a few cents at most) is
+    /// absorbed by the largest portion, which can't be pushed negative by it.
+    /// Plans that no longer exist are dropped, so one deleted plan degrades a
+    /// two-plan charge to a single-plan one rather than failing.
+    static func allocateBNPL(
+        total: Double, allocations: [BNPLAllocation], plans: [BNPLPlan]
+    ) -> [(plan: BNPLPlan, amount: Double)] {
+        var seen = Set<UUID>()
+        let matched: [(plan: BNPLPlan, weight: Double)] = allocations.compactMap { allocation in
+            guard seen.insert(allocation.planId).inserted,
+                  let plan = plans.first(where: { $0.id == allocation.planId }) else { return nil }
+            return (plan, max(allocation.amount ?? plan.installmentAmount, 0))
+        }
+        guard matched.count >= 2 else { return matched.map { ($0.plan, total) } }
+
+        let weightTotal = matched.reduce(0) { $0 + $1.weight }
+        func cents(_ value: Double) -> Double { (value * 100).rounded() / 100 }
+        var result: [(plan: BNPLPlan, amount: Double)] = matched.map { entry in
+            let share = weightTotal > 0 ? entry.weight / weightTotal : 1 / Double(matched.count)
+            return (entry.plan, cents(total * share))
+        }
+        let drift = cents(total - result.reduce(0) { $0 + $1.amount })
+        if drift != 0, let largest = result.indices.max(by: { result[$0].amount < result[$1].amount }) {
+            result[largest].amount = cents(result[largest].amount + drift)
+        }
+        return result
+    }
+
     /// `lentShares`: people who owe the user part of this purchase — the user
     /// paid a merchant for things bought for friends and wants to be paid back.
     ///
@@ -691,15 +725,26 @@ final class EmailSyncService: NSObject {
         if let reference = item.referenceNumber { notes += " · Ref: \(reference)" }
         if autoApproved { notes += " · Auto-approved at \(item.confidencePercent)% confidence" }
 
-        // BNPL: record as an installment payment against the linked plan
-        var linkedPlan: BNPLPlan?
-        if item.isBNPLMerchant, let planId = item.linkedBNPLPlanId,
+        // BNPL: record as an installment payment against the linked plan(s).
+        // One charge can pay several plans (a single Tabby/Tamara debit covering
+        // an instalment of each), in which case it is posted as one transaction
+        // per plan — `Transaction.linkedBNPL` is a single link, and this keeps
+        // every plan's own payment history correct.
+        var postings: [(plan: BNPLPlan, amount: Double)] = []
+        if item.isBNPLMerchant, !item.bnplAllocations.isEmpty,
            let plans = try? context.fetch(FetchDescriptor<BNPLPlan>()) {
-            linkedPlan = plans.first { $0.id == planId }
-            if let plan = linkedPlan {
-                notes += " · BNPL installment \(min(plan.paidInstallments + 1, plan.totalInstallments))/\(plan.totalInstallments) for \(plan.name)"
-            }
+            postings = Self.allocateBNPL(total: item.amount, allocations: item.bnplAllocations, plans: plans)
         }
+        // Splitting only makes sense for money going out; anything else keeps
+        // the original single-plan behaviour.
+        let isMultiPlan = type == .expense && postings.count >= 2
+        let linkedPlan: BNPLPlan? = postings.first?.plan
+
+        func installmentNote(_ plan: BNPLPlan) -> String {
+            " · BNPL installment \(min(plan.paidInstallments + 1, plan.totalInstallments))/\(plan.totalInstallments) for \(plan.name)"
+        }
+        let baseNotes = notes
+        if let plan = linkedPlan { notes += installmentNote(plan) }
 
         let paymentMethod: PaymentMethod = item.isBNPLMerchant
             ? .bnpl
@@ -711,11 +756,17 @@ final class EmailSyncService: NSObject {
                 .joined(separator: ", ")
         }
 
+        // For a multi-plan charge the primary transaction carries only the
+        // first plan's portion; the others are created below. They always sum
+        // to `item.amount`, so the account is still debited the true outflow.
+        let primaryAmount = isMultiPlan ? postings[0].amount : item.amount
         let tx = Transaction(
             title: item.merchantNormalized,
-            amount: item.amount,
+            amount: primaryAmount,
             currency: item.currency,
-            amountInBaseCurrency: baseAmount,
+            amountInBaseCurrency: isMultiPlan
+                ? CurrencyService.shared.convert(primaryAmount, from: item.currency, to: baseCurrency)
+                : baseAmount,
             type: type,
             category: isFullyLent ? .personalLent : item.suggestedCategory,
             date: item.transactionDate,
@@ -750,15 +801,44 @@ final class EmailSyncService: NSObject {
             }
         }
 
-        // Advance the BNPL plan: one installment paid, next due a month out
-        if let plan = linkedPlan, type == .expense {
-            tx.linkedBNPL = plan
+        // Advance a BNPL plan: one installment paid, next due a month out
+        func advance(_ plan: BNPLPlan) {
             plan.paidInstallments = min(plan.paidInstallments + 1, plan.totalInstallments)
             if plan.paidInstallments >= plan.totalInstallments {
                 plan.isCompleted = true
             } else {
                 plan.nextPaymentDate = Calendar.current.date(
                     byAdding: .month, value: 1, to: plan.nextPaymentDate) ?? plan.nextPaymentDate
+            }
+        }
+        if let plan = linkedPlan, type == .expense {
+            tx.linkedBNPL = plan
+            advance(plan)
+        }
+
+        // The remaining plans of a multi-plan charge, one transaction each.
+        // The installment note is read *before* `advance` bumps the counter.
+        var extraTransactions: [Transaction] = []
+        if isMultiPlan {
+            for posting in postings.dropFirst() {
+                let extra = Transaction(
+                    title: item.merchantNormalized,
+                    amount: posting.amount,
+                    currency: item.currency,
+                    amountInBaseCurrency: CurrencyService.shared.convert(
+                        posting.amount, from: item.currency, to: baseCurrency),
+                    type: type,
+                    category: item.suggestedCategory,
+                    date: item.transactionDate,
+                    notes: baseNotes + installmentNote(posting.plan),
+                    merchant: item.merchantNormalized,
+                    paymentMethod: paymentMethod,
+                    tags: item.suggestedTags,
+                    isVerified: true
+                )
+                extra.linkedBNPL = posting.plan
+                advance(posting.plan)
+                extraTransactions.append(extra)
             }
         }
 
@@ -780,6 +860,8 @@ final class EmailSyncService: NSObject {
         }
         if let account = target {
             tx.account = account
+            for extra in extraTransactions { extra.account = account }
+            // Debited once for the whole charge, however many plans it paid.
             let delta = CurrencyService.shared.convert(item.amount, from: item.currency, to: account.currency)
             switch type {
             case .income:  account.balance += delta
@@ -789,6 +871,7 @@ final class EmailSyncService: NSObject {
         }
 
         context.insert(tx)
+        for extra in extraTransactions { context.insert(extra) }
         item.status = .approved
         item.reviewedAt = Date()
         item.approvedTransactionId = tx.id
@@ -805,7 +888,7 @@ final class EmailSyncService: NSObject {
             rawMerchant: item.merchantRaw, tags: item.suggestedTags)
 
         AuditLogService.log(context: context,
-            "\(autoApproved ? "Auto-approved" : "Approved") email import: \(item.merchantNormalized) \(item.currency) \(String(format: "%.2f", item.amount)) from \(item.bankName)\(autoApproved ? " (\(item.confidencePercent)% ≥ threshold)" : "")\(shares.isEmpty ? "" : " — \(item.currency) \(String(format: "%.2f", lentTotal)) owed back by \(shares.map(\.borrower).joined(separator: ", "))")")
+            "\(autoApproved ? "Auto-approved" : "Approved") email import: \(item.merchantNormalized) \(item.currency) \(String(format: "%.2f", item.amount)) from \(item.bankName)\(autoApproved ? " (\(item.confidencePercent)% ≥ threshold)" : "")\(isMultiPlan ? " — split across \(postings.count) BNPL plans" : "")\(shares.isEmpty ? "" : " — \(item.currency) \(String(format: "%.2f", lentTotal)) owed back by \(shares.map(\.borrower).joined(separator: ", "))")")
         try? context.save()
     }
 

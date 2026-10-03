@@ -361,8 +361,59 @@ extension PendingEmailTransaction {
     /// True once the user has made a BNPL choice (a plan or explicitly none).
     var bnplResolved: Bool { bnplSelectionRaw != nil }
 
-    var linkedBNPLPlanId: UUID? {
-        guard let raw = bnplSelectionRaw, raw != "none" else { return nil }
-        return UUID(uuidString: raw)
+    /// The plan(s) this charge paid. `bnplSelectionRaw` is a plain `String?`, so
+    /// several plans are encoded into it rather than adding a property (which
+    /// would be a schema bump, wiping local data):
+    ///
+    ///     nil                       no choice made yet
+    ///     "none"                    explicitly not linked to any plan
+    ///     "<uuid>"                  one plan (the only format that existed
+    ///                               before multi-plan, so old data still reads)
+    ///     "<uuid>:200.00,<uuid>:250.00"
+    ///                               several plans, with how much of the charge
+    ///                               each one received
+    ///
+    /// UUIDs contain neither "," nor ":", and `String(format:)` always writes a
+    /// "." decimal point, so the encoding is unambiguous in any locale.
+    var bnplAllocations: [BNPLAllocation] {
+        guard let raw = bnplSelectionRaw, raw != "none" else { return [] }
+        return raw.split(separator: ",").compactMap { token in
+            let parts = token.split(separator: ":", maxSplits: 1)
+            guard let first = parts.first, let id = UUID(uuidString: String(first)) else { return nil }
+            let amount = parts.count > 1 ? Double(parts[1]) : nil
+            return BNPLAllocation(planId: id, amount: amount)
+        }
     }
+
+    /// Writes the plan choice back. An amount is only stored when the charge
+    /// pays more than one plan; with a single plan the whole charge is implied.
+    func setBNPLAllocations(_ allocations: [BNPLAllocation]) {
+        guard !allocations.isEmpty else { bnplSelectionRaw = nil; return }
+        bnplSelectionRaw = allocations.map { allocation in
+            if allocations.count >= 2, let amount = allocation.amount {
+                return "\(allocation.planId.uuidString):\(String(format: "%.2f", amount))"
+            }
+            return allocation.planId.uuidString
+        }.joined(separator: ",")
+    }
+
+    /// The first plan, kept for callers written when a charge could only have one.
+    var linkedBNPLPlanId: UUID? { bnplAllocations.first?.planId }
+
+    /// True when the charge pays several plans but the per-plan amounts are
+    /// missing or don't add up to the charge. The ledger has to match what left
+    /// the bank, so approval is held until the amounts are fixed in the sheet.
+    var bnplNeedsAmountFix: Bool {
+        let allocations = bnplAllocations
+        guard allocations.count >= 2 else { return false }
+        guard allocations.allSatisfy({ ($0.amount ?? 0) > 0 }) else { return true }
+        return abs(allocations.reduce(0) { $0 + ($1.amount ?? 0) } - amount) > 0.005
+    }
+}
+
+/// One plan a BNPL charge paid, and — only when a single charge pays several
+/// plans — how much of the charge went to it.
+struct BNPLAllocation: Equatable {
+    var planId: UUID
+    var amount: Double?
 }
