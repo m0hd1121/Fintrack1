@@ -31,6 +31,14 @@ enum EmailSyncError: LocalizedError {
     }
 }
 
+/// One person's share of a purchase the user paid for on their behalf — what
+/// they owe back. Plain value type passed into `approveToLedger`; it is not
+/// persisted itself (each becomes a `MoneyLent`), so there is no schema impact.
+struct LentShare: Equatable {
+    var borrower: String
+    var amount: Double
+}
+
 // MARK: - EmailSyncService
 
 /// Orchestrates the email → pending-transaction pipeline.
@@ -635,16 +643,23 @@ final class EmailSyncService: NSObject {
     /// `SMSIngestService`) — the parameter and the `wasAutoApproved`/notes
     /// wording it drives are kept only so a manually-triggered call retains
     /// the option, not because anything calls it with `true` today.
-    /// `lentTo`: the borrower's name when the user marked this outgoing
-    /// payment as money they lent. The bank movement is the real outflow, so
-    /// this is a *variant of the one posting*, not a second one: the ledger
-    /// transaction is recorded as "Lent to …" under `.personalLent`, linked to
-    /// a new `MoneyLent` record, and the account is debited exactly once by
-    /// the shared account logic below. (Creating a lent record by hand posts
-    /// its own outflow — see `AddMoneyLentView` — which would double-count
-    /// here, since the money has already left the account.)
+    /// `lentShares`: people who owe the user part of this purchase — the user
+    /// paid a merchant for things bought for friends and wants to be paid back.
+    ///
+    /// The purchase stays exactly what it was: same merchant, same title, the
+    /// account debited once for the full amount by the shared account logic
+    /// below. Each share additionally becomes a `MoneyLent` record, which is
+    /// what the Money Lent screens track repayments against. If only part of
+    /// the bill is owed back, the transaction is split so spending reports
+    /// count just the user's own share under its normal category and the
+    /// friends' share under `.personalLent`; if all of it is owed back, the
+    /// whole transaction is `.personalLent`.
+    ///
+    /// Not routed through `AddMoneyLentView`'s save: that posts its own
+    /// outgoing transaction and debits the account, which would double-count a
+    /// payment that has already left it.
     func approveToLedger(item: PendingEmailTransaction, context: ModelContext,
-                         autoApproved: Bool = false, lentTo: String? = nil) {
+                         autoApproved: Bool = false, lentShares: [LentShare] = []) {
         guard item.status == .pending else { return }
         // BNPL charges must have a plan selection (or an explicit "no plan")
         // before they can enter the ledger.
@@ -652,14 +667,23 @@ final class EmailSyncService: NSObject {
 
         let type = item.direction.transactionType
 
-        // Lending only makes sense for money going out, and a BNPL instalment
-        // is a payment against a plan, not a loan to a person.
-        let borrower: String? = {
-            guard type == .expense, !item.isBNPLMerchant,
-                  let name = lentTo?.trimmingCharacters(in: .whitespacesAndNewlines),
-                  !name.isEmpty else { return nil }
-            return name
+        // Only an outgoing, non-BNPL payment can be paid on someone's behalf
+        // (a BNPL instalment is a payment against a plan). The sheet validates
+        // before offering the button; this re-checks so a bad combination
+        // degrades to a plain approval rather than posting a wrong split.
+        let shares: [LentShare] = {
+            guard type == .expense, !item.isBNPLMerchant else { return [] }
+            let cleaned = lentShares.compactMap { share -> LentShare? in
+                let name = share.borrower.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !name.isEmpty, share.amount > 0 else { return nil }
+                return LentShare(borrower: name, amount: share.amount)
+            }
+            let total = cleaned.reduce(0) { $0 + $1.amount }
+            return total <= item.amount + 0.005 ? cleaned : []
         }()
+        let lentTotal = min(shares.reduce(0) { $0 + $1.amount }, item.amount)
+        let isFullyLent = !shares.isEmpty && lentTotal >= item.amount - 0.005
+
         let baseCurrency = UserDefaults.standard.string(forKey: "base_currency") ?? "AED"
         let baseAmount = CurrencyService.shared.convert(item.amount, from: item.currency, to: baseCurrency)
 
@@ -681,13 +705,19 @@ final class EmailSyncService: NSObject {
             ? .bnpl
             : (item.cardLast4 != nil ? .debitCard : .bankTransfer)
 
+        if !shares.isEmpty {
+            notes += " · Paid for " + shares
+                .map { "\($0.borrower) (\(item.currency) \(String(format: "%.2f", $0.amount)))" }
+                .joined(separator: ", ")
+        }
+
         let tx = Transaction(
-            title: borrower.map { "Lent to \($0)" } ?? item.merchantNormalized,
+            title: item.merchantNormalized,
             amount: item.amount,
             currency: item.currency,
             amountInBaseCurrency: baseAmount,
             type: type,
-            category: borrower != nil ? .personalLent : item.suggestedCategory,
+            category: isFullyLent ? .personalLent : item.suggestedCategory,
             date: item.transactionDate,
             notes: notes,
             merchant: item.merchantNormalized,
@@ -696,16 +726,28 @@ final class EmailSyncService: NSObject {
             isVerified: true
         )
 
-        if let borrower {
-            let lent = MoneyLent(
-                borrowerName: borrower,
-                amount: item.amount,
-                currency: item.currency,
-                lendingDate: item.transactionDate,
-                notes: "From \(item.bankName) review queue"
-            )
-            context.insert(lent)
-            tx.linkedMoneyLentId = lent.id
+        if !shares.isEmpty {
+            // Split amounts are in the transaction's own currency (see
+            // `Transaction.spendingPairs`, which scales them to base).
+            if !isFullyLent {
+                tx.splitItems = [
+                    SplitItem(category: item.suggestedCategory, amount: item.amount - lentTotal),
+                    SplitItem(category: .personalLent, amount: lentTotal)
+                ]
+            }
+            for share in shares {
+                let lent = MoneyLent(
+                    borrowerName: share.borrower,
+                    amount: share.amount,
+                    currency: item.currency,
+                    lendingDate: item.transactionDate,
+                    notes: "Paid for at \(item.merchantNormalized) · \(item.bankName) review queue"
+                )
+                context.insert(lent)
+                // One person is an unambiguous 1:1 link; with several there is
+                // no single record to point at, and nothing reads this field.
+                if shares.count == 1 { tx.linkedMoneyLentId = lent.id }
+            }
         }
 
         // Advance the BNPL plan: one installment paid, next due a month out
@@ -752,9 +794,10 @@ final class EmailSyncService: NSObject {
         item.approvedTransactionId = tx.id
         item.wasAutoApproved = autoApproved
 
-        // A lent payment didn't use the suggested category, so it must not
-        // count as the user confirming it.
-        if borrower == nil {
+        // When the whole purchase is owed back it wasn't filed under the
+        // suggested category, so that mustn't count as the user confirming it.
+        // A partial share keeps the suggested category for the user's own part.
+        if !isFullyLent {
             CategoryLearningService.shared.recordCorrection(
                 merchant: item.merchantNormalized, category: item.suggestedCategory)
         }
@@ -762,7 +805,7 @@ final class EmailSyncService: NSObject {
             rawMerchant: item.merchantRaw, tags: item.suggestedTags)
 
         AuditLogService.log(context: context,
-            "\(autoApproved ? "Auto-approved" : "Approved") email import: \(item.merchantNormalized) \(item.currency) \(String(format: "%.2f", item.amount)) from \(item.bankName)\(autoApproved ? " (\(item.confidencePercent)% ≥ threshold)" : "")\(borrower.map { " — recorded as money lent to \($0)" } ?? "")")
+            "\(autoApproved ? "Auto-approved" : "Approved") email import: \(item.merchantNormalized) \(item.currency) \(String(format: "%.2f", item.amount)) from \(item.bankName)\(autoApproved ? " (\(item.confidencePercent)% ≥ threshold)" : "")\(shares.isEmpty ? "" : " — \(item.currency) \(String(format: "%.2f", lentTotal)) owed back by \(shares.map(\.borrower).joined(separator: ", "))")")
         try? context.save()
     }
 

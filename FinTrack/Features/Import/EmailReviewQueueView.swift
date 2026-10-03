@@ -27,7 +27,7 @@ struct EmailReviewQueueView: View {
     /// requires an explicit "Approve Anyway" tap, so a same transaction
     /// reported by both email and SMS can't be posted twice by accident.
     @State private var pendingDuplicateApproval: PendingEmailTransaction? = nil
-    @State private var pendingDuplicateLentTo: String? = nil
+    @State private var pendingDuplicateLentShares: [LentShare] = []
 
     // Multi-select. BNPL charges each need a plan chosen before they can be
     // approved, which used to mean opening the edit sheet once per charge;
@@ -250,14 +250,14 @@ struct EmailReviewQueueView: View {
             Button("Approve Anyway") {
                 if let item = pendingDuplicateApproval {
                     EmailSyncService.shared.approveToLedger(
-                        item: item, context: context, lentTo: pendingDuplicateLentTo)
+                        item: item, context: context, lentShares: pendingDuplicateLentShares)
                 }
                 pendingDuplicateApproval = nil
-                pendingDuplicateLentTo = nil
+                pendingDuplicateLentShares = []
             }
             Button("Cancel", role: .cancel) {
                 pendingDuplicateApproval = nil
-                pendingDuplicateLentTo = nil
+                pendingDuplicateLentShares = []
             }
         } message: {
             Text(pendingDuplicateApproval?.duplicateReason ?? "This looks like a transaction you already have — often the same alert reported by both email and SMS.")
@@ -289,7 +289,7 @@ struct EmailReviewQueueView: View {
                 item: item,
                 accounts: accounts.filter { !$0.isArchived },
                 bnplPlans: bnplPlans.filter { !$0.isCompleted },
-                onApprove: { lentTo in approve(item, lentTo: lentTo) }
+                onApprove: { shares in approve(item, lentShares: shares) }
             )
         }
     }
@@ -447,9 +447,9 @@ struct EmailReviewQueueView: View {
 
     // MARK: - Approve
 
-    /// `lentTo` is only ever supplied by the edit sheet, where the user marked
-    /// the payment as money they lent. Swipe and bulk approvals never pass it.
-    private func approve(_ item: PendingEmailTransaction, lentTo: String? = nil) {
+    /// `lentShares` is only ever supplied by the edit sheet, where the user said
+    /// they paid for someone else. Swipe and bulk approvals never pass it.
+    private func approve(_ item: PendingEmailTransaction, lentShares: [LentShare] = []) {
         // BNPL charges need a plan selection first — route to the edit sheet
         if item.isBNPLMerchant && !item.bnplResolved {
             editingItem = item
@@ -460,11 +460,11 @@ struct EmailReviewQueueView: View {
         if item.isPossibleDuplicate {
             pendingDuplicateApproval = item
             // Remembered across the dialog, or confirming would silently drop
-            // the "lent" choice and post a plain expense.
-            pendingDuplicateLentTo = lentTo
+            // who owes what and post a plain expense.
+            pendingDuplicateLentShares = lentShares
             return
         }
-        EmailSyncService.shared.approveToLedger(item: item, context: context, lentTo: lentTo)
+        EmailSyncService.shared.approveToLedger(item: item, context: context, lentShares: lentShares)
     }
 
     // MARK: - Reject
@@ -614,19 +614,65 @@ private struct EditPendingEmailSheet: View {
     @Bindable var item: PendingEmailTransaction
     let accounts: [Account]
     var bnplPlans: [BNPLPlan] = []
-    /// Receives the borrower's name when the payment was marked as money lent,
-    /// otherwise nil.
-    let onApprove: (String?) -> Void
+    /// Receives who owes the user what when they paid for someone else;
+    /// empty for an ordinary approval.
+    let onApprove: ([LentShare]) -> Void
 
     private var bnplBlocked: Bool { item.isBNPLMerchant && !item.bnplResolved }
-    /// Money in (a refund, a salary) isn't something you lend, and a BNPL
-    /// instalment is a payment against a plan rather than a loan to a person.
-    private var canMarkAsLent: Bool { item.direction == .debit && !item.isBNPLMerchant }
-    @State private var markAsLent = false
-    @State private var borrowerName = ""
-    private var lentNameMissing: Bool {
-        markAsLent && borrowerName.trimmingCharacters(in: .whitespaces).isEmpty
+
+    // "I paid for someone else" — the user bought things at this merchant for
+    // friends and wants to be paid back. The purchase stays at the merchant;
+    // each person added here owes a share of it.
+    @State private var paidForOthers = false
+    @State private var people: [PersonDraft] = []
+
+    struct PersonDraft: Identifiable {
+        let id = UUID()
+        var name = ""
+        var amountText = ""
     }
+
+    /// Money in (a refund, a salary) isn't paid on anyone's behalf, and a BNPL
+    /// instalment is a payment against a plan rather than a purchase for a friend.
+    private var canMarkAsLent: Bool { item.direction == .debit && !item.isBNPLMerchant }
+
+    /// The amount as currently typed — the user may correct it in this same
+    /// sheet, so the shares are checked against that, not the stored value.
+    private var currentAmount: Double {
+        Double(amountText.replacingOccurrences(of: ",", with: "")).flatMap { $0 > 0 ? $0 : nil } ?? item.amount
+    }
+
+    private func amount(of person: PersonDraft) -> Double? {
+        Double(person.amountText.replacingOccurrences(of: ",", with: "")).flatMap { $0 > 0 ? $0 : nil }
+    }
+
+    private var sharesTotal: Double { people.reduce(0) { $0 + (amount(of: $1) ?? 0) } }
+
+    /// Why the shares can't be saved yet, or nil when they're fine. Shown in
+    /// place of the explanation so the disabled button is never a mystery.
+    private var sharesProblem: String? {
+        guard paidForOthers else { return nil }
+        if people.isEmpty { return "Add who owes you." }
+        if people.contains(where: { $0.name.trimmingCharacters(in: .whitespaces).isEmpty }) {
+            return "Add a name for each person."
+        }
+        if people.contains(where: { amount(of: $0) == nil }) {
+            return "Enter what each person owes."
+        }
+        if sharesTotal > currentAmount + 0.005 {
+            return "Their shares add up to more than this purchase."
+        }
+        return nil
+    }
+
+    private var lentShares: [LentShare] {
+        guard paidForOthers else { return [] }
+        return people.compactMap { person in
+            guard let owed = amount(of: person) else { return nil }
+            return LentShare(borrower: person.name, amount: owed)
+        }
+    }
+
     private var isSMSSource: Bool { item.senderAddress.hasPrefix("sms:") }
     private var isApplePaySource: Bool { item.senderAddress.hasPrefix("applepay:") }
 
@@ -761,29 +807,66 @@ private struct EditPendingEmailSheet: View {
                             .ftGlass(FTRadius.md)
                         }
 
-                        // Money lent — an outgoing payment that someone owes back.
+                        // Paid for someone else — friends owe the user part of this purchase.
                         if canMarkAsLent {
                             VStack(spacing: 0) {
-                                Toggle(isOn: $markAsLent) {
-                                    Text("This was money I lent")
+                                Toggle(isOn: $paidForOthers.animation()) {
+                                    Text("I paid for someone else")
                                         .font(.ftBody).foregroundStyle(FTColor.textPrimary)
                                 }
                                 .tint(FTColor.accent)
                                 .padding(.vertical, FTSpacing.sm)
-
-                                if markAsLent {
-                                    fieldRow("Borrower") {
-                                        TextField("Name", text: $borrowerName)
-                                            .multilineTextAlignment(.trailing)
-                                            .foregroundStyle(FTColor.textPrimary)
+                                .onChange(of: paidForOthers) { _, isOn in
+                                    // Start with one person owing the whole bill —
+                                    // the common case is trimming it down, not
+                                    // typing a number from scratch.
+                                    if isOn && people.isEmpty {
+                                        people = [PersonDraft(amountText: String(format: "%.2f", currentAmount))]
                                     }
                                 }
 
-                                Text(markAsLent
-                                     ? "Approving records this payment as “Lent to \(borrowerName.isEmpty ? "…" : borrowerName)” and adds it to Money Lent so you can track repayments. The account is debited once, by this payment."
-                                     : "Turn on if someone owes you this back — it will be tracked under Money Lent.")
+                                if paidForOthers {
+                                    ForEach($people) { $person in
+                                        VStack(spacing: 0) {
+                                            fieldRow("Who owes you") {
+                                                TextField("Name", text: $person.name)
+                                                    .multilineTextAlignment(.trailing)
+                                                    .foregroundStyle(FTColor.textPrimary)
+                                            }
+                                            fieldRow("Their share (\(item.currency))") {
+                                                TextField("0.00", text: $person.amountText)
+                                                    .keyboardType(.decimalPad)
+                                                    .multilineTextAlignment(.trailing)
+                                                    .foregroundStyle(FTColor.textPrimary)
+                                            }
+                                            if people.count > 1 {
+                                                Button(role: .destructive) {
+                                                    people.removeAll { $0.id == person.id }
+                                                } label: {
+                                                    Label("Remove", systemImage: "minus.circle")
+                                                        .font(.ftCaption)
+                                                }
+                                                .frame(maxWidth: .infinity, alignment: .trailing)
+                                                .padding(.bottom, FTSpacing.xs)
+                                            }
+                                        }
+                                    }
+                                    Button {
+                                        people.append(PersonDraft())
+                                    } label: {
+                                        Label("Add another person", systemImage: "plus.circle")
+                                            .font(.ftCallout)
+                                    }
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.vertical, FTSpacing.sm)
+                                }
+
+                                Text(paidForOthers
+                                     ? (sharesProblem
+                                        ?? "The purchase stays recorded at \(item.merchantNormalized) and your account is debited once. Each person's share is added to Money Lent so you can track it coming back\(sharesTotal < currentAmount - 0.005 ? ", and only the rest counts as your own spending" : "").")
+                                     : "Turn on if you bought this for friends and they owe you part of it back.")
                                     .font(.ftCaption)
-                                    .foregroundStyle(lentNameMissing ? FTColor.gold : FTColor.textMuted)
+                                    .foregroundStyle(sharesProblem != nil ? FTColor.gold : FTColor.textMuted)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .padding(.bottom, FTSpacing.sm)
                             }
@@ -814,13 +897,13 @@ private struct EditPendingEmailSheet: View {
                 }
 
                 VStack(spacing: FTSpacing.sm) {
-                    PrimaryButton(markAsLent ? "Save & Record as Lent" : "Save & Approve",
+                    PrimaryButton(paidForOthers ? "Save & Track What They Owe" : "Save & Approve",
                                   icon: "checkmark.circle.fill") {
                         commitEdits()
-                        onApprove(markAsLent ? borrowerName : nil)
+                        onApprove(lentShares)
                         dismiss()
                     }
-                    .disabled(bnplBlocked || lentNameMissing)
+                    .disabled(bnplBlocked || sharesProblem != nil)
                     Button("Save Changes Only") {
                         commitEdits()
                         dismiss()
@@ -841,9 +924,6 @@ private struct EditPendingEmailSheet: View {
                 amountText = AmountTextField.format(String(format: "%.2f", item.amount))
                 tagsText = item.suggestedTags.joined(separator: ", ")
                 originalMerchant = item.merchantNormalized
-                // Bank transfers usually carry the recipient's name as the
-                // merchant, so it's the best starting guess for the borrower.
-                if borrowerName.isEmpty { borrowerName = item.merchantNormalized }
             }
         }
     }
