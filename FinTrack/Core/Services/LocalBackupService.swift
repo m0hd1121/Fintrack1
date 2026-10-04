@@ -331,5 +331,36 @@ final class LocalBackupService {
         return try await body()
     }
 
+    /// Runs `wipe` (a full data clear) with automatic backups held off, then
+    /// erases every on-device copy of the user's data: the backup file and the
+    /// Keychain snapshot that outlives an uninstall.
+    ///
+    /// Both have to go. Leaving them means "Clear All Data" keeps a complete
+    /// copy on the device — and the Keychain snapshot is what a reinstall
+    /// restores from, so the cleared data would come back the first time the
+    /// user deleted and reinstalled the app. Holding backups off *during* the
+    /// wipe stops the deletions themselves triggering a backup of a
+    /// half-deleted store; waiting for an in-flight backup stops one landing
+    /// after the erase.
+    ///
+    /// Copies the user sent elsewhere (Google Drive, email) are not touched.
+    func eraseBackupsAround(_ wipe: () async -> Void) async {
+        suppressAutoBackup = true
+        pendingBackupTask?.cancel()
+        defer { suppressAutoBackup = false }
+
+        while isBackingUp || isRestoring {
+            try? await Task.sleep(for: .milliseconds(200))
+        }
+
+        await wipe()
+
+        for backup in listBackups() {
+            try? FileManager.default.removeItem(at: backup.url)
+        }
+        KeychainStore.delete(key: snapshotKeychainKey)
+        lastBackupDate = nil
+    }
+
     @MainActor func clearError() { lastError = nil }
 }

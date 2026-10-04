@@ -25,7 +25,7 @@ The app uses **wipe-and-recreate** (not migrations). In `FinTrack/App/FinTrackAp
 let currentSchemaVersion = "v28"   // ← bump this string
 ```
 
-Bump whenever adding new `@Model` classes or non-optional properties to existing ones. Also register every new `@Model` in the `Schema([...])` array in `FinTrackApp.swift`. Failing to bump causes a crash on launch.
+Bump whenever adding new `@Model` classes or non-optional properties to existing ones. Also register every new `@Model` in `AppSchema.modelTypes` (`FinTrack/Core/Models/AppSchema.swift`) — the one list `FinTrackApp` builds its `Schema` from and `DataResetService` walks to clear data, so a model missing from it is both a launch crash and a model "Clear All Data" can't see. Failing to bump causes a crash on launch.
 
 ## Architecture
 

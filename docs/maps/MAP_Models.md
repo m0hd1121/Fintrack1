@@ -2,7 +2,7 @@
 
 Part of PROJECT_MAP.md (see root for navigation). All files under `FinTrack/Core/Models/`.
 
-**Schema check**: all 53 `@Model` classes are registered in `Schema([...])` in `FinTrack/App/FinTrackApp.swift` (~line 37-90). No orphaned models. No `@Attribute(.unique)` anywhere (CloudKit compatibility).
+**Schema check**: all 53 `@Model` classes are registered in `AppSchema.modelTypes` (`FinTrack/Core/Models/AppSchema.swift`), the single list `FinTrackApp` builds its `Schema` from and `DataResetService` walks to wipe user data — **register new models there and nowhere else**. No orphaned models. No `@Attribute(.unique)` anywhere (CloudKit compatibility).
 
 Notation: `TypeName { prop:Type, ..., relationship→OtherType?, computed:name:Type }`
 

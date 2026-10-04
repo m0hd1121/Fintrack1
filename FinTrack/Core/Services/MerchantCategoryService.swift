@@ -30,6 +30,14 @@ final class MerchantCategoryService {
         cache = (UserDefaults.standard.dictionary(forKey: cacheKey) as? [String: String]) ?? [:]
     }
 
+    /// Drops every cached merchant lookup. The cache is a list of merchants the
+    /// user has transacted with, so it goes with "Clear All Data"; it is rebuilt
+    /// on demand. The in-memory copy is cleared too, or it would be rewritten.
+    func clearCache() {
+        cache = [:]
+        UserDefaults.standard.removeObject(forKey: cacheKey)
+    }
+
     /// Always on. Merchant→category map lookup is a silent enhancement with no
     /// user-facing toggle; any value a previously-shown toggle may have stored
     /// is ignored so the feature can never get stuck off.

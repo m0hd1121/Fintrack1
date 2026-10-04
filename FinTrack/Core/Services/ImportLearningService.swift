@@ -39,6 +39,20 @@ final class ImportLearningService {
 
     var learnedAliasCount: Int { merchantAliases.count }
 
+    /// Forgets everything learned from the user's imports — renames, tags and
+    /// rejection counts. Part of "Clear All Data": the merchant names in these
+    /// are the user's own history. The in-memory copies are reset too, or the
+    /// next learned item would write the old dictionaries straight back.
+    func clearAll() {
+        merchantAliases = [:]
+        merchantTags = [:]
+        rejectionCounts = [:]
+        let defaults = UserDefaults.standard
+        defaults.removeObject(forKey: aliasKey)
+        defaults.removeObject(forKey: tagsKey)
+        defaults.removeObject(forKey: rejectionKey)
+    }
+
     // MARK: - Merchant normalization
 
     /// "AMZN Mktp AE" → key "amznmktpae"

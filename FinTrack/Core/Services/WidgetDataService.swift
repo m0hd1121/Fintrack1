@@ -105,6 +105,24 @@ final class WidgetDataService {
         WidgetCenter.shared.reloadAllTimelines()
     }
 
+    /// Removes everything this service has published or queued: the snapshots
+    /// Siri and the widgets read (net worth, budgets, accounts, goals, recent
+    /// transactions, bills) and the not-yet-processed SMS, Apple Pay and Siri
+    /// queues. "Clear All Data" calls this — otherwise Siri would go on
+    /// answering with the user's old balances after everything was deleted.
+    func clearAll() {
+        let keys = [
+            "widget_net_worth", "widget_currency", "widget_recent_transactions",
+            "widget_budgets", "widget_bills", "widget_upcoming_payments",
+            "widget_accounts", "widget_goals",
+            "pending_transactions", "pending_sms_texts", "pending_applepay",
+        ]
+        for defaults in snapshotStores {
+            for key in keys { defaults.removeObject(forKey: key) }
+        }
+        WidgetCenter.shared.reloadAllTimelines()
+    }
+
     /// Read side for the App Intents — always the store that persists.
     func snapshot<T: Decodable>(_ type: [T].Type, forKey key: String) -> [T] {
         guard let data = UserDefaults.standard.data(forKey: key),

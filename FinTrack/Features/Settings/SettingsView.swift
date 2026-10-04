@@ -29,6 +29,7 @@ struct SettingsView: View {
     @State private var showingImportMode = false
     @State private var showingResult = false
     @State private var resultMessage = ""
+    @State private var clearFailureMessage: String? = nil
 
     // MARK: - Bindings
 
@@ -264,7 +265,7 @@ struct SettingsView: View {
             Button("Delete Everything", role: .destructive) { clearAllData() }
             Button("Cancel", role: .cancel) { }
         } message: {
-            Text("This will permanently delete all financial data — transactions, accounts, budgets, investments, debts, tax records, bills, assets, and more. Your app settings and preferences will be kept. This action cannot be undone.")
+            Text("This will permanently delete all financial data — transactions, accounts, budgets, investments, debts, tax records, bills, assets, imported items waiting for review, and more — along with the backup copies stored on this device. Backups you sent to Google Drive or email aren't affected. Your app settings, preferences and connected mailboxes will be kept. This action cannot be undone.")
         }
         .fileImporter(
             isPresented: $showingImporter,
@@ -292,6 +293,14 @@ struct SettingsView: View {
             Button("OK") { }
         } message: {
             Text(resultMessage)
+        }
+        .alert("Some data wasn't deleted", isPresented: Binding(
+            get: { clearFailureMessage != nil },
+            set: { if !$0 { clearFailureMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) { clearFailureMessage = nil }
+        } message: {
+            Text(clearFailureMessage ?? "")
         }
     }
 
@@ -455,67 +464,18 @@ struct SettingsView: View {
         showingResult = true
     }
 
+    /// Everything is in `DataResetService`, which walks the schema rather than a
+    /// list kept here (that list had fallen behind) and also clears what lives
+    /// outside the database — Spotlight, Siri/widget snapshots, learned
+    /// merchants, on-device backups. It reports anything it couldn't delete, so
+    /// a partial clear is never mistaken for a complete one.
     private func clearAllData() {
-        // Financial records
-        try? context.delete(model: Transaction.self)
-        try? context.delete(model: Account.self)
-        try? context.delete(model: Budget.self)
-        try? context.delete(model: SavingsGoal.self)
-        try? context.delete(model: BudgetEnvelope.self)
-        try? context.delete(model: BudgetTemplate.self)
-        try? context.delete(model: Loan.self)
-        try? context.delete(model: CreditCard.self)
-        try? context.delete(model: BNPLPlan.self)
-        try? context.delete(model: GiftCard.self)
-        try? context.delete(model: LoyaltyProgram.self)
-        // Investments
-        try? context.delete(model: Investment.self)
-        try? context.delete(model: CryptoHolding.self)
-        try? context.delete(model: Dividend.self)
-        try? context.delete(model: GoldHolding.self)
-        // Bills & income
-        try? context.delete(model: Bill.self)
-        try? context.delete(model: SalaryRecord.self)
-        try? context.delete(model: FreelanceProject.self)
-        try? context.delete(model: RentalProperty.self)
-        // Debt tracking
-        try? context.delete(model: MoneyLent.self)
-        try? context.delete(model: MoneyBorrowed.self)
-        // Assets & net worth
-        try? context.delete(model: RealEstateProperty.self)
-        try? context.delete(model: Vehicle.self)
-        try? context.delete(model: PersonalAsset.self)
-        try? context.delete(model: DigitalAsset.self)
-        try? context.delete(model: NetWorthSnapshot.self)
-        try? context.delete(model: NetWorthMilestone.self)
-        // Tax
-        try? context.delete(model: TaxRecord.self)
-        try? context.delete(model: TaxDocument.self)
-        try? context.delete(model: ZakatRecord.self)
-        try? context.delete(model: TaxConfiguration.self)
-        // Business
-        try? context.delete(model: ClientProfile.self)
-        try? context.delete(model: BusinessInvoice.self)
-        try? context.delete(model: MileageTrip.self)
-        try? context.delete(model: BusinessProject.self)
-        // Family
-        try? context.delete(model: FamilyGroup.self)
-        try? context.delete(model: ChildProfile.self)
-        try? context.delete(model: SharedFamilyGoal.self)
-        // Premium
-        try? context.delete(model: RetirementPlan.self)
-        try? context.delete(model: LifeEventPlan.self)
-        try? context.delete(model: AdvisorAccess.self)
-        // Misc
-        try? context.delete(model: RemittanceRecord.self)
-        try? context.delete(model: InsurancePolicy.self)
-        try? context.delete(model: ImportedFile.self)
-        try? context.delete(model: DocumentAttachment.self)
-        try? context.delete(model: AuditLogEntry.self)
-        // User-configured rules/categories (clear alongside data)
-        try? context.delete(model: CategorizationRule.self)
-        try? context.delete(model: CustomCategory.self)
-        try? context.save()
+        Task {
+            let leftover = await DataResetService.clearAll(context: context)
+            if !leftover.isEmpty {
+                clearFailureMessage = "These couldn't be deleted: \(leftover.joined(separator: ", ")). Try again, and if it keeps happening, restart the app first."
+            }
+        }
     }
 }
 
