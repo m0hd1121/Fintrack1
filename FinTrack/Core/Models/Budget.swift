@@ -110,7 +110,10 @@ final class Budget {
     // `spent` is never updated (spend is computed live by BudgetService), so
     // there are deliberately no remaining/progress accessors built on it.
     var isOverBudget: Bool { spent > (amount + rolloverAmount) }
-    var isNearLimit: Bool { progress >= alertThreshold && !isOverBudget }
+    var isNearLimit: Bool {
+        let cap = amount + rolloverAmount
+        return cap > 0 && spent / cap >= alertThreshold && !isOverBudget
+    }
 
     init(
         id: UUID = UUID(),
