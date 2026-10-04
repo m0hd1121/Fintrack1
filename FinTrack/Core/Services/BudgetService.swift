@@ -34,6 +34,8 @@ struct BudgetRecommendation: Identifiable {
     let suggestedAmount: Double?
     let category: TransactionCategory?
     var isDismissed: Bool = false
+    /// The budget an increase/decrease recommendation adjusts.
+    var budgetId: UUID? = nil
 
     enum RecommendationType {
         case createBudget
@@ -115,7 +117,7 @@ final class BudgetService {
     /// appears in the transaction text; falls back to a general (unfiltered) budget for
     /// the category when no keyword matches.
     func matchingBudget(title: String, merchant: String?, category: TransactionCategory, budgets: [Budget]) -> Budget? {
-        let candidates = budgets.filter { $0.isActive && $0.category == category }
+        let candidates = budgets.filter { $0.isInEffect(during: Date()) && $0.category == category }
         guard candidates.count > 1 else { return candidates.first }
 
         let lowerTitle = title.lowercased()
@@ -372,7 +374,8 @@ final class BudgetService {
                     title: "Adjust \(budget.name)",
                     description: "Your 3-month average for \(budget.category.rawValue) is \(avg.formatted(as: sampleCurrency)) — \(overPct)% over your \(limitInBase.formatted(as: sampleCurrency)) budget.",
                     suggestedAmount: (avg * 1.05).rounded(),
-                    category: budget.category
+                    category: budget.category,
+                    budgetId: budget.id
                 ))
             } else if avg < limitInBase * 0.6 && avg > 10 {
                 // Budget consistently under-spent — suggest decreasing
@@ -382,7 +385,8 @@ final class BudgetService {
                     title: "Optimize \(budget.name)",
                     description: "You only spend \(underPct)% of your \(budget.name) budget on average. Reducing it frees up budget for other categories.",
                     suggestedAmount: (avg * 1.1).rounded(),
-                    category: budget.category
+                    category: budget.category,
+                    budgetId: budget.id
                 ))
             }
         }

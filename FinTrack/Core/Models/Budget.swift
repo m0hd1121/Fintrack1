@@ -59,6 +59,18 @@ struct BudgetRecommendationRecord: Codable {
     var dismissedIDs: [String] = []
 }
 
+// MARK: - Budget validity
+
+extension Budget {
+    /// Active and not past its optional expiration (`endDate`) for the month
+    /// containing `date`.
+    func isInEffect(during date: Date) -> Bool {
+        guard isActive else { return false }
+        guard let endDate else { return true }
+        return endDate >= date.startOfMonth
+    }
+}
+
 // MARK: - Budget (enhanced)
 
 @Model
@@ -95,9 +107,8 @@ final class Budget {
     var notifiedThresholds: [Double]
     var notifiedMonth: Int  // calendar month (1-12) when thresholds were last fired
 
-    // Computed
-    var remaining: Double { (amount + rolloverAmount) - spent }
-    var progress: Double { let cap = amount + rolloverAmount; return cap > 0 ? min(spent / cap, 1.0) : 0 }
+    // `spent` is never updated (spend is computed live by BudgetService), so
+    // there are deliberately no remaining/progress accessors built on it.
     var isOverBudget: Bool { spent > (amount + rolloverAmount) }
     var isNearLimit: Bool { progress >= alertThreshold && !isOverBudget }
 

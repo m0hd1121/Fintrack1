@@ -44,11 +44,11 @@ struct BudgetView: View {
     // MARK: Spending computation
 
     private var activeMonthlyBudgets: [Budget] {
-        budgets.filter { $0.isActive && $0.period == .monthly }
+        budgets.filter { $0.isInEffect(during: selectedMonth) && $0.period == .monthly }
     }
 
     private var activeYearlyBudgets: [Budget] {
-        budgets.filter { $0.isActive && $0.period == .yearly }
+        budgets.filter { $0.isInEffect(during: selectedMonth) && $0.period == .yearly }
     }
 
     /// Single-pass spending by category for the selected month.
@@ -254,8 +254,8 @@ struct BudgetView: View {
                 BudgetRecommendationsView(
                     recommendations: $recommendations,
                     budgets: budgets,
-                    onCreateBudget: { cat, amount in
-                        createBudgetFromRecommendation(category: cat, amount: amount)
+                    onCreateBudget: { rec, cat, amount in
+                        applyRecommendation(rec, category: cat, amount: amount)
                     }
                 )
             }
@@ -444,7 +444,7 @@ struct BudgetView: View {
 
             sectionHeader("Year-to-Date by Category", action: nil, onAction: nil)
 
-            let allAnnualBudgets = budgets.filter { $0.isActive }
+            let allAnnualBudgets = budgets.filter { $0.isInEffect(during: selectedMonth) }
 
             if allAnnualBudgets.isEmpty {
                 EmptyStateView(
@@ -987,7 +987,15 @@ struct BudgetView: View {
         try? context.save()
     }
 
-    private func createBudgetFromRecommendation(category: TransactionCategory, amount: Double) {
+    /// "Apply" on an increase/decrease recommendation changes the budget it is
+    /// about (suggested amounts are in the base currency); only a create
+    /// recommendation adds a new budget.
+    private func applyRecommendation(_ rec: BudgetRecommendation, category: TransactionCategory, amount: Double) {
+        if let id = rec.budgetId, let existing = budgets.first(where: { $0.id == id }) {
+            existing.amount = currencyService.convert(amount, from: baseCurrency, to: existing.currency)
+            try? context.save()
+            return
+        }
         let budget = Budget(
             name: category.rawValue,
             category: category,
@@ -2387,7 +2395,7 @@ struct ApplyTemplateView: View {
 struct BudgetRecommendationsView: View {
     @Binding var recommendations: [BudgetRecommendation]
     let budgets: [Budget]
-    let onCreateBudget: (TransactionCategory, Double) -> Void
+    let onCreateBudget: (BudgetRecommendation, TransactionCategory, Double) -> Void
     @Environment(\.dismiss) private var dismiss
 
     var activeRecs: [BudgetRecommendation] { recommendations.filter { !$0.isDismissed } }
@@ -2472,7 +2480,7 @@ struct BudgetRecommendationsView: View {
                         .font(.ftCallout).foregroundStyle(FTColor.textPrimary)
                     Spacer()
                     Button {
-                        onCreateBudget(cat, amount)
+                        onCreateBudget(rec, cat, amount)
                         withAnimation {
                             if let idx = recommendations.firstIndex(where: { $0.id == rec.id }) {
                                 recommendations[idx].isDismissed = true
