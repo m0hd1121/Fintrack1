@@ -12,7 +12,7 @@ Excluded from line-by-line: `logo.png` (binary), `.xcworkspace/contents.xcworksp
 | 3 | Core/Utilities, UI/ | 5 / 1343 | done |
 | 4 | Core/Models | 30 / 6640 | done |
 | 5 | Core/Services (+SMS) | 52 / 16962 | done |
-| 6 | Features (by folder, alphabetical) | 104 / ~63k | in progress — done: AIAssistant, Accounts, AppIntents, Assets, Bills, Budget, Business, Categories, Dashboard, Debt, Family, Import, Income, Intelligence, Investments, LiveActivity, NetWorth, Onboarding, Premium, Remittance, Reports |
+| 6 | Features (by folder, alphabetical) | 104 / ~63k | in progress — done: AIAssistant, Accounts, AppIntents, Assets, Bills, Budget, Business, Categories, Dashboard, Debt, Family, Import, Income, Intelligence, Investments, LiveActivity, NetWorth, Onboarding, Premium, Remittance, Reports, SavingsGoals, Settings |
 | 7 | FinTrackWidget, FinTrackWatch (not in any build target) | 6 / 1641 | todo |
 | 8 | Write architecture/maintenance, slim CLAUDE.md, retire PROJECT_MAP.md + docs/maps | — | todo |
 
@@ -25,7 +25,7 @@ Stage 6 continues with `Features/SavingsGoals` (then SavingsGoals, Settings, Tax
 
 ## Open items to verify while reading Features (stage 6)
 - `Double.asPercentage()` does **not** multiply by 100 (`Extensions.swift:130`). Call sites passing 0…1 fractions render 100× too small (25% → "0.3%"). Confirmed: `AIAnalyticsService.swift:339,636`, `AIAssistantView.swift:78,439,484`, `DigitalTwinView.swift:94`. Also confirmed: utilization fractions in `DebtManagementView` (hero, `CreditCardDebtCard`, `CardUtilizationRow`). Check the rest of the list from `grep -rn "asPercentage(" FinTrack` as each file is read (all confirmed: Family, AICFOMode, EstatePlanning, Reports DebtReport; remaining Reports call sites pass ×100 values correctly).
-- Do Settings notification toggles gate anything? (`NotificationSettingsView`)
+- ~~Notification toggles~~ RESOLVED: they gate nothing (see Settings in code-map).
 - ~~Siri queue~~ CONFIRMED: `LogExpense/LogIncome` (`FinTrackIntents.swift:85,116`) → `WidgetDataService.enqueuePendingTransaction` → App Group suite only (no entitlement → not persisted).
 - `AmountTextField.string(from:)` `%g` callers in `AddTransactionView` (edit prefill).
 - `AddTransactionView` sets `linkedBNPL` for `.bnpl` payment-method txs (line ~1588): is that tx an installment (does it advance the plan)? `BNPLDetailSheet` treats every linked tx as a payment.
