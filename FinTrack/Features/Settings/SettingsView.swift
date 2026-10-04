@@ -30,6 +30,15 @@ struct SettingsView: View {
     @State private var showingResult = false
     @State private var resultMessage = ""
     @State private var clearFailureMessage: String? = nil
+    /// Import and Clear All Data run for seconds (key derivation, full
+    /// import/wipe). Shown as a blocking overlay so they can't be started twice.
+    @State private var busyMessage: String? = nil
+
+    private var appVersion: String {
+        let info = Bundle.main.infoDictionary
+        let version = info?["CFBundleShortVersionString"] as? String ?? "1.0"
+        return "v\(version)"
+    }
 
     // MARK: - Bindings
 
@@ -228,7 +237,7 @@ struct SettingsView: View {
                 sectionCard("About") {
                     Button { showingAbout = true } label: {
                         settingRow(symbol: "info.circle", tint: FTColor.accent, title: "About FinTrack",
-                                   value: "v1.0.1", chevron: true)
+                                   value: appVersion, chevron: true)
                     }
                     rowDivider
                     NavigationLink(destination: LazyView { PrivacyPolicyView() }) {
@@ -250,6 +259,22 @@ struct SettingsView: View {
         }
         .scrollContentBackground(.hidden)
         .background { FTBackdrop() }
+        .overlay {
+            if let busyMessage {
+                ZStack {
+                    Color.black.opacity(0.25).ignoresSafeArea()
+                    VStack(spacing: FTSpacing.md) {
+                        ProgressView()
+                        Text(busyMessage).font(.ftBody).foregroundStyle(FTColor.textPrimary)
+                    }
+                    .padding(FTSpacing.xxl)
+                    .ftGlass(FTRadius.lg)
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityAddTraits(.updatesFrequently)
+            }
+        }
+        .disabled(busyMessage != nil)
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showingCurrencyPicker) {
@@ -329,16 +354,21 @@ struct SettingsView: View {
             }
 
             VStack(alignment: .leading, spacing: 4) {
+                // Saved on Return (and by SwiftData's autosave) rather than a
+                // store save on every keystroke.
                 TextField("Your Name", text: Binding(
                     get: { profile?.name ?? "" },
-                    set: { profile?.name = $0; try? context.save() }
+                    set: { profile?.name = $0 }
                 ))
                 .font(.ftHeadline)
                 .foregroundStyle(FTColor.textPrimary)
+                .textContentType(.name)
+                .submitLabel(.done)
+                .onSubmit { try? context.save() }
 
                 if let email = profile?.email, !email.isEmpty {
                     Text(email).font(.ftBody).foregroundStyle(FTColor.textSecondary)
-                } else {
+                } else if (profile?.name ?? "").isEmpty {
                     Text("Tap to set your name").font(.ftBody).foregroundStyle(FTColor.textMuted)
                 }
             }
@@ -375,12 +405,17 @@ struct SettingsView: View {
                 }
             }
             Spacer()
-            Button("Refresh") {
-                Task { await currencyService.fetchLiveRates(baseCurrency: appState.baseCurrency) }
+            if currencyService.isLoading {
+                ProgressView()
+                    .accessibilityLabel("Refreshing exchange rates")
+            } else {
+                Button("Refresh") {
+                    Task { await currencyService.fetchLiveRates(baseCurrency: appState.baseCurrency) }
+                }
+                .font(.ftCallout)
+                .buttonStyle(.glass)
+                .tint(FTColor.accent)
             }
-            .font(.ftCallout)
-            .buttonStyle(.glass)
-            .tint(FTColor.accent)
         }
         .padding(FTSpacing.lg)
         .ftGlass(FTRadius.md)
@@ -391,9 +426,10 @@ struct SettingsView: View {
     private func sectionCard<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: FTSpacing.sm) {
             Text(title.uppercased())
-                .font(.ftLabel).tracking(1.4)
+                .font(.ftLabel).tracking(1.4).fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(FTColor.textSecondary)
                 .padding(.leading, FTSpacing.xs)
+                .accessibilityAddTraits(.isHeader)
             VStack(spacing: 0) { content() }
                 .padding(.horizontal, FTSpacing.lg)
                 .ftGlass(FTRadius.md)
@@ -447,7 +483,12 @@ struct SettingsView: View {
     // items; Replace wipes first, then restores.
 
     private func runImport(mode: DataTransferService.ImportMode) {
-        Task { await runImportAsync(mode: mode) }
+        guard busyMessage == nil else { return }
+        busyMessage = "Restoring backup…"
+        Task {
+            await runImportAsync(mode: mode)
+            busyMessage = nil
+        }
     }
 
     private func runImportAsync(mode: DataTransferService.ImportMode) async {
@@ -498,10 +539,17 @@ struct SettingsView: View {
     }
 
     private func clearAllData() {
+        guard busyMessage == nil else { return }
+        busyMessage = "Deleting data…"
         Task {
             let leftover = await DataResetService.clearAll(context: context)
+            busyMessage = nil
             if !leftover.isEmpty {
                 clearFailureMessage = "These couldn't be deleted: \(leftover.joined(separator: ", ")). Try again, and if it keeps happening, restart the app first."
+            } else {
+                // Was silent on success.
+                resultMessage = "All financial data was deleted."
+                showingResult = true
             }
         }
     }
@@ -548,6 +596,7 @@ struct CurrencyPickerView: View {
                         }
                     }
                 }
+                .accessibilityAddTraits(currency.code == selectedCurrency ? [.isSelected] : [])
             }
             .scrollContentBackground(.hidden)
             .background { FTBackdrop() }
@@ -569,8 +618,10 @@ struct AboutView: View {
     var body: some View {
         NavigationStack {
             ZStack {
+                // Scrolls when it doesn't fit (small phones, large text).
+                ScrollView {
                 VStack(spacing: 32) {
-                    Spacer()
+                    Spacer(minLength: FTSpacing.lg)
 
                     VStack(spacing: FTSpacing.lg) {
                         ZStack {
@@ -586,7 +637,7 @@ struct AboutView: View {
                             .font(.ftDisplay)
                             .foregroundStyle(FTColor.textPrimary)
 
-                        Text("Version 1.0.1")
+                        Text("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")")
                             .font(.ftBody)
                             .foregroundStyle(FTColor.textSecondary)
                     }
@@ -621,7 +672,9 @@ struct AboutView: View {
                         .font(.ftCaption)
                         .foregroundStyle(FTColor.textSecondary)
 
-                    Spacer()
+                    Spacer(minLength: FTSpacing.lg)
+                }
+                .frame(maxWidth: .infinity)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
