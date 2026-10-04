@@ -576,6 +576,7 @@ struct ChatBubble: View {
 
 struct ThinkingBubble: View {
     @State private var dotScale: [CGFloat] = [1, 1, 1]
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(alignment: .bottom, spacing: 8) {
@@ -593,7 +594,11 @@ struct ThinkingBubble: View {
             Spacer()
         }
         .padding(.horizontal, 4)
+        .accessibilityElement()
+        .accessibilityLabel("Thinking")
         .onAppear {
+            // A perpetual bounce; with Reduce Motion the dots stay still.
+            guard !reduceMotion else { return }
             for i in 0..<3 {
                 withAnimation(Animation.easeInOut(duration: 0.4).repeatForever().delay(Double(i) * 0.15)) {
                     dotScale[i] = 1.5

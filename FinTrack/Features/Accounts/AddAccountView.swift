@@ -5,6 +5,7 @@ import SwiftData
 
 struct AddAccountView: View {
     @Environment(\.dismiss) private var dismiss
+    @State private var didSubmit = false
     @Environment(\.modelContext) private var context
     @Environment(CurrencyService.self) private var currencyService
 
@@ -354,6 +355,7 @@ struct AddAccountView: View {
     }
 
     private func save() {
+        guard !didSubmit else { return }
         let bankLabel: String
         let customLabel: String?
         if accountType == .digitalWallet {
@@ -413,6 +415,7 @@ struct AddAccountView: View {
             context.insert(account)
         }
         try? context.save()
+        didSubmit = true   // a second tap during the dismiss animation can't save twice
         dismiss()
     }
 }
@@ -421,6 +424,7 @@ struct AddAccountView: View {
 
 struct AddCreditCardView: View {
     @Environment(\.dismiss) private var dismiss
+    @State private var didSubmit = false
     @Environment(\.modelContext) private var context
     @Environment(CurrencyService.self) private var currencyService
 
@@ -607,6 +611,7 @@ struct AddCreditCardView: View {
     }
 
     private func save() {
+        guard !didSubmit else { return }
         let card = CreditCard(
             name: name,
             bankName: bankName,
@@ -625,6 +630,7 @@ struct AddCreditCardView: View {
             minimumPayment: card.minimumPayment, currency: currency, id: card.id.uuidString
         )
         try? context.save()
+        didSubmit = true   // a second tap during the dismiss animation can't save twice
         dismiss()
     }
 }
@@ -633,6 +639,7 @@ struct AddCreditCardView: View {
 
 struct AddLoanView: View {
     @Environment(\.dismiss) private var dismiss
+    @State private var didSubmit = false
     @Environment(\.modelContext) private var context
     @Environment(CurrencyService.self) private var currencyService
 
@@ -897,6 +904,7 @@ struct AddLoanView: View {
     }
 
     private func save() {
+        guard !didSubmit else { return }
         if let loan = editingLoan {
             loan.name = name
             loan.loanType = loanType
@@ -939,6 +947,7 @@ struct AddLoanView: View {
             )
         }
         try? context.save()
+        didSubmit = true   // a second tap during the dismiss animation can't save twice
         dismiss()
     }
 }
@@ -947,6 +956,7 @@ struct AddLoanView: View {
 
 struct AddBNPLView: View {
     @Environment(\.dismiss) private var dismiss
+    @State private var didSubmit = false
     @Environment(\.modelContext) private var context
     @Environment(CurrencyService.self) private var currencyService
 
@@ -1134,6 +1144,7 @@ struct AddBNPLView: View {
     }
 
     private func save() {
+        guard !didSubmit else { return }
         if let plan = editingPlan {
             plan.name = name
             plan.provider = provider
@@ -1167,6 +1178,7 @@ struct AddBNPLView: View {
             )
         }
         try? context.save()
+        didSubmit = true   // a second tap during the dismiss animation can't save twice
         dismiss()
     }
 }
@@ -1175,6 +1187,7 @@ struct AddBNPLView: View {
 
 struct AddGiftCardView: View {
     @Environment(\.dismiss) private var dismiss
+    @State private var didSubmit = false
     @Environment(\.modelContext) private var context
     @Environment(CurrencyService.self) private var currencyService
 
@@ -1334,6 +1347,7 @@ struct AddGiftCardView: View {
     }
 
     private func save() {
+        guard !didSubmit else { return }
         let card = GiftCard(
             merchant: merchant,
             balance: AmountTextField.double(from: balance),
@@ -1355,6 +1369,7 @@ struct AddGiftCardView: View {
                 id: card.id.uuidString
             )
         }
+        didSubmit = true   // a second tap during the dismiss animation can't save twice
         dismiss()
     }
 }
@@ -1363,6 +1378,7 @@ struct AddGiftCardView: View {
 
 struct AddLoyaltyProgramView: View {
     @Environment(\.dismiss) private var dismiss
+    @State private var didSubmit = false
     @Environment(\.modelContext) private var context
     @Environment(CurrencyService.self) private var currencyService
 
@@ -1571,6 +1587,7 @@ struct AddLoyaltyProgramView: View {
     }
 
     private func save() {
+        guard !didSubmit else { return }
         let program = LoyaltyProgram(
             name: name,
             programType: programType,
@@ -1595,6 +1612,7 @@ struct AddLoyaltyProgramView: View {
                 id: program.id.uuidString
             )
         }
+        didSubmit = true   // a second tap during the dismiss animation can't save twice
         dismiss()
     }
 }
@@ -1603,6 +1621,7 @@ struct AddLoyaltyProgramView: View {
 
 struct EditInvestmentView: View {
     @Environment(\.dismiss) private var dismiss
+    @State private var didSubmit = false
     @Environment(\.modelContext) private var context
     let investment: Investment
 
@@ -1678,11 +1697,13 @@ struct EditInvestmentView: View {
         }
     }
     private func save() {
+        guard !didSubmit else { return }
         investment.name = name
         investment.quantity = Double(quantity) ?? investment.quantity
         investment.averageCost = Double(averageCost.replacingOccurrences(of: ",", with: "")) ?? investment.averageCost
         investment.currentPrice = Double(currentPrice.replacingOccurrences(of: ",", with: "")) ?? investment.currentPrice
         investment.exchange = exchange.isEmpty ? nil : exchange
+        didSubmit = true   // a second tap during the dismiss animation can't save twice
         try? context.save(); dismiss()
     }
 }
@@ -1691,6 +1712,7 @@ struct EditInvestmentView: View {
 
 struct EditCryptoView: View {
     @Environment(\.dismiss) private var dismiss
+    @State private var didSubmit = false
     @Environment(\.modelContext) private var context
     let holding: CryptoHolding
 
@@ -1766,11 +1788,13 @@ struct EditCryptoView: View {
         }
     }
     private func save() {
+        guard !didSubmit else { return }
         holding.quantity = Double(quantity) ?? holding.quantity
         holding.averageCost = Double(averageCost.replacingOccurrences(of: ",", with: "")) ?? holding.averageCost
         holding.currentPrice = Double(currentPrice.replacingOccurrences(of: ",", with: "")) ?? holding.currentPrice
         holding.exchange = exchange.isEmpty ? nil : exchange
         holding.walletAddress = walletAddress.isEmpty ? nil : walletAddress
+        didSubmit = true   // a second tap during the dismiss animation can't save twice
         try? context.save(); dismiss()
     }
 }
@@ -1779,6 +1803,7 @@ struct EditCryptoView: View {
 
 struct EditGoldHoldingView: View {
     @Environment(\.dismiss) private var dismiss
+    @State private var didSubmit = false
     @Environment(\.modelContext) private var context
     let holding: GoldHolding
 
@@ -1854,11 +1879,13 @@ struct EditGoldHoldingView: View {
         }
     }
     private func save() {
+        guard !didSubmit else { return }
         holding.name = name
         holding.weightGrams = Double(weightGrams) ?? holding.weightGrams
         holding.purchasePricePerGram = Double(purchasePricePerGram.replacingOccurrences(of: ",", with: "")) ?? holding.purchasePricePerGram
         holding.currentPricePerGram = Double(currentPricePerGram.replacingOccurrences(of: ",", with: "")) ?? holding.currentPricePerGram
         holding.storageLocation = storageLocation.isEmpty ? nil : storageLocation
+        didSubmit = true   // a second tap during the dismiss animation can't save twice
         try? context.save(); dismiss()
     }
 }
@@ -1867,6 +1894,7 @@ struct EditGoldHoldingView: View {
 
 struct EditGiftCardView: View {
     @Environment(\.dismiss) private var dismiss
+    @State private var didSubmit = false
     @Environment(\.modelContext) private var context
     let card: GiftCard
 
@@ -1939,10 +1967,12 @@ struct EditGiftCardView: View {
         }
     }
     private func save() {
+        guard !didSubmit else { return }
         card.merchant = merchant; card.balance = Double(balance.replacingOccurrences(of: ",", with: "")) ?? card.balance
         card.cardNumber = cardNumber.isEmpty ? nil : cardNumber
         card.expiryDate = hasExpiry ? expiryDate : nil
         card.notes = notes.isEmpty ? nil : notes
+        didSubmit = true   // a second tap during the dismiss animation can't save twice
         try? context.save(); dismiss()
     }
 }
@@ -1951,6 +1981,7 @@ struct EditGiftCardView: View {
 
 struct EditLoyaltyProgramView: View {
     @Environment(\.dismiss) private var dismiss
+    @State private var didSubmit = false
     @Environment(\.modelContext) private var context
     let program: LoyaltyProgram
 
@@ -2031,11 +2062,13 @@ struct EditLoyaltyProgramView: View {
         }
     }
     private func save() {
+        guard !didSubmit else { return }
         program.points = Double(points) ?? program.points
         program.pointsValuePerUnit = Double(pointsValuePerUnit) ?? program.pointsValuePerUnit
         program.membershipNumber = membershipNumber.isEmpty ? nil : membershipNumber
         program.tier = tier.isEmpty ? nil : tier
         program.expiryDate = hasExpiry ? expiryDate : nil
+        didSubmit = true   // a second tap during the dismiss animation can't save twice
         try? context.save(); dismiss()
     }
 }

@@ -538,7 +538,7 @@ struct SubscriptionsTabContent: View {
             // Auto-Pay Missed alerts
             if !autoPayMissedBills.isEmpty {
                 VStack(alignment: .leading, spacing: FTSpacing.sm) {
-                    BillSectionHeader(title: "Auto-Pay Alerts", symbol: "exclamationmark.triangle.fill", tint: .orange)
+                    BillSectionHeader(title: "Auto-Pay Alerts", symbol: "exclamationmark.triangle.fill", tint: FTColor.gold)
                         .padding(.horizontal, FTSpacing.screen)
 
                     VStack(spacing: FTSpacing.sm) {
@@ -772,11 +772,11 @@ private struct AutoPayWarningCard: View {
         HStack(spacing: FTSpacing.md) {
             ZStack {
                 Circle()
-                    .fill(Color.orange.opacity(0.18))
+                    .fill(FTColor.gold.opacity(0.18))
                     .frame(width: 40, height: 40)
                 Image(systemName: "exclamationmark.circle.fill")
                     .font(.system(size: 20, weight: .semibold))
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(FTColor.gold)
             }
 
             VStack(alignment: .leading, spacing: 3) {

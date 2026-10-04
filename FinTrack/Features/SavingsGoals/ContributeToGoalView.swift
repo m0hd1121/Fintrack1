@@ -6,6 +6,7 @@ import SwiftData
 struct ContributeToGoalView: View {
     @Bindable var goal: SavingsGoal
     @Environment(\.dismiss) private var dismiss
+    @State private var didSubmit = false
     @Environment(\.modelContext) private var context
     @Environment(AppState.self) private var appState
     @Query(sort: \Account.name) private var accounts: [Account]
@@ -211,6 +212,7 @@ struct ContributeToGoalView: View {
     // MARK: - Apply
 
     private func applyContribution() {
+        guard !didSubmit else { return }
         guard parsedAmount > 0 else { return }
         if isWithdrawal {
             goal.currentAmount = max(0, goal.currentAmount - parsedAmount)
@@ -231,6 +233,7 @@ struct ContributeToGoalView: View {
             NotificationService.shared.scheduleSavingsGoalMilestone(goal: goal, milestone: milestone)
         }
         try? context.save()
+        didSubmit = true   // a second tap during the dismiss animation can't save twice
         dismiss()
     }
 

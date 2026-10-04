@@ -34,8 +34,8 @@ struct AppColors {
     )
 
     // Card tints
-    static let cardBackground = Color(.systemBackground)
-    static let secondaryBackground = Color(.secondarySystemBackground)
+    static let cardBackground = FTColor.bgElevated
+    static let secondaryBackground = FTColor.bgBase
     static let tertiaryBackground = Color(.tertiarySystemBackground)
 }
 

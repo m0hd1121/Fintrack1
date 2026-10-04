@@ -1558,6 +1558,7 @@ struct BudgetDetailView: View {
 
 struct AddBudgetView: View {
     @Environment(\.dismiss) private var dismiss
+    @State private var didSubmit = false
     @Environment(\.modelContext) private var context
     @Environment(AppState.self) private var appState
     @Environment(CurrencyService.self) private var currencyService
@@ -1804,6 +1805,7 @@ struct AddBudgetView: View {
     }
 
     private func save() {
+        guard !didSubmit else { return }
         let members = sharedMembersText
             .components(separatedBy: ",")
             .map { $0.trimmingCharacters(in: .whitespaces) }
@@ -1841,6 +1843,7 @@ struct AddBudgetView: View {
             context.insert(budget)
         }
         try? context.save()
+        didSubmit = true   // a second tap during the dismiss animation can't save twice
         dismiss()
     }
 }
@@ -1849,6 +1852,7 @@ struct AddBudgetView: View {
 
 struct AddEnvelopeView: View {
     @Environment(\.dismiss) private var dismiss
+    @State private var didSubmit = false
     @Environment(\.modelContext) private var context
     @Environment(AppState.self) private var appState
     @Query(sort: \BudgetEnvelope.sortOrder) private var existingEnvelopes: [BudgetEnvelope]
@@ -2004,6 +2008,7 @@ struct AddEnvelopeView: View {
     }
 
     private func saveEnvelope() {
+        guard !didSubmit else { return }
         let envelope = BudgetEnvelope(
             name: name,
             icon: selectedIcon,
@@ -2015,6 +2020,7 @@ struct AddEnvelopeView: View {
         )
         context.insert(envelope)
         try? context.save()
+        didSubmit = true   // a second tap during the dismiss animation can't save twice
         dismiss()
     }
 }

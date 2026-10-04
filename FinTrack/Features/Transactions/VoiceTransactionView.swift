@@ -137,6 +137,7 @@ struct VoiceTransactionView: View {
 
 struct WaveformView: View {
     @State private var phase = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var heights: [CGFloat] = (0..<9).map { _ in CGFloat.random(in: 0.3...1.0) }
 
     var body: some View {
@@ -154,7 +155,8 @@ struct WaveformView: View {
             }
         }
         .frame(height: 60)
-        .onAppear { phase = true }
+        .accessibilityHidden(true)
+        .onAppear { phase = !reduceMotion }
     }
 }
 

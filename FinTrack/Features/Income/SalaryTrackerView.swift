@@ -421,7 +421,7 @@ private struct SalaryRecordCard: View {
                     .foregroundStyle(.white)
                     .padding(.horizontal, FTSpacing.md)
                     .padding(.vertical, FTSpacing.xs + 2)
-                    .background(.orange, in: .capsule)
+                    .background(FTColor.gold, in: .capsule)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }

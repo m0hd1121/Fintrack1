@@ -575,7 +575,7 @@ struct CashFlowReport: View {
         return VStack(spacing: 16) {
             // Summary cards
             HStack(spacing: 12) {
-                ReportSummaryCard(title: "Income", amount: totalIncome, currency: currency, color: .green, icon: "arrow.down.circle.fill")
+                ReportSummaryCard(title: "Income", amount: totalIncome, currency: currency, color: FTColor.income, icon: "arrow.down.circle.fill")
                 ReportSummaryCard(title: "Expenses", amount: totalExpenses, currency: currency, color: FTColor.expense, icon: "arrow.up.circle.fill")
             }
 
@@ -869,7 +869,7 @@ struct IncomeReport: View {
             }
 
             HStack(spacing: 12) {
-                ReportSummaryCard(title: "Total Revenue", amount: total, currency: currency, color: .green, icon: "arrow.down.circle.fill")
+                ReportSummaryCard(title: "Total Revenue", amount: total, currency: currency, color: FTColor.income, icon: "arrow.down.circle.fill")
                 ReportSummaryCard(title: "Avg Monthly", amount: avgMonthly, currency: currency, color: FTColor.accent, icon: "calendar.circle.fill")
             }
 
@@ -1067,9 +1067,9 @@ struct NetWorthReport: View {
                     ("Crypto", cryptoTotal, "bitcoinsign.circle.fill", FTColor.catPurple),
                     ("Gold & Metals", goldTotal, "star.circle.fill", FTColor.gold),
                     ("Real Estate", reTotal, "house.fill", FTColor.catCoral),
-                    ("Vehicles", vehTotal, "car.fill", .blue),
-                    ("Personal Assets", paTotal, "sparkles", .orange),
-                    ("Digital Assets", daTotal, "globe", .teal)
+                    ("Vehicles", vehTotal, "car.fill", FTColor.catBlue),
+                    ("Personal Assets", paTotal, "sparkles", FTColor.gold),
+                    ("Digital Assets", daTotal, "globe", FTColor.catTeal)
                 ].filter { $0.amount > 0 }
                 ForEach(Array(assetRows.enumerated()), id: \.offset) { idx, row in
                     NetWorthRow(label: row.label, amount: row.amount, currency: currency, color: row.color, icon: row.icon)

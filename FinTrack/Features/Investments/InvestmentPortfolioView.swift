@@ -1349,6 +1349,7 @@ private struct CryptoLiveBadge: View {
     let lastUpdated: Date?
 
     @State private var pulse = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var label: String {
         guard !isRefreshing else { return "Updating…" }
@@ -1367,11 +1368,11 @@ private struct CryptoLiveBadge: View {
                     .tint(.white)
             } else {
                 Circle()
-                    .fill(Color.green)
+                    .fill(FTColor.income)
                     .frame(width: 6, height: 6)
                     .opacity(pulse ? 0.3 : 1.0)
                     .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: pulse)
-                    .onAppear { pulse = true }
+                    .onAppear { if !reduceMotion { pulse = true } }
             }
             Text(label)
                 .font(.ftLabel)
@@ -1391,6 +1392,7 @@ private struct StockLiveBadge: View {
     let lastUpdated: Date?
 
     @State private var pulse = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var label: String {
         guard !isRefreshing else { return "Updating…" }
@@ -1407,11 +1409,11 @@ private struct StockLiveBadge: View {
                 ProgressView().scaleEffect(0.6).tint(.white)
             } else {
                 Circle()
-                    .fill(Color.green)
+                    .fill(FTColor.income)
                     .frame(width: 6, height: 6)
                     .opacity(pulse ? 0.3 : 1.0)
                     .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: pulse)
-                    .onAppear { pulse = true }
+                    .onAppear { if !reduceMotion { pulse = true } }
             }
             Text(label)
                 .font(.ftLabel).tracking(0.5).foregroundStyle(.white.opacity(0.75))

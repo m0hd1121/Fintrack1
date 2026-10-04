@@ -8,6 +8,7 @@ struct AddBillView: View {
     // MARK: Environment
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
+    @State private var didSubmit = false
 
     // MARK: Editing target
     let editingBill: Bill?
@@ -128,7 +129,7 @@ struct AddBillView: View {
                 HStack(spacing: FTSpacing.md) {
                     FTIconTile(
                         symbol: isSubscription ? "repeat" : "bolt.fill",
-                        tint: isSubscription ? .teal : .yellow,
+                        tint: isSubscription ? FTColor.catTeal : FTColor.gold,
                         size: 36
                     )
                     VStack(alignment: .leading, spacing: 2) {
@@ -619,6 +620,7 @@ struct AddBillView: View {
     }
 
     private func save() {
+        guard !didSubmit else { return }
         // Validation
         let amount = AmountTextField.double(from: amountText)
         guard !name.trimmingCharacters(in: .whitespaces).isEmpty, amount > 0 else {
@@ -679,6 +681,7 @@ struct AddBillView: View {
         }
 
         try? context.save()
+        didSubmit = true   // a second tap during the dismiss animation can't save twice
         dismiss()
     }
 }

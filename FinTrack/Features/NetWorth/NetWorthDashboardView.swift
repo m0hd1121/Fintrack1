@@ -408,7 +408,7 @@ extension NetWorthDashboardView {
                 if vehicleTotal > 0 {
                     AssetBreakdownRow(
                         symbol: "car.fill", label: "Vehicles",
-                        tint: .blue, value: vehicleTotal,
+                        tint: FTColor.catBlue, value: vehicleTotal,
                         total: totalAssets, base: base
                     )
                 }
@@ -422,14 +422,14 @@ extension NetWorthDashboardView {
                 if personalAssetTotal > 0 {
                     AssetBreakdownRow(
                         symbol: "sparkles", label: "Personal Assets",
-                        tint: .orange, value: personalAssetTotal,
+                        tint: FTColor.gold, value: personalAssetTotal,
                         total: totalAssets, base: base
                     )
                 }
                 if digitalAssetTotal > 0 {
                     AssetBreakdownRow(
                         symbol: "globe", label: "Digital Assets",
-                        tint: .teal, value: digitalAssetTotal,
+                        tint: FTColor.catTeal, value: digitalAssetTotal,
                         total: totalAssets, base: base
                     )
                 }
@@ -475,7 +475,7 @@ extension NetWorthDashboardView {
                 if personalDebtTotal > 0 {
                     AssetBreakdownRow(
                         symbol: "person.2.fill", label: "Personal Debts",
-                        tint: .orange, value: personalDebtTotal,
+                        tint: FTColor.gold, value: personalDebtTotal,
                         total: totalLiabilities, base: base
                     )
                 }

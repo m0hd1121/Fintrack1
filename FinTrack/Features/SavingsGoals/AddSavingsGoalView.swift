@@ -5,6 +5,7 @@ import SwiftData
 
 struct AddSavingsGoalView: View {
     @Environment(\.dismiss) private var dismiss
+    @State private var didSubmit = false
     @Environment(\.modelContext) private var context
     @Environment(AppState.self) private var appState
     @Environment(CurrencyService.self) private var currencyService
@@ -692,6 +693,7 @@ struct AddSavingsGoalView: View {
     }
 
     private func save() {
+        guard !didSubmit else { return }
         let targetAmt = AmountTextField.double(from: targetAmount)
         let currentAmt = AmountTextField.double(from: currentAmount)
         let contribAmt = AmountTextField.double(from: autoContribAmount)
@@ -757,6 +759,7 @@ struct AddSavingsGoalView: View {
             }
         }
         try? context.save()
+        didSubmit = true   // a second tap during the dismiss animation can't save twice
         dismiss()
     }
 }

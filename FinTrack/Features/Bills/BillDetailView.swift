@@ -169,7 +169,7 @@ struct BillDetailView: View {
                     .foregroundStyle(.white)
                     .padding(.horizontal, FTSpacing.md)
                     .padding(.vertical, FTSpacing.xs + 2)
-                    .background(.orange, in: .capsule)
+                    .background(FTColor.gold, in: .capsule)
             } else {
                 HStack(spacing: FTSpacing.xs) {
                     Image(systemName: "calendar")
