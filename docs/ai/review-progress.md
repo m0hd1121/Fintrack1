@@ -12,12 +12,20 @@ Excluded from line-by-line: `logo.png` (binary), `.xcworkspace/contents.xcworksp
 | 3 | Core/Utilities, UI/ | 5 / 1343 | done |
 | 4 | Core/Models | 30 / 6640 | done |
 | 5 | Core/Services (+SMS) | 52 / 16962 | done |
-| 6 | Features (by folder, alphabetical) | 104 / ~61k | todo |
+| 6 | Features (by folder, alphabetical) | 104 / ~63k | in progress — done: AIAssistant, Accounts, AppIntents, Assets, Bills, Budget, LiveActivity |
 | 7 | FinTrackWidget, FinTrackWatch (not in any build target) | 6 / 1641 | todo |
 | 8 | Write architecture/maintenance, slim CLAUDE.md, retire PROJECT_MAP.md + docs/maps | — | todo |
 
 ## Decisions
+- Reading method for large SwiftUI view files (stage 6+): blank lines and lines that *start with* a pure styling modifier (`.font(`, `.foregroundStyle(`, `.padding(`, `.frame(`, `.ftGlass(`, `.tint(`, `.lineLimit(`, `.multilineTextAlignment(`, `Divider()`) are filtered out (`scripts` not committed; command: `grep -vE '^\s*$|^\s*(\.font\(|\.foregroundStyle\(|\.padding\(|\.frame\(|\.ftGlass\(|\.tint\(|\.lineLimit\(|\.multilineTextAlignment\(|Divider\(\))'`). Everything else — logic, bindings, labels, data flow — is read line by line. `AddAccountView.swift` lines ~1250–1800 were read with an earlier, looser filter that also hid label `Text` lines carrying `.font` on the same line (logic unaffected).
 - Canonical reference = `docs/ai/*`. The older `PROJECT_MAP.md` + `docs/maps/MAP_*.md` (~200 KB, partly unverified, with a changelog section) are migrated after verification and retired in stage 8 (recoverable from git at `3411a90`).
 
 ## Next step
-Stage 6: Features, by folder alphabetically (`ls FinTrack/Features`). Add a `## Features` heading to code-map.md, one entry per file. Suspected issues so far are tagged ⚠ inline in code-map.md; consolidate them into maintenance.md in stage 8.
+Stage 6 continues with `Features/Business` (then Categories, Dashboard, Debt, Family, Import, Income, Intelligence, Investments, NetWorth, Onboarding, Premium, Remittance, Reports, SavingsGoals, Settings, Tax, Transactions). Use the filter command in Decisions.
+
+## Open items to verify while reading Features (stage 6)
+- `Double.asPercentage()` does **not** multiply by 100 (`Extensions.swift:130`). Call sites passing 0…1 fractions render 100× too small (25% → "0.3%"). Confirmed: `AIAnalyticsService.swift:339,636`, `AIAssistantView.swift:78,439,484`, `DigitalTwinView.swift:94`. Check the rest of the list from `grep -rn "asPercentage(" FinTrack` as each file is read (Debt utilization, Reports 1512/1587/2009/2351/2424, Family*, ChildAllowance, AICFOMode, EstatePlanning).
+- Do Settings notification toggles gate anything? (`NotificationSettingsView`)
+- Siri `LogExpense/LogIncome` enqueue to the App Group suite (`FinTrackIntents.swift:85,116`) — confirm no other persistence path.
+- `AmountTextField.string(from:)` `%g` callers in `AddTransactionView` (edit prefill).
+- Pushed destinations that wrap themselves in their own `NavigationStack` (all AIAssistant views do) → nested stacks.
