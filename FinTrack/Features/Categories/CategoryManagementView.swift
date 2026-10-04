@@ -10,6 +10,7 @@ struct CategoryManagementView: View {
 
     @State private var showingAddSheet   = false
     @State private var editingCategory: CustomCategory? = nil
+    @State private var newSubcategoryParent: CustomCategory? = nil
     @State private var showingArchived   = false
     @State private var searchText        = ""
 
@@ -76,6 +77,9 @@ struct CategoryManagementView: View {
             }
             .sheet(item: $editingCategory) { cat in
                 EditCategoryView(category: cat, parentCategory: cat.parent)
+            }
+            .sheet(item: $newSubcategoryParent) { parent in
+                EditCategoryView(category: nil, parentCategory: parent)
             }
         }
     }
@@ -167,11 +171,10 @@ struct CategoryManagementView: View {
                 Label("Edit", systemImage: "pencil")
             }
             Button {
-                let sub = CustomCategory(name: "Subcategory", icon: cat.icon, colorHex: cat.colorHex,
-                                        transactionTypeFilter: cat.transactionTypeFilter, parent: cat)
-                context.insert(sub)
-                try? context.save()
-                editingCategory = sub
+                // Open the editor for a new child; nothing is saved until the
+                // user taps Save (a placeholder "Subcategory" used to persist
+                // even when they cancelled).
+                newSubcategoryParent = cat
             } label: {
                 Label("Add Subcategory", systemImage: "plus")
             }
