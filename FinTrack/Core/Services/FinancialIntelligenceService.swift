@@ -139,12 +139,12 @@ final class FinancialIntelligenceService {
         components.append(HealthScoreComponent(
             name: "Cash Flow", score: flowScore, weight: 20,
             explanation: netFlow >= 0
-                ? "Income exceeded spending by \(netFlow.asCompact(currency: "AED")) over two months."
-                : "Spending exceeded income by \((-netFlow).asCompact(currency: "AED")) over two months."))
+                ? "Income exceeded spending by \(netFlow.asCompact(currency: CurrencyService.shared.baseCurrencyCode)) over two months."
+                : "Spending exceeded income by \((-netFlow).asCompact(currency: CurrencyService.shared.baseCurrencyCode)) over two months."))
 
         // 3. Emergency fund / liquidity (weight 20): months of expenses covered by liquid balances
         let liquid = accounts.filter { !$0.isArchived }.reduce(0.0) {
-            $0 + CurrencyService.shared.convert($1.balance, from: $1.currency, to: "AED")
+            $0 + CurrencyService.shared.convert($1.balance, from: $1.currency, to: CurrencyService.shared.baseCurrencyCode)
         }
         let avgMonthlyExpense = max(1, expenses / 2)
         let runway = liquid / avgMonthlyExpense
@@ -163,7 +163,7 @@ final class FinancialIntelligenceService {
         } else {
             let overCount = activeBudgets.filter { budget in
                 let spent = currentSpend[budget.category] ?? 0
-                return spent > CurrencyService.shared.convert(budget.amount, from: budget.currency, to: "AED")
+                return spent > CurrencyService.shared.convert(budget.amount, from: budget.currency, to: CurrencyService.shared.baseCurrencyCode)
             }.count
             let ratio = 1 - Double(overCount) / Double(activeBudgets.count)
             components.append(HealthScoreComponent(
@@ -175,7 +175,7 @@ final class FinancialIntelligenceService {
 
         // 5. Debt pressure (weight 10): loan EMIs vs income
         let monthlyDebt = loans.filter { $0.isActive }.reduce(0.0) {
-            $0 + CurrencyService.shared.convert($1.emiAmount, from: $1.currency, to: "AED")
+            $0 + CurrencyService.shared.convert($1.emiAmount, from: $1.currency, to: CurrencyService.shared.baseCurrencyCode)
         }
         let avgMonthlyIncome = max(1, income / 2)
         let debtRatio = monthlyDebt / avgMonthlyIncome

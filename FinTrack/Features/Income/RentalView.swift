@@ -23,7 +23,10 @@ struct RentalView: View {
     }
 
     private var totalMonthlyRent: Double {
-        activeProperties.reduce(0) { $0 + $1.currentMonthlyRent }
+        // Properties carry their own currency; the summary is in the base one.
+        activeProperties.reduce(0) {
+            $0 + CurrencyService.shared.convert($1.currentMonthlyRent, from: $1.currency, to: CurrencyService.shared.baseCurrencyCode)
+        }
     }
 
     private var averageCollectionRate: Double {
@@ -77,7 +80,7 @@ struct RentalView: View {
                 Text("Total Monthly Rent")
                     .font(.ftCaption)
                     .foregroundStyle(FTColor.textMuted)
-                Text(totalMonthlyRent.formatted(as: "AED"))
+                Text(totalMonthlyRent.formatted(as: CurrencyService.shared.baseCurrencyCode))
                     .font(.ftAmount)
                     .foregroundStyle(FTColor.income)
             }

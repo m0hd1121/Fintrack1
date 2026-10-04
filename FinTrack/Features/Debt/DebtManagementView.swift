@@ -2297,7 +2297,7 @@ private struct ExtraPaymentControl: View {
                 Spacer()
 
                 VStack(spacing: 2) {
-                    Text(amount.formatted(as: "AED"))
+                    Text(amount.formatted(as: CurrencyService.shared.baseCurrencyCode))
                         .font(.ftTitle)
                         .foregroundStyle(FTColor.textPrimary)
                         .monospacedDigit()

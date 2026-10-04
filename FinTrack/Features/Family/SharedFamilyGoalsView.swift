@@ -70,7 +70,9 @@ struct SharedFamilyGoalsView: View {
 
     private var summaryStrip: some View {
         HStack(spacing: FTSpacing.sm) {
-            let totalSaved = activeGoals.reduce(0.0) { $0 + $1.totalContributed }
+            let totalSaved = activeGoals.reduce(0.0) {
+                $0 + CurrencyService.shared.convert($1.totalContributed, from: $1.currency, to: appState.baseCurrency)
+            }
             let nearComplete = activeGoals.filter { $0.progress > 0.9 }.count
 
             summaryTile(value: "\(activeGoals.count)", label: "Active", color: FTColor.accent, icon: "star.fill")

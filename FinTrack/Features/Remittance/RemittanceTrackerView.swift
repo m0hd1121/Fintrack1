@@ -14,8 +14,13 @@ struct RemittanceTrackerView: View {
         return records.filter { $0.provider == p }
     }
 
-    private var totalSent: Double { records.reduce(0) { $0 + $1.sentAmount } }
-    private var totalFees: Double { records.reduce(0) { $0 + $1.fee } }
+    // Each record is in its sender currency; totals are in the base one.
+    private var totalSent: Double {
+        records.reduce(0) { $0 + CurrencyService.shared.convert($1.sentAmount, from: $1.senderCurrency, to: currency) }
+    }
+    private var totalFees: Double {
+        records.reduce(0) { $0 + CurrencyService.shared.convert($1.fee, from: $1.senderCurrency, to: currency) }
+    }
     private var currency: String { appState.baseCurrency }
 
     var body: some View {

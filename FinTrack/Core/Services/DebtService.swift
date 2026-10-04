@@ -147,17 +147,21 @@ final class DebtService {
     // MARK: - Conversion helpers
 
     /// Converts active Loan and CreditCard records into a unified DebtItem array.
-    func debtItems(loans: [Loan], creditCards: [CreditCard]) -> [DebtItem] {
+    /// Amounts are converted to the base currency so the payoff plans, which
+    /// pool every debt's payment, never add a USD card to an AED loan.
+    func debtItems(loans: [Loan], creditCards: [CreditCard],
+                   base: String = CurrencyService.shared.baseCurrencyCode) -> [DebtItem] {
+        let fx = CurrencyService.shared
         let loanItems: [DebtItem] = loans
             .filter { $0.isActive }
             .map { loan in
                 DebtItem(
                     id: loan.id,
                     name: loan.name,
-                    outstandingBalance: loan.outstandingBalance,
+                    outstandingBalance: fx.convert(loan.outstandingBalance, from: loan.currency, to: base),
                     interestRate: loan.interestRate,
-                    minimumPayment: loan.emiAmount,
-                    currency: loan.currency,
+                    minimumPayment: fx.convert(loan.emiAmount, from: loan.currency, to: base),
+                    currency: base,
                     nextPaymentDate: loan.nextPaymentDate,
                     lenderName: loan.lenderName,
                     isLoan: true
@@ -170,10 +174,10 @@ final class DebtService {
                 DebtItem(
                     id: card.id,
                     name: card.name,
-                    outstandingBalance: card.outstandingBalance,
+                    outstandingBalance: fx.convert(card.outstandingBalance, from: card.currency, to: base),
                     interestRate: card.interestRate,
-                    minimumPayment: max(card.minimumPayment, 25),
-                    currency: card.currency,
+                    minimumPayment: fx.convert(max(card.minimumPayment, 25), from: card.currency, to: base),
+                    currency: base,
                     nextPaymentDate: card.dueDate,
                     lenderName: card.bankName,
                     isLoan: false
@@ -183,25 +187,29 @@ final class DebtService {
         return loanItems + cardItems
     }
 
-    /// Sum of all active outstanding balances (raw values; caller handles currency conversion).
-    func totalOutstandingDebt(loans: [Loan], creditCards: [CreditCard]) -> Double {
+    /// Sum of all active outstanding balances, in the base currency.
+    func totalOutstandingDebt(loans: [Loan], creditCards: [CreditCard],
+                              base: String = CurrencyService.shared.baseCurrencyCode) -> Double {
+        let fx = CurrencyService.shared
         let loanTotal = loans
             .filter { $0.isActive }
-            .reduce(0) { $0 + $1.outstandingBalance }
+            .reduce(0) { $0 + fx.convert($1.outstandingBalance, from: $1.currency, to: base) }
         let cardTotal = creditCards
             .filter { $0.isActive }
-            .reduce(0) { $0 + $1.outstandingBalance }
+            .reduce(0) { $0 + fx.convert($1.outstandingBalance, from: $1.currency, to: base) }
         return loanTotal + cardTotal
     }
 
-    /// Sum of minimum monthly payments across all active debts.
-    func totalMinimumPayments(loans: [Loan], creditCards: [CreditCard]) -> Double {
+    /// Sum of minimum monthly payments across all active debts, in the base currency.
+    func totalMinimumPayments(loans: [Loan], creditCards: [CreditCard],
+                              base: String = CurrencyService.shared.baseCurrencyCode) -> Double {
+        let fx = CurrencyService.shared
         let loanMin = loans
             .filter { $0.isActive }
-            .reduce(0) { $0 + $1.emiAmount }
+            .reduce(0) { $0 + fx.convert($1.emiAmount, from: $1.currency, to: base) }
         let cardMin = creditCards
             .filter { $0.isActive }
-            .reduce(0) { $0 + $1.minimumPayment }
+            .reduce(0) { $0 + fx.convert($1.minimumPayment, from: $1.currency, to: base) }
         return loanMin + cardMin
     }
 
@@ -303,8 +311,11 @@ final class DebtService {
             )
         }
 
-        let totalOutstanding = activeCards.reduce(0) { $0 + $1.outstandingBalance }
-        let totalLimit       = activeCards.reduce(0) { $0 + $1.creditLimit }
+        // Pooled across cards, so in the base currency.
+        let fx = CurrencyService.shared
+        let base = fx.baseCurrencyCode
+        let totalOutstanding = activeCards.reduce(0) { $0 + fx.convert($1.outstandingBalance, from: $1.currency, to: base) }
+        let totalLimit       = activeCards.reduce(0) { $0 + fx.convert($1.creditLimit, from: $1.currency, to: base) }
         let aggregateRate    = totalOutstanding / max(totalLimit, 1)
         let aggregateStatus  = CreditUtilizationSummary.UtilizationStatus.from(rate: aggregateRate)
         let availableCredit  = max(totalLimit - totalOutstanding, 0)

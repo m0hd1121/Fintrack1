@@ -56,9 +56,10 @@ struct ChildAllowanceView: View {
 
     private var summaryStrip: some View {
         HStack(spacing: FTSpacing.sm) {
-            let totalMonthly = activeChildren.reduce(0.0) { $0 + $1.monthlyAllowance }
+            let base = appState.baseCurrency
+            let totalMonthly = activeChildren.reduce(0.0) { $0 + CurrencyService.shared.convert($1.monthlyAllowance, from: $1.currency, to: base) }
             let dueCount = activeChildren.filter { $0.isAllowanceDue }.count
-            let totalSavings = activeChildren.reduce(0.0) { $0 + $1.currentSavings }
+            let totalSavings = activeChildren.reduce(0.0) { $0 + CurrencyService.shared.convert($1.currentSavings, from: $1.currency, to: base) }
 
             summaryTile(
                 icon: "calendar.circle.fill",

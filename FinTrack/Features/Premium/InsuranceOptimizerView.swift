@@ -17,7 +17,9 @@ struct InsuranceOptimizerView: View {
 
     private var activePolicies: [InsurancePolicy] { filtered.filter { $0.isActive && !$0.isExpired } }
     private var expiringSoon: [InsurancePolicy] { activePolicies.filter(\.isExpiringSoon) }
-    private var totalAnnualPremium: Double { activePolicies.reduce(0) { $0 + $1.annualPremium } }
+    private var totalAnnualPremium: Double {
+        activePolicies.reduce(0) { $0 + CurrencyService.shared.convert($1.annualPremium, from: $1.premiumCurrency, to: currency) }
+    }
     private var currency: String { appState.baseCurrency }
 
     var body: some View {

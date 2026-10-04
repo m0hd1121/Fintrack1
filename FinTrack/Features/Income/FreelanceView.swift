@@ -27,18 +27,25 @@ struct FreelanceView: View {
         allProjects.filter { !$0.isArchived && ($0.status == .completed || $0.status == .cancelled) }
     }
 
+    // Projects carry their own currency; summary totals are in the base one.
+    private var baseCurrency: String { CurrencyService.shared.baseCurrencyCode }
+
+    private func inBase(_ amount: Double, _ project: FreelanceProject) -> Double {
+        CurrencyService.shared.convert(amount, from: project.currency, to: baseCurrency)
+    }
+
     private var totalValueUnderContract: Double {
-        allProjects.filter { !$0.isArchived }.reduce(0) { $0 + $1.totalValue }
+        allProjects.filter { !$0.isArchived }.reduce(0) { $0 + inBase($1.totalValue, $1) }
     }
 
     private var totalReceived: Double {
-        allProjects.filter { !$0.isArchived }.reduce(0) { $0 + $1.totalReceived }
+        allProjects.filter { !$0.isArchived }.reduce(0) { $0 + inBase($1.totalReceived, $1) }
     }
 
     private var totalOverdue: Double {
-        allProjects.filter { !$0.isArchived }
-            .flatMap { $0.overdueInvoices }
-            .reduce(0) { $0 + $1.amount }
+        allProjects.filter { !$0.isArchived }.reduce(0) { total, project in
+            total + project.overdueInvoices.reduce(0) { $0 + inBase($1.amount, project) }
+        }
     }
 
     // MARK: - Body
@@ -79,19 +86,19 @@ struct FreelanceView: View {
             HStack(spacing: 0) {
                 metricColumn(
                     title: "Under Contract",
-                    value: totalValueUnderContract.asCompact(currency: "AED"),
+                    value: totalValueUnderContract.asCompact(currency: baseCurrency),
                     color: FTColor.textPrimary
                 )
                 dividerLine
                 metricColumn(
                     title: "Received",
-                    value: totalReceived.asCompact(currency: "AED"),
+                    value: totalReceived.asCompact(currency: baseCurrency),
                     color: FTColor.income
                 )
                 dividerLine
                 metricColumn(
                     title: "Overdue",
-                    value: totalOverdue.asCompact(currency: "AED"),
+                    value: totalOverdue.asCompact(currency: baseCurrency),
                     color: totalOverdue > 0 ? FTColor.expense : FTColor.textMuted
                 )
             }

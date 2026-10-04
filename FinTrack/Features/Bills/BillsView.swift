@@ -457,12 +457,13 @@ struct SubscriptionsTabContent: View {
     let context: ModelContext
 
     // Summary metrics
+    // Each bill is in its own currency; the totals are shown in the base one.
     private var totalMonthly: Double {
-        activeBills.reduce(0) { $0 + $1.monthlyEquivalent }
+        activeBills.reduce(0) { $0 + CurrencyService.shared.convert($1.monthlyEquivalent, from: $1.currency, to: baseCurrency) }
     }
 
     private var totalAnnual: Double {
-        activeBills.reduce(0) { $0 + $1.annualEquivalent }
+        activeBills.reduce(0) { $0 + CurrencyService.shared.convert($1.annualEquivalent, from: $1.currency, to: baseCurrency) }
     }
 
     private var autoPayCount: Int {

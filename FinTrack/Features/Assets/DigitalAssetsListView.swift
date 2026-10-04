@@ -18,8 +18,14 @@ struct DigitalAssetsListView: View {
         }
     }
 
-    private var totalValue: Double { filtered.reduce(0) { $0 + $1.currentValue } }
-    private var totalAcquisitionValue: Double { filtered.reduce(0) { $0 + $1.acquisitionValue } }
+    // Assets carry their own currency; totals are shown in the base one.
+    private var baseCurrency: String { CurrencyService.shared.baseCurrencyCode }
+    private var totalValue: Double {
+        filtered.reduce(0) { $0 + CurrencyService.shared.convert($1.currentValue, from: $1.currency, to: baseCurrency) }
+    }
+    private var totalAcquisitionValue: Double {
+        filtered.reduce(0) { $0 + CurrencyService.shared.convert($1.acquisitionValue, from: $1.currency, to: baseCurrency) }
+    }
     private var totalGainLoss: Double { totalValue - totalAcquisitionValue }
 
     var body: some View {
@@ -71,13 +77,13 @@ struct DigitalAssetsListView: View {
                 Spacer()
                 HStack(spacing: 2) {
                     Text(totalGainLoss >= 0 ? "+" : "")
-                    Text(totalGainLoss, format: .currency(code: "AED").precision(.fractionLength(0)))
+                    Text(totalGainLoss, format: .currency(code: baseCurrency).precision(.fractionLength(0)))
                 }
                 .foregroundStyle(totalGainLoss >= 0 ? FTColor.income : FTColor.expense)
                 .font(.ftCaption)
             }
 
-            Text(totalValue, format: .currency(code: "AED").precision(.fractionLength(0)))
+            Text(totalValue, format: .currency(code: baseCurrency).precision(.fractionLength(0)))
                 .font(.ftDisplay)
                 .foregroundStyle(FTColor.textPrimary)
 
@@ -86,7 +92,7 @@ struct DigitalAssetsListView: View {
             HStack(spacing: 0) {
                 statItem(label: "Assets", value: "\(filtered.count)")
                 Divider().frame(width: 1, height: 32).overlay(Color.white.opacity(0.12))
-                statItem(label: "Cost Basis", value: totalAcquisitionValue.formatted(.currency(code: "AED").precision(.fractionLength(0))))
+                statItem(label: "Cost Basis", value: totalAcquisitionValue.formatted(.currency(code: baseCurrency).precision(.fractionLength(0))))
                 Divider().frame(width: 1, height: 32).overlay(Color.white.opacity(0.12))
                 let pct = totalAcquisitionValue > 0 ? totalGainLoss / totalAcquisitionValue * 100 : 0
                 statItem(

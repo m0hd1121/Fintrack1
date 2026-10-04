@@ -262,7 +262,7 @@ final class AIAnalyticsService {
         // Component 2: Emergency Fund (25%)
         let liquidBalance = accounts
             .filter { !$0.isArchived && !$0.isHidden && [.current, .savings, .cash].contains($0.type) }
-            .reduce(0.0) { $0 + $1.balance }
+            .reduce(0.0) { $0 + CurrencyService.shared.convert($1.balance, from: $1.currency, to: CurrencyService.shared.baseCurrencyCode) }
         let emergencyMonths = monthlyExpenses > 0 ? liquidBalance / monthlyExpenses : 0
         let emergencyScore: Int
         switch emergencyMonths {
@@ -273,7 +273,7 @@ final class AIAnalyticsService {
         }
 
         // Component 3: Debt Load (25%)
-        let totalDebt = loans.filter { $0.isActive }.reduce(0.0) { $0 + $1.outstandingBalance }
+        let totalDebt = loans.filter { $0.isActive }.reduce(0.0) { $0 + CurrencyService.shared.convert($1.outstandingBalance, from: $1.currency, to: CurrencyService.shared.baseCurrencyCode) }
         let annualIncome = monthlyIncome * 12
         let debtRatio = annualIncome > 0 ? totalDebt / annualIncome : 0
         let debtScore: Int
@@ -444,7 +444,7 @@ final class AIAnalyticsService {
 
         let currentBalance = accounts
             .filter { !$0.isArchived && !$0.isHidden && $0.type != .creditCard }
-            .reduce(0.0) { $0 + $1.balance }
+            .reduce(0.0) { $0 + CurrencyService.shared.convert($1.balance, from: $1.currency, to: CurrencyService.shared.baseCurrencyCode) }
 
         let recentExpenses = transactions.filter {
             ($0.type == .expense && !$0.isPrincipalMovement) && $0.date >= threeMonthsAgo && !$0.isPending

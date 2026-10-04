@@ -372,7 +372,7 @@ struct ZakatPaymentSheet: View {
                     VStack(spacing: 8) {
                         Text("Record Zakat Payment")
                             .font(.ftHeadline).foregroundStyle(FTColor.textPrimary)
-                        Text("Remaining: \(record.remainingZakat.formatted(as: "AED"))")
+                        Text("Remaining: \(record.remainingZakat.formatted(as: CurrencyService.shared.baseCurrencyCode))")
                             .font(.ftBody).foregroundStyle(FTColor.textSecondary)
                     }
                     .frame(maxWidth: .infinity)
