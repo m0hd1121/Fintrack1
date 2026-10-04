@@ -348,9 +348,9 @@ struct EmailImportView: View {
 
             if showingPrivacy {
                 VStack(alignment: .leading, spacing: FTSpacing.sm) {
-                    privacyRow("key.fill", "OAuth only — the app never sees your email password")
+                    privacyRow("key.fill", "Gmail and Outlook use sign-in (OAuth); IMAP accounts store their password only in the iOS Keychain")
                     privacyRow("envelope.badge.shield.half.filled.fill", "Read-only scope, restricted to known bank senders")
-                    privacyRow("iphone", "All parsing happens on this device — nothing is uploaded")
+                    privacyRow("iphone", "All parsing happens on this device — email content is never uploaded")
                     privacyRow("trash.slash.fill", "Raw emails are discarded after parsing; only extracted fields are kept")
                     privacyRow("key.icloud.fill", "Tokens live in the iOS Keychain, wiped instantly on disconnect")
                     privacyRow("doc.text.magnifyingglass", "Every import is logged in the Security audit trail with its reason")

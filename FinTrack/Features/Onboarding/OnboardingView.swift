@@ -30,7 +30,7 @@ struct OnboardingView: View {
         ),
         OnboardingPage(
             title: "Bank-Level Security",
-            subtitle: "Face ID, Touch ID, PIN protection, and end-to-end encryption keep your data safe.",
+            subtitle: "Face ID, Touch ID, PIN protection and encrypted on-device storage keep your data safe.",
             icon: "lock.shield.fill",
             gradient: [FTColor.accent, FTColor.income]
         ),
