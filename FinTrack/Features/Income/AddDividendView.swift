@@ -21,6 +21,7 @@ struct AddDividendView: View {
     @State private var grossAmountText: String = ""
     @State private var currency: String = "USD"
     @State private var paymentDate: Date = Date()
+    @State private var depositAccountId: UUID? = nil
     @State private var hasExDividendDate: Bool = false
     @State private var exDividendDate: Date = Calendar.current.date(byAdding: .day, value: -30, to: Date()) ?? Date()
 
@@ -180,6 +181,11 @@ struct AddDividendView: View {
                         .tint(FTColor.accent)
                 }
                 rowDivider
+
+                if editingDividend == nil {
+                    IncomeAccountRow(accountId: $depositAccountId)
+                    rowDivider
+                }
 
                 // Ex-Dividend Date toggle
                 HStack(spacing: FTSpacing.md) {
@@ -414,6 +420,7 @@ struct AddDividendView: View {
                 notes:        trimmedNotes.isEmpty ? nil : trimmedNotes,
                 incomeSource: resolvedSecurityName
             )
+            IncomeAccountRow.deposit(tx, into: depositAccountId, context: context)
             context.insert(tx)
         }
 

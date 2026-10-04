@@ -288,6 +288,7 @@ struct SalaryTrackerView: View {
     }
 
     private func deleteRecord(_ record: SalaryRecord) {
+        IncomeService.shared.cancelSalaryReminder(recordId: record.id)
         context.delete(record)
         try? context.save()
     }

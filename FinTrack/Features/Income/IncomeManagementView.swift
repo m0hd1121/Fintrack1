@@ -329,9 +329,10 @@ struct IncomeManagementView: View {
         VStack(spacing: FTSpacing.lg) {
 
             // Summary card
-            let totalGross = dividends.reduce(0) { $0 + currencyService.convert($1.grossAmount, from: $1.currency, to: baseCurrency) }
-            let totalWithheld = dividends.reduce(0) { $0 + currencyService.convert($1.taxWithholding, from: $1.currency, to: baseCurrency) }
-            let totalNet = dividends.reduce(0) { $0 + currencyService.convert($1.netAmount, from: $1.currency, to: baseCurrency) }
+            let ytd = dividends.filter { ($0.paymentDate ?? $0.date) >= Date().startOfYear }
+            let totalGross = ytd.reduce(0) { $0 + currencyService.convert($1.grossAmount, from: $1.currency, to: baseCurrency) }
+            let totalWithheld = ytd.reduce(0) { $0 + currencyService.convert($1.taxWithholding, from: $1.currency, to: baseCurrency) }
+            let totalNet = ytd.reduce(0) { $0 + currencyService.convert($1.netAmount, from: $1.currency, to: baseCurrency) }
 
             VStack(spacing: FTSpacing.lg) {
                 HStack(spacing: FTSpacing.md) {

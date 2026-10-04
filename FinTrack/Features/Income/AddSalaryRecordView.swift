@@ -490,6 +490,8 @@ struct AddSalaryRecordView: View {
 
             if isActive {
                 IncomeService.shared.scheduleSalaryReminder(record: record)
+            } else {
+                IncomeService.shared.cancelSalaryReminder(recordId: record.id)
             }
         } else {
             // Create new record

@@ -761,6 +761,7 @@ struct RecordInvoicePaymentSheet: View {
 
     @State private var paidAmountText: String = ""
     @State private var paymentDate: Date = Date()
+    @State private var depositAccountId: UUID? = nil
     @State private var showValidationError: Bool = false
 
     var body: some View {
@@ -866,6 +867,12 @@ struct RecordInvoicePaymentSheet: View {
                 }
                 .padding(.vertical, FTSpacing.sm)
 
+                Rectangle()
+                    .fill(FTColor.textPrimary.opacity(0.06))
+                    .frame(height: 0.5)
+
+                IncomeAccountRow(accountId: $depositAccountId)
+
                 // Variance hint
                 let paid = AmountTextField.double(from: paidAmountText)
                 if paid > 0 {
@@ -950,6 +957,7 @@ struct RecordInvoicePaymentSheet: View {
             date: paymentDate,
             incomeSource: project.clientName
         )
+        IncomeAccountRow.deposit(tx, into: depositAccountId, context: context)
         context.insert(tx)
 
         try? context.save()

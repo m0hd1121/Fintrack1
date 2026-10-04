@@ -862,6 +862,7 @@ struct RecordRentPaymentSheet: View {
     @State private var amountText: String = ""
     @State private var paymentDate: Date = Date()
     @State private var notes: String = ""
+    @State private var depositAccountId: UUID? = nil
     @State private var showValidationError: Bool = false
 
     var body: some View {
@@ -968,6 +969,12 @@ struct RecordRentPaymentSheet: View {
                     .fill(FTColor.textPrimary.opacity(0.06))
                     .frame(height: 0.5)
 
+                IncomeAccountRow(accountId: $depositAccountId)
+
+                Rectangle()
+                    .fill(FTColor.textPrimary.opacity(0.06))
+                    .frame(height: 0.5)
+
                 VStack(alignment: .leading, spacing: FTSpacing.sm) {
                     Text("Notes (optional)")
                         .font(.ftCaption)
@@ -1038,6 +1045,7 @@ struct RecordRentPaymentSheet: View {
             notes: trimmedNotes.isEmpty ? nil : trimmedNotes,
             incomeSource: property.propertyName
         )
+        IncomeAccountRow.deposit(tx, into: depositAccountId, context: context)
         context.insert(tx)
 
         try? context.save()
