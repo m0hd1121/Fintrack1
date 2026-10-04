@@ -1091,8 +1091,18 @@ final class EmailSyncService: NSObject {
     // MARK: - Microsoft Graph
 
     private func fetchOutlookMessages(accessToken: String, seen: Set<String>, extraSenders: [String] = []) async throws -> [FetchedEmail] {
-        let url = URL(string: "https://graph.microsoft.com/v1.0/me/messages?$top=50&$select=id,subject,from,receivedDateTime,body&$orderby=receivedDateTime desc")!
-        let data = try await authorizedGet(url, token: accessToken)
+        // The last 30 days (same window as IMAP), paged, rather than just the
+        // newest 50 messages of the whole mailbox — on a busy inbox those 50
+        // could all be non-bank mail and every bank alert was missed.
+        let since = ISO8601DateFormatter().string(from: Date().addingTimeInterval(-30 * 86_400))
+        var components = URLComponents(string: "https://graph.microsoft.com/v1.0/me/messages")!
+        components.queryItems = [
+            URLQueryItem(name: "$top", value: "50"),
+            URLQueryItem(name: "$select", value: "id,subject,from,receivedDateTime,body"),
+            URLQueryItem(name: "$filter", value: "receivedDateTime ge \(since)"),
+            URLQueryItem(name: "$orderby", value: "receivedDateTime desc"),
+        ]
+        var nextURL: URL? = components.url
 
         struct GraphList: Decodable {
             struct Message: Decodable {
@@ -1108,8 +1118,21 @@ final class EmailSyncService: NSObject {
                 let body: Body?
             }
             let value: [Message]?
+            let nextLink: String?
+            enum CodingKeys: String, CodingKey {
+                case value
+                case nextLink = "@odata.nextLink"
+            }
         }
-        let messages = (try JSONDecoder().decode(GraphList.self, from: data)).value ?? []
+        var messages: [GraphList.Message] = []
+        var pages = 0
+        while let url = nextURL, pages < 10 {
+            let data = try await authorizedGet(url, token: accessToken)
+            let page = try JSONDecoder().decode(GraphList.self, from: data)
+            messages += page.value ?? []
+            nextURL = page.nextLink.flatMap(URL.init(string:))
+            pages += 1
+        }
         let iso = ISO8601DateFormatter()
 
         // Sender whitelist applied client-side — non-bank mail is dropped

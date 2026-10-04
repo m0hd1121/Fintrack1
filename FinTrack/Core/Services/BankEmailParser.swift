@@ -233,12 +233,26 @@ final class BankEmailParser {
                                          "reversal", "salary", "cashback", "inward transfer",
                                          "transferred to your"]
 
+    /// Unambiguous credits, checked before anything else ("refund of your
+    /// purchase" is a credit even though it says "purchase").
+    private static let strongCreditKeywords = ["refund", "reversal", "cashback", "credited"]
+
     static func extractDirection(from text: String, subject: String) -> (ParsedDirection, String?) {
         let combined = (subject + " " + text).lowercased()
-        // Credit keywords first — "refund of your purchase" should be a credit.
-        for keyword in creditKeywords where combined.contains(keyword) { return (.credit, keyword) }
-        for keyword in debitKeywords where combined.contains(keyword) { return (.debit, keyword) }
-        return (.debit, nil)   // most bank alerts are spends; flagged as low-confidence upstream
+        for keyword in strongCreditKeywords where combined.contains(keyword) { return (.credit, keyword) }
+        // Otherwise the keyword that appears first wins, so "Purchase of AED 50
+        // … payment received by the merchant" stays a debit instead of the
+        // generic "received" turning it into a credit.
+        func firstHit(_ keywords: [String]) -> (String.Index, String)? {
+            keywords.compactMap { k in combined.range(of: k).map { ($0.lowerBound, k) } }
+                .min { $0.0 < $1.0 }
+        }
+        switch (firstHit(debitKeywords), firstHit(creditKeywords)) {
+        case let (debit?, credit?): return debit.0 <= credit.0 ? (.debit, debit.1) : (.credit, credit.1)
+        case let (debit?, nil):     return (.debit, debit.1)
+        case let (nil, credit?):    return (.credit, credit.1)
+        case (nil, nil):            return (.debit, nil)   // most bank alerts are spends; flagged as low-confidence upstream
+        }
     }
 
     static func extractMerchant(from text: String) -> (String?, String?) {
@@ -338,7 +352,10 @@ final class BankEmailParser {
         if let reference, !reference.isEmpty {
             return "ref:\(reference.lowercased())"
         }
-        let day = Int(date.timeIntervalSince1970 / 86_400)
+        // Local calendar day — a UTC day split one evening purchase in the
+        // UAE (UTC+4) across two "days" depending on the exact time.
+        let parts = Calendar.current.dateComponents([.year, .month, .day], from: date)
+        let day = (parts.year ?? 0) * 10_000 + (parts.month ?? 0) * 100 + (parts.day ?? 0)
         let merchantToken = merchant.lowercased()
             .components(separatedBy: CharacterSet.alphanumerics.inverted)
             .filter { !$0.isEmpty }
