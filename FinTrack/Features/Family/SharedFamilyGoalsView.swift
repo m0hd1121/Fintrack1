@@ -365,7 +365,7 @@ struct AddSharedGoalSheet: View {
     }
 
     private func addGoal() {
-        let amount = Double(targetAmount) ?? 0
+        let amount = AmountTextField.double(from: targetAmount)
         let goal = SharedFamilyGoal(
             name: name,
             goalDescription: description,
@@ -713,7 +713,7 @@ struct ContributeToGoalSheet: View {
     }
 
     private func contribute() {
-        let contributed = Double(amount) ?? 0
+        let contributed = AmountTextField.double(from: amount)
         goal.addContribution(
             amount: contributed,
             memberId: selectedMemberName,

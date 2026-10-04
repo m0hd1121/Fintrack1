@@ -15,6 +15,7 @@ struct EstatePlanningView: View {
     @Query private var creditCards: [CreditCard]
     @Query private var profiles: [UserProfile]
     @Query private var moneyLent: [MoneyLent]
+    @Query(sort: \ZakatRecord.taxYear, order: .reverse) private var zakatRecords: [ZakatRecord]
 
     private var currency: String { appState.baseCurrency }
     private var profile: UserProfile? { profiles.first }
@@ -53,7 +54,13 @@ struct EstatePlanningView: View {
         return max(0, cash + inv + crypto + gold - totalLiabilities)
     }
 
-    private let nisabAED: Double = 7200
+    /// Nisab from the Zakat calculator's latest record (gold or silver basis
+    /// at the user's metal price), else its defaults — converted to the base
+    /// currency the wealth figure is in. Was a fixed 7,200 compared in any
+    /// base currency.
+    private var nisabAED: Double {
+        currencyService.convert((zakatRecords.first ?? ZakatRecord()).nisabThresholdAED, from: "AED", to: currency)
+    }
 
     var body: some View {
         ScrollView {

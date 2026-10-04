@@ -180,24 +180,27 @@ struct FTAVATReportView: View {
 
     // MARK: - Helpers
 
-    private func quarterDeadline(year: Int, quarter: Int) -> String {
-        // UAE FTA: VAT return due 28 days after quarter end
+    /// UAE FTA: the VAT return is due 28 days after the quarter ends.
+    private func deadlineDate(year: Int, quarter: Int) -> Date {
+        let cal = Calendar.current
         let endMonths = [3, 6, 9, 12]
-        let endMonth = endMonths[quarter - 1]
         var comps = DateComponents()
-        comps.year = year; comps.month = endMonth
-        comps.day = Calendar.current.range(of: .day, in: .month, for: Calendar.current.date(from: comps) ?? Date())?.count ?? 28
-        let quarterEnd = Calendar.current.date(from: comps) ?? Date()
-        let deadline = Calendar.current.date(byAdding: .day, value: 28, to: quarterEnd) ?? quarterEnd
-        let fmt = DateFormatter(); fmt.dateFormat = "d MMM yyyy"
-        return fmt.string(from: deadline)
+        comps.year = year; comps.month = endMonths[quarter - 1]
+        comps.day = cal.range(of: .day, in: .month, for: cal.date(from: comps) ?? Date())?.count ?? 28
+        let quarterEnd = cal.date(from: comps) ?? Date()
+        return cal.date(byAdding: .day, value: 28, to: quarterEnd) ?? quarterEnd
     }
 
+    private func quarterDeadline(year: Int, quarter: Int) -> String {
+        let fmt = DateFormatter(); fmt.dateFormat = "d MMM yyyy"
+        return fmt.string(from: deadlineDate(year: year, quarter: quarter))
+    }
+
+    /// Past the end of the deadline day (was compared with day 28 of the
+    /// quarter's last month — before the quarter had even ended).
     private func isDeadlinePast(year: Int, quarter: Int) -> Bool {
-        let endMonths = [3, 6, 9, 12]
-        let endMonth = endMonths[quarter - 1]
-        var comps = DateComponents(); comps.year = year; comps.month = endMonth; comps.day = 28
-        let approxDeadline = Calendar.current.date(from: comps) ?? Date()
-        return Date() > approxDeadline
+        let deadline = deadlineDate(year: year, quarter: quarter)
+        let endOfDeadlineDay = Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: deadline)) ?? deadline
+        return Date() >= endOfDeadlineDay
     }
 }

@@ -165,11 +165,12 @@ extension Color {
     }
 
     var hex: String {
-        let components = UIColor(self).cgColor.components ?? [0, 0, 0, 0]
-        let r = Int(components[0] * 255)
-        let g = Int(components[1] * 255)
-        let b = Int(components[2] * 255)
-        return String(format: "#%02X%02X%02X", r, g, b)
+        // getRed converts any colour space (a grayscale colour has only two
+        // cgColor components, which indexing [2] crashed on).
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        UIColor(self).getRed(&r, green: &g, blue: &b, alpha: &a)
+        func byte(_ v: CGFloat) -> Int { Int((min(max(v, 0), 1) * 255).rounded()) }
+        return String(format: "#%02X%02X%02X", byte(r), byte(g), byte(b))
     }
 }
 

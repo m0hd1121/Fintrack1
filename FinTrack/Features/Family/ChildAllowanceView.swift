@@ -336,8 +336,8 @@ struct AddChildProfileSheet: View {
     }
 
     private func addChild() {
-        let amount = Double(monthlyAllowance) ?? 0
-        let goal = Double(goalAmount) ?? 0
+        let amount = AmountTextField.double(from: monthlyAllowance)
+        let goal = AmountTextField.double(from: goalAmount)
         let child = ChildProfile(
             name: name,
             dateOfBirth: dateOfBirth,
@@ -460,7 +460,8 @@ struct RecordAllowancePaymentSheet: View {
     }
 
     private func recordPayment() {
-        let paid = Double(amount) ?? child.monthlyAllowance
+        let entered = AmountTextField.double(from: amount)
+        let paid = entered > 0 ? entered : child.monthlyAllowance
         child.addPayment(amount: paid, notes: notes.isEmpty ? nil : notes, isConfirmed: isConfirmed)
         try? context.save()
         dismiss()
