@@ -97,7 +97,10 @@ struct RootView: View {
         }
         .onAppear {
             ensureDefaults()
-            if let s = settings.first { NotificationService.shared.apply(settings: s) }
+            if let s = settings.first {
+                NotificationService.shared.apply(settings: s)
+                UserDefaults.standard.set(s.firstDayOfWeek, forKey: Calendar.firstWeekdayKey)
+            }
             NotificationService.shared.setBadgeCount(pendingReviewItems.count)
             if appState.hasCompletedOnboarding,
                let setting = settings.first,

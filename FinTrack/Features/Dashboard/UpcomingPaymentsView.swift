@@ -41,12 +41,16 @@ struct UpcomingPaymentsView: View {
         }
     }
 
+    /// Custom ranges start on the chosen day (was always today).
     private var rangeStart: Date {
-        Calendar.current.startOfDay(for: Date())
+        Calendar.current.startOfDay(for: selectedRange == .custom ? customStart : Date())
     }
 
+    /// Custom ranges include the whole last day.
     private var rangeEnd: Date {
-        selectedRange == .custom ? customEnd : selectedRange.endDate
+        guard selectedRange == .custom else { return selectedRange.endDate }
+        let cal = Calendar.current
+        return cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: customEnd)) ?? customEnd
     }
 
     // MARK: - Payment Model
@@ -201,6 +205,12 @@ struct UpcomingPaymentsView: View {
                     isOverdue: overdue
                 ))
             }
+        }
+
+        // A custom range starting in the future shows only that window;
+        // overdue items stay listed whenever the range covers today.
+        if rangeStart > today {
+            result = result.filter { !$0.isOverdue && $0.date >= rangeStart && $0.date < rangeEnd }
         }
 
         return result.sorted {

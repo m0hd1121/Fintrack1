@@ -28,7 +28,11 @@ struct AppearanceView: View {
     }
     private var firstDayBinding: Binding<Int> {
         Binding(get: { setting?.firstDayOfWeek ?? 1 },
-                set: { setting?.firstDayOfWeek = $0; try? context.save() })
+                set: {
+                    setting?.firstDayOfWeek = $0
+                    UserDefaults.standard.set($0, forKey: Calendar.firstWeekdayKey)
+                    try? context.save()
+                })
     }
 
     var body: some View {

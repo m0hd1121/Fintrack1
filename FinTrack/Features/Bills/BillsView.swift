@@ -133,7 +133,7 @@ private struct CalendarTabContent: View {
 
     // Nil-padded array: leading nils for offset, then Date objects per day
     private var calendarDays: [Date?] {
-        let cal = Calendar.current
+        let cal = Calendar.app
         guard let monthInterval = cal.dateInterval(of: .month, for: displayedMonth) else { return [] }
         let startOfMonth = monthInterval.start
         let weekdayOffset = (cal.component(.weekday, from: startOfMonth) - cal.firstWeekday + 7) % 7
@@ -200,7 +200,8 @@ private struct CalendarTabContent: View {
                     columns: Array(repeating: GridItem(.flexible(), spacing: 2), count: 7),
                     spacing: 4
                 ) {
-                    ForEach(["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"], id: \.self) { day in
+                    // Same week start as `calendarDays`' leading offset.
+                    ForEach(Calendar.app.orderedShortWeekdaySymbols, id: \.self) { day in
                         Text(day)
                             .font(.ftLabel)
                             .tracking(0.8)

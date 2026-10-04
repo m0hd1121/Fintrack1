@@ -144,5 +144,6 @@ enum DataResetService {
         }
         NotificationService.shared.setBadgeCount(0)
         NotificationService.shared.resetPreferences()
+        UserDefaults.standard.removeObject(forKey: Calendar.firstWeekdayKey)
     }
 }

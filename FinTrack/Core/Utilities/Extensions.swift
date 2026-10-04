@@ -69,8 +69,9 @@ extension Date {
         Calendar.current.dateInterval(of: .year, for: self)?.start ?? self
     }
 
+    /// Honours Settings → Appearance → First day of week (`Calendar.app`).
     var startOfWeek: Date {
-        Calendar.current.dateInterval(of: .weekOfYear, for: self)?.start ?? self
+        Calendar.app.dateInterval(of: .weekOfYear, for: self)?.start ?? self
     }
 
     /// Start of the fiscal year. `startMonth` is 1-based (1 = January).
@@ -183,3 +184,27 @@ extension Array {
 }
 
 // dismissKeyboardOnTap() and Color(hex:) are defined in UI/Theme/AppTheme.swift
+
+// MARK: - App calendar
+
+extension Calendar {
+    /// UserDefaults mirror of `AppSettings.firstDayOfWeek` (1 = Sunday …
+    /// 7 = Saturday), written by AppearanceView and RootView so code without a
+    /// model context can use it.
+    static let firstWeekdayKey = "ft_first_weekday"
+
+    /// `Calendar.current` with the user's chosen first day of the week.
+    static var app: Calendar {
+        var calendar = Calendar.current
+        let stored = UserDefaults.standard.integer(forKey: firstWeekdayKey)
+        if (1...7).contains(stored) { calendar.firstWeekday = stored }
+        return calendar
+    }
+
+    /// Short weekday names starting from `firstWeekday`.
+    var orderedShortWeekdaySymbols: [String] {
+        let symbols = shortWeekdaySymbols
+        let start = firstWeekday - 1
+        return Array(symbols[start...] + symbols[..<start])
+    }
+}
