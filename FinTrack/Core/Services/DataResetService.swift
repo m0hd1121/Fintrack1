@@ -1,6 +1,6 @@
 import Foundation
 import SwiftData
-import UserNotifications
+@preconcurrency import UserNotifications
 
 /// "Clear All Data": removes the user's data from everywhere the app keeps it,
 /// not just the database.
@@ -129,12 +129,14 @@ enum DataResetService {
         // records that no longer exist. The digest schedules are settings.
         let center = UNUserNotificationCenter.current()
         center.removeAllDeliveredNotifications()
-        // Copied out first: the completion handler runs off the main actor, which
-        // can't read this type's main-actor-isolated static.
+        // The completion handler runs off the main actor, so it must not capture
+        // `center` (not `Sendable`) or read this type's main-actor-isolated
+        // static. It takes a copy of the keep-list and asks for the shared
+        // center again instead.
         let keep = settingsDrivenReminders
         center.getPendingNotificationRequests { requests in
             let stale = requests.map(\.identifier).filter { !keep.contains($0) }
-            center.removePendingNotificationRequests(withIdentifiers: stale)
+            UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: stale)
         }
         NotificationService.shared.setBadgeCount(0)
     }
