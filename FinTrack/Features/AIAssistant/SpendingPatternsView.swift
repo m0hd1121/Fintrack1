@@ -222,7 +222,7 @@ struct SpendingPatternsView: View {
                             HStack {
                                 Text("\(i + 1)")
                                     .font(.ftLabel)
-                                    .tracking(1.2)
+                                    .tracking(1.2).fixedSize(horizontal: true, vertical: false)
                                     .foregroundStyle(FTColor.textMuted)
                                     .frame(width: 20)
                                 Text(merchant.name)

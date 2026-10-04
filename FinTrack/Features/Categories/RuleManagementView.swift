@@ -275,7 +275,7 @@ struct EditRuleView: View {
     private var conditionCard: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text("CONDITION")
-                .font(.ftLabel).tracking(1.4)
+                .font(.ftLabel).tracking(1.4).fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(FTColor.textSecondary)
                 .padding(.bottom, FTSpacing.sm)
                 .padding(.horizontal, FTSpacing.sm)
@@ -346,7 +346,7 @@ struct EditRuleView: View {
     private var actionCard: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text("ACTION")
-                .font(.ftLabel).tracking(1.4)
+                .font(.ftLabel).tracking(1.4).fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(FTColor.textSecondary)
                 .padding(.bottom, FTSpacing.sm)
                 .padding(.horizontal, FTSpacing.sm)

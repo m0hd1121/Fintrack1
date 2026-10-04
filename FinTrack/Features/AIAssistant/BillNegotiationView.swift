@@ -115,7 +115,7 @@ struct BillNegotiationView: View {
             VStack(alignment: .leading, spacing: FTSpacing.sm) {
                 Text("NEGOTIATION TIPS")
                     .font(.ftLabel)
-                    .tracking(1.4)
+                    .tracking(1.4).fixedSize(horizontal: true, vertical: false)
                     .foregroundStyle(FTColor.textMuted)
                 ForEach(Array(tip.tips.enumerated()), id: \.offset) { i, t in
                     HStack(alignment: .top, spacing: FTSpacing.sm) {

@@ -1024,7 +1024,7 @@ struct TransactionDetailView: View {
                         if transaction.isSplit {
                             VStack(alignment: .leading, spacing: FTSpacing.sm) {
                                 Text("SPLIT BREAKDOWN")
-                                    .font(.ftLabel).tracking(1.4)
+                                    .font(.ftLabel).tracking(1.4).fixedSize(horizontal: true, vertical: false)
                                     .foregroundStyle(FTColor.textSecondary)
                                 ForEach(transaction.splitItems) { item in
                                     HStack {
@@ -1050,7 +1050,7 @@ struct TransactionDetailView: View {
                         if !transaction.tags.isEmpty {
                             VStack(alignment: .leading, spacing: FTSpacing.sm) {
                                 Text("TAGS")
-                                    .font(.ftLabel).tracking(1.4)
+                                    .font(.ftLabel).tracking(1.4).fixedSize(horizontal: true, vertical: false)
                                     .foregroundStyle(FTColor.textSecondary)
                                 FlowLayout(spacing: FTSpacing.sm) {
                                     ForEach(transaction.tags, id: \.self) { tag in
@@ -1070,7 +1070,7 @@ struct TransactionDetailView: View {
                         if let notes = transaction.notes, !notes.isEmpty {
                             VStack(alignment: .leading, spacing: FTSpacing.sm) {
                                 Text("NOTES")
-                                    .font(.ftLabel).tracking(1.4)
+                                    .font(.ftLabel).tracking(1.4).fixedSize(horizontal: true, vertical: false)
                                     .foregroundStyle(FTColor.textSecondary)
                                 Text(notes)
                                     .font(.ftBody)
@@ -1086,7 +1086,7 @@ struct TransactionDetailView: View {
                            let uiImage = UIImage(data: imageData) {
                             VStack(alignment: .leading, spacing: FTSpacing.sm) {
                                 Text("RECEIPT")
-                                    .font(.ftLabel).tracking(1.4)
+                                    .font(.ftLabel).tracking(1.4).fixedSize(horizontal: true, vertical: false)
                                     .foregroundStyle(FTColor.textSecondary)
                                 Image(uiImage: uiImage)
                                     .resizable()
@@ -1101,7 +1101,7 @@ struct TransactionDetailView: View {
                         if !transaction.documents.isEmpty {
                             VStack(alignment: .leading, spacing: FTSpacing.sm) {
                                 Text("DOCUMENTS")
-                                    .font(.ftLabel).tracking(1.4)
+                                    .font(.ftLabel).tracking(1.4).fixedSize(horizontal: true, vertical: false)
                                     .foregroundStyle(FTColor.textSecondary)
                                 ForEach(transaction.documents) { doc in
                                     HStack(spacing: FTSpacing.sm) {

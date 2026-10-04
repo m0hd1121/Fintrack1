@@ -79,7 +79,7 @@ struct VATTrackerView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("NET VAT POSITION \(taxYear)")
-                        .font(.ftLabel).tracking(1.4).foregroundStyle(FTColor.textMuted)
+                        .font(.ftLabel).tracking(1.4).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
                     let net = summary.netVATPosition
                     Text(net.formatted(as: appState.baseCurrency))
                         .font(.ftAmount)

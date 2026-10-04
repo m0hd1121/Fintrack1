@@ -28,7 +28,7 @@ struct ImportIntegrationView: View {
         VStack(spacing: FTSpacing.lg) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("DATA SYNC STATUS").font(.ftLabel).tracking(1.4).foregroundStyle(FTColor.textMuted)
+                    Text("DATA SYNC STATUS").font(.ftLabel).tracking(1.4).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
                     if let last = lastImport {
                         Text("Last Import: \(last.importedAt.relativeFormatted)")
                             .font(.ftHeadline).foregroundStyle(FTColor.income)

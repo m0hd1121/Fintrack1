@@ -306,7 +306,7 @@ struct AppearanceView: View {
     private func sectionCard<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: FTSpacing.sm) {
             Text(title.uppercased())
-                .font(.ftLabel).tracking(1.4)
+                .font(.ftLabel).tracking(1.4).fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(FTColor.textSecondary)
                 .padding(.leading, FTSpacing.xs)
             VStack(spacing: 0) { content() }

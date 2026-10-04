@@ -664,7 +664,7 @@ private struct PendingEmailRow: View {
             if showExplanation {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("WHY THIS WAS DETECTED")
-                        .font(.ftLabel).tracking(1.2).foregroundStyle(FTColor.textMuted)
+                        .font(.ftLabel).tracking(1.2).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
                     Text(item.parseExplanation)
                         .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
                     if let reason = item.duplicateReason {
@@ -1189,7 +1189,7 @@ private struct EditPendingEmailSheet: View {
                         VStack(alignment: .leading, spacing: FTSpacing.sm) {
                             Text(isApplePaySource ? "SOURCE APPLE PAY"
                                  : isSMSSource ? "SOURCE SMS" : "SOURCE EMAIL")
-                                .font(.ftLabel).tracking(1.4).foregroundStyle(FTColor.textMuted)
+                                .font(.ftLabel).tracking(1.4).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
                             Text(item.emailSubject).font(.ftCallout).foregroundStyle(FTColor.textSecondary)
                             Text(isSMSSource || isApplePaySource ? item.bankName : item.senderAddress)
                                 .font(.ftCaption).foregroundStyle(FTColor.textMuted)

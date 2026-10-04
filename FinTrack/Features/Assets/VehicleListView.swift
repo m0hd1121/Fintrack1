@@ -146,7 +146,7 @@ struct VehicleListView: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("TOTAL DEPRECIATION")
                         .font(.ftLabel)
-                        .tracking(1.4)
+                        .tracking(1.4).fixedSize(horizontal: true, vertical: false)
                         .foregroundStyle(FTColor.textMuted)
                     Text(totalDepreciation.formatted(as: baseCurrency))
                         .font(.ftBodySemibold)
@@ -158,7 +158,7 @@ struct VehicleListView: View {
                 VStack(alignment: .trailing, spacing: 3) {
                     Text("VEHICLES")
                         .font(.ftLabel)
-                        .tracking(1.4)
+                        .tracking(1.4).fixedSize(horizontal: true, vertical: false)
                         .foregroundStyle(FTColor.textMuted)
                     Text("\(vehicles.count)")
                         .font(.ftBodySemibold)

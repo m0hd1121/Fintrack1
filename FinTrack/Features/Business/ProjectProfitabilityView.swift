@@ -64,7 +64,7 @@ struct ProjectProfitabilityView: View {
         return VStack(spacing: FTSpacing.lg) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("PORTFOLIO OVERVIEW").font(.ftLabel).tracking(1.4).foregroundStyle(FTColor.textMuted)
+                    Text("PORTFOLIO OVERVIEW").font(.ftLabel).tracking(1.4).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
                     Text(netProfit.formatted(as: appState.baseCurrency))
                         .font(.ftAmount).foregroundStyle(netProfit >= 0 ? FTColor.income : FTColor.expense)
                     Text("Net profit · \(projects.count) projects").font(.ftCaption).foregroundStyle(FTColor.textSecondary)
@@ -415,7 +415,7 @@ struct ProjectDetailSheet: View {
     private var profitCard: some View {
         VStack(spacing: FTSpacing.lg) {
             VStack(spacing: 4) {
-                Text("NET PROFIT").font(.ftLabel).tracking(1.4).foregroundStyle(FTColor.textMuted)
+                Text("NET PROFIT").font(.ftLabel).tracking(1.4).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
                 Text(profit.formatted(as: appState.baseCurrency))
                     .font(.ftAmount).foregroundStyle(profit >= 0 ? FTColor.income : FTColor.expense)
                 Text(String(format: "%.1f%% profit margin", margin))

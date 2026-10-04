@@ -89,7 +89,7 @@ struct MileageTrackerView: View {
         VStack(spacing: FTSpacing.lg) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("MILEAGE SUMMARY").font(.ftLabel).tracking(1.4).foregroundStyle(FTColor.textMuted)
+                    Text("MILEAGE SUMMARY").font(.ftLabel).tracking(1.4).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
                     Text(String(format: "%.1f km", totalKm)).font(.ftAmount).foregroundStyle(FTColor.catTeal)
                     Text("\(filtered.count) trips · \(periodFilter.rawValue)").font(.ftCaption).foregroundStyle(FTColor.textSecondary)
                 }

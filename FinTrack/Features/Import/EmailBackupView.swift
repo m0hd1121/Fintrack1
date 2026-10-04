@@ -64,7 +64,7 @@ struct EmailBackupView: View {
         VStack(spacing: FTSpacing.lg) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("EMAIL BACKUP").font(.ftLabel).tracking(1.4).foregroundStyle(FTColor.textMuted)
+                    Text("EMAIL BACKUP").font(.ftLabel).tracking(1.4).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
                     if backup.isBackingUp || backup.isRestoring {
                         HStack(spacing: FTSpacing.sm) {
                             ProgressView().scaleEffect(0.7).tint(FTColor.catCoral)

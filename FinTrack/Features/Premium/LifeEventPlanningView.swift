@@ -54,7 +54,7 @@ struct LifeEventPlanningView: View {
     private func eventsSection(_ title: String, _ events: [LifeEventPlan]) -> some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
             Text(title.uppercased())
-                .font(.ftLabel).tracking(1.4)
+                .font(.ftLabel).tracking(1.4).fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(FTColor.textSecondary)
                 .padding(.leading, FTSpacing.xs)
 

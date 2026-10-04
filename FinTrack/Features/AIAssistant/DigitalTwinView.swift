@@ -157,7 +157,7 @@ struct DigitalTwinView: View {
         VStack(alignment: .leading, spacing: FTSpacing.sm) {
             Text("QUICK PRESETS")
                 .font(.ftLabel)
-                .tracking(1.4)
+                .tracking(1.4).fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(FTColor.textMuted)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: FTSpacing.sm) {
@@ -361,9 +361,9 @@ struct DigitalTwinView: View {
 
             VStack(spacing: 0) {
                 HStack {
-                    Text("Metric").font(.ftLabel).tracking(1.2).foregroundStyle(FTColor.textMuted).frame(maxWidth: .infinity, alignment: .leading)
-                    Text("Baseline").font(.ftLabel).tracking(1.2).foregroundStyle(FTColor.textMuted).frame(maxWidth: .infinity, alignment: .center)
-                    Text("Scenario").font(.ftLabel).tracking(1.2).foregroundStyle(FTColor.accent).frame(maxWidth: .infinity, alignment: .trailing)
+                    Text("Metric").font(.ftLabel).tracking(1.2).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted).frame(maxWidth: .infinity, alignment: .leading)
+                    Text("Baseline").font(.ftLabel).tracking(1.2).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted).frame(maxWidth: .infinity, alignment: .center)
+                    Text("Scenario").font(.ftLabel).tracking(1.2).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.accent).frame(maxWidth: .infinity, alignment: .trailing)
                 }
                 .padding(.horizontal)
                 .padding(.vertical, FTSpacing.sm)

@@ -123,7 +123,7 @@ struct BudgetingCoachView: View {
                         HStack(alignment: .top, spacing: FTSpacing.sm) {
                             Text("\(i + 1)")
                                 .font(.ftLabel)
-                                .tracking(1.2)
+                                .tracking(1.2).fixedSize(horizontal: true, vertical: false)
                                 .foregroundStyle(insight.accentColor)
                                 .frame(width: 18)
                             Text(tip)

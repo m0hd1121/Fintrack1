@@ -102,7 +102,7 @@ struct ESGAnalysisView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("ESTIMATED CARBON FOOTPRINT")
                     .font(.ftLabel)
-                    .tracking(1.4)
+                    .tracking(1.4).fixedSize(horizontal: true, vertical: false)
                     .foregroundStyle(FTColor.textMuted)
                 Text(String(format: "%.1f kg CO₂e", r.carbonEstimateKg))
                     .font(.ftHeadline)

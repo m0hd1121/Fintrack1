@@ -1232,7 +1232,7 @@ private struct IncomeSectionHeader: View {
                 .foregroundStyle(tint)
             Text(title.uppercased())
                 .font(.ftLabel)
-                .tracking(1.4)
+                .tracking(1.4).fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(FTColor.textSecondary)
         }
     }

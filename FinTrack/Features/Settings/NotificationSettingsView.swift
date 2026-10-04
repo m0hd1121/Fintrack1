@@ -366,7 +366,7 @@ struct NotificationSettingsView: View {
         VStack(alignment: .leading, spacing: FTSpacing.sm) {
             HStack(spacing: FTSpacing.sm) {
                 Image(systemName: icon).font(.ftCaption).foregroundStyle(color)
-                Text(title).font(.ftLabel).tracking(1.4).foregroundStyle(FTColor.textMuted)
+                Text(title).font(.ftLabel).tracking(1.4).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
             }
             VStack(spacing: 0) {
                 content()

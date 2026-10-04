@@ -61,7 +61,7 @@ struct FTAVATReportView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Q\(selectedQuarter) \(taxYear) VAT RETURN")
-                        .font(.ftLabel).tracking(1.4).foregroundStyle(FTColor.textMuted)
+                        .font(.ftLabel).tracking(1.4).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
                     Text(abs(report.netVAT).formatted(as: appState.baseCurrency))
                         .font(.ftAmount)
                         .foregroundStyle(report.isPayable ? FTColor.expense : FTColor.income)

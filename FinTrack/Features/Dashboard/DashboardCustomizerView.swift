@@ -98,7 +98,7 @@ struct DashboardCustomizerView: View {
     private var widgetList: some View {
         VStack(alignment: .leading, spacing: FTSpacing.sm) {
             Text("DASHBOARD SECTIONS")
-                .font(.ftLabel).tracking(1.4)
+                .font(.ftLabel).tracking(1.4).fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(FTColor.textSecondary)
                 .padding(.leading, FTSpacing.xs)
 

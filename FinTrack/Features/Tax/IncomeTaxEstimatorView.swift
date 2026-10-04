@@ -165,7 +165,7 @@ struct IncomeTaxEstimatorView: View {
         VStack(spacing: FTSpacing.xl) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("ESTIMATED ANNUAL TAX").font(.ftLabel).tracking(1.4).foregroundStyle(FTColor.textMuted)
+                    Text("ESTIMATED ANNUAL TAX").font(.ftLabel).tracking(1.4).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
                     Text(estimate.estimatedTax.formatted(as: config?.currency ?? appState.baseCurrency))
                         .font(.ftAmount).foregroundStyle(FTColor.expense)
                     Text("Effective rate: \((estimate.effectiveRate * 100).asPercentage(decimals: 1))")

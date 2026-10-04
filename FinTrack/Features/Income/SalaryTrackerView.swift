@@ -282,7 +282,7 @@ struct SalaryTrackerView: View {
                 .foregroundStyle(FTColor.accent)
             Text(title.uppercased())
                 .font(.ftLabel)
-                .tracking(1.4)
+                .tracking(1.4).fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(FTColor.textSecondary)
         }
     }
@@ -725,7 +725,7 @@ struct RecordSalaryPaymentSheet: View {
     private func sectionLabel(_ text: String) -> some View {
         Text(text.uppercased())
             .font(.ftLabel)
-            .tracking(1.4)
+            .tracking(1.4).fixedSize(horizontal: true, vertical: false)
             .foregroundStyle(FTColor.textMuted)
             .padding(.leading, FTSpacing.xs)
     }

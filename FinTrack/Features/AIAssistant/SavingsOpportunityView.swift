@@ -161,7 +161,7 @@ struct SavingsOpportunityView: View {
     private func priorityTag(_ p: SavingsOpportunity.Priority) -> some View {
         Text(p.label.uppercased())
             .font(.system(size: 9, weight: .bold))
-            .tracking(1.2)
+            .tracking(1.2).fixedSize(horizontal: true, vertical: false)
             .foregroundStyle(p.color)
             .padding(.horizontal, 6)
             .padding(.vertical, 3)

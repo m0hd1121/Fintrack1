@@ -504,7 +504,7 @@ struct ChildDetailSheet: View {
         VStack(spacing: FTSpacing.md) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("SAVINGS PROGRESS").font(.ftLabel).tracking(1.4).foregroundStyle(FTColor.textMuted)
+                    Text("SAVINGS PROGRESS").font(.ftLabel).tracking(1.4).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
                     Text(child.currentSavings.formatted(as: appState.baseCurrency))
                         .font(.ftAmount).foregroundStyle(FTColor.catTeal)
                     if child.savingsGoalAmount > 0 {

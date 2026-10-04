@@ -672,7 +672,7 @@ struct BudgetView: View {
                     .foregroundStyle(.white.opacity(0.8))
                 Spacer()
                 Text(selectedMonth.shortMonthName.uppercased())
-                    .font(.ftLabel).tracking(1.2)
+                    .font(.ftLabel).tracking(1.2).fixedSize(horizontal: true, vertical: false)
                     .foregroundStyle(.white.opacity(0.6))
             }
 

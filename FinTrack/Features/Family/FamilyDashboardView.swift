@@ -39,7 +39,7 @@ struct FamilyDashboardView: View {
         VStack(spacing: FTSpacing.xl) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("HOUSEHOLD CASH FLOW").font(.ftLabel).tracking(1.4).foregroundStyle(FTColor.textMuted)
+                    Text("HOUSEHOLD CASH FLOW").font(.ftLabel).tracking(1.4).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
                     Text((summary.netCashFlow >= 0 ? "+" : "") + summary.netCashFlow.formatted(as: appState.baseCurrency))
                         .font(.ftAmount)
                         .foregroundStyle(summary.netCashFlow >= 0 ? FTColor.income : FTColor.expense)

@@ -121,7 +121,7 @@ extension Font {
     static let ftBodySemibold = Font.system(.subheadline, weight: .semibold)  // 15
     static let ftCallout      = Font.system(.footnote,    weight: .semibold)  // 13
     static let ftCaption      = Font.system(.caption,     weight: .regular)   // 12
-    static let ftLabel        = Font.system(.caption2,    weight: .semibold)  // 11 — use .tracking(1.6)
+    static let ftLabel        = Font.system(.caption2,    weight: .semibold)  // 11 — use .tracking(1.6).fixedSize(horizontal: true, vertical: false)
 }
 
 // MARK: - Liquid Glass surfaces

@@ -144,7 +144,7 @@ struct AnomalyDetectionView: View {
         switch severity { case .high: label = "HIGH"; case .medium: label = "MED"; case .low: label = "LOW" }
         return Text(label)
             .font(.system(size: 9, weight: .bold))
-            .tracking(1.2)
+            .tracking(1.2).fixedSize(horizontal: true, vertical: false)
             .foregroundStyle(severity.color)
             .padding(.horizontal, 6)
             .padding(.vertical, 3)

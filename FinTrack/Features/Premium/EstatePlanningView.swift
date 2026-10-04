@@ -90,7 +90,7 @@ struct EstatePlanningView: View {
                     Text("Net Estate Value")
                         .font(.ftLabel)
                         .foregroundStyle(FTColor.textSecondary)
-                        .tracking(1.2)
+                        .tracking(1.2).fixedSize(horizontal: true, vertical: false)
                     Text(netEstate.formatted(as: currency))
                         .font(.ftDisplay)
                         .foregroundStyle(netEstate >= 0 ? FTColor.textPrimary : FTColor.expense)

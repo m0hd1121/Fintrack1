@@ -405,7 +405,7 @@ struct DebtManagementView: View {
                 .foregroundStyle(tint)
             Text(title.uppercased())
                 .font(.ftLabel)
-                .tracking(1.4)
+                .tracking(1.4).fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(FTColor.textSecondary)
         }
     }
@@ -850,7 +850,7 @@ struct DebtManagementView: View {
                             VStack(alignment: .leading, spacing: FTSpacing.sm) {
                                 Text("STANDARD")
                                     .font(.ftLabel)
-                                    .tracking(1.2)
+                                    .tracking(1.2).fixedSize(horizontal: true, vertical: false)
                                     .foregroundStyle(FTColor.textSecondary)
                                 Text(result.standardTotalInterest.formatted(as: baseCurrency))
                                     .font(.ftBodySemibold)
@@ -872,7 +872,7 @@ struct DebtManagementView: View {
                             VStack(alignment: .leading, spacing: FTSpacing.sm) {
                                 Text("WITH EXTRA")
                                     .font(.ftLabel)
-                                    .tracking(1.2)
+                                    .tracking(1.2).fixedSize(horizontal: true, vertical: false)
                                     .foregroundStyle(FTColor.accent)
                                 Text(result.acceleratedTotalInterest.formatted(as: baseCurrency))
                                     .font(.ftBodySemibold)
@@ -900,7 +900,7 @@ struct DebtManagementView: View {
                         VStack(spacing: FTSpacing.xs) {
                             Text("You save")
                                 .font(.ftLabel)
-                                .tracking(1.0)
+                                .tracking(1.0).fixedSize(horizontal: true, vertical: false)
                                 .foregroundStyle(.white.opacity(0.8))
                             Text(result.interestSaved.formatted(as: baseCurrency))
                                 .font(.ftAmount)
@@ -1311,7 +1311,7 @@ struct DebtManagementView: View {
                 VStack(alignment: .leading, spacing: FTSpacing.xs) {
                     Text("OVERALL UTILIZATION")
                         .font(.ftLabel)
-                        .tracking(1.4)
+                        .tracking(1.4).fixedSize(horizontal: true, vertical: false)
                         .foregroundStyle(FTColor.textSecondary)
                     HStack(alignment: .lastTextBaseline, spacing: FTSpacing.sm) {
                         Text((summary.aggregateUtilization * 100).asPercentage())
@@ -1887,7 +1887,7 @@ struct BNPLDetailSheet: View {
                                         .foregroundStyle(FTColor.textSecondary)
                                     Text("PAYMENT HISTORY")
                                         .font(.ftLabel)
-                                        .tracking(1.4)
+                                        .tracking(1.4).fixedSize(horizontal: true, vertical: false)
                                         .foregroundStyle(FTColor.textSecondary)
                                 }
                                 .padding(.horizontal, FTSpacing.screen)
@@ -2414,7 +2414,7 @@ private struct BalanceComparisonChart: View {
                     .foregroundStyle(FTColor.textSecondary)
                 Text("BALANCE PROJECTION")
                     .font(.ftLabel)
-                    .tracking(1.4)
+                    .tracking(1.4).fixedSize(horizontal: true, vertical: false)
                     .foregroundStyle(FTColor.textSecondary)
                 Spacer()
                 Text("First 36 months")
@@ -2553,7 +2553,7 @@ struct MoneyLentDetailSheet: View {
                                         .foregroundStyle(FTColor.textSecondary)
                                     Text("REPAYMENT HISTORY")
                                         .font(.ftLabel)
-                                        .tracking(1.4)
+                                        .tracking(1.4).fixedSize(horizontal: true, vertical: false)
                                         .foregroundStyle(FTColor.textSecondary)
                                 }
                                 .padding(.horizontal, FTSpacing.screen)
@@ -3020,7 +3020,7 @@ struct MoneyBorrowedDetailSheet: View {
                                         .foregroundStyle(FTColor.textSecondary)
                                     Text("REPAYMENT HISTORY")
                                         .font(.ftLabel)
-                                        .tracking(1.4)
+                                        .tracking(1.4).fixedSize(horizontal: true, vertical: false)
                                         .foregroundStyle(FTColor.textSecondary)
                                 }
                                 .padding(.horizontal, FTSpacing.screen)
@@ -3341,7 +3341,7 @@ struct LoanDetailSheet: View {
                                         .foregroundStyle(FTColor.textSecondary)
                                     Text("PAYMENT HISTORY")
                                         .font(.ftLabel)
-                                        .tracking(1.4)
+                                        .tracking(1.4).fixedSize(horizontal: true, vertical: false)
                                         .foregroundStyle(FTColor.textSecondary)
                                 }
                                 .padding(.horizontal, FTSpacing.screen)

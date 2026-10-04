@@ -81,7 +81,7 @@ struct SecurityPrivacyView: View {
         VStack(spacing: FTSpacing.lg) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("SECURITY OVERVIEW").font(.ftLabel).tracking(1.4).foregroundStyle(FTColor.textMuted)
+                    Text("SECURITY OVERVIEW").font(.ftLabel).tracking(1.4).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
                     Text("Security Score").font(.ftHeadline).foregroundStyle(FTColor.textPrimary)
                     Text(scoreLabel).font(.ftCaption).foregroundStyle(scoreColor)
                 }

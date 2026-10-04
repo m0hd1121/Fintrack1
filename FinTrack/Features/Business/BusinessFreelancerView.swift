@@ -49,7 +49,7 @@ struct BusinessFreelancerView: View {
         VStack(spacing: FTSpacing.xl) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("OUTSTANDING BALANCE").font(.ftLabel).tracking(1.4).foregroundStyle(FTColor.textMuted)
+                    Text("OUTSTANDING BALANCE").font(.ftLabel).tracking(1.4).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
                     Text(outstandingTotal.formatted(as: appState.baseCurrency))
                         .font(.ftAmount)
                         .foregroundStyle(outstandingTotal > 0 ? FTColor.gold : FTColor.income)

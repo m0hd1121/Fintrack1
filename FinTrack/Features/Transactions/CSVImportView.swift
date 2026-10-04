@@ -111,7 +111,7 @@ struct CSVImportView: View {
 
                 VStack(alignment: .leading, spacing: FTSpacing.sm) {
                     Text("SUPPORTED FORMATS")
-                        .font(.ftLabel).tracking(1.4)
+                        .font(.ftLabel).tracking(1.4).fixedSize(horizontal: true, vertical: false)
                         .foregroundStyle(FTColor.textSecondary)
                     formatNote(icon: "comma", text: "Comma-separated (.csv)")
                     formatNote(icon: "tablecells", text: "Tab-separated (.tsv)")
@@ -244,7 +244,7 @@ struct CSVImportView: View {
 
     private func sectionLabel(_ text: String) -> some View {
         Text(text)
-            .font(.ftLabel).tracking(1.4)
+            .font(.ftLabel).tracking(1.4).fixedSize(horizontal: true, vertical: false)
             .foregroundStyle(FTColor.textSecondary)
             .padding(.horizontal, FTSpacing.lg)
             .padding(.top, FTSpacing.md)
@@ -363,7 +363,7 @@ struct CSVImportView: View {
                     let previewRows = Array(result.rows.prefix(5))
                     VStack(alignment: .leading, spacing: FTSpacing.sm) {
                         Text("PREVIEW (first \(previewRows.count) of \(result.rows.count))")
-                            .font(.ftLabel).tracking(1.4)
+                            .font(.ftLabel).tracking(1.4).fixedSize(horizontal: true, vertical: false)
                             .foregroundStyle(FTColor.textSecondary)
 
                         VStack(spacing: 0) {

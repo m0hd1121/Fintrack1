@@ -245,7 +245,7 @@ struct InvestmentPortfolioView: View {
                 .foregroundStyle(tint)
             Text(title.uppercased())
                 .font(.ftLabel)
-                .tracking(1.4)
+                .tracking(1.4).fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(FTColor.textSecondary)
         }
     }
@@ -340,7 +340,7 @@ struct InvestmentPortfolioView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("UNREALIZED")
-                        .font(.ftLabel).tracking(1.0).foregroundStyle(.white.opacity(0.7))
+                        .font(.ftLabel).tracking(1.0).fixedSize(horizontal: true, vertical: false).foregroundStyle(.white.opacity(0.7))
                     Text(unrealizedPnL.formatted(as: baseCurrency))
                         .font(.ftCallout)
                         .foregroundStyle(unrealizedPnL >= 0 ? FTColor.income : FTColor.expense)
@@ -348,7 +348,7 @@ struct InvestmentPortfolioView: View {
                 Spacer()
                 VStack(alignment: .trailing, spacing: 3) {
                     Text("REALIZED")
-                        .font(.ftLabel).tracking(1.0).foregroundStyle(.white.opacity(0.7))
+                        .font(.ftLabel).tracking(1.0).fixedSize(horizontal: true, vertical: false).foregroundStyle(.white.opacity(0.7))
                     Text(realizedPnL.formatted(as: baseCurrency))
                         .font(.ftCallout)
                         .foregroundStyle(realizedPnL >= 0 ? FTColor.income : FTColor.expense)
@@ -722,7 +722,7 @@ struct InvestmentPortfolioView: View {
                 HStack(spacing: FTSpacing.sm) {
                     VStack(alignment: .leading, spacing: FTSpacing.sm) {
                         Text("YOUR PORTFOLIO")
-                            .font(.ftLabel).tracking(1.0).foregroundStyle(FTColor.textSecondary)
+                            .font(.ftLabel).tracking(1.0).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
                         Text(portfolioReturnPct.asPercentage(decimals: 1))
                             .font(.ftTitle)
                             .foregroundStyle(portfolioReturnPct >= 0 ? FTColor.income : FTColor.expense)
@@ -735,7 +735,7 @@ struct InvestmentPortfolioView: View {
 
                     VStack(alignment: .leading, spacing: FTSpacing.sm) {
                         Text(selectedBenchmark.rawValue.uppercased())
-                            .font(.ftLabel).tracking(1.0).foregroundStyle(FTColor.textSecondary)
+                            .font(.ftLabel).tracking(1.0).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
                         Text(benchmarkTotal.asPercentage(decimals: 1))
                             .font(.ftTitle).foregroundStyle(selectedBenchmark.color)
                         Text("CAGR \(benchmarkCAGR.asPercentage(decimals: 1))")
@@ -885,14 +885,14 @@ struct InvestmentPortfolioView: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 3) {
                         Text("REALIZED GAINS")
-                            .font(.ftLabel).tracking(1.0).foregroundStyle(FTColor.textSecondary)
+                            .font(.ftLabel).tracking(1.0).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
                         Text(summary.totalRealizedGain.formatted(as: baseCurrency))
                             .font(.ftBodySemibold).foregroundStyle(FTColor.income)
                     }
                     Spacer()
                     VStack(alignment: .trailing, spacing: 3) {
                         Text("REALIZED LOSSES")
-                            .font(.ftLabel).tracking(1.0).foregroundStyle(FTColor.textSecondary)
+                            .font(.ftLabel).tracking(1.0).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
                         Text(summary.totalRealizedLoss.formatted(as: baseCurrency))
                             .font(.ftBodySemibold).foregroundStyle(FTColor.expense)
                     }
@@ -901,7 +901,7 @@ struct InvestmentPortfolioView: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 3) {
                         Text("NET REALIZED")
-                            .font(.ftLabel).tracking(1.0).foregroundStyle(FTColor.textSecondary)
+                            .font(.ftLabel).tracking(1.0).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
                         Text(summary.netRealized.formatted(as: baseCurrency))
                             .font(.ftTitle)
                             .foregroundStyle(summary.netRealized >= 0 ? FTColor.income : FTColor.expense)
@@ -909,7 +909,7 @@ struct InvestmentPortfolioView: View {
                     Spacer()
                     VStack(alignment: .trailing, spacing: 3) {
                         Text("UNREALIZED")
-                            .font(.ftLabel).tracking(1.0).foregroundStyle(FTColor.textSecondary)
+                            .font(.ftLabel).tracking(1.0).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
                         Text(summary.totalUnrealized.formatted(as: baseCurrency))
                             .font(.ftBodySemibold)
                             .foregroundStyle(summary.totalUnrealized >= 0 ? FTColor.income : FTColor.expense)
@@ -919,14 +919,14 @@ struct InvestmentPortfolioView: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 3) {
                         Text("SHORT-TERM")
-                            .font(.ftLabel).tracking(1.0).foregroundStyle(FTColor.textSecondary)
+                            .font(.ftLabel).tracking(1.0).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
                         Text(summary.shortTermGain.formatted(as: baseCurrency))
                             .font(.ftCallout).foregroundStyle(FTColor.catCoral)
                     }
                     Spacer()
                     VStack(alignment: .trailing, spacing: 3) {
                         Text("LONG-TERM")
-                            .font(.ftLabel).tracking(1.0).foregroundStyle(FTColor.textSecondary)
+                            .font(.ftLabel).tracking(1.0).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
                         Text(summary.longTermGain.formatted(as: baseCurrency))
                             .font(.ftCallout).foregroundStyle(FTColor.income)
                     }
@@ -1041,14 +1041,14 @@ struct InvestmentPortfolioView: View {
                         HStack {
                             VStack(alignment: .leading, spacing: 3) {
                                 Text("FINAL VALUE (NOMINAL)")
-                                    .font(.ftLabel).tracking(1.0).foregroundStyle(FTColor.textSecondary)
+                                    .font(.ftLabel).tracking(1.0).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
                                 Text(last.nominalValue.formatted(as: baseCurrency))
                                     .font(.ftTitle).foregroundStyle(FTColor.income)
                             }
                             Spacer()
                             VStack(alignment: .trailing, spacing: 3) {
                                 Text("REAL (INFLATION-ADJ)")
-                                    .font(.ftLabel).tracking(1.0).foregroundStyle(FTColor.textSecondary)
+                                    .font(.ftLabel).tracking(1.0).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
                                 Text(last.realValue.formatted(as: baseCurrency))
                                     .font(.ftTitle).foregroundStyle(FTColor.catBlue)
                             }
@@ -1057,14 +1057,14 @@ struct InvestmentPortfolioView: View {
                         HStack {
                             VStack(alignment: .leading, spacing: 3) {
                                 Text("TOTAL CONTRIBUTIONS")
-                                    .font(.ftLabel).tracking(1.0).foregroundStyle(FTColor.textSecondary)
+                                    .font(.ftLabel).tracking(1.0).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
                                 Text(last.totalContributions.formatted(as: baseCurrency))
                                     .font(.ftCallout).foregroundStyle(FTColor.textPrimary)
                             }
                             Spacer()
                             VStack(alignment: .trailing, spacing: 3) {
                                 Text("GROWTH")
-                                    .font(.ftLabel).tracking(1.0).foregroundStyle(FTColor.textSecondary)
+                                    .font(.ftLabel).tracking(1.0).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
                                 Text(last.growthComponent.formatted(as: baseCurrency))
                                     .font(.ftCallout).foregroundStyle(FTColor.income)
                             }
@@ -1663,7 +1663,7 @@ private struct PerformanceBarChart: View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
             HStack(spacing: FTSpacing.xs) {
                 Image(systemName: "chart.bar.fill").font(.system(size: 13, weight: .semibold)).foregroundStyle(FTColor.textSecondary)
-                Text("RETURN COMPARISON").font(.ftLabel).tracking(1.4).foregroundStyle(FTColor.textSecondary)
+                Text("RETURN COMPARISON").font(.ftLabel).tracking(1.4).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
             }
             Chart(data) { point in
                 BarMark(x: .value("Asset", point.label), y: .value("Return %", point.value))
@@ -1713,7 +1713,7 @@ private struct ProjectionLineChart: View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
             HStack(spacing: FTSpacing.xs) {
                 Image(systemName: "chart.line.uptrend.xyaxis").font(.system(size: 13, weight: .semibold)).foregroundStyle(FTColor.textSecondary)
-                Text("GROWTH PROJECTION").font(.ftLabel).tracking(1.4).foregroundStyle(FTColor.textSecondary)
+                Text("GROWTH PROJECTION").font(.ftLabel).tracking(1.4).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
             }
             Chart(chartData) { p in
                 LineMark(x: .value("Year", p.year), y: .value("Value", p.value))
@@ -1770,7 +1770,7 @@ private struct MonteCarloLineChart: View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
             HStack(spacing: FTSpacing.xs) {
                 Image(systemName: "waveform.path.ecg").font(.system(size: 13, weight: .semibold)).foregroundStyle(FTColor.textSecondary)
-                Text("SCENARIO PATHS").font(.ftLabel).tracking(1.4).foregroundStyle(FTColor.textSecondary)
+                Text("SCENARIO PATHS").font(.ftLabel).tracking(1.4).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
             }
             Chart(chartData) { pt in
                 LineMark(x: .value("Year", pt.year), y: .value("Value", pt.value))
@@ -1822,7 +1822,7 @@ private struct MonteCarloHistogram: View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
             HStack(spacing: FTSpacing.xs) {
                 Image(systemName: "chart.bar.fill").font(.system(size: 13, weight: .semibold)).foregroundStyle(FTColor.textSecondary)
-                Text("FINAL VALUE DISTRIBUTION").font(.ftLabel).tracking(1.4).foregroundStyle(FTColor.textSecondary)
+                Text("FINAL VALUE DISTRIBUTION").font(.ftLabel).tracking(1.4).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
             }
             Chart(buckets) { bucket in
                 BarMark(x: .value("Value", bucket.label), y: .value("Count", bucket.count))
@@ -2005,7 +2005,7 @@ private struct InvestmentDetailSheet: View {
     private func lotHeader(_ title: String, symbol: String) -> some View {
         HStack(spacing: FTSpacing.xs) {
             Image(systemName: symbol).font(.system(size: 13, weight: .semibold)).foregroundStyle(FTColor.textSecondary)
-            Text(title).font(.ftLabel).tracking(1.4).foregroundStyle(FTColor.textSecondary)
+            Text(title).font(.ftLabel).tracking(1.4).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
         }
         .padding(.horizontal, FTSpacing.screen)
     }
@@ -2327,7 +2327,7 @@ private struct CryptoDetailSheet: View {
     private func sectionLabel(_ title: String, symbol: String) -> some View {
         HStack(spacing: FTSpacing.xs) {
             Image(systemName: symbol).font(.system(size: 13, weight: .semibold)).foregroundStyle(FTColor.textSecondary)
-            Text(title).font(.ftLabel).tracking(1.4).foregroundStyle(FTColor.textSecondary)
+            Text(title).font(.ftLabel).tracking(1.4).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textSecondary)
         }
         .padding(.horizontal, FTSpacing.screen)
     }

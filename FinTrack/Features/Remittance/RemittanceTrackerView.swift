@@ -64,7 +64,7 @@ struct RemittanceTrackerView: View {
         VStack(spacing: FTSpacing.lg) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Total Sent").font(.ftLabel).foregroundStyle(FTColor.textSecondary).tracking(1.2)
+                    Text("Total Sent").font(.ftLabel).foregroundStyle(FTColor.textSecondary).tracking(1.2).fixedSize(horizontal: true, vertical: false)
                     Text(totalSent.formatted(as: currency)).font(.ftDisplay).foregroundStyle(FTColor.textPrimary)
                 }
                 Spacer()

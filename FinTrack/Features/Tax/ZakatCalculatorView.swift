@@ -65,7 +65,7 @@ struct ZakatCalculatorView: View {
         VStack(spacing: FTSpacing.lg) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("NISAB THRESHOLD \(taxYear)").font(.ftLabel).tracking(1.4).foregroundStyle(FTColor.textMuted)
+                    Text("NISAB THRESHOLD \(taxYear)").font(.ftLabel).tracking(1.4).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
                     Text(r.nisabThresholdAED.formatted(as: appState.baseCurrency))
                         .font(.ftHeadline).foregroundStyle(FTColor.textPrimary)
                     Text(r.nisabBasis.rawValue).font(.ftCaption).foregroundStyle(FTColor.textSecondary)
@@ -184,7 +184,7 @@ struct ZakatCalculatorView: View {
         VStack(spacing: FTSpacing.xl) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("ZAKAT DUE \(taxYear)").font(.ftLabel).tracking(1.4).foregroundStyle(FTColor.textMuted)
+                    Text("ZAKAT DUE \(taxYear)").font(.ftLabel).tracking(1.4).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
                     Text(r.zakatDue.formatted(as: appState.baseCurrency))
                         .font(.ftAmount)
                         .foregroundStyle(r.isAboveNisab ? FTColor.gold : FTColor.textMuted)

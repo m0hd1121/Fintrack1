@@ -137,7 +137,7 @@ struct RealEstateListView: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("TOTAL EQUITY")
                         .font(.ftLabel)
-                        .tracking(1.4)
+                        .tracking(1.4).fixedSize(horizontal: true, vertical: false)
                         .foregroundStyle(FTColor.textMuted)
                     Text(totalEquity.formatted(as: baseCurrency))
                         .font(.ftBodySemibold)
@@ -149,7 +149,7 @@ struct RealEstateListView: View {
                 VStack(alignment: .trailing, spacing: 3) {
                     Text("PROPERTIES")
                         .font(.ftLabel)
-                        .tracking(1.4)
+                        .tracking(1.4).fixedSize(horizontal: true, vertical: false)
                         .foregroundStyle(FTColor.textMuted)
                     Text("\(properties.count)")
                         .font(.ftBodySemibold)

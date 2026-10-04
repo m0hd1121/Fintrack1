@@ -1274,7 +1274,7 @@ struct AddTransactionView: View {
     private var documentsPreviewCard: some View {
         VStack(alignment: .leading, spacing: FTSpacing.sm) {
             Text("DOCUMENTS (\(pendingDocuments.count))")
-                .font(.ftLabel).tracking(1.4)
+                .font(.ftLabel).tracking(1.4).fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(FTColor.textSecondary)
 
             ForEach(pendingDocuments.indices, id: \.self) { i in

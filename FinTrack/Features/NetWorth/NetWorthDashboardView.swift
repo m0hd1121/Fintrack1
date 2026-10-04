@@ -360,13 +360,13 @@ extension NetWorthDashboardView {
             HStack(spacing: FTSpacing.xxl) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("ASSETS")
-                        .font(.ftLabel).tracking(1.0).foregroundStyle(.white.opacity(0.7))
+                        .font(.ftLabel).tracking(1.0).fixedSize(horizontal: true, vertical: false).foregroundStyle(.white.opacity(0.7))
                     Text(totalAssets.asCompact(currency: base))
                         .font(.ftCallout).foregroundStyle(FTColor.income)
                 }
                 VStack(alignment: .leading, spacing: 4) {
                     Text("LIABILITIES")
-                        .font(.ftLabel).tracking(1.0).foregroundStyle(.white.opacity(0.7))
+                        .font(.ftLabel).tracking(1.0).fixedSize(horizontal: true, vertical: false).foregroundStyle(.white.opacity(0.7))
                     Text(totalLiabilities.asCompact(currency: base))
                         .font(.ftCallout).foregroundStyle(FTColor.expense)
                 }
@@ -504,7 +504,7 @@ extension NetWorthDashboardView {
                 .foregroundStyle(tint)
             Text(title.uppercased())
                 .font(.ftLabel)
-                .tracking(1.4)
+                .tracking(1.4).fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(FTColor.textSecondary)
         }
     }

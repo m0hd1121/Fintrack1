@@ -641,7 +641,7 @@ struct BillDetailView: View {
             Text(title)
                 .font(.ftLabel)
                 .foregroundStyle(FTColor.textSecondary)
-                .tracking(1.2)
+                .tracking(1.2).fixedSize(horizontal: true, vertical: false)
                 .textCase(.uppercase)
         }
     }
@@ -719,7 +719,7 @@ private struct RecordPaymentSheet: View {
                         Text("Amount")
                             .font(.ftLabel)
                             .foregroundStyle(FTColor.textSecondary)
-                            .tracking(1.2)
+                            .tracking(1.2).fixedSize(horizontal: true, vertical: false)
                             .textCase(.uppercase)
 
                         HStack {
@@ -738,7 +738,7 @@ private struct RecordPaymentSheet: View {
                         Text("Pay From")
                             .font(.ftLabel)
                             .foregroundStyle(FTColor.textSecondary)
-                            .tracking(1.2)
+                            .tracking(1.2).fixedSize(horizontal: true, vertical: false)
                             .textCase(.uppercase)
 
                         HStack {
@@ -768,7 +768,7 @@ private struct RecordPaymentSheet: View {
                         Text("Payment Date")
                             .font(.ftLabel)
                             .foregroundStyle(FTColor.textSecondary)
-                            .tracking(1.2)
+                            .tracking(1.2).fixedSize(horizontal: true, vertical: false)
                             .textCase(.uppercase)
 
                         DatePicker(

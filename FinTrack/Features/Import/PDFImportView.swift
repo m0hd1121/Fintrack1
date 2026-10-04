@@ -207,7 +207,7 @@ struct PDFImportView: View {
         VStack(spacing: FTSpacing.md) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("PARSED TRANSACTIONS").font(.ftLabel).tracking(1.4).foregroundStyle(FTColor.textMuted)
+                    Text("PARSED TRANSACTIONS").font(.ftLabel).tracking(1.4).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
                     Text("\(parsedItems.filter { $0.isSelected }.count) of \(parsedItems.count) selected")
                         .font(.ftHeadline).foregroundStyle(FTColor.textPrimary)
                     Text(selectedFileName).font(.ftCaption).foregroundStyle(FTColor.textMuted)

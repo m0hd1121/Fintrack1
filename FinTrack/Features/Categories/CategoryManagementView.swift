@@ -105,7 +105,7 @@ struct CategoryManagementView: View {
                 if showingArchived && !archivedCategories.isEmpty {
                     VStack(alignment: .leading, spacing: FTSpacing.sm) {
                         Text("ARCHIVED")
-                            .font(.ftLabel).tracking(1.4)
+                            .font(.ftLabel).tracking(1.4).fixedSize(horizontal: true, vertical: false)
                             .foregroundStyle(FTColor.textMuted)
                             .padding(.horizontal, FTSpacing.screen)
 
@@ -615,7 +615,7 @@ struct IconPickerView: View {
     private func iconSection(_ section: (section: String, icons: [String])) -> some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
             Text(section.section.uppercased())
-                .font(.ftLabel).tracking(1.4)
+                .font(.ftLabel).tracking(1.4).fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(FTColor.textSecondary)
 
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 6), spacing: FTSpacing.md) {

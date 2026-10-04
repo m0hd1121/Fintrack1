@@ -232,7 +232,7 @@ struct AccountsView: View {
 
                             HStack(alignment: .lastTextBaseline) {
                                 Text(currentTabTitle.uppercased())
-                                    .font(.ftLabel).tracking(1.4)
+                                    .font(.ftLabel).tracking(1.4).fixedSize(horizontal: true, vertical: false)
                                     .foregroundStyle(FTColor.textSecondary)
                                 Spacer()
                                 if !currentTabCountLabel.isEmpty {

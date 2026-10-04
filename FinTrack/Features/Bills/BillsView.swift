@@ -425,7 +425,7 @@ private struct CalendarBillSection: View {
         VStack(alignment: .leading, spacing: FTSpacing.sm) {
             Text(title.uppercased())
                 .font(.ftLabel)
-                .tracking(1.4)
+                .tracking(1.4).fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(titleColor)
                 .padding(.horizontal, FTSpacing.screen)
 
@@ -698,7 +698,7 @@ private struct BillSectionHeader: View {
                 .foregroundStyle(tint)
             Text(title.uppercased())
                 .font(.ftLabel)
-                .tracking(1.4)
+                .tracking(1.4).fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(FTColor.textSecondary)
         }
     }
@@ -869,7 +869,7 @@ private struct CategoryBillsSection: View {
                 FTIconTile(symbol: category.icon, tint: Color.fromString(category.colorName), size: 28)
                 Text(category.rawValue.uppercased())
                     .font(.ftLabel)
-                    .tracking(1.2)
+                    .tracking(1.2).fixedSize(horizontal: true, vertical: false)
                     .foregroundStyle(FTColor.textSecondary)
                 Spacer()
                 Text("\(bills.count)")

@@ -529,7 +529,7 @@ struct DashboardView: View {
 
                         VStack(spacing: 2) {
                             Text("TOTAL")
-                                .font(.ftLabel).tracking(1.4)
+                                .font(.ftLabel).tracking(1.4).fixedSize(horizontal: true, vertical: false)
                                 .foregroundStyle(FTColor.textMuted)
                             Text(totalSpending.formatted(as: baseCurrency))
                                 .font(.ftCallout).fontWeight(.bold)

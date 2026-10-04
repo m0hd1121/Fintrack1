@@ -52,7 +52,7 @@ struct SmartCashAllocationView: View {
         VStack(spacing: FTSpacing.lg) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Total Cash").font(.ftLabel).foregroundStyle(FTColor.textSecondary).tracking(1.2)
+                    Text("Total Cash").font(.ftLabel).foregroundStyle(FTColor.textSecondary).tracking(1.2).fixedSize(horizontal: true, vertical: false)
                     Text(totalCash.formatted(as: currency)).font(.ftDisplay).foregroundStyle(FTColor.textPrimary)
                 }
                 Spacer()

@@ -168,7 +168,7 @@ struct ParsedResultCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
             Text("PARSED TRANSACTION")
-                .font(.ftLabel).tracking(1.4)
+                .font(.ftLabel).tracking(1.4).fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(FTColor.textSecondary)
 
             VStack(spacing: 0) {
