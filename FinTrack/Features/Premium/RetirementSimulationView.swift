@@ -233,6 +233,9 @@ struct RetirementEditView: View {
     @State private var monthlyContributionText: String = ""
     @State private var monthlyBasicSalaryText: String = ""
     @State private var targetMonthlyIncomeText: String = ""
+    /// Steppers and rate fields write straight to the model; Cancel restores these.
+    @State private var original: (currentAge: Int, retirementAge: Int, serviceYears: Int,
+                                  returnRate: Double, inflationRate: Double)?
 
     var body: some View {
         NavigationStack {
@@ -352,16 +355,30 @@ struct RetirementEditView: View {
                     .foregroundStyle(FTColor.accent).fontWeight(.semibold)
                 }
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") { dismiss() }.foregroundStyle(FTColor.textSecondary)
+                    Button("Cancel") {
+                        if let original {
+                            plan.currentAge = original.currentAge
+                            plan.targetRetirementAge = original.retirementAge
+                            plan.yearsOfServiceUAE = original.serviceYears
+                            plan.expectedReturnRate = original.returnRate
+                            plan.expectedInflationRate = original.inflationRate
+                        }
+                        dismiss()
+                    }.foregroundStyle(FTColor.textSecondary)
                 }
             }
             .onAppear {
+                if original == nil {
+                    original = (plan.currentAge, plan.targetRetirementAge, plan.yearsOfServiceUAE,
+                                plan.expectedReturnRate, plan.expectedInflationRate)
+                }
                 currentSavingsText = AmountTextField.format(String(plan.currentSavings))
                 monthlyContributionText = AmountTextField.format(String(plan.monthlyContribution))
                 monthlyBasicSalaryText = AmountTextField.format(String(plan.monthlyBasicSalary))
                 targetMonthlyIncomeText = AmountTextField.format(String(plan.targetMonthlyIncome))
             }
             .dismissKeyboardOnTap()
+            .interactiveDismissDisabled()
         }
     }
 }

@@ -798,6 +798,32 @@ private struct EditPendingEmailSheet: View {
     /// the view needs to react the moment it changes.
     @State private var selectedLoanId: UUID? = nil
 
+    /// The fields above are bound straight to the model, so Cancel has to put
+    /// them back — otherwise "Cancel" kept every edit.
+    private struct Snapshot {
+        var merchant: String
+        var date: Date
+        var directionRaw: String
+        var categoryRaw: String
+        var accountId: UUID?
+        var bnplSelectionRaw: String?
+        var bnplAllocations: [BNPLAllocation]
+        var loanId: UUID?
+    }
+    @State private var snapshot: Snapshot?
+
+    private func revertEdits() {
+        guard let snapshot else { return }
+        item.merchantNormalized = snapshot.merchant
+        item.transactionDate = snapshot.date
+        item.directionRaw = snapshot.directionRaw
+        item.suggestedCategoryRaw = snapshot.categoryRaw
+        item.matchedAccountId = snapshot.accountId
+        item.bnplSelectionRaw = snapshot.bnplSelectionRaw
+        item.setBNPLAllocations(snapshot.bnplAllocations)
+        PendingLoanLinkStore.set(snapshot.loanId, for: item.id)
+    }
+
     private func selectLoan(_ id: UUID?) {
         selectedLoanId = id
         PendingLoanLinkStore.set(id, for: item.id)
@@ -1181,9 +1207,13 @@ private struct EditPendingEmailSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button("Cancel") {
+                        revertEdits()
+                        dismiss()
+                    }
                 }
             }
+            .interactiveDismissDisabled()
             // The loan picker only exists for Loan Repayment, so moving to any
             // other category removes it — and with it the link, which would
             // otherwise sit there unseen and still file the payment as a loan
@@ -1196,6 +1226,13 @@ private struct EditPendingEmailSheet: View {
                 tagsText = item.suggestedTags.joined(separator: ", ")
                 originalMerchant = item.merchantNormalized
                 selectedLoanId = PendingLoanLinkStore.loanId(for: item.id)
+                if snapshot == nil {
+                    snapshot = Snapshot(
+                        merchant: item.merchantNormalized, date: item.transactionDate,
+                        directionRaw: item.directionRaw, categoryRaw: item.suggestedCategoryRaw,
+                        accountId: item.matchedAccountId, bnplSelectionRaw: item.bnplSelectionRaw,
+                        bnplAllocations: item.bnplAllocations, loanId: selectedLoanId)
+                }
                 for allocation in item.bnplAllocations {
                     allocationTexts[allocation.planId] = allocation.amount.map { String(format: "%.2f", $0) } ?? ""
                 }
