@@ -11,6 +11,13 @@ private enum BudgetModuleRoute: Identifiable, Hashable {
     var id: Self { self }
 }
 
+private struct BudgetPendingDeletion: Identifiable {
+    let id = UUID()
+    let title: String
+    var message: String? = nil
+    let perform: () -> Void
+}
+
 // MARK: - Main Budget View
 
 struct BudgetView: View {
@@ -37,6 +44,9 @@ struct BudgetView: View {
     @State private var detailGoal: SavingsGoal? = nil
     @State private var showingBills = false
     @State private var moduleRoute: BudgetModuleRoute? = nil
+    /// Context-menu deletes ran immediately; a goal or envelope takes its
+    /// saved progress with it, so they're confirmed first.
+    @State private var pendingDeletion: BudgetPendingDeletion? = nil
 
     private let tabs = ["Monthly", "Annual", "Envelopes", "Zero-Based"]
     private var baseCurrency: String { appState.baseCurrency }
@@ -51,27 +61,85 @@ struct BudgetView: View {
         budgets.filter { $0.isInEffect(during: selectedMonth) && $0.period == .yearly }
     }
 
-    /// Single-pass spending by category for the selected month.
-    private var spentByCategory: [TransactionCategory: Double] {
-        var result: [TransactionCategory: Double] = [:]
-        for tx in transactions where tx.date.isSameMonth(as: selectedMonth) {
-            for (cat, amount) in tx.spendingPairs {
-                result[cat, default: 0] += amount
-            }
-        }
-        return result
+    // MARK: Derived data (cached)
+    //
+    // These used to be computed properties re-walking the whole ledger on every
+    // body evaluation — `monthlyBudgetsWithSpending` alone ran ~3× per render
+    // with one scan per budget (each also re-scanning for `spentByCategory`),
+    // forecasts ran twice per budget, and the 6-month chart did 6 scans. Tab
+    // switches animate, so all of that repeated mid-animation. Now one pass in
+    // `recomputeDerived()`, re-run only when the data or month changes.
+    private struct DerivedBudgetData {
+        var spentByCategory: [TransactionCategory: Double] = [:]
+        var ytdSpentByCategory: [TransactionCategory: Double] = [:]
+        var monthlySpending: [UUID: Double] = [:]
+        var forecasts: [UUID: BudgetForecast] = [:]
+        var ytdSpending: [UUID: Double] = [:]
+        var last6Months: [(month: Date, total: Double)] = []
+        var currentMonthIncome: Double = 0
+    }
+    @State private var derived = DerivedBudgetData()
+    @State private var lastDerivedKey = ""
+
+    private var spentByCategory: [TransactionCategory: Double] { derived.spentByCategory }
+    private var ytdSpentByCategory: [TransactionCategory: Double] { derived.ytdSpentByCategory }
+
+    /// Changes whenever something the derived figures depend on changes —
+    /// including in-place budget edits (amount, filter, name, period, state).
+    private var derivedKey: String {
+        let budgetPart = budgets.map {
+            "\($0.id)\($0.amount)\($0.rolloverAmount)\($0.merchantFilter ?? "")\($0.name)\($0.period.rawValue)\($0.isActive)\($0.endDate?.timeIntervalSince1970 ?? 0)"
+        }.joined()
+        let monthKey = Calendar.current.dateComponents([.year, .month], from: selectedMonth)
+        return "\(transactions.count)|\(monthKey.year ?? 0)-\(monthKey.month ?? 0)|\(budgetPart.hashValue)"
     }
 
-    /// Single-pass year-to-date spending by category.
-    private var ytdSpentByCategory: [TransactionCategory: Double] {
-        let yearStart = Date().startOfYear
-        var result: [TransactionCategory: Double] = [:]
-        for tx in transactions where tx.date >= yearStart {
-            for (cat, amount) in tx.spendingPairs {
-                result[cat, default: 0] += amount
+    private func recomputeDerived() {
+        let calendar = Calendar.current
+        let month = selectedMonth
+        let now = Date()
+        let yearStart = now.startOfYear
+        let sixMonthsStart = calendar.date(byAdding: .month, value: -5, to: now.startOfMonth) ?? now.startOfMonth
+
+        var d = DerivedBudgetData()
+        var monthTxs: [Transaction] = []
+        var yearTxs: [Transaction] = []
+        var monthlyTotals: [Date: Double] = [:]
+        for tx in transactions {
+            let date = tx.date
+            if date.isSameMonth(as: month) {
+                monthTxs.append(tx)
+                for (cat, amount) in tx.spendingPairs { d.spentByCategory[cat, default: 0] += amount }
+            }
+            if date >= yearStart {
+                yearTxs.append(tx)
+                for (cat, amount) in tx.spendingPairs { d.ytdSpentByCategory[cat, default: 0] += amount }
+            }
+            if date >= sixMonthsStart {
+                let key = date.startOfMonth
+                monthlyTotals[key, default: 0] += tx.spendingPairs.reduce(0) { $0 + $1.1 }
+            }
+            if tx.type == .income && !tx.isPending && !tx.isScheduled && !tx.isPrincipalMovement
+                && date.isSameMonth(as: now) {
+                d.currentMonthIncome += tx.amountInBaseCurrency
             }
         }
-        return result
+        d.last6Months = (0..<6).compactMap { offset -> (month: Date, total: Double)? in
+            guard let start = calendar.date(byAdding: .month, value: -offset, to: now.startOfMonth) else { return nil }
+            return (start, monthlyTotals[start] ?? 0)
+        }.reversed()
+
+        for budget in activeMonthlyBudgets {
+            let spent = spending(for: budget, monthTxs: monthTxs, byCategory: d.spentByCategory)
+            d.monthlySpending[budget.id] = spent
+            d.forecasts[budget.id] = BudgetService.shared.forecastEndOfMonth(
+                for: budget, spent: spent, transactions: transactions, baseCurrency: baseCurrency)
+        }
+        for budget in budgets where budget.isInEffect(during: month) {
+            d.ytdSpending[budget.id] = ytdSpending(for: budget, yearTxs: yearTxs, byCategory: d.ytdSpentByCategory)
+        }
+        derived = d
+        lastDerivedKey = derivedKey
     }
 
     /// Derives a matching keyword from a budget name — delegates to `BudgetService`
@@ -89,8 +157,8 @@ struct BudgetView: View {
     /// Per-budget monthly spending, auto-filtering by keyword when the category is shared.
     /// Falls back to cross-category keyword search when primary returns 0 and the budget
     /// name contains a specific keyword (e.g. "Shiraz Home Payment" → "shiraz home").
-    private func spending(for budget: Budget, in month: Date) -> Double {
-        let monthlyTxs = transactions.filter { $0.date.isSameMonth(as: month) }
+    private func spending(for budget: Budget, monthTxs monthlyTxs: [Transaction],
+                          byCategory spentByCategory: [TransactionCategory: Double]) -> Double {
 
         if let keyword = effectiveKeyword(for: budget) {
             let lower = keyword.lowercased()
@@ -124,9 +192,8 @@ struct BudgetView: View {
 
     /// Per-budget year-to-date spending, auto-filtering by keyword when the category is shared.
     /// Falls back to cross-category keyword search when primary returns 0.
-    private func ytdSpending(for budget: Budget) -> Double {
-        let yearStart = Date().startOfYear
-        let yearTxs = transactions.filter { $0.date >= yearStart }
+    private func ytdSpending(for budget: Budget, yearTxs: [Transaction],
+                             byCategory ytdSpentByCategory: [TransactionCategory: Double]) -> Double {
 
         if let keyword = effectiveKeyword(for: budget) {
             let lower = keyword.lowercased()
@@ -157,7 +224,7 @@ struct BudgetView: View {
     }
 
     private var monthlyBudgetsWithSpending: [(Budget, Double)] {
-        activeMonthlyBudgets.map { ($0, spending(for: $0, in: selectedMonth)) }
+        activeMonthlyBudgets.map { ($0, derived.monthlySpending[$0.id] ?? 0) }
     }
 
     /// Converts a budget's own-currency amount into the app's base currency.
@@ -187,26 +254,11 @@ struct BudgetView: View {
         monthlyBudgetsWithSpending.reduce(0) { $0 + $1.1 }
     }
 
-    /// Current-month income from posted transactions.
-    private var currentMonthIncome: Double {
-        transactions
-            .filter { $0.type == .income && !$0.isPending && !$0.isScheduled && $0.date.isSameMonth(as: Date()) }
-            .reduce(0) { $0 + $1.amountInBaseCurrency }
-    }
+    /// Current-month income from posted transactions (cached).
+    private var currentMonthIncome: Double { derived.currentMonthIncome }
 
-    /// Monthly spending by category for bar chart (last 6 months).
-    private var last6MonthsSpending: [(month: Date, total: Double)] {
-        let cal = Calendar.current
-        let now = Date()
-        return (0..<6).compactMap { offset -> (Date, Double)? in
-            guard let monthStart = cal.date(byAdding: .month, value: -offset, to: now.startOfMonth) else { return nil }
-            let total = transactions
-                .filter { $0.date.isSameMonth(as: monthStart) }
-                .flatMap { $0.spendingPairs }
-                .reduce(0) { $0 + $1.1 }
-            return (monthStart, total)
-        }.reversed()
-    }
+    /// Monthly spending for the bar chart (last 6 months, cached).
+    private var last6MonthsSpending: [(month: Date, total: Double)] { derived.last6Months }
 
     // MARK: Body
 
@@ -275,11 +327,26 @@ struct BudgetView: View {
                 case .debt:   DebtManagementView()
                 }
             }
+            .confirmationDialog(pendingDeletion?.title ?? "", isPresented: Binding(
+                get: { pendingDeletion != nil },
+                set: { if !$0 { pendingDeletion = nil } }
+            ), titleVisibility: .visible, presenting: pendingDeletion) { deletion in
+                Button("Delete", role: .destructive) { deletion.perform() }
+                Button("Cancel", role: .cancel) {}
+            } message: { deletion in
+                if let message = deletion.message { Text(message) }
+            }
+            .task(id: derivedKey) {
+                if derivedKey != lastDerivedKey { recomputeDerived() }
+            }
             .onAppear {
                 BudgetService.shared.processRollovers(budgets: budgets, transactions: transactions, baseCurrency: baseCurrency)
                 recommendations = BudgetService.shared.generateRecommendations(
                     transactions: transactions, budgets: budgets
                 )
+                // Rollovers may have changed amounts in place; refresh before
+                // the alert check reads the cached spend.
+                recomputeDerived()
                 checkBudgetAlerts()
                 ensureBuiltInTemplates()
             }
@@ -327,6 +394,7 @@ struct BudgetView: View {
                 Image(systemName: "plus")
                     .font(.system(size: 16, weight: .semibold))
             }
+            .accessibilityLabel("Add or open")
         }
     }
 
@@ -341,8 +409,8 @@ struct BudgetView: View {
             }
 
             // Forecasts for over-budget projected categories
-            let forecasts = monthlyBudgetsWithSpending.compactMap { (budget, spent) -> BudgetForecast? in
-                let f = BudgetService.shared.forecastEndOfMonth(for: budget, spent: spent, transactions: transactions, baseCurrency: baseCurrency)
+            let forecasts = monthlyBudgetsWithSpending.compactMap { (budget, _) -> BudgetForecast? in
+                guard let f = derived.forecasts[budget.id] else { return nil }
                 return f.isProjectedOverBudget ? f : nil
             }
             if !forecasts.isEmpty {
@@ -368,16 +436,19 @@ struct BudgetView: View {
                             effectiveBudget: effectiveBudgetAmount(budget),
                             convertedRollover: convertedRollover(budget),
                             currency: baseCurrency,
-                            forecast: BudgetService.shared.forecastEndOfMonth(for: budget, spent: spent, transactions: transactions, baseCurrency: baseCurrency)
+                            forecast: derived.forecasts[budget.id]
+                                ?? BudgetService.shared.forecastEndOfMonth(for: budget, spent: spent, transactions: transactions, baseCurrency: baseCurrency)
                         )
                         .contentShape(RoundedRectangle(cornerRadius: FTRadius.md))
                         .onTapGesture { detailBudget = budget }
+                        .accessibilityAddTraits(.isButton)
+                        .accessibilityHint("Shows budget details")
                         .contextMenu {
                             Button { editingBudget = budget } label: {
                                 Label("Edit", systemImage: "pencil")
                             }
                             Button(role: .destructive) {
-                                deleteBudget(budget)
+                                pendingDeletion = .init(title: "Delete \(budget.name)?") { deleteBudget(budget) }
                             } label: { Label("Delete", systemImage: "trash") }
                         }
                     }
@@ -409,6 +480,7 @@ struct BudgetView: View {
                             .ftGlassInteractive(FTRadius.md)
                             .contentShape(RoundedRectangle(cornerRadius: FTRadius.md))
                             .onTapGesture { detailGoal = goal }
+                            .accessibilityAddTraits(.isButton)
                             .contextMenu {
                                 Button { detailGoal = goal } label: {
                                     Label("View", systemImage: "eye")
@@ -421,8 +493,11 @@ struct BudgetView: View {
                                     Label(goal.isArchived ? "Unarchive" : "Archive", systemImage: "archivebox")
                                 }
                                 Button(role: .destructive) {
-                                    context.delete(goal)
-                                    try? context.save()
+                                    pendingDeletion = .init(title: "Delete \(goal.name)?",
+                                                            message: "Its saved progress and history are removed.") {
+                                        context.delete(goal)
+                                        try? context.save()
+                                    }
                                 } label: { Label("Delete", systemImage: "trash") }
                             }
                     }
@@ -458,7 +533,7 @@ struct BudgetView: View {
             } else {
                 VStack(spacing: FTSpacing.sm) {
                     ForEach(allAnnualBudgets, id: \.id) { budget in
-                        let spent = ytdSpending(for: budget)
+                        let spent = derived.ytdSpending[budget.id] ?? 0
                         let annualTarget = annualTarget(for: budget)
                         AnnualBudgetRow(
                             budget: budget,
@@ -509,13 +584,16 @@ struct BudgetView: View {
                         )
                         .contentShape(RoundedRectangle(cornerRadius: FTRadius.md))
                         .onTapGesture { detailEnvelope = envelope }
+                        .accessibilityAddTraits(.isButton)
                         .contextMenu {
                             Button {
                                 detailEnvelope = envelope
                             } label: { Label("Fund", systemImage: "plus.circle") }
                             Button(role: .destructive) {
-                                context.delete(envelope)
-                                try? context.save()
+                                pendingDeletion = .init(title: "Delete \(envelope.name)?") {
+                                    context.delete(envelope)
+                                    try? context.save()
+                                }
                             } label: { Label("Delete", systemImage: "trash") }
                         }
                     }
@@ -559,7 +637,7 @@ struct BudgetView: View {
                                     Label("Edit", systemImage: "pencil")
                                 }
                                 Button(role: .destructive) {
-                                    deleteBudget(budget)
+                                    pendingDeletion = .init(title: "Delete \(budget.name)?") { deleteBudget(budget) }
                                 } label: { Label("Delete", systemImage: "trash") }
                             }
                     }
@@ -974,7 +1052,7 @@ struct BudgetView: View {
 
     private func checkBudgetAlerts() {
         for budget in activeMonthlyBudgets {
-            let budgetSpent = spending(for: budget, in: selectedMonth)
+            let budgetSpent = derived.monthlySpending[budget.id] ?? 0
             BudgetService.shared.checkAndSendAlerts(budget: budget, spent: budgetSpent, currency: baseCurrency)
         }
         try? context.save()
