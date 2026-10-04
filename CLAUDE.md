@@ -53,10 +53,11 @@ FinTrackWidget/, FinTrackWatch/   source only — NOT in any build target
 - Color helpers: `Color(light:dark:)`, `Color(hex: UInt)` (constants), `Color(hex: String)` (model values), `Color.fromString("teal")` (model color names; default blue).
 - Spacing `FTSpacing`: `.xs=4 .sm=8 .md=12 .lg=16 .xl=20 .xxl=24 .screen=20` (`AppSpacing` differs: `.md=16 .lg=24 .xl=32`).
 - Radius `FTRadius`: `.sm=12 .md=16 .lg=22 .xl=26 .pill=30`.
-- Fonts: `.ftDisplay .ftAmount .ftTitle .ftHeadline .ftBody .ftBodySemibold .ftCallout .ftCaption .ftLabel` (section labels: pair with `.tracking(1.6).fixedSize(horizontal: true, vertical: false)` or the first glyph clips).
+- Fonts: `.ftDisplay .ftAmount .ftTitle .ftHeadline .ftBody .ftBodySemibold .ftCallout .ftCaption .ftLabel` — all except the two hero fonts are text-style based and follow Dynamic Type (RootView caps at `.accessibility2`); don't add `Font.system(size:)` for text. Section labels: pair `.tracking(…)` with `.fixedSize(horizontal: true, vertical: false)` or the first glyph clips.
 - Glass: `.ftGlass(radius)`, `.ftGlassInteractive(radius)`, `.cardStyle(padding:)`, `FTBackdrop()` used as `.background { FTBackdrop() }` (never as a `ZStack` sibling of the screen's `ScrollView`; pin CTAs with `.safeAreaInset`).
 - Components: `FTCard`, `FTIconTile`, `FTChip`, `FTProgressBar`, `FTSegmentedControl`, `FTToggleRow`, `FTTransactionRow`, `GlassCard`/`Card`, `PrimaryButton`, `AmountDisplayView`, `SectionHeader`, `EmptyStateView`, `BadgeView`, `IconBadge`, `FilterChip` (in `TransactionsListView.swift`), `AmountTextField` (amount input; parse with `AmountTextField.double(from:)`, never `Double(text)`).
 - `.swipeActions` only works inside a `List` — rows in a `ScrollView`/`VStack` use `.contextMenu`. A `Button` wrapping a glass card needs `.contentShape(Rectangle())`.
+- UI rules (from the UI audit): icon-only buttons get an `.accessibilityLabel` (pickers/toggles also `.isSelected`); tap targets ≥ 44pt; perpetual animations stop under `accessibilityReduceMotion`; a screen that is *pushed* must not wrap itself in a `NavigationStack` (sheets provide their own); create/save sheets guard against a second tap (`didSubmit`, set just before `dismiss()`); destructive context-menu actions confirm; don't run ledger-wide scans in `body` — cache in `@State` and recompute in `.task(id:)` (see `BudgetView.recomputeDerived`).
 
 ## Data Patterns
 
@@ -72,7 +73,7 @@ FinTrackWidget/, FinTrackWatch/   source only — NOT in any build target
 
 ## Core Utilities (`Extensions.swift`)
 
-`Double`: `.formatted(as:)`, `.asPercentage(decimals:)` (**does not multiply by 100** — pass percent values), `.asCompact(currency:)`. `Date`: `.startOfMonth`, `.endOfMonth`, `.startOfYear`, `.startOfWeek` (honours the first-day-of-week setting via `Calendar.app`), `.monthName` ("MMMM yyyy"), `.shortMonthName`, `.dayNumber`, `.formatted`, `.relativeFormatted`, `.isSameMonth(as:)`, `.isSameDay(as:)`. `View.dismissKeyboardOnTap()`. `Array.chunked(into:)`.
+`Double`: `.formatted(as:)`, `.asPercentage(decimals:)` (**does not multiply by 100** — pass percent values), `.asCompact(currency:)`. `Date`: `.startOfMonth`, `.endOfMonth`, `.startOfYear`, `.startOfWeek` (honours the first-day-of-week setting via `Calendar.app`), `.monthName` ("MMMM yyyy"), `.shortMonthName`, `.dayNumber`, `.formatted`, `.relativeFormatted`, `.isSameMonth(as:)`, `.isSameDay(as:)`. `View.dismissKeyboardOnTap()` (window-level, ignores taps on text inputs). `Array.chunked(into:)`.
 
 ## Key Services
 

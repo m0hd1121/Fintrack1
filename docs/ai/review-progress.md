@@ -23,6 +23,9 @@ Excluded from line-by-line: `logo.png` (binary), `.xcworkspace/contents.xcworksp
 ## Fix pass (after the review)
 User request "Fix all problems": commits `085d3fc`…HEAD on this branch fix the issue register (see `maintenance.md` → Fixed / Decisions / Still open). Docs were updated in the same pass: `code-map.md` entries for every touched file, `architecture.md` flows, `CLAUDE.md` conventions. Validation was static reading only — nothing was built or run; the fixes need an Xcode build and device testing.
 
+## UI/UX audit
+Follow-up request: audit and fix the whole UI. Primary journeys were read line by line and the rest of `Features/` swept by pattern; details, what was fixed and what remains are in `maintenance.md` → "UI/UX audit". Validation was a tree-sitter Swift syntax parse of every file plus brace/paren balance checks — no build, run, screenshots or profiling were possible in this container.
+
 ## Next step
 Review complete. For future work follow the workflow in `maintenance.md`. When code changes, re-read the touched files and update their `code-map.md` entries; to re-verify after many commits, diff from the reviewed commit (`git diff 3411a90 --stat -- FinTrack`) and re-read only changed files.
 
