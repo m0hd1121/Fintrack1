@@ -20,10 +20,12 @@ final class NetWorthService {
         vehicles: [Vehicle],
         personalAssets: [PersonalAsset],
         digitalAssets: [DigitalAsset],
+        moneyLent: [MoneyLent] = [],
         currencyService: CurrencyService,
         base: String
     ) -> Double {
         cashTotal(accounts: accounts, currencyService: currencyService, base: base) +
+        receivablesTotal(moneyLent: moneyLent, currencyService: currencyService, base: base) +
         investmentTotal(investments: investments, cryptos: cryptos, golds: golds,
                         currencyService: currencyService, base: base) +
         giftCardTotal(giftCards: giftCards, currencyService: currencyService, base: base) +
@@ -38,9 +40,11 @@ final class NetWorthService {
         creditCards: [CreditCard],
         bnpl: [BNPLPlan],
         moneyBorrowed: [MoneyBorrowed],
+        realEstate: [RealEstateProperty] = [],
         currencyService: CurrencyService,
         base: String
     ) -> Double {
+        propertyMortgageTotal(realEstate: realEstate, loans: loans, currencyService: currencyService, base: base) +
         loans.filter { $0.isActive }.reduce(0) {
             $0 + currencyService.convert($1.outstandingBalance, from: $1.currency, to: base)
         } +
@@ -65,6 +69,7 @@ final class NetWorthService {
         vehicles: [Vehicle],
         personalAssets: [PersonalAsset],
         digitalAssets: [DigitalAsset],
+        moneyLent: [MoneyLent] = [],
         loans: [Loan],
         creditCards: [CreditCard],
         bnpl: [BNPLPlan],
@@ -75,9 +80,11 @@ final class NetWorthService {
         totalAssets(accounts: accounts, investments: investments, cryptos: cryptos,
                     golds: golds, giftCards: giftCards, realEstate: realEstate,
                     vehicles: vehicles, personalAssets: personalAssets,
-                    digitalAssets: digitalAssets, currencyService: currencyService, base: base) -
+                    digitalAssets: digitalAssets, moneyLent: moneyLent,
+                    currencyService: currencyService, base: base) -
         totalLiabilities(loans: loans, creditCards: creditCards, bnpl: bnpl,
-                         moneyBorrowed: moneyBorrowed, currencyService: currencyService, base: base)
+                         moneyBorrowed: moneyBorrowed, realEstate: realEstate,
+                         currencyService: currencyService, base: base)
     }
 
     // MARK: - Breakdown by Asset Class
@@ -172,6 +179,7 @@ final class NetWorthService {
         vehicles: [Vehicle],
         personalAssets: [PersonalAsset],
         digitalAssets: [DigitalAsset],
+        moneyLent: [MoneyLent] = [],
         loans: [Loan],
         creditCards: [CreditCard],
         bnpl: [BNPLPlan],
@@ -183,9 +191,11 @@ final class NetWorthService {
         let assets = totalAssets(accounts: accounts, investments: investments, cryptos: cryptos,
                                  golds: golds, giftCards: giftCards, realEstate: realEstate,
                                  vehicles: vehicles, personalAssets: personalAssets,
-                                 digitalAssets: digitalAssets, currencyService: currencyService, base: base)
+                                 digitalAssets: digitalAssets, moneyLent: moneyLent,
+                                 currencyService: currencyService, base: base)
         let liabilities = totalLiabilities(loans: loans, creditCards: creditCards, bnpl: bnpl,
-                                           moneyBorrowed: moneyBorrowed, currencyService: currencyService, base: base)
+                                           moneyBorrowed: moneyBorrowed, realEstate: realEstate,
+                                           currencyService: currencyService, base: base)
 
         let breakdown: [String: Double] = [
             "Cash": cashTotal(accounts: accounts, currencyService: currencyService, base: base),
@@ -326,8 +336,26 @@ final class NetWorthService {
         golds.filter { !$0.isArchived }.reduce(0) { $0 + currencyService.convert($1.currentValue, from: $1.currency, to: base) }
     }
 
+    /// Money lent to people that hasn't been repaid or written off.
+    private func receivablesTotal(moneyLent: [MoneyLent], currencyService: CurrencyService, base: String) -> Double {
+        moneyLent.filter { !$0.isFullyRepaid && $0.status != .writtenOff }.reduce(0) {
+            $0 + currencyService.convert($1.remainingBalance, from: $1.currency, to: base)
+        }
+    }
+
+    /// A property's manually entered mortgage balance. Skipped when an active
+    /// mortgage Loan exists — that loan is already a liability, and the two
+    /// usually describe the same debt.
+    private func propertyMortgageTotal(realEstate: [RealEstateProperty], loans: [Loan],
+                                       currencyService: CurrencyService, base: String) -> Double {
+        guard !loans.contains(where: { $0.isActive && $0.loanType == .mortgage }) else { return 0 }
+        return realEstate.filter { !$0.isArchived }.reduce(0) {
+            $0 + currencyService.convert($1.mortgageBalance, from: $1.currency, to: base)
+        }
+    }
+
     private func giftCardTotal(giftCards: [GiftCard], currencyService: CurrencyService, base: String) -> Double {
-        giftCards.filter { !$0.isExpired }.reduce(0) {
+        giftCards.filter { !$0.isUsedUp && !$0.isExpired }.reduce(0) {
             $0 + currencyService.convert($1.balance, from: $1.currency, to: base)
         }
     }

@@ -134,7 +134,15 @@ struct AccountsView: View {
         }
     }
 
-    private var netWorth: Double { totalBalance + investmentValue + giftCardValue - totalDebt }
+    /// Same definition as the Net Worth screen and dashboard (NetWorthService).
+    private var netWorth: Double {
+        NetWorthService.shared.netWorth(
+            accounts: accounts, investments: investments, cryptos: cryptoHoldings,
+            golds: goldHoldings, giftCards: giftCards, realEstate: realEstateProperties,
+            vehicles: vehicles, personalAssets: personalAssets, digitalAssets: digitalAssets,
+            moneyLent: moneyLent, loans: loans, creditCards: creditCards, bnpl: bnplPlans,
+            moneyBorrowed: moneyBorrowed, currencyService: currencyService, base: baseCurrency)
+    }
 
     // MARK: Module metrics (relocated from DashboardView)
 

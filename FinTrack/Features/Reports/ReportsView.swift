@@ -57,6 +57,8 @@ struct ReportsView: View {
     @Query private var moneyLent: [MoneyLent]
     @Query private var moneyBorrowed: [MoneyBorrowed]
     @Query private var savingsGoals: [SavingsGoal]
+    @Query private var giftCards: [GiftCard]
+    @Query private var bnplPlans: [BNPLPlan]
 
     @State private var selectedPeriod: ReportPeriod = .month
     @State private var selectedReport: ReportType = .cashFlow
@@ -227,6 +229,10 @@ struct ReportsView: View {
                                     digitalAssets: digitalAssets,
                                     loans: loans,
                                     creditCards: creditCards,
+                                    giftCards: giftCards,
+                                    bnplPlans: bnplPlans,
+                                    moneyLent: moneyLent,
+                                    moneyBorrowed: moneyBorrowed,
                                     currency: baseCurrency
                                 )
                             case .trends:
@@ -996,6 +1002,10 @@ struct NetWorthReport: View {
     let digitalAssets: [DigitalAsset]
     let loans: [Loan]
     let creditCards: [CreditCard]
+    var giftCards: [GiftCard] = []
+    var bnplPlans: [BNPLPlan] = []
+    var moneyLent: [MoneyLent] = []
+    var moneyBorrowed: [MoneyBorrowed] = []
     let currency: String
     @Environment(CurrencyService.self) private var currencyService
 
@@ -1013,8 +1023,17 @@ struct NetWorthReport: View {
     private var ccDebt: Double { creditCards.filter { $0.isActive }.reduce(0) { $0 + currencyService.convert($1.outstandingBalance, from: $1.currency, to: currency) } }
 
     var body: some View {
-        let totalAssets = cashTotal + investTotal + cryptoTotal + goldTotal + reTotal + vehTotal + paTotal + daTotal
-        let totalLiabilities = loanDebt + ccDebt
+        // Headline figures use the shared definition (also receivables, gift
+        // cards, BNPL, personal borrowing and property mortgages); the rows
+        // below break down the main classes.
+        let totalAssets = svc.totalAssets(
+            accounts: accounts, investments: investments, cryptos: cryptos, golds: golds,
+            giftCards: giftCards, realEstate: realEstate, vehicles: vehicles,
+            personalAssets: personalAssets, digitalAssets: digitalAssets, moneyLent: moneyLent,
+            currencyService: currencyService, base: currency)
+        let totalLiabilities = svc.totalLiabilities(
+            loans: loans, creditCards: creditCards, bnpl: bnplPlans, moneyBorrowed: moneyBorrowed,
+            realEstate: realEstate, currencyService: currencyService, base: currency)
         let netWorth = totalAssets - totalLiabilities
         return VStack(spacing: FTSpacing.lg) {
             // Net Worth hero

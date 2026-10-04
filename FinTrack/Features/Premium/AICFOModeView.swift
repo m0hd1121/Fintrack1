@@ -9,6 +9,17 @@ struct AICFOModeView: View {
     @Query(filter: #Predicate<SavingsGoal> { $0.isCompleted == false }) private var goals: [SavingsGoal]
     @Query private var loans: [Loan]
     @Query private var investments: [Investment]
+    @Query private var cryptoHoldings: [CryptoHolding]
+    @Query private var goldHoldings: [GoldHolding]
+    @Query private var giftCards: [GiftCard]
+    @Query private var realEstateProperties: [RealEstateProperty]
+    @Query private var vehicles: [Vehicle]
+    @Query private var personalAssets: [PersonalAsset]
+    @Query private var digitalAssets: [DigitalAsset]
+    @Query private var creditCards: [CreditCard]
+    @Query private var bnplPlans: [BNPLPlan]
+    @Query private var moneyLent: [MoneyLent]
+    @Query private var moneyBorrowed: [MoneyBorrowed]
 
     @State private var selectedPeriod = 0
     private let periods = ["This Week", "This Month", "Last 3 Months"]
@@ -40,8 +51,15 @@ struct AICFOModeView: View {
         return max(0, (totalIncome - totalExpenses) / totalIncome)
     }
 
+    /// Was a raw sum of account balances in mixed currencies; now the same
+    /// definition as everywhere else (NetWorthService).
     private var netWorth: Double {
-        accounts.reduce(0) { $0 + $1.balance }
+        NetWorthService.shared.netWorth(
+            accounts: accounts, investments: investments, cryptos: cryptoHoldings,
+            golds: goldHoldings, giftCards: giftCards, realEstate: realEstateProperties,
+            vehicles: vehicles, personalAssets: personalAssets, digitalAssets: digitalAssets,
+            moneyLent: moneyLent, loans: loans, creditCards: creditCards, bnpl: bnplPlans,
+            moneyBorrowed: moneyBorrowed, currencyService: CurrencyService.shared, base: currency)
     }
 
     private var recommendations: [CFORecommendation] { generateRecommendations() }
@@ -212,7 +230,7 @@ struct AICFOModeView: View {
         var score = 50
         if savingsRate >= 0.20 { score += 20 } else if savingsRate >= 0.10 { score += 10 }
         if netWorth > 0 { score += 10 }
-        let debtRatio = loans.reduce(0.0) { $0 + $1.outstandingBalance } / max(1, netWorth)
+        let debtRatio = loans.reduce(0.0) { $0 + CurrencyService.shared.convert($1.outstandingBalance, from: $1.currency, to: currency) } / max(1, netWorth)
         if debtRatio < 0.3 { score += 10 } else if debtRatio > 1.0 { score -= 10 }
         if !goals.isEmpty && goals.first(where: { $0.progress > 0.5 }) != nil { score += 10 }
         return min(100, max(0, score))

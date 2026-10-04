@@ -27,6 +27,7 @@ struct NetWorthDashboardView: View {
     @Query(filter: #Predicate<CreditCard> { $0.isActive }) private var creditCards: [CreditCard]
     @Query(filter: #Predicate<BNPLPlan> { $0.isCompleted == false }) private var bnplPlans: [BNPLPlan]
     @Query private var moneyBorrowed: [MoneyBorrowed]
+    @Query private var moneyLent: [MoneyLent]
     @Query(sort: \NetWorthSnapshot.date) private var snapshots: [NetWorthSnapshot]
     @Query private var milestones: [NetWorthMilestone]
 
@@ -63,6 +64,7 @@ struct NetWorthDashboardView: View {
             vehicles: Array(vehicles),
             personalAssets: Array(personalAssets),
             digitalAssets: Array(digitalAssets),
+            moneyLent: Array(moneyLent),
             currencyService: currencyService,
             base: base
         )
@@ -74,6 +76,7 @@ struct NetWorthDashboardView: View {
             creditCards: Array(creditCards),
             bnpl: Array(bnplPlans),
             moneyBorrowed: moneyBorrowed.filter { !$0.isFullyRepaid },
+            realEstate: Array(realEstateProperties),
             currencyService: currencyService,
             base: base
         )
@@ -268,6 +271,7 @@ struct NetWorthDashboardView: View {
             vehicles: Array(vehicles),
             personalAssets: Array(personalAssets),
             digitalAssets: Array(digitalAssets),
+            moneyLent: Array(moneyLent),
             loans: Array(loans),
             creditCards: Array(creditCards),
             bnpl: Array(bnplPlans),

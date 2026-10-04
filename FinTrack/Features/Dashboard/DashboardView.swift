@@ -33,6 +33,11 @@ struct DashboardView: View {
     @Query private var giftCards: [GiftCard]
     @Query(filter: #Predicate<Bill> { $0.isActive }) private var bills: [Bill]
     @Query private var moneyBorrowed: [MoneyBorrowed]
+    @Query private var moneyLent: [MoneyLent]
+    @Query private var realEstateProperties: [RealEstateProperty]
+    @Query private var vehicles: [Vehicle]
+    @Query private var personalAssets: [PersonalAsset]
+    @Query private var digitalAssets: [DigitalAsset]
     /// Not rendered here — this feeds the App Intents snapshot so Siri can
     /// resolve a goal by name (`GoalEntity`). Goal counts are small.
     @Query private var savingsGoals: [SavingsGoal]
@@ -151,25 +156,13 @@ struct DashboardView: View {
         m.totalBalance = accounts.filter { !$0.isArchived && !$0.isHidden }
             .reduce(0) { $0 + currencyService.convert($1.balance, from: $1.currency, to: baseCurrency) }
 
-        let investmentValue = investments.reduce(0) {
-            $0 + currencyService.convert($1.currentValue, from: $1.currency, to: baseCurrency)
-        }
-        let cryptoValue = cryptoHoldings.reduce(0) {
-            $0 + currencyService.convert($1.currentValue, from: $1.currency, to: baseCurrency)
-        }
-        let goldValue = goldHoldings.filter { !$0.isArchived }.reduce(0) {
-            $0 + currencyService.convert($1.currentValue, from: $1.currency, to: baseCurrency)
-        }
-        let giftCardValue = giftCards.filter { !$0.isUsedUp && !$0.isExpired }.reduce(0) {
-            $0 + currencyService.convert($1.balance, from: $1.currency, to: baseCurrency)
-        }
-        let totalDebt = loans.filter { $0.isActive }.reduce(0) {
-            $0 + currencyService.convert($1.outstandingBalance, from: $1.currency, to: baseCurrency)
-        }
-        let ccDebt = creditCards.filter { $0.isActive }.reduce(0) {
-            $0 + currencyService.convert($1.outstandingBalance, from: $1.currency, to: baseCurrency)
-        }
-        m.netWorth = m.totalBalance + investmentValue + cryptoValue + goldValue + giftCardValue - totalDebt - ccDebt
+        // One definition app-wide (Net Worth screen, Accounts, Reports, widgets).
+        m.netWorth = NetWorthService.shared.netWorth(
+            accounts: accounts, investments: investments, cryptos: cryptoHoldings,
+            golds: goldHoldings, giftCards: giftCards, realEstate: realEstateProperties,
+            vehicles: vehicles, personalAssets: personalAssets, digitalAssets: digitalAssets,
+            moneyLent: moneyLent, loans: loans, creditCards: creditCards, bnpl: bnplPlans,
+            moneyBorrowed: moneyBorrowed, currencyService: currencyService, base: baseCurrency)
 
         // Every amount here is converted to the base currency so the list can be
         // rendered/summed consistently (loans, cards and BNPL previously showed
