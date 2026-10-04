@@ -513,14 +513,6 @@ struct RecordLoanPaymentSheet: View {
         // in loan.currency like every other loan field.
         let amountInLoanCurrency = currencyService.convert(amountValue, from: paymentCurrency, to: loan.currency)
 
-        // Same amortization model as Loan.amortizationSchedule: split the
-        // payment into interest (on the current outstanding balance) and
-        // principal, so outstandingBalance tracks the real remaining debt
-        // rather than just the raw payment total.
-        let monthlyRate = loan.interestRate / 100.0 / 12.0
-        let interestPortion = loan.outstandingBalance * monthlyRate
-        let principalPortion = min(max(amountInLoanCurrency - interestPortion, 0), loan.outstandingBalance)
-
         let tx = Transaction(
             title: "\(loan.name) Payment",
             amount: amountValue,
@@ -539,15 +531,9 @@ struct RecordLoanPaymentSheet: View {
         }
         context.insert(tx)
 
-        loan.outstandingBalance = max(0, loan.outstandingBalance - principalPortion)
-        loan.paidInstallments += 1
-        let fullyPaid = loan.outstandingBalance <= 0.01
-            || (loan.totalInstallments > 0 && loan.paidInstallments >= loan.totalInstallments)
-        if fullyPaid {
-            loan.isActive = false
-        } else {
-            loan.nextPaymentDate = Calendar.current.date(byAdding: .month, value: 1, to: loan.nextPaymentDate) ?? loan.nextPaymentDate
-        }
+        // Interest/principal split, balance, instalment count and next due date
+        // — shared with the review queue's loan-repayment approval.
+        loan.recordPayment(amountInLoanCurrency: amountInLoanCurrency)
 
         try? context.save()
         dismiss()

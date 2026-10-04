@@ -13,6 +13,13 @@ struct EmailReviewQueueView: View {
     private var allItems: [PendingEmailTransaction]
     @Query(sort: \Account.name) private var accounts: [Account]
     @Query private var bnplPlans: [BNPLPlan]
+    @Query private var loans: [Loan]
+
+    /// The loan a queue item was marked as a repayment on, for its row badge.
+    private func loanName(for item: PendingEmailTransaction) -> String? {
+        guard let id = PendingLoanLinkStore.loanId(for: item.id) else { return nil }
+        return loans.first { $0.id == id }?.name
+    }
 
     private func accountName(for item: PendingEmailTransaction) -> String? {
         guard let id = item.matchedAccountId else { return nil }
@@ -129,7 +136,8 @@ struct EmailReviewQueueView: View {
                                     .foregroundStyle(isChecked ? FTColor.accent : FTColor.textMuted)
                                     .accessibilityHidden(true)
                             }
-                            PendingEmailRow(item: item, accountName: accountName(for: item))
+                            PendingEmailRow(item: item, accountName: accountName(for: item),
+                                        loanName: loanName(for: item))
                         }
                             .contentShape(.rect)
                             .onTapGesture {
@@ -279,6 +287,10 @@ struct EmailReviewQueueView: View {
         } message: {
             Text(bulkResultMessage ?? "")
         }
+        // Forget loan links for items that are no longer waiting here.
+        .onAppear {
+            PendingLoanLinkStore.prune(keeping: Set(pendingItems.map(\.id)))
+        }
         // Nothing left to select (everything approved/rejected) — leave the
         // mode rather than strand the user in an empty selection bar.
         .onChange(of: pendingItems.isEmpty) { _, isEmpty in
@@ -289,6 +301,7 @@ struct EmailReviewQueueView: View {
                 item: item,
                 accounts: accounts.filter { !$0.isArchived },
                 bnplPlans: bnplPlans.filter { !$0.isCompleted },
+                loans: loans.filter { $0.isActive },
                 onApprove: { shares in approve(item, lentShares: shares) }
             )
         }
@@ -511,6 +524,7 @@ struct EmailReviewQueueView: View {
 private struct PendingEmailRow: View {
     let item: PendingEmailTransaction
     var accountName: String? = nil
+    var loanName: String? = nil
 
     @State private var showExplanation = false
 
@@ -571,6 +585,9 @@ private struct PendingEmailRow: View {
                 if let accountName {
                     BadgeView(text: "→ \(accountName)", color: FTColor.accent)
                 }
+                if let loanName {
+                    BadgeView(text: "Loan · \(loanName)", color: FTColor.catBlue)
+                }
                 if item.isPossibleDuplicate {
                     BadgeView(text: "Possible duplicate", color: FTColor.expense)
                 }
@@ -623,6 +640,8 @@ private struct EditPendingEmailSheet: View {
     @Bindable var item: PendingEmailTransaction
     let accounts: [Account]
     var bnplPlans: [BNPLPlan] = []
+    /// Active loans the user can mark this payment as an instalment on.
+    var loans: [Loan] = []
     /// Receives who owes the user what when they paid for someone else;
     /// empty for an ordinary approval.
     let onApprove: ([LentShare]) -> Void
@@ -658,6 +677,13 @@ private struct EditPendingEmailSheet: View {
             return "Approving records one payment per plan and advances each plan by one installment. Your account is debited once, for the whole charge."
         }
         return "Approving records this as a BNPL payment\(count == 1 ? " and advances the plan by one installment." : ".")"
+    }
+
+    private var loanExplanation: String {
+        guard let id = selectedLoanId, let loan = loans.first(where: { $0.id == id }) else {
+            return "If this payment is an instalment on one of your loans, pick it so the loan's balance and next due date update."
+        }
+        return "Approving records this as a payment on \(loan.name): the loan's balance and next due date update, and your account is debited once."
     }
 
     private func bnplChoiceRow(title: String, subtitle: String?, isOn: Bool,
@@ -733,9 +759,43 @@ private struct EditPendingEmailSheet: View {
         var amountText = ""
     }
 
+    /// The loan this payment is an instalment on, mirrored from
+    /// `PendingLoanLinkStore` into state because UserDefaults isn't observable —
+    /// the view needs to react the moment it changes.
+    @State private var selectedLoanId: UUID? = nil
+
+    private func selectLoan(_ id: UUID?) {
+        selectedLoanId = id
+        PendingLoanLinkStore.set(id, for: item.id)
+        // A loan instalment isn't a purchase for a friend.
+        if id != nil { paidForOthers = false }
+    }
+
+    /// A loan whose EMI matches this payment — the usual shape of a fetched
+    /// repayment. Only suggested when exactly one loan fits, in the same
+    /// currency, so a coincidence can't pick the wrong one.
+    private var suggestedLoan: Loan? {
+        guard selectedLoanId == nil else { return nil }
+        let matches = loans.filter { loan in
+            loan.currency == item.currency && loan.emiAmount > 0
+                && abs(loan.emiAmount - currentAmount) <= max(0.01, loan.emiAmount * 0.01)
+        }
+        return matches.count == 1 ? matches.first : nil
+    }
+
+    /// Loans only make sense for money going out, and a BNPL instalment is a
+    /// plan payment, not a loan. Hidden while "paid for someone else" is on —
+    /// a payment can't be both.
+    private var canLinkLoan: Bool {
+        item.direction == .debit && !item.isBNPLMerchant && !loans.isEmpty && !paidForOthers
+    }
+
     /// Money in (a refund, a salary) isn't paid on anyone's behalf, and a BNPL
     /// instalment is a payment against a plan rather than a purchase for a friend.
-    private var canMarkAsLent: Bool { item.direction == .debit && !item.isBNPLMerchant }
+    /// Also off once a loan is chosen: a loan instalment isn't a purchase for a friend.
+    private var canMarkAsLent: Bool {
+        item.direction == .debit && !item.isBNPLMerchant && selectedLoanId == nil
+    }
 
     /// The amount as currently typed — the user may correct it in this same
     /// sheet, so the shares are checked against that, not the stored value.
@@ -919,6 +979,43 @@ private struct EditPendingEmailSheet: View {
                             .ftGlass(FTRadius.md)
                         }
 
+                        // Loan repayment — this payment is an instalment on one of the user's loans.
+                        if canLinkLoan {
+                            VStack(spacing: 0) {
+                                fieldRow("Loan repayment") {
+                                    Picker("", selection: Binding(
+                                        get: { selectedLoanId?.uuidString ?? "" },
+                                        set: { selectLoan(UUID(uuidString: $0)) }
+                                    )) {
+                                        Text("Not a loan payment").tag("")
+                                        ForEach(loans) { loan in
+                                            Text("\(loan.name) · \(loan.lenderName)").tag(loan.id.uuidString)
+                                        }
+                                    }
+                                    .pickerStyle(.menu)
+                                    .accentColor(FTColor.accent)
+                                }
+
+                                if let suggestion = suggestedLoan {
+                                    Button { selectLoan(suggestion.id) } label: {
+                                        Label("Matches the EMI of \(suggestion.name) — link it",
+                                              systemImage: "sparkles")
+                                            .font(.ftCallout)
+                                            .multilineTextAlignment(.leading)
+                                    }
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.bottom, FTSpacing.xs)
+                                }
+
+                                Text(loanExplanation)
+                                    .font(.ftCaption).foregroundStyle(FTColor.textMuted)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.bottom, FTSpacing.sm)
+                            }
+                            .padding(.horizontal, FTSpacing.lg)
+                            .ftGlass(FTRadius.md)
+                        }
+
                         // Paid for someone else — friends owe the user part of this purchase.
                         if canMarkAsLent {
                             VStack(spacing: 0) {
@@ -929,6 +1026,7 @@ private struct EditPendingEmailSheet: View {
                                 .tint(FTColor.accent)
                                 .padding(.vertical, FTSpacing.sm)
                                 .onChange(of: paidForOthers) { _, isOn in
+                                    if isOn, selectedLoanId != nil { selectLoan(nil) }
                                     // Start with one person owing the whole bill —
                                     // the common case is trimming it down, not
                                     // typing a number from scratch.
@@ -1036,6 +1134,7 @@ private struct EditPendingEmailSheet: View {
                 amountText = AmountTextField.format(String(format: "%.2f", item.amount))
                 tagsText = item.suggestedTags.joined(separator: ", ")
                 originalMerchant = item.merchantNormalized
+                selectedLoanId = PendingLoanLinkStore.loanId(for: item.id)
                 for allocation in item.bnplAllocations {
                     allocationTexts[allocation.planId] = allocation.amount.map { String(format: "%.2f", $0) } ?? ""
                 }

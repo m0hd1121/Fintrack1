@@ -701,12 +701,28 @@ final class EmailSyncService: NSObject {
 
         let type = item.direction.transactionType
 
+        // Loan repayment: the user said, in the edit sheet, that this payment is
+        // an instalment on one of their loans (`PendingLoanLinkStore`). It then
+        // posts exactly like a hand-recorded loan payment — a `.loanRepayment`
+        // transaction linked to the loan, with the loan's balance, instalment
+        // count and due date advanced — but the account is debited here, once,
+        // because the money has already left it. A loan that was deleted or paid
+        // off since the choice was made degrades to an ordinary approval.
+        let linkedLoan: Loan? = {
+            guard type == .expense, !item.isBNPLMerchant,
+                  let loanId = PendingLoanLinkStore.loanId(for: item.id),
+                  let loans = try? context.fetch(FetchDescriptor<Loan>()) else { return nil }
+            return loans.first { $0.id == loanId && $0.isActive }
+        }()
+
         // Only an outgoing, non-BNPL payment can be paid on someone's behalf
         // (a BNPL instalment is a payment against a plan). The sheet validates
         // before offering the button; this re-checks so a bad combination
         // degrades to a plain approval rather than posting a wrong split.
         let shares: [LentShare] = {
-            guard type == .expense, !item.isBNPLMerchant else { return [] }
+            // A loan instalment isn't a purchase for a friend; the sheet keeps
+            // the two mutually exclusive, and this holds the line regardless.
+            guard type == .expense, !item.isBNPLMerchant, linkedLoan == nil else { return [] }
             let cleaned = lentShares.compactMap { share -> LentShare? in
                 let name = share.borrower.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !name.isEmpty, share.amount > 0 else { return nil }
@@ -760,15 +776,19 @@ final class EmailSyncService: NSObject {
         // first plan's portion; the others are created below. They always sum
         // to `item.amount`, so the account is still debited the true outflow.
         let primaryAmount = isMultiPlan ? postings[0].amount : item.amount
+        if let loan = linkedLoan { notes += " · Loan repayment: \(loan.name)" }
+
         let tx = Transaction(
-            title: item.merchantNormalized,
+            // Same title a hand-recorded loan payment gets, so a loan's payment
+            // history reads uniformly; `merchant` keeps what the bank called it.
+            title: linkedLoan.map { "\($0.name) Payment" } ?? item.merchantNormalized,
             amount: primaryAmount,
             currency: item.currency,
             amountInBaseCurrency: isMultiPlan
                 ? CurrencyService.shared.convert(primaryAmount, from: item.currency, to: baseCurrency)
                 : baseAmount,
             type: type,
-            category: isFullyLent ? .personalLent : item.suggestedCategory,
+            category: linkedLoan != nil ? .loanRepayment : (isFullyLent ? .personalLent : item.suggestedCategory),
             date: item.transactionDate,
             notes: notes,
             merchant: item.merchantNormalized,
@@ -870,9 +890,18 @@ final class EmailSyncService: NSObject {
             }
         }
 
+        if let loan = linkedLoan {
+            tx.linkedLoan = loan
+            // The payment may be in another currency than the loan (paid from an
+            // AED account against a USD loan); `recordPayment` wants the loan's own.
+            loan.recordPayment(amountInLoanCurrency: CurrencyService.shared.convert(
+                item.amount, from: item.currency, to: loan.currency))
+        }
+
         context.insert(tx)
         for extra in extraTransactions { context.insert(extra) }
         item.status = .approved
+        PendingLoanLinkStore.clear(itemId: item.id)
         item.reviewedAt = Date()
         item.approvedTransactionId = tx.id
         item.wasAutoApproved = autoApproved
@@ -880,7 +909,8 @@ final class EmailSyncService: NSObject {
         // When the whole purchase is owed back it wasn't filed under the
         // suggested category, so that mustn't count as the user confirming it.
         // A partial share keeps the suggested category for the user's own part.
-        if !isFullyLent {
+        // A loan repayment likewise wasn't filed under the suggested category.
+        if !isFullyLent && linkedLoan == nil {
             CategoryLearningService.shared.recordCorrection(
                 merchant: item.merchantNormalized, category: item.suggestedCategory)
         }
@@ -888,7 +918,7 @@ final class EmailSyncService: NSObject {
             rawMerchant: item.merchantRaw, tags: item.suggestedTags)
 
         AuditLogService.log(context: context,
-            "\(autoApproved ? "Auto-approved" : "Approved") email import: \(item.merchantNormalized) \(item.currency) \(String(format: "%.2f", item.amount)) from \(item.bankName)\(autoApproved ? " (\(item.confidencePercent)% ≥ threshold)" : "")\(isMultiPlan ? " — split across \(postings.count) BNPL plans" : "")\(shares.isEmpty ? "" : " — \(item.currency) \(String(format: "%.2f", lentTotal)) owed back by \(shares.map(\.borrower).joined(separator: ", "))")")
+            "\(autoApproved ? "Auto-approved" : "Approved") email import: \(item.merchantNormalized) \(item.currency) \(String(format: "%.2f", item.amount)) from \(item.bankName)\(autoApproved ? " (\(item.confidencePercent)% ≥ threshold)" : "")\(isMultiPlan ? " — split across \(postings.count) BNPL plans" : "")\(linkedLoan.map { " — repayment on loan \($0.name)" } ?? "")\(shares.isEmpty ? "" : " — \(item.currency) \(String(format: "%.2f", lentTotal)) owed back by \(shares.map(\.borrower).joined(separator: ", "))")")
         try? context.save()
     }
 

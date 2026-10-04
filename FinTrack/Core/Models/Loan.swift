@@ -105,6 +105,37 @@ final class Loan {
     }
 }
 
+extension Loan {
+    /// Applies one repayment to this loan: splits it into interest (on the
+    /// current outstanding balance) and principal using the same amortization
+    /// model as `amortizationSchedule`, so `outstandingBalance` tracks the real
+    /// remaining debt rather than the raw payment total, then advances the
+    /// instalment count and next due date, or closes the loan when it's paid off.
+    ///
+    /// The single definition of that rule, shared by `AccountDetailView`'s
+    /// manual "record payment" and the review queue's loan-repayment approval
+    /// (`EmailSyncService.approveToLedger`) so the two can't drift apart.
+    ///
+    /// `amountInLoanCurrency` must already be in `currency` — a payment made in
+    /// another currency is converted by the caller, so `outstandingBalance`
+    /// stays in the loan's own currency like every other loan field.
+    func recordPayment(amountInLoanCurrency: Double) {
+        let monthlyRate = interestRate / 100.0 / 12.0
+        let interestPortion = outstandingBalance * monthlyRate
+        let principalPortion = min(max(amountInLoanCurrency - interestPortion, 0), outstandingBalance)
+
+        outstandingBalance = max(0, outstandingBalance - principalPortion)
+        paidInstallments += 1
+        let fullyPaid = outstandingBalance <= 0.01
+            || (totalInstallments > 0 && paidInstallments >= totalInstallments)
+        if fullyPaid {
+            isActive = false
+        } else {
+            nextPaymentDate = Calendar.current.date(byAdding: .month, value: 1, to: nextPaymentDate) ?? nextPaymentDate
+        }
+    }
+}
+
 enum LoanType: String, Codable, CaseIterable {
     case personal = "Personal Loan"
     case car = "Car Loan"

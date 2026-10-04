@@ -117,7 +117,7 @@ No fields added for SMS import: an SMS-sourced row is a normal `PendingEmailTran
 `ProjectionPoint, MonteCarloResult, AllocationSlice, CapitalGainsSummary` — calculation-result structs, never persisted
 
 ## Loan.swift
-`Loan { id:UUID, name:String, loanType:LoanType, principalAmount:Double, outstandingBalance:Double, interestRate:Double, emiAmount:Double, startDate:Date, endDate:Date, nextPaymentDate:Date, currency:String, lenderName:String, notes:String?, isActive:Bool, createdAt:Date, paidInstallments:Int, reminderDaysBefore:Int, lenderPersonName:String?, lenderContactInfo:String?, computed:amortizationSchedule:[AmortizationEntry] }`
+`Loan { id:UUID, name:String, loanType:LoanType, principalAmount:Double, outstandingBalance:Double, interestRate:Double, emiAmount:Double, startDate:Date, endDate:Date, nextPaymentDate:Date, currency:String, lenderName:String, notes:String?, isActive:Bool, createdAt:Date, paidInstallments:Int, reminderDaysBefore:Int, lenderPersonName:String?, lenderContactInfo:String?, computed:amortizationSchedule:[AmortizationEntry] }` — `recordPayment(amountInLoanCurrency:)` is the single definition of applying a repayment (interest/principal split via the amortization model, `outstandingBalance`, `paidInstallments`, `nextPaymentDate`, closes when paid off); used by `AccountDetailView` and the review-queue loan approval, so don't re-inline it.
 `LoanType: String enum, 4 cases` · `AmortizationEntry: plain struct` (computed on the fly, never persisted)
 
 ## LoyaltyProgram.swift
