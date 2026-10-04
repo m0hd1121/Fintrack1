@@ -105,15 +105,23 @@ enum FTRadius {
 // MARK: - Typography tokens  (Figma: Type/* — production face SF Pro)
 
 extension Font {
+    // Hero figures stay fixed: they already sit in width-constrained hero
+    // cards (most with `minimumScaleFactor`), and at 34–38pt they are large at
+    // every text size.
     static let ftDisplay      = Font.system(size: 38,   weight: .heavy,    design: .rounded)
     static let ftAmount       = Font.system(size: 34,   weight: .heavy,    design: .rounded)
-    static let ftTitle        = Font.system(size: 22,   weight: .bold)
-    static let ftHeadline     = Font.system(size: 17,   weight: .bold)
-    static let ftBody         = Font.system(size: 15,   weight: .medium)
-    static let ftBodySemibold = Font.system(size: 15,   weight: .semibold)
-    static let ftCallout      = Font.system(size: 13.5, weight: .semibold)
-    static let ftCaption      = Font.system(size: 12.5, weight: .regular)
-    static let ftLabel        = Font.system(size: 11.5, weight: .semibold) // use .tracking(1.6)
+    // Everything else is anchored to a text style so it follows the user's
+    // Dynamic Type setting (fixed `size:` fonts never scale). At the default
+    // size these match the Figma sizes (titles/headline/body exactly; the
+    // three small styles are 0.5pt smaller). RootView caps the range at
+    // accessibility2 because many rows still use fixed frames.
+    static let ftTitle        = Font.system(.title2,      weight: .bold)      // 22
+    static let ftHeadline     = Font.system(.headline,    weight: .bold)      // 17
+    static let ftBody         = Font.system(.subheadline, weight: .medium)    // 15
+    static let ftBodySemibold = Font.system(.subheadline, weight: .semibold)  // 15
+    static let ftCallout      = Font.system(.footnote,    weight: .semibold)  // 13
+    static let ftCaption      = Font.system(.caption,     weight: .regular)   // 12
+    static let ftLabel        = Font.system(.caption2,    weight: .semibold)  // 11 — use .tracking(1.6)
 }
 
 // MARK: - Liquid Glass surfaces

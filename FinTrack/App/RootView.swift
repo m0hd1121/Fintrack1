@@ -13,7 +13,6 @@ struct RootView: View {
     @Query(filter: #Predicate<Transaction> { $0.isRecurring }) private var recurringTxs: [Transaction]
     @Query(filter: #Predicate<Transaction> { $0.isScheduled }) private var scheduledTxs: [Transaction]
     @Query private var bills: [Bill]
-    @Query private var allTransactions: [Transaction]
     @Query(filter: #Predicate<SalaryRecord> { $0.isActive }) private var salaryRecords: [SalaryRecord]
     @Query(filter: #Predicate<FreelanceProject> { $0.isArchived == false }) private var freelanceProjects: [FreelanceProject]
     @Query(filter: #Predicate<RentalProperty> { $0.isActive }) private var rentalProperties: [RentalProperty]
@@ -89,6 +88,9 @@ struct RootView: View {
         .environment(\.isOLEDMode, settings.first?.oledMode ?? false)
         .environment(\.isHighContrast, settings.first?.highContrastMode ?? false)
         .tint(resolvedAccentColor)
+        // Text follows Dynamic Type (see the Font tokens); the largest
+        // accessibility sizes are capped because many rows use fixed frames.
+        .dynamicTypeSize(...DynamicTypeSize.accessibility2)
         .dismissKeyboardOnTap()
         // Keep the icon badge equal to the real review-queue count, so it clears
         // once everything is reviewed instead of sticking at an old number.
@@ -203,6 +205,7 @@ struct RootView: View {
                             .font(.title3)
                             .foregroundStyle(FTColor.accent)
                     }
+                    .accessibilityLabel("Add Transaction")
                 }
             }
         } detail: {
@@ -391,7 +394,14 @@ struct RootView: View {
     private func processBillAlerts() {
         let currency = appState.baseCurrency
         BillService.shared.scheduleAllReminders(for: bills)
-        BillService.shared.checkAllAlerts(bills: bills, transactions: allTransactions, currency: currency)
+        // Fetched on demand and bounded: auto-pay checks only look a few days
+        // around each due date. A root-level `@Query` over the whole ledger
+        // used to re-evaluate this view — which wraps the entire app — on
+        // every transaction insert or edit.
+        let since = Calendar.current.date(byAdding: .day, value: -90, to: Date()) ?? .distantPast
+        let recent = (try? context.fetch(FetchDescriptor<Transaction>(
+            predicate: #Predicate { $0.date >= since }))) ?? []
+        BillService.shared.checkAllAlerts(bills: bills, transactions: recent, currency: currency)
         if context.hasChanges { try? context.save() }
     }
 
@@ -486,7 +496,6 @@ struct MainTabView: View {
             )
         }
         .ignoresSafeArea(edges: .bottom)
-        .dismissKeyboardOnTap()
         // Switching tabs always restores the bar to full size.
         .onChange(of: appState.selectedTab) { appState.tabBarCollapsed = false }
         .sheet(isPresented: $appState.showingAddTransaction) {
@@ -573,9 +582,15 @@ struct CustomTabBar: View {
                         .font(.system(size: 16, weight: .bold))
                         .foregroundStyle(.white)
                 }
+                // The 40pt circle stays; the tappable area meets the 44pt minimum.
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(Rectangle())
             }
             .frame(maxWidth: .infinity)
             .accessibilityLabel("Add Transaction")
+            .accessibilityShowsLargeContentViewer {
+                Label("Add Transaction", systemImage: "plus")
+            }
 
             ForEach(tabs.suffix(2), id: \.tab) { item in
                 tabButton(item)
@@ -630,8 +645,12 @@ struct CustomTabBar: View {
                 }
                 .frame(height: 24)
 
+                // 10pt like the system tab bar (was 9pt). Tab bars don't grow
+                // with Dynamic Type; long-press shows the large content viewer.
                 Text(item.label)
-                    .font(.system(size: 9, weight: isSelected ? .semibold : .regular))
+                    .font(.system(size: 10, weight: isSelected ? .semibold : .regular))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
                     .foregroundStyle(isSelected ? FTColor.accent : FTColor.textMuted)
                     .animation(reduceMotion ? .none : .easeOut(duration: 0.2), value: isSelected)
             }
@@ -642,5 +661,8 @@ struct CustomTabBar: View {
         .buttonStyle(.plain)
         .accessibilityLabel(item.label)
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+        .accessibilityShowsLargeContentViewer {
+            Label(item.label, systemImage: isSelected ? item.selectedIcon : item.icon)
+        }
     }
 }

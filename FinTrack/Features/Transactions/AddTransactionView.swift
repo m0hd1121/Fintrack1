@@ -121,6 +121,10 @@ struct AddTransactionView: View {
     @State private var showingDuplicateWarning = false
     @State private var potentialDuplicate: Transaction? = nil
 
+    // — Unsaved-changes guard
+    @State private var initialSignature: String? = nil
+    @State private var showingDiscardConfirm = false
+
     private var isEditing: Bool { editingTransaction != nil }
     private var isLoyaltyCategory: Bool { category == .loyaltyEarned || category == .loyaltyRedeemed }
     private var loyaltyPointsDouble: Double { Double(loyaltyPoints) ?? 0 }
@@ -206,6 +210,56 @@ struct AddTransactionView: View {
         return true
     }
 
+    /// Why Save is disabled, in the user's terms. The button used to just dim
+    /// with no explanation (most often because the required title was empty).
+    private var saveBlockedReason: String? {
+        if amountDouble == nil { return nil }   // amount is the obvious first step; no nagging
+        if isBalanceInsufficient { return nil } // already explained under the amount
+        if title.trimmingCharacters(in: .whitespaces).isEmpty { return "Add a title to save" }
+        if type == .transfer {
+            if selectedAccount == nil || toAccount == nil { return "Choose both accounts for the transfer" }
+            if selectedAccount?.id == toAccount?.id { return nil } // explained in the transfer card
+        }
+        if !splitIsValid { return "Split amounts must add up to the total" }
+        if isLoyaltyCategory {
+            if loyaltyPointsDouble <= 0 { return "Enter the number of points" }
+            if isLoyaltyTransfer ? (selectedLoyaltyProgram == nil || toLoyaltyProgram == nil)
+                                 : selectedLoyaltyProgram == nil {
+                return "Choose a loyalty program"
+            }
+        }
+        if isScheduled && scheduledDate <= Date() { return "Pick a future date to schedule" }
+        return nil
+    }
+
+    /// The fields a user is likely to have typed or picked. Compared with the
+    /// value captured after the form loads to decide whether Cancel/swipe-down
+    /// would throw work away.
+    private var formSignature: String {
+        [title, amount, type.rawValue, category.rawValue, notes, merchant,
+         selectedAccount?.id.uuidString ?? "", toAccount?.id.uuidString ?? "",
+         tags.joined(separator: ","), String(date.timeIntervalSince1970),
+         String(isSplitEnabled), String(receiptImage != nil), String(pendingDocuments.count)]
+            .joined(separator: "|")
+    }
+
+    private var hasUnsavedChanges: Bool {
+        guard let initialSignature else { return false }
+        return formSignature != initialSignature
+    }
+
+    private func attemptCancel() {
+        if hasUnsavedChanges { showingDiscardConfirm = true } else { dismiss() }
+    }
+
+    private func syncModeIndex() {
+        switch type {
+        case .expense:  modeIndex = 0
+        case .income:   modeIndex = 1
+        case .transfer: modeIndex = 2
+        }
+    }
+
     var body: some View {
         NavigationStack {
             ZStack(alignment: .bottom) {
@@ -220,12 +274,26 @@ struct AddTransactionView: View {
                 .scrollContentBackground(.hidden)
                 .scrollDismissesKeyboard(.interactively)
 
-                Button { saveTransaction() } label: {
-                    Text(isEditing ? "Update Transaction" : "Add Transaction")
+                VStack(spacing: FTSpacing.xs) {
+                    if let reason = saveBlockedReason {
+                        Text(reason)
+                            .font(.ftCaption)
+                            .foregroundStyle(FTColor.textSecondary)
+                            .padding(.horizontal, FTSpacing.md)
+                            .padding(.vertical, FTSpacing.xs)
+                            .background(.regularMaterial, in: .capsule)
+                            .transition(.opacity)
+                    }
+                    Button { saveTransaction() } label: {
+                        Text(isEditing ? "Update Transaction" : "Add Transaction")
+                    }
+                    .buttonStyle(.ftPrimary)
+                    // `isSaving` stays true after a successful save, so a second
+                    // tap during the dismiss animation can't post it twice.
+                    .disabled(!canSave || isSaving)
+                    .opacity(canSave && !isSaving ? 1 : 0.55)
+                    .accessibilityHint(saveBlockedReason ?? "")
                 }
-                .buttonStyle(.ftPrimary)
-                .disabled(!canSave)
-                .opacity(canSave ? 1 : 0.55)
                 .padding(.horizontal, FTSpacing.screen)
                 .padding(.bottom, FTSpacing.sm)
             }
@@ -233,32 +301,49 @@ struct AddTransactionView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") { dismiss() }
+                    Button("Cancel") { attemptCancel() }
                 }
+                // (A second "✕" close button duplicated Cancel with a 30pt
+                // target; removed.)
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    HStack(spacing: FTSpacing.sm) {
-                        // Voice entry
-                        Button {
-                            showingVoiceEntry = true
-                        } label: {
-                            Image(systemName: "mic.circle.fill")
-                                .font(.system(size: 20))
-                                .foregroundStyle(FTColor.accent)
-                        }
-                        .accessibilityLabel("Voice Entry")
-
-                        Button { dismiss() } label: {
-                            Image(systemName: "xmark")
-                                .font(.system(size: 12, weight: .bold))
-                                .foregroundStyle(FTColor.textSecondary)
-                                .frame(width: 30, height: 30)
-                                .ftGlass(FTRadius.sm)
-                        }
-                        .accessibilityLabel("Close")
+                    Button {
+                        showingVoiceEntry = true
+                    } label: {
+                        Image(systemName: "mic.circle.fill")
+                            .font(.system(size: 20))
+                            .foregroundStyle(FTColor.accent)
                     }
+                    .accessibilityLabel("Voice Entry")
                 }
             }
-            .onAppear(perform: loadEditingData)
+            .onAppear {
+                guard initialSignature == nil else { return }
+                loadEditingData()
+                syncModeIndex()
+                initialSignature = formSignature
+            }
+            .task {
+                // New entries start with the amount — focus it so the keyboard
+                // is up immediately. (Delay lets the sheet finish presenting.)
+                guard !isEditing else { return }
+                try? await Task.sleep(for: .milliseconds(400))
+                amountFocused = true
+            }
+            // Swipe-down would silently discard typed data; route it through
+            // the same confirmation as Cancel.
+            .interactiveDismissDisabled(hasUnsavedChanges)
+            .confirmationDialog("Discard this transaction?", isPresented: $showingDiscardConfirm,
+                                titleVisibility: .visible) {
+                Button("Discard Changes", role: .destructive) { dismiss() }
+                Button("Keep Editing", role: .cancel) {}
+            }
+            .alert("Possible Duplicate", isPresented: $showingDuplicateWarning, presenting: potentialDuplicate) { _ in
+                Button("Save Anyway") { commitSave() }
+                Button("Don't Save", role: .destructive) { dismiss() }
+                Button("Review", role: .cancel) {}
+            } message: { dup in
+                Text("A similar transaction exists: \"\(dup.title)\" for \(dup.amount.formatted(as: dup.currency)) on \(dup.date.formatted).")
+            }
             .dismissKeyboardOnTap()
             .onChange(of: title)    { _, _ in runAutoCategorization() }
             .onChange(of: merchant) { _, _ in runAutoCategorization(); updateTagSuggestions() }
@@ -297,7 +382,6 @@ struct AddTransactionView: View {
                 notesReceiptCard
                 if !pendingDocuments.isEmpty { documentsPreviewCard }
                 if let scan = scanner.scanResult { scanResultsCard(scan) }
-                if showingDuplicateWarning { duplicateWarningCard }
                 Color.clear.frame(height: 80)
             }
         )
@@ -490,8 +574,11 @@ struct AddTransactionView: View {
                         Image(systemName: "xmark.circle.fill")
                             .font(.system(size: 14))
                             .foregroundStyle(FTColor.textMuted)
+                            .frame(minWidth: 44, minHeight: 32)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("Clear search")
                 }
             }
             .padding(.horizontal, FTSpacing.md)
@@ -1039,7 +1126,11 @@ struct AddTransactionView: View {
                                 Button { tags.removeAll { $0 == tag } } label: {
                                     Image(systemName: "xmark").font(.system(size: 9, weight: .bold))
                                         .foregroundStyle(FTColor.textMuted)
+                                        .padding(FTSpacing.sm)
+                                        .contentShape(Rectangle())
                                 }
+                                .padding(-FTSpacing.sm)
+                                .accessibilityLabel("Remove tag \(tag)")
                             }
                             .padding(.horizontal, 10).padding(.vertical, 5)
                             .background(.regularMaterial, in: Capsule())
@@ -1192,7 +1283,10 @@ struct AddTransactionView: View {
                     Button { pendingDocuments.remove(at: i) } label: {
                         Image(systemName: "xmark.circle.fill")
                             .foregroundStyle(FTColor.textMuted)
+                            .frame(minWidth: 44, minHeight: 44)
+                            .contentShape(Rectangle())
                     }
+                    .accessibilityLabel("Remove \(doc.filename)")
                 }
                 .padding(.vertical, 4)
             }
@@ -1252,46 +1346,6 @@ struct AddTransactionView: View {
                 Text("\(Int(confidence * 100))%").font(.ftLabel).foregroundStyle(FTColor.textMuted)
             }
         }
-    }
-
-    // MARK: - Duplicate warning card
-
-    private var duplicateWarningCard: some View {
-        VStack(alignment: .leading, spacing: FTSpacing.sm) {
-            Label("Possible Duplicate", systemImage: "exclamationmark.triangle.fill")
-                .font(.ftBodySemibold).foregroundStyle(FTColor.gold)
-
-            if let dup = potentialDuplicate {
-                Text("A similar transaction exists: \"\(dup.title)\" for \(dup.amount.formatted(as: dup.currency)) on \(dup.date.formatted).")
-                    .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
-            }
-
-            HStack(spacing: FTSpacing.sm) {
-                Button("Skip (Don't Save)") {
-                    showingDuplicateWarning = false
-                    dismiss()
-                }
-                .font(.ftCallout).foregroundStyle(FTColor.textSecondary)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 10)
-                .background(.regularMaterial, in: .capsule)
-
-                Button("Save Anyway") {
-                    showingDuplicateWarning = false
-                    commitSave()
-                }
-                .font(.ftCallout).foregroundStyle(.white)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 10)
-                .background(FTColor.expense, in: .capsule)
-            }
-        }
-        .padding(FTSpacing.lg)
-        .ftGlass(FTRadius.md)
-        .overlay(
-            RoundedRectangle(cornerRadius: FTRadius.md)
-                .strokeBorder(FTColor.gold.opacity(0.4), lineWidth: 1)
-        )
     }
 
     // MARK: - Helpers
@@ -1419,6 +1473,7 @@ struct AddTransactionView: View {
         if let cur = parsed.currency { currency = cur }
         if let mer = parsed.merchant { merchant = mer }
         type = parsed.type
+        syncModeIndex()
         category = parsed.category
         updateDefaultCategory(for: type)
         if parsed.category != .other { category = parsed.category }
@@ -1503,7 +1558,7 @@ struct AddTransactionView: View {
     // MARK: - Save
 
     private func saveTransaction() {
-        guard canSave, let amountValue = amountDouble else { return }
+        guard canSave, !isSaving, let amountValue = amountDouble else { return }
         if isBalanceInsufficient { showingInsufficientFunds = true; return }
 
         guard !title.isEmpty else { return }
@@ -1518,8 +1573,12 @@ struct AddTransactionView: View {
     }
 
     private func findDuplicate(amount: Double, date: Date, title: String) -> Transaction? {
-        let allTx = (try? context.fetch(FetchDescriptor<Transaction>())) ?? []
-        return allTx.first { tx in
+        // Only the ±24h window can match, so fetch just that instead of the
+        // whole ledger on every save.
+        let lower = date.addingTimeInterval(-86400), upper = date.addingTimeInterval(86400)
+        let nearby = (try? context.fetch(FetchDescriptor<Transaction>(
+            predicate: #Predicate { $0.date > lower && $0.date < upper }))) ?? []
+        return nearby.first { tx in
             abs(tx.amount - amount) < 0.01 &&
             tx.title.lowercased() == title.lowercased() &&
             abs(tx.date.timeIntervalSince(date)) < 86400 // within 24h
@@ -1818,7 +1877,8 @@ struct AddTransactionView: View {
                 title: title, amount: convertedAmount, currency: baseCurrency, account: selectedAccount)
         }
 
-        isSaving = false
+        // isSaving deliberately stays true: the sheet is going away, and a
+        // re-enabled button could post the same transaction twice.
         dismiss()
     }
 

@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // MARK: - Design Tokens
 
@@ -294,14 +295,59 @@ extension View {
         self.ftGlass(FTRadius.md)
     }
 
+    /// Tapping outside a text input dismisses the keyboard.
+    ///
+    /// Was a SwiftUI `simultaneousGesture(TapGesture)` that resigned the first
+    /// responder on *every* tap — including a tap on another text field (so
+    /// moving between fields could drop the keyboard) and taps that place the
+    /// cursor. It now installs one window-level UIKit recognizer that skips
+    /// touches on text fields/views and never cancels the tap it observes, so
+    /// buttons, pickers and rows keep working. Idempotent: the 26 call sites
+    /// all share the same recognizer per window.
     func dismissKeyboardOnTap() -> some View {
-        self.simultaneousGesture(
-            TapGesture().onEnded {
-                UIApplication.shared.sendAction(
-                    #selector(UIResponder.resignFirstResponder),
-                    to: nil, from: nil, for: nil
-                )
-            }
-        )
+        self.background(KeyboardDismissInstaller().allowsHitTesting(false))
     }
+}
+
+private struct KeyboardDismissInstaller: UIViewRepresentable {
+    func makeUIView(context: Context) -> UIView { KeyboardDismissInstallerView() }
+    func updateUIView(_ uiView: UIView, context: Context) {}
+}
+
+private final class KeyboardDismissInstallerView: UIView {
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        isUserInteractionEnabled = false
+        if let window { KeyboardDismissTap.shared.install(on: window) }
+    }
+}
+
+private final class KeyboardDismissTap: NSObject, UIGestureRecognizerDelegate {
+    static let shared = KeyboardDismissTap()
+    private let windows = NSHashTable<UIWindow>.weakObjects()
+
+    func install(on window: UIWindow) {
+        guard !windows.contains(window) else { return }
+        windows.add(window)
+        let tap = UITapGestureRecognizer(target: self, action: #selector(handleTap(_:)))
+        tap.cancelsTouchesInView = false
+        tap.delegate = self
+        window.addGestureRecognizer(tap)
+    }
+
+    @objc private func handleTap(_ recognizer: UITapGestureRecognizer) {
+        recognizer.view?.endEditing(true)
+    }
+
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+        var view = touch.view
+        while let current = view {
+            if current is UITextField || current is UITextView { return false }
+            view = current.superview
+        }
+        return true
+    }
+
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
+                           shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool { true }
 }
