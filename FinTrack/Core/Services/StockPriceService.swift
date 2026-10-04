@@ -13,6 +13,8 @@ final class StockPriceService {
 
     /// Ticker (uppercased) → current price in the ticker's native currency as reported by Yahoo
     var prices: [String: Double] = [:]
+    /// Ticker → ISO currency of `prices[ticker]` (pence quotes already normalised).
+    var quoteCurrencies: [String: String] = [:]
     var lastUpdated: Date?
     var isRefreshing = false
     var lastError: String?
@@ -65,13 +67,13 @@ final class StockPriceService {
         isRefreshing = true
         defer { isFetching = false; isRefreshing = false }
 
-        let fetched = await withTaskGroup(of: (String, Double)?.self) { group in
+        let fetched = await withTaskGroup(of: Quote?.self) { group in
             for symbol in Set(cleaned) {
                 group.addTask { await Self.fetchSingle(symbol: symbol) }
             }
-            var results: [String: Double] = [:]
-            for await pair in group {
-                if let (symbol, price) = pair { results[symbol] = price }
+            var results: [String: Quote] = [:]
+            for await quote in group {
+                if let quote { results[quote.symbol] = quote }
             }
             return results
         }
@@ -80,13 +82,22 @@ final class StockPriceService {
             lastError = "Prices unavailable"
             return
         }
-        for (symbol, price) in fetched { prices[symbol] = price }
+        for (symbol, quote) in fetched {
+            prices[symbol] = quote.price
+            if let currency = quote.currency { quoteCurrencies[symbol] = currency }
+        }
         lastUpdated = Date()
         lastError = nil
         cachePrices()
     }
 
-    private static func fetchSingle(symbol: String) async -> (String, Double)? {
+    private struct Quote: Sendable {
+        let symbol: String
+        let price: Double
+        let currency: String?
+    }
+
+    private static func fetchSingle(symbol: String) async -> Quote? {
         let encoded = symbol.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? symbol
         guard let url = URL(string: "https://query1.finance.yahoo.com/v8/finance/chart/\(encoded)?interval=1d&range=1d") else {
             return nil
@@ -98,8 +109,15 @@ final class StockPriceService {
             let (data, response) = try await session.data(for: request)
             guard (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
             let decoded = try JSONDecoder().decode(YahooChartResponse.self, from: data)
-            guard let price = decoded.chart.result?.first?.meta.regularMarketPrice, price > 0 else { return nil }
-            return (symbol, price)
+            guard let meta = decoded.chart.result?.first?.meta,
+                  let price = meta.regularMarketPrice, price > 0 else { return nil }
+            // London listings quote in pence ("GBp"/"GBX"); normalise to GBP.
+            switch meta.currency {
+            case "GBp", "GBX": return Quote(symbol: symbol, price: price / 100, currency: "GBP")
+            case "ZAc", "ZAC": return Quote(symbol: symbol, price: price / 100, currency: "ZAR")
+            case "ILA":        return Quote(symbol: symbol, price: price / 100, currency: "ILS")
+            default:           return Quote(symbol: symbol, price: price, currency: meta.currency?.uppercased())
+            }
         } catch {
             return nil
         }
@@ -110,7 +128,12 @@ final class StockPriceService {
     func updateHoldings(_ investments: [Investment]) {
         for investment in investments {
             let sym = investment.symbol.uppercased()
-            guard let price = prices[sym], price > 0 else { continue }
+            guard let quoted = prices[sym], quoted > 0 else { continue }
+            // Holdings are valued in their own currency; the quote may be in
+            // another (a US ticker held in an AED-denominated holding).
+            let price = quoteCurrencies[sym].map {
+                CurrencyService.shared.convert(quoted, from: $0, to: investment.currency)
+            } ?? quoted
             if abs(price - investment.currentPrice) > 0.000001 {
                 investment.currentPrice = price
                 investment.updatedAt = Date()
@@ -123,6 +146,9 @@ final class StockPriceService {
     private func cachePrices() {
         guard let data = try? JSONEncoder().encode(prices) else { return }
         UserDefaults.standard.set(data, forKey: "cached_stock_prices")
+        if let currencies = try? JSONEncoder().encode(quoteCurrencies) {
+            UserDefaults.standard.set(currencies, forKey: "cached_stock_quote_currencies")
+        }
         UserDefaults.standard.set(Date(), forKey: "cached_stock_prices_date")
     }
 
@@ -130,6 +156,10 @@ final class StockPriceService {
         guard let data = UserDefaults.standard.data(forKey: "cached_stock_prices"),
               let cached = try? JSONDecoder().decode([String: Double].self, from: data) else { return }
         prices = cached
+        if let data = UserDefaults.standard.data(forKey: "cached_stock_quote_currencies"),
+           let currencies = try? JSONDecoder().decode([String: String].self, from: data) {
+            quoteCurrencies = currencies
+        }
         lastUpdated = UserDefaults.standard.object(forKey: "cached_stock_prices_date") as? Date
     }
 }

@@ -123,13 +123,17 @@ final class CryptoPriceService {
         refreshTask?.cancel()
         refreshTask = Task {
             while !Task.isCancelled {
-                if let last = lastUpdated, Date().timeIntervalSince(last) < 20 {
-                    let wait = 25 - Date().timeIntervalSince(last)
+                // Every 5 minutes (was 25 s — a full Binance ticker download
+                // decoded on the main actor, forever). Screens that show crypto
+                // still refresh on demand via `fetchPrices()`.
+                let interval: TimeInterval = 300
+                if let last = lastUpdated, Date().timeIntervalSince(last) < interval - 5 {
+                    let wait = interval - Date().timeIntervalSince(last)
                     try? await Task.sleep(for: .seconds(max(2, wait)))
                     continue
                 }
                 await fetchPrices()
-                try? await Task.sleep(for: .seconds(25))
+                try? await Task.sleep(for: .seconds(interval))
             }
         }
     }

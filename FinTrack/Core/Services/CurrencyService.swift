@@ -75,10 +75,27 @@ final class CurrencyService {
 
     func convert(_ amount: Double, from: String, to: String) -> Double {
         guard from != to else { return amount }
-        let fromRate = rates[from] ?? 1.0
-        let toRate = rates[to] ?? 1.0
+        let fromRate = rate(for: from) ?? 1.0
+        let toRate = rate(for: to) ?? 1.0
         let inAED = amount / fromRate
         return inAED * toRate
+    }
+
+    private static let usdStablecoins: Set<String> = ["USDT", "USDC", "DAI", "BUSD", "FDUSD"]
+
+    /// Units of `code` per 1 AED. The FX feed has no crypto, so BTC/ETH/USDT
+    /// used to convert 1:1 with the dirham; they now go through the live USD
+    /// price from CryptoPriceService (stablecoins at par with USD). Nil only
+    /// for a code nothing knows about.
+    private func rate(for code: String) -> Double? {
+        if code == "AED" { return rates["AED"] ?? 1.0 }
+        if let fiat = rates[code] { return fiat }
+        guard let usdPerAED = rates["USD"] ?? (rates.isEmpty ? 1 / 3.6725 : nil) else { return nil }
+        if Self.usdStablecoins.contains(code) { return usdPerAED }
+        if let usdPrice = CryptoPriceService.shared.prices[code.uppercased()], usdPrice > 0 {
+            return usdPerAED / usdPrice
+        }
+        return nil
     }
 
     /// The user's current base currency (persisted by Settings/onboarding).
