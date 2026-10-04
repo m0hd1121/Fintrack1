@@ -346,6 +346,11 @@ struct CSVImportView: View {
                             }
                             .buttonStyle(.plain)
                         }
+                        if selectedAccountID != nil {
+                            Text("The account balance changes by the imported amounts, as if each row were entered by hand.")
+                                .font(.ftCaption)
+                                .foregroundStyle(FTColor.textMuted)
+                        }
                     }
                 }
                 .padding(FTSpacing.lg)
@@ -528,6 +533,15 @@ struct CSVImportView: View {
                     isDuplicate: row.isDuplicate
                 )
                 tx.account = targetAccount
+                // Balances are stored, so a posted row moves the account like
+                // a manual entry would (transfers have no destination here).
+                if let targetAccount {
+                    let delta = CurrencyService.shared.convert(row.amount, from: row.currency, to: targetAccount.currency)
+                    switch row.type {
+                    case .income:   targetAccount.balance += delta
+                    case .expense, .transfer: targetAccount.balance -= delta
+                    }
+                }
                 context.insert(tx)
                 count += 1
             }
