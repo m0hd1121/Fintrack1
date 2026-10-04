@@ -567,6 +567,7 @@ struct AddMoneyLentView: View {
                     tx.account = newAcc
                     tx.title = "Lent to \(trimmedName)"
                     tx.amount = amount
+                    tx.amountInBaseCurrency = CurrencyService.shared.amountInBase(amount, from: currency)
                     tx.currency = currency
                     tx.date = lendingDate
                     tx.notes = trimmedNotes.isEmpty ? nil : trimmedNotes

@@ -566,6 +566,7 @@ struct AddMoneyBorrowedView: View {
                     tx.account = newAcc
                     tx.title = "Borrowed from \(trimmedName)"
                     tx.amount = amount
+                    tx.amountInBaseCurrency = CurrencyService.shared.amountInBase(amount, from: currency)
                     tx.currency = currency
                     tx.date = borrowDate
                     tx.notes = trimmedNotes.isEmpty ? nil : trimmedNotes

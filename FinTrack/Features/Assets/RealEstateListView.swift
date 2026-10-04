@@ -35,7 +35,7 @@ struct RealEstateListView: View {
 
     private var totalEquity: Double {
         properties.reduce(0) {
-            $0 + currencyService.convert($0 + $1.equity, from: $1.currency, to: baseCurrency) - $0
+            $0 + currencyService.convert($1.equity, from: $1.currency, to: baseCurrency)
         }
     }
 
