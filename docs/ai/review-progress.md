@@ -21,7 +21,7 @@ Excluded from line-by-line: `logo.png` (binary), `.xcworkspace/contents.xcworksp
 - Canonical reference = `docs/ai/*`. The older `PROJECT_MAP.md` + `docs/maps/MAP_*.md` (~200 KB, partly unverified, with a changelog section) are migrated after verification and retired in stage 8 (recoverable from git at `3411a90`).
 
 ## Next step
-Stage 6 continues with `Features/Intelligence` (then Income, Intelligence, Investments, NetWorth, Onboarding, Premium, Remittance, Reports, SavingsGoals, Settings, Tax, Transactions). Use the filter command in Decisions.
+Stage 6 continues with `Features/Investments` (then Premium, Reports, SavingsGoals, Settings, Tax, Transactions). Use the filter command in Decisions.
 
 ## Open items to verify while reading Features (stage 6)
 - `Double.asPercentage()` does **not** multiply by 100 (`Extensions.swift:130`). Call sites passing 0…1 fractions render 100× too small (25% → "0.3%"). Confirmed: `AIAnalyticsService.swift:339,636`, `AIAssistantView.swift:78,439,484`, `DigitalTwinView.swift:94`. Also confirmed: utilization fractions in `DebtManagementView` (hero, `CreditCardDebtCard`, `CardUtilizationRow`). Check the rest of the list from `grep -rn "asPercentage(" FinTrack` as each file is read (Reports 1512/1587/2009/2351/2424, AICFOMode, EstatePlanning; Family confirmed).
