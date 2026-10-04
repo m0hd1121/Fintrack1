@@ -150,7 +150,10 @@ final class DebtService {
     /// Amounts are converted to the base currency so the payoff plans, which
     /// pool every debt's payment, never add a USD card to an AED loan.
     func debtItems(loans: [Loan], creditCards: [CreditCard],
-                   base: String = CurrencyService.shared.baseCurrencyCode) -> [DebtItem] {
+                   base baseOverride: String? = nil) -> [DebtItem] {
+        // Default resolved here: a default-argument expression is evaluated
+        // nonisolated and can't read the MainActor CurrencyService.
+        let base = baseOverride ?? CurrencyService.shared.baseCurrencyCode
         let fx = CurrencyService.shared
         let loanItems: [DebtItem] = loans
             .filter { $0.isActive }
@@ -189,7 +192,10 @@ final class DebtService {
 
     /// Sum of all active outstanding balances, in the base currency.
     func totalOutstandingDebt(loans: [Loan], creditCards: [CreditCard],
-                              base: String = CurrencyService.shared.baseCurrencyCode) -> Double {
+                              base baseOverride: String? = nil) -> Double {
+        // Default resolved here: a default-argument expression is evaluated
+        // nonisolated and can't read the MainActor CurrencyService.
+        let base = baseOverride ?? CurrencyService.shared.baseCurrencyCode
         let fx = CurrencyService.shared
         let loanTotal = loans
             .filter { $0.isActive }
@@ -202,7 +208,10 @@ final class DebtService {
 
     /// Sum of minimum monthly payments across all active debts, in the base currency.
     func totalMinimumPayments(loans: [Loan], creditCards: [CreditCard],
-                              base: String = CurrencyService.shared.baseCurrencyCode) -> Double {
+                              base baseOverride: String? = nil) -> Double {
+        // Default resolved here: a default-argument expression is evaluated
+        // nonisolated and can't read the MainActor CurrencyService.
+        let base = baseOverride ?? CurrencyService.shared.baseCurrencyCode
         let fx = CurrencyService.shared
         let loanMin = loans
             .filter { $0.isActive }
