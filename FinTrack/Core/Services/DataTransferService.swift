@@ -61,7 +61,7 @@ struct FinTrackBackup: Codable {
     var customCategories: [CustomCategoryDTO]?
     var documentAttachments: [DocumentAttachmentDTO]?
 
-    static let currentVersion = 7
+    static let currentVersion = 8
 }
 
 struct AccountDTO: Codable {
@@ -71,6 +71,9 @@ struct AccountDTO: Codable {
     var icon: String; var isDefault: Bool; var isArchived: Bool
     var createdAt: Date; var updatedAt: Date; var notes: String?
     var minimumBalanceEnabled: Bool; var minimumBalance: Double
+    // v8 additions
+    var isHidden: Bool?; var isBusiness: Bool?; var isLinked: Bool?
+    var walletProvider: String?; var retirementType: String?; var sharedMembers: [String]?
 }
 
 struct TransactionDTO: Codable {
@@ -96,6 +99,19 @@ struct TransactionDTO: Codable {
     var isTaxDeductible: Bool?
     var isVATReclaimable: Bool?
     var customCategoryID: UUID?
+    // v8 additions — links and fields that were previously lost on restore
+    var toAccountId: UUID?
+    var linkedBNPLId: UUID?
+    var recurringRule: RecurringRule?
+    var chequeReminderDaysBefore: Int?
+    var linkedLoyaltyProgramID: UUID?
+    var loyaltyPointsAmount: Double?
+    var linkedSalaryRecordId: UUID?
+    var linkedSalaryPaymentId: UUID?
+    var linkedMoneyLentId: UUID?
+    var linkedMoneyBorrowedId: UUID?
+    var linkedDebtRepaymentId: UUID?
+    var linkedBillId: UUID?
 }
 
 struct BudgetDTO: Codable {
@@ -103,6 +119,9 @@ struct BudgetDTO: Codable {
     var amount: Double; var currency: String; var period: String
     var startDate: Date; var endDate: Date?; var alertThreshold: Double
     var isActive: Bool; var color: String; var createdAt: Date; var spent: Double
+    // v8 additions
+    var merchantFilter: String?; var isRollover: Bool?; var rolloverAmount: Double?
+    var isShared: Bool?; var sharedMembers: [String]?
 }
 
 struct SavingsGoalDTO: Codable {
@@ -145,6 +164,7 @@ struct CreditCardDTO: Codable {
     var dueDate: Date; var statementDate: Int; var interestRate: Double
     var currency: String; var color: String; var icon: String
     var isActive: Bool; var createdAt: Date
+    var notes: String?   // v8
 }
 
 struct InvestmentDTO: Codable {
@@ -250,6 +270,9 @@ struct AppSettingsDTO: Codable {
     var weeklyDigestEnabled: Bool?; var monthlyDigestEnabled: Bool?
     var digestDayOfWeek: Int?; var digestDayOfMonth: Int?; var digestHour: Int?
     var cloudSyncEnabled: Bool; var theme: String; var accentColor: String?; var accentColorName: String?
+    // v8 additions
+    var backupWifiOnly: Bool?; var oledMode: Bool?; var highContrastMode: Bool?
+    var fiscalYearStartMonth: Int?; var firstDayOfWeek: Int?; var dashboardHiddenWidgets: String?
 }
 
 struct BillDTO: Codable {
@@ -466,10 +489,13 @@ final class DataTransferService {
         }
 
         var txMap: [UUID: Transaction] = [:]
+        var pendingBNPLLinks: [(Transaction, UUID)] = []
         for dto in backup.transactions where !existingTxIds.contains(dto.id) {
             let obj = dto.toModel()
             obj.account = dto.accountId.flatMap { accountMap[$0] }
+            obj.toAccount = dto.toAccountId.flatMap { accountMap[$0] }
             obj.linkedLoan = dto.linkedLoanId.flatMap { loanMap[$0] }
+            if let planId = dto.linkedBNPLId { pendingBNPLLinks.append((obj, planId)) }
             context.insert(obj); summary.transactions += 1
             txMap[dto.id] = obj
         }
@@ -493,12 +519,23 @@ final class DataTransferService {
         for dto in backup.cryptoHoldings where !existingCryptoIds.contains(dto.id) {
             context.insert(dto.toModel()); summary.crypto += 1
         }
-        for dto in backup.dividends {
+        // Dividends were re-inserted on every merge; skip ids that already exist.
+        let existingDividendIds = mode == .merge ? Set((try? context.fetch(FetchDescriptor<Dividend>()))?.map(\.id) ?? []) : []
+        for dto in backup.dividends where !existingDividendIds.contains(dto.id) {
             context.insert(dto.toModel()); summary.dividends += 1
         }
+        var bnplMap: [UUID: BNPLPlan] = [:]
         for dto in backup.bnplPlans where !existingBNPLIds.contains(dto.id) {
-            context.insert(dto.toModel()); summary.bnpl += 1
+            let plan = dto.toModel()
+            context.insert(plan); summary.bnpl += 1
+            bnplMap[dto.id] = plan
         }
+        if mode == .merge {
+            for plan in (try? context.fetch(FetchDescriptor<BNPLPlan>())) ?? [] where bnplMap[plan.id] == nil {
+                bnplMap[plan.id] = plan
+            }
+        }
+        for (tx, planId) in pendingBNPLLinks { tx.linkedBNPL = bnplMap[planId] }
         for dto in (backup.bills ?? []) where !existingBillIds.contains(dto.id) {
             context.insert(dto.toModel()); summary.bills += 1
         }
@@ -723,7 +760,10 @@ extension Account {
                    customBankName: customBankName, accountNumber: accountNumber,
                    color: color, icon: icon, isDefault: isDefault, isArchived: isArchived,
                    createdAt: createdAt, updatedAt: updatedAt, notes: notes,
-                   minimumBalanceEnabled: minimumBalanceEnabled, minimumBalance: minimumBalance)
+                   minimumBalanceEnabled: minimumBalanceEnabled, minimumBalance: minimumBalance,
+                   isHidden: isHidden, isBusiness: isBusiness, isLinked: isLinked,
+                   walletProvider: walletProvider, retirementType: retirementType,
+                   sharedMembers: sharedMembers)
     }
 }
 
@@ -745,7 +785,18 @@ extension Transaction {
                        chequeNumber: chequeNumber, chequeDate: chequeDate,
                        isTaxDeductible: isTaxDeductible,
                        isVATReclaimable: isVATReclaimable,
-                       customCategoryID: customCategoryID)
+                       customCategoryID: customCategoryID,
+                       toAccountId: toAccount?.id, linkedBNPLId: linkedBNPL?.id,
+                       recurringRule: recurringRule,
+                       chequeReminderDaysBefore: chequeReminderDaysBefore,
+                       linkedLoyaltyProgramID: linkedLoyaltyProgramID,
+                       loyaltyPointsAmount: loyaltyPointsAmount,
+                       linkedSalaryRecordId: linkedSalaryRecordId,
+                       linkedSalaryPaymentId: linkedSalaryPaymentId,
+                       linkedMoneyLentId: linkedMoneyLentId,
+                       linkedMoneyBorrowedId: linkedMoneyBorrowedId,
+                       linkedDebtRepaymentId: linkedDebtRepaymentId,
+                       linkedBillId: linkedBillId)
     }
 }
 
@@ -755,7 +806,10 @@ extension Budget {
                   customCategory: customCategory, amount: amount, currency: currency,
                   period: period.rawValue, startDate: startDate, endDate: endDate,
                   alertThreshold: alertThreshold, isActive: isActive, color: color,
-                  createdAt: createdAt, spent: spent)
+                  createdAt: createdAt, spent: spent,
+                  merchantFilter: merchantFilter, isRollover: isRollover,
+                  rolloverAmount: rolloverAmount, isShared: isShared,
+                  sharedMembers: sharedMembers)
     }
 }
 
@@ -807,7 +861,7 @@ extension CreditCard {
                       minimumPayment: minimumPayment, dueDate: dueDate,
                       statementDate: statementDate, interestRate: interestRate,
                       currency: currency, color: color, icon: icon,
-                      isActive: isActive, createdAt: createdAt)
+                      isActive: isActive, createdAt: createdAt, notes: notes)
     }
 }
 
@@ -853,7 +907,7 @@ extension GoldHolding {
 extension Dividend {
     var dto: DividendDTO {
         DividendDTO(id: id, investmentId: investmentId, amount: amount,
-                    currency: currency, date: date, notes: notes,
+                    currency: currency, date: date, paymentDate: paymentDate, notes: notes,
                     securityName: securityName, exDividendDate: exDividendDate,
                     taxWithholding: taxWithholding)
     }
@@ -919,7 +973,11 @@ extension AppSettings {
             digestDayOfWeek: digestDayOfWeek, digestDayOfMonth: digestDayOfMonth,
             digestHour: digestHour,
             cloudSyncEnabled: cloudSyncEnabled, theme: theme.rawValue,
-            accentColor: accentColorName, accentColorName: accentColorName
+            accentColor: accentColorName, accentColorName: accentColorName,
+            backupWifiOnly: backupWifiOnly, oledMode: oledMode,
+            highContrastMode: highContrastMode,
+            fiscalYearStartMonth: fiscalYearStartMonth, firstDayOfWeek: firstDayOfWeek,
+            dashboardHiddenWidgets: dashboardHiddenWidgets
         )
     }
 }
@@ -936,6 +994,12 @@ extension AccountDTO {
                         minimumBalanceEnabled: minimumBalanceEnabled, minimumBalance: minimumBalance)
         a.initialBalance = initialBalance
         a.createdAt = createdAt; a.updatedAt = updatedAt
+        if let isHidden { a.isHidden = isHidden }
+        if let isBusiness { a.isBusiness = isBusiness }
+        if let isLinked { a.isLinked = isLinked }
+        a.walletProvider = walletProvider
+        a.retirementType = retirementType
+        if let sharedMembers { a.sharedMembers = sharedMembers }
         return a
     }
 }
@@ -963,6 +1027,16 @@ extension TransactionDTO {
                             isVATReclaimable: isVATReclaimable ?? false,
                             customCategoryID: customCategoryID)
         t.createdAt = createdAt; t.updatedAt = updatedAt
+        t.recurringRule = recurringRule
+        t.chequeReminderDaysBefore = chequeReminderDaysBefore
+        t.linkedLoyaltyProgramID = linkedLoyaltyProgramID
+        if let loyaltyPointsAmount { t.loyaltyPointsAmount = loyaltyPointsAmount }
+        t.linkedSalaryRecordId = linkedSalaryRecordId
+        t.linkedSalaryPaymentId = linkedSalaryPaymentId
+        t.linkedMoneyLentId = linkedMoneyLentId
+        t.linkedMoneyBorrowedId = linkedMoneyBorrowedId
+        t.linkedDebtRepaymentId = linkedDebtRepaymentId
+        t.linkedBillId = linkedBillId
         return t
     }
 }
@@ -976,6 +1050,11 @@ extension BudgetDTO {
                        startDate: startDate, endDate: endDate,
                        alertThreshold: alertThreshold, isActive: isActive, color: color)
         b.spent = spent; b.createdAt = createdAt
+        b.merchantFilter = merchantFilter
+        if let isRollover { b.isRollover = isRollover }
+        if let rolloverAmount { b.rolloverAmount = rolloverAmount }
+        if let isShared { b.isShared = isShared }
+        if let sharedMembers { b.sharedMembers = sharedMembers }
         return b
     }
 }
@@ -1034,6 +1113,7 @@ extension CreditCardDTO {
                            statementDate: statementDate, interestRate: interestRate,
                            currency: currency, color: color, icon: icon)
         c.isActive = isActive; c.createdAt = createdAt
+        c.notes = notes
         return c
     }
 }
@@ -1145,7 +1225,7 @@ extension BillDTO {
 
 extension AppSettingsDTO {
     func toModel() -> AppSettings {
-        AppSettings(
+        let settings = AppSettings(
             id: id, useBiometrics: useBiometrics, usePIN: usePIN,
             pinHash: pinHash, autoLockMinutes: autoLockMinutes,
             showBalanceOnDashboard: showBalanceOnDashboard,
@@ -1172,6 +1252,13 @@ extension AppSettingsDTO {
             theme: AppTheme(rawValue: theme) ?? .system,
             accentColorName: accentColorName ?? accentColor ?? "teal"
         )
+        if let backupWifiOnly { settings.backupWifiOnly = backupWifiOnly }
+        if let oledMode { settings.oledMode = oledMode }
+        if let highContrastMode { settings.highContrastMode = highContrastMode }
+        if let fiscalYearStartMonth { settings.fiscalYearStartMonth = fiscalYearStartMonth }
+        if let firstDayOfWeek { settings.firstDayOfWeek = firstDayOfWeek }
+        if let dashboardHiddenWidgets { settings.dashboardHiddenWidgets = dashboardHiddenWidgets }
+        return settings
     }
 }
 
