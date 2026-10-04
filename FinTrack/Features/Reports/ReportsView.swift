@@ -1509,7 +1509,7 @@ struct DebtReport: View {
                                         Text(card.bankName).font(.ftCaption).foregroundStyle(FTColor.textSecondary)
                                     }
                                     Spacer()
-                                    Text(card.utilizationRate.asPercentage())
+                                    Text((card.utilizationRate * 100).asPercentage())
                                         .font(.ftBodySemibold)
                                         .foregroundStyle(card.utilizationRate > 0.5 ? FTColor.expense :
                                                          card.utilizationRate > 0.3 ? .orange : FTColor.income)
@@ -1584,7 +1584,7 @@ struct DebtReport: View {
                 VStack(alignment: .trailing, spacing: 2) {
                     Text(amount.formatted(as: currency))
                         .font(.ftBodySemibold).foregroundStyle(FTColor.expense)
-                    Text((total > 0 ? amount / total : 0).asPercentage())
+                    Text(((total > 0 ? amount / total : 0) * 100).asPercentage())
                         .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
                 }
             }
@@ -2006,7 +2006,7 @@ struct TaxSummaryReport: View {
                         HStack {
                             Text("Deductible Expenses").font(.ftBody).foregroundStyle(FTColor.textPrimary)
                             Spacer()
-                            Text(deductibleRatio.asPercentage()).font(.ftBodySemibold).foregroundStyle(FTColor.catBlue)
+                            Text((deductibleRatio * 100).asPercentage()).font(.ftBodySemibold).foregroundStyle(FTColor.catBlue)
                         }
                         FTProgressBar(value: deductibleRatio, color: FTColor.catBlue)
                         Text("of total period spending").font(.ftCaption).foregroundStyle(FTColor.textSecondary)

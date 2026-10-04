@@ -116,7 +116,7 @@ struct AICFOModeView: View {
         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: FTSpacing.md) {
             metricCard("Income", totalIncome.asCompact(currency: currency), "arrow.down.circle.fill", FTColor.income)
             metricCard("Expenses", totalExpenses.asCompact(currency: currency), "arrow.up.circle.fill", FTColor.expense)
-            metricCard("Savings Rate", savingsRate.asPercentage(), "chart.line.uptrend.xyaxis", FTColor.accent)
+            metricCard("Savings Rate", (savingsRate * 100).asPercentage(), "chart.line.uptrend.xyaxis", FTColor.accent)
             metricCard("Net Worth", netWorth.asCompact(currency: currency), "building.columns.fill", FTColor.gold)
         }
     }
@@ -164,7 +164,7 @@ struct AICFOModeView: View {
                 VStack(alignment: .trailing, spacing: 4) {
                     Text("Burn Rate").font(.ftCaption).foregroundStyle(FTColor.textMuted)
                     if totalIncome > 0 {
-                        Text((totalExpenses / totalIncome).asPercentage())
+                        Text(((totalExpenses / totalIncome) * 100).asPercentage())
                             .font(.ftBodySemibold)
                             .foregroundStyle(totalExpenses > totalIncome ? FTColor.expense : FTColor.textPrimary)
                     }
@@ -238,7 +238,7 @@ struct AICFOModeView: View {
             recs.append(CFORecommendation(
                 icon: "exclamationmark.circle.fill", color: FTColor.expense, priority: .high,
                 title: "Boost Savings Rate",
-                detail: "Savings rate is \(savingsRate.asPercentage()). Target 20% by cutting top expense categories."
+                detail: "Savings rate is \((savingsRate * 100).asPercentage()). Target 20% by cutting top expense categories."
             ))
         }
 

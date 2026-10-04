@@ -74,7 +74,7 @@ struct HouseholdBudgetView: View {
                     Text("Household Savings Rate")
                         .font(.ftBody).foregroundStyle(FTColor.textSecondary)
                     Spacer()
-                    Text(summary.savingsRate.asPercentage())
+                    Text((summary.savingsRate * 100).asPercentage())
                         .font(.ftBodySemibold)
                         .foregroundStyle(summary.savingsRate >= 0.2 ? FTColor.income : FTColor.gold)
                 }
@@ -176,7 +176,7 @@ struct HouseholdBudgetView: View {
                                 Spacer()
                                 Text(item.amount.formatted(as: appState.baseCurrency))
                                     .font(.ftCallout).foregroundStyle(FTColor.textPrimary)
-                                Text(item.percentage.asPercentage())
+                                Text((item.percentage * 100).asPercentage())
                                     .font(.ftCaption).foregroundStyle(FTColor.textMuted)
                                     .frame(width: 40, alignment: .trailing)
                             }

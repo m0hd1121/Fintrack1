@@ -167,7 +167,7 @@ struct ChildAllowanceView: View {
                 Spacer()
                 Text("\(child.currentSavings.asCompact(currency: appState.baseCurrency)) / \(child.savingsGoalAmount.asCompact(currency: appState.baseCurrency))")
                     .font(.ftCaption).foregroundStyle(FTColor.textMuted)
-                Text(child.savingsProgress.asPercentage())
+                Text((child.savingsProgress * 100).asPercentage())
                     .font(.ftCallout).foregroundStyle(Color(hex: child.colorHex))
             }
             FTProgressBar(value: child.savingsProgress, color: Color(hex: child.colorHex), height: 6)
@@ -519,7 +519,7 @@ struct ChildDetailSheet: View {
                         Text(child.savingsGoalName.isEmpty ? "Savings Goal" : child.savingsGoalName)
                             .font(.ftBody).foregroundStyle(FTColor.textSecondary)
                         Spacer()
-                        Text(child.savingsProgress.asPercentage()).font(.ftCallout).foregroundStyle(FTColor.catTeal)
+                        Text((child.savingsProgress * 100).asPercentage()).font(.ftCallout).foregroundStyle(FTColor.catTeal)
                     }
                     FTProgressBar(value: child.savingsProgress, color: FTColor.catTeal, height: 8)
                 }

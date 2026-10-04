@@ -336,7 +336,7 @@ final class AIAnalyticsService {
             components: [
                 .init(name: "Savings Rate", score: savingsScore, weight: 0.30,
                       icon: "arrow.up.right.circle.fill",
-                      detail: "\(savingsRate.asPercentage()) savings rate"),
+                      detail: "\((savingsRate * 100).asPercentage()) savings rate"),
                 .init(name: "Emergency Fund", score: emergencyScore, weight: 0.25,
                       icon: "umbrella.fill",
                       detail: String(format: "%.1f months covered", emergencyMonths)),
@@ -633,7 +633,7 @@ final class AIAnalyticsService {
         case 0:
             insights.append(CoachingInsight(
                 weekLabel: "Week \(weekNumber)", headline: "Monthly Checkup",
-                body: "You've spent \(totalExpenses.formatted(as: currency)) this month with a \(savingsRate.asPercentage()) savings rate. "
+                body: "You've spent \(totalExpenses.formatted(as: currency)) this month with a \((savingsRate * 100).asPercentage()) savings rate. "
                       + (savingsRate >= 0.20 ? "Excellent discipline — keep it up!" : "Small cuts in discretionary spending add up fast."),
                 tips: ["Review your biggest category this month", "Set a concrete savings target", "Check for unused subscriptions"],
                 icon: "calendar.badge.checkmark", accentColor: FTColor.accent

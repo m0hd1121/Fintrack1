@@ -137,7 +137,7 @@ struct EstatePlanningView: View {
                     Text(amount.formatted(as: currency))
                         .font(.ftBodySemibold)
                         .foregroundStyle(FTColor.textPrimary)
-                    Text(totalAssets > 0 ? (amount / totalAssets).asPercentage() : "—")
+                    Text(totalAssets > 0 ? ((amount / totalAssets) * 100).asPercentage() : "—")
                         .font(.ftCaption)
                         .foregroundStyle(FTColor.textMuted)
                         .frame(width: 40, alignment: .trailing)

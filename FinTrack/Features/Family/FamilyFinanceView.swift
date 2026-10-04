@@ -262,7 +262,7 @@ struct FamilyFinanceView: View {
                 if summary.savingsRate > 0 {
                     insightRow(
                         icon: "checkmark.circle.fill", color: FTColor.income,
-                        text: "Household savings rate this month: \(summary.savingsRate.asPercentage())."
+                        text: "Household savings rate this month: \((summary.savingsRate * 100).asPercentage())."
                     )
                 }
                 if summary.totalMonthlyBills > 0 {
@@ -282,7 +282,7 @@ struct FamilyFinanceView: View {
                 if !nearGoals.isEmpty {
                     insightRow(
                         icon: "star.fill", color: FTColor.income,
-                        text: "\(nearGoals.first!.name) is almost complete — \(nearGoals.first!.progress.asPercentage()) reached!"
+                        text: "\(nearGoals.first!.name) is almost complete — \((nearGoals.first!.progress * 100).asPercentage()) reached!"
                     )
                 }
             }

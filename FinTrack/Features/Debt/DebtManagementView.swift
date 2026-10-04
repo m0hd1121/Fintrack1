@@ -1313,7 +1313,7 @@ struct DebtManagementView: View {
                         .tracking(1.4)
                         .foregroundStyle(FTColor.textSecondary)
                     HStack(alignment: .lastTextBaseline, spacing: FTSpacing.sm) {
-                        Text(summary.aggregateUtilization.asPercentage())
+                        Text((summary.aggregateUtilization * 100).asPercentage())
                             .font(.ftAmount)
                             .foregroundStyle(FTColor.textPrimary)
                         HStack(spacing: FTSpacing.xs) {
@@ -1489,7 +1489,7 @@ private struct CreditCardDebtCard: View {
 
             VStack(spacing: FTSpacing.xs) {
                 HStack {
-                    Text("Utilization: \(card.utilizationRate.asPercentage())")
+                    Text("Utilization: \((card.utilizationRate * 100).asPercentage())")
                         .font(.ftLabel)
                         .tracking(0.3)
                         .foregroundStyle(FTColor.textMuted)
@@ -2214,7 +2214,7 @@ private struct CardUtilizationRow: View {
                     Image(systemName: cardUtil.utilizationStatus.icon)
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(statusColor)
-                    Text(cardUtil.utilizationRate.asPercentage())
+                    Text((cardUtil.utilizationRate * 100).asPercentage())
                         .font(.ftBodySemibold)
                         .foregroundStyle(statusColor)
                 }

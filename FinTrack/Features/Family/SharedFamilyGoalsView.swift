@@ -125,7 +125,7 @@ struct SharedFamilyGoalsView: View {
                     Spacer()
 
                     VStack(alignment: .trailing, spacing: 3) {
-                        Text(goal.progress.asPercentage())
+                        Text((goal.progress * 100).asPercentage())
                             .font(.ftBodySemibold).foregroundStyle(Color(hex: goal.colorHex))
                         if goal.isCompleted {
                             Text("Complete").font(.ftCaption).foregroundStyle(FTColor.income)
@@ -444,7 +444,7 @@ struct SharedGoalDetailSheet: View {
                     Spacer()
                     Text(goal.totalContributed.asCompact(currency: appState.baseCurrency) + " / " + goal.targetAmount.asCompact(currency: appState.baseCurrency))
                         .font(.ftCallout).foregroundStyle(FTColor.textPrimary)
-                    Text(goal.progress.asPercentage())
+                    Text((goal.progress * 100).asPercentage())
                         .font(.ftBodySemibold).foregroundStyle(Color(hex: goal.colorHex))
                 }
                 FTProgressBar(value: goal.progress, color: Color(hex: goal.colorHex), height: 10)
@@ -567,7 +567,7 @@ struct SharedGoalDetailSheet: View {
                         Text(entry.value.formatted(as: appState.baseCurrency))
                             .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
                         if goal.totalContributed > 0 {
-                            Text((entry.value / goal.totalContributed).asPercentage())
+                            Text(((entry.value / goal.totalContributed) * 100).asPercentage())
                                 .font(.ftCaption).foregroundStyle(FTColor.textMuted)
                                 .frame(width: 36, alignment: .trailing)
                         }
@@ -695,7 +695,7 @@ struct ContributeToGoalSheet: View {
                     .font(.ftCaption).foregroundStyle(FTColor.textMuted)
             }
             Spacer()
-            Text(goal.progress.asPercentage())
+            Text((goal.progress * 100).asPercentage())
                 .font(.ftBodySemibold).foregroundStyle(Color(hex: goal.colorHex))
         }
         .padding()

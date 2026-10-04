@@ -91,7 +91,7 @@ struct DigitalTwinView: View {
                         value: $scenario.additionalSavingsRate,
                         range: 0...0.30,
                         step: 0.01,
-                        format: { v in v.asPercentage() + " extra" },
+                        format: { v in (v * 100).asPercentage() + " extra" },
                         color: FTColor.accent
                     )
                     sliderRow(

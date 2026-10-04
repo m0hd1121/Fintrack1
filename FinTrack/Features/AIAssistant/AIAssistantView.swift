@@ -75,7 +75,7 @@ struct AIAssistantView: View {
         let (monthlyIncome, monthlyExpenses) = AIAnalyticsService.shared.monthlyAverages(transactions: transactions)
         let savingsRate = monthlyIncome > 0 ? (monthlyIncome - monthlyExpenses) / monthlyIncome : 0
         return HStack(spacing: FTSpacing.sm) {
-            quickStat(value: savingsRate.asPercentage(), label: "Savings Rate", color: savingsRate >= 0.2 ? FTColor.income : FTColor.gold)
+            quickStat(value: (savingsRate * 100).asPercentage(), label: "Savings Rate", color: savingsRate >= 0.2 ? FTColor.income : FTColor.gold)
             quickStat(value: "\(anomalyCount)", label: "Anomalies", color: anomalyCount > 0 ? FTColor.expense : FTColor.income)
             quickStat(value: "\(savingsGoals.filter { !$0.isCompleted }.count)", label: "Active Goals", color: FTColor.catBlue)
         }
@@ -436,7 +436,7 @@ struct FinancialChatView: View {
             let advice = savingsRate >= 0.20 ? "Excellent — you're above the recommended 20%." :
                         savingsRate >= 0.10 ? "Good — try to reach the 20% target." :
                         "Below the recommended 20%. Consider cutting discretionary spending."
-            return "Your savings rate this month is **\(savingsRate.asPercentage())**. \(advice)"
+            return "Your savings rate this month is **\((savingsRate * 100).asPercentage())**. \(advice)"
         }
 
         // Overspending / biggest expenses
@@ -481,7 +481,7 @@ struct FinancialChatView: View {
         if lower.contains("goal") || lower.contains("target") {
             let active = savingsGoals.filter { !$0.isCompleted && !$0.isArchived }
             if active.isEmpty { return "You have no active savings goals. Add one in the Savings Goals section to start tracking progress." }
-            let list = active.prefix(3).map { "• \($0.name): \($0.currentAmount.formatted(as: currency)) / \($0.targetAmount.formatted(as: currency)) (\($0.progress.asPercentage()))" }.joined(separator: "\n")
+            let list = active.prefix(3).map { "• \($0.name): \($0.currentAmount.formatted(as: currency)) / \($0.targetAmount.formatted(as: currency)) (\(($0.progress * 100).asPercentage()))" }.joined(separator: "\n")
             return "Your active savings goals:\n\n\(list)"
         }
 

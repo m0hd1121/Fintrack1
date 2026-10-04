@@ -68,7 +68,7 @@ struct FamilyDashboardView: View {
                 Text("Savings Rate")
                     .font(.ftBody).foregroundStyle(FTColor.textSecondary)
                 Spacer()
-                Text(summary.savingsRate.asPercentage())
+                Text((summary.savingsRate * 100).asPercentage())
                     .font(.ftBodySemibold)
                     .foregroundStyle(summary.savingsRate >= 0.2 ? FTColor.income : FTColor.gold)
             }
@@ -180,7 +180,7 @@ struct FamilyDashboardView: View {
                         .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
                 }
                 Spacer()
-                Text(goal.progress.asPercentage()).font(.ftCallout).foregroundStyle(Color(hex: goal.colorHex))
+                Text((goal.progress * 100).asPercentage()).font(.ftCallout).foregroundStyle(Color(hex: goal.colorHex))
             }
             FTProgressBar(value: goal.progress, color: Color(hex: goal.colorHex), height: 5)
         }
@@ -200,7 +200,7 @@ struct FamilyDashboardView: View {
                         Spacer()
                         Text(item.amount.formatted(as: appState.baseCurrency))
                             .font(.ftCallout).foregroundStyle(FTColor.textPrimary)
-                        Text(item.percentage.asPercentage())
+                        Text((item.percentage * 100).asPercentage())
                             .font(.ftCaption).foregroundStyle(FTColor.textMuted)
                             .frame(width: 40, alignment: .trailing)
                     }
