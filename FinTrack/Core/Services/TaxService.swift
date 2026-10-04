@@ -5,7 +5,7 @@ import Foundation
 /// The one VAT formula used app-wide. Ledger amounts are what was paid or
 /// received, i.e. VAT-inclusive, so the VAT inside them is amount × r / (1 + r)
 /// — not amount × r, which overstates it.
-nonisolated enum UAEVAT {
+enum UAEVAT {
     static let standardRate = 0.05
 
     static func vatPortion(ofInclusive amount: Double, rate: Double = standardRate) -> Double {
