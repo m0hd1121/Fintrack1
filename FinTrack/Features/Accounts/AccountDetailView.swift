@@ -5,8 +5,24 @@ import Charts
 struct AccountDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
+    @Environment(AppState.self) private var appState
     let account: Account
     @State private var showingEdit = false     // #1
+    @State private var showAllTransactions = false
+    @State private var selectedTransaction: Transaction? = nil
+
+    /// The account's own effect of a posted transaction, in the account's
+    /// currency (the sparkline and monthly bars mixed raw foreign amounts and
+    /// counted pending/scheduled entries that never touched the balance).
+    private func signedDelta(_ tx: Transaction) -> Double {
+        guard !tx.isPending && !tx.isScheduled else { return 0 }
+        let amount = CurrencyService.shared.convert(tx.amount, from: tx.currency, to: account.currency)
+        switch tx.type {
+        case .income:   return amount
+        case .expense:  return -amount
+        case .transfer: return tx.account?.id == account.id ? -amount : 0
+        }
+    }
 
     // Cached per-presentation derived data (recomputed on appear and when balance changes via Edit)
     @State private var sortedTransactions: [Transaction] = []
@@ -31,13 +47,7 @@ struct AccountDetailView: View {
         var dailyDelta: [Date: Double] = [:]
         for tx in recent {
             let day = calendar.startOfDay(for: tx.date)
-            let delta: Double
-            switch tx.type {
-            case .income:   delta = tx.amount
-            case .expense:  delta = -tx.amount
-            case .transfer: delta = 0
-            }
-            dailyDelta[day, default: 0] += delta
+            dailyDelta[day, default: 0] += signedDelta(tx)
         }
 
         // Compute running balance forward from balance30DaysAgo to today.
@@ -59,13 +69,7 @@ struct AccountDetailView: View {
             let date = calendar.date(byAdding: .month, value: -i, to: Date()) ?? Date()
             let net = account.transactions
                 .filter { $0.date.isSameMonth(as: date) }
-                .reduce(0.0) { acc, tx in
-                    switch tx.type {
-                    case .income:   return acc + tx.amount
-                    case .expense:  return acc - tx.amount
-                    case .transfer: return acc
-                    }
-                }
+                .reduce(0.0) { $0 + signedDelta($1) }
             result.append((date.shortMonthName, net))
         }
         return result
@@ -181,8 +185,24 @@ struct AccountDetailView: View {
                             message: "No transactions recorded for this account yet."
                         )
                     } else {
-                        ForEach(sortedTransactions.prefix(20)) { tx in
-                            TransactionRowView(transaction: tx, baseCurrency: account.currency)
+                        // Was capped at 20 with no way to reach older entries.
+                        ForEach(showAllTransactions ? sortedTransactions : Array(sortedTransactions.prefix(20))) { tx in
+                            // Base currency is the app's (the row's "≈" figure is
+                            // amountInBaseCurrency); passing the account's currency
+                            // mislabelled it.
+                            Button { selectedTransaction = tx } label: {
+                                TransactionRowView(transaction: tx, baseCurrency: appState.baseCurrency)
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityHint("Shows details")
+                        }
+                        if sortedTransactions.count > 20 {
+                            Button(showAllTransactions ? "Show Fewer" : "Show All \(sortedTransactions.count) Transactions") {
+                                withAnimation(.snappy(duration: 0.2)) { showAllTransactions.toggle() }
+                            }
+                            .font(.ftCallout)
+                            .foregroundStyle(FTColor.accent)
                         }
                     }
                 }
@@ -203,6 +223,9 @@ struct AccountDetailView: View {
             // #1 – Edit sheet
             .sheet(isPresented: $showingEdit) {
                 AddAccountView(editingAccount: account)
+            }
+            .sheet(item: $selectedTransaction, onDismiss: { refreshDerivedData() }) { tx in
+                TransactionDetailView(transaction: tx)
             }
             .onAppear { refreshDerivedData() }
             .onChange(of: account.balance) { refreshDerivedData() }

@@ -52,8 +52,7 @@ struct MileageTrackerView: View {
             guard let date = cal.date(byAdding: .month, value: -offset, to: now) else { return nil }
             let monthKm = trips.filter { cal.isDate($0.date, equalTo: date, toGranularity: .month) }
                               .reduce(0) { $0 + $1.distanceKm }
-            let fmt = DateFormatter(); fmt.dateFormat = "MMM"
-            return (fmt.string(from: date), monthKm)
+            return (date.shortMonthName, monthKm)
         }
     }
 

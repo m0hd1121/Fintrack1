@@ -291,8 +291,7 @@ struct HouseholdBudgetView: View {
             let monthTxs = transactions.filter { cal.isDate($0.date, equalTo: date, toGranularity: .month) }
             let income = monthTxs.filter { ($0.type == .income && !$0.isPrincipalMovement) }.reduce(0) { $0 + $1.amountInBaseCurrency }
             let expenses = monthTxs.filter { ($0.type == .expense && !$0.isPrincipalMovement) }.reduce(0) { $0 + $1.amountInBaseCurrency }
-            let fmt = DateFormatter(); fmt.dateFormat = "MMM"
-            return MonthData(month: fmt.string(from: date), income: income, expenses: expenses)
+            return MonthData(month: date.shortMonthName, income: income, expenses: expenses)
         }
     }
 }

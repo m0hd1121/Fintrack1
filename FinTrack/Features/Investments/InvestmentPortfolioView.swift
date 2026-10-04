@@ -831,16 +831,16 @@ struct InvestmentPortfolioView: View {
                         portfolioSectionHeader("Payout History", symbol: "clock.fill", tint: FTColor.income)
                             .padding(.horizontal, FTSpacing.screen)
 
-                        let grouped = Dictionary(grouping: recent) { $0.date.monthName }
-                        let sortedMonths = grouped.keys.sorted {
-                            let df = DateFormatter(); df.dateFormat = "MMMM yyyy"
-                            return (df.date(from: $0) ?? Date()) > (df.date(from: $1) ?? Date())
-                        }
+                        // Grouped by the month's start date and sorted on it directly
+                        // (the comparator used to build a DateFormatter and parse
+                        // both month names on every comparison).
+                        let grouped = Dictionary(grouping: recent) { $0.date.startOfMonth }
+                        let sortedMonths = grouped.keys.sorted(by: >)
 
                         ForEach(sortedMonths, id: \.self) { month in
                             let monthDivs = grouped[month] ?? []
                             VStack(alignment: .leading, spacing: FTSpacing.xs) {
-                                Text(month)
+                                Text(month.monthName)
                                     .font(.ftCaption).foregroundStyle(FTColor.textMuted)
                                     .padding(.horizontal, FTSpacing.screen)
                                 VStack(spacing: FTSpacing.sm) {
