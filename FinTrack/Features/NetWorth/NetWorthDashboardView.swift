@@ -1013,7 +1013,7 @@ private struct SnapshotRow: View {
         }
         .padding(FTSpacing.md)
         .ftGlass(FTRadius.md)
-        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+        .contextMenu {
             Button(role: .destructive, action: onDelete) {
                 Label("Delete", systemImage: "trash.fill")
             }

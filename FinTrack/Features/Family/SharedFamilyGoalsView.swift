@@ -152,7 +152,7 @@ struct SharedFamilyGoalsView: View {
             .ftGlassInteractive(FTRadius.xl)
         }
         .buttonStyle(.plain)
-        .swipeActions(edge: .trailing) {
+        .contextMenu {
             Button(role: .destructive) {
                 context.delete(goal)
                 try? context.save()

@@ -210,7 +210,7 @@ struct SavingsGoalsView: View {
             ForEach(filtered) { goal in
                 GoalCard(goal: goal, base: base, currencyService: currencyService)
                     .onTapGesture { detailGoal = goal }
-                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                    .contextMenu {
                         Button(role: .destructive) {
                             withAnimation { context.delete(goal) }
                         } label: { Label("Delete", systemImage: "trash") }

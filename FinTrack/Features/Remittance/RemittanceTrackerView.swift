@@ -179,7 +179,7 @@ struct RemittanceRow: View {
         }
         .padding(FTSpacing.md)
         .ftGlass(FTRadius.md)
-        .swipeActions(edge: .trailing) {
+        .contextMenu {
             Button(role: .destructive) {
                 context.delete(record)
                 try? context.save()

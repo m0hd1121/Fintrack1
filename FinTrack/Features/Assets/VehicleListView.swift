@@ -194,7 +194,7 @@ struct VehicleListView: View {
         VStack(spacing: FTSpacing.sm) {
             ForEach(vehicles) { vehicle in
                 vehicleRow(vehicle)
-                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                    .contextMenu {
                         Button(role: .destructive) {
                             vehicleToDelete = vehicle
                             showingDeleteConfirm = true
@@ -208,8 +208,7 @@ struct VehicleListView: View {
                             Label("Archive", systemImage: "archivebox.fill")
                         }
                         .tint(FTColor.gold)
-                    }
-                    .swipeActions(edge: .leading, allowsFullSwipe: true) {
+
                         Button {
                             editingVehicle = vehicle
                         } label: {

@@ -165,7 +165,7 @@ struct TaxDocumentVaultView: View {
         }
         .padding()
         .ftGlass(FTRadius.lg)
-        .swipeActions(edge: .trailing) {
+        .contextMenu {
             Button(role: .destructive) {
                 context.delete(doc)
                 try? context.save()

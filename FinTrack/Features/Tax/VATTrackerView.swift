@@ -234,7 +234,7 @@ struct VATTrackerView: View {
         }
         .padding()
         .ftGlass(FTRadius.lg)
-        .swipeActions(edge: .trailing) {
+        .contextMenu {
             Button(role: .destructive) {
                 context.delete(record)
                 try? context.save()

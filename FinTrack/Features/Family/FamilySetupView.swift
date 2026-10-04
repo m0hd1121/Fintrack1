@@ -151,7 +151,7 @@ struct FamilySetupView: View {
                 }
             }
         }
-        .swipeActions(edge: .trailing) {
+        .contextMenu {
             if !member.wrappedValue.isCurrentUser {
                 Button(role: .destructive) {
                     members.removeAll { $0.id == member.wrappedValue.id }

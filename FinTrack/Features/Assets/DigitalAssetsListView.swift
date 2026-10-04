@@ -142,7 +142,7 @@ struct DigitalAssetsListView: View {
                 DigitalAssetRow(asset: asset)
                     .ftGlassInteractive()
                     .onTapGesture { editingAsset = asset }
-                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                    .contextMenu {
                         Button(role: .destructive) {
                             withAnimation { modelContext.delete(asset) }
                         } label: {

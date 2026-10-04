@@ -165,7 +165,7 @@ struct RealEstateListView: View {
         VStack(spacing: FTSpacing.sm) {
             ForEach(properties) { property in
                 propertyRow(property)
-                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                    .contextMenu {
                         Button(role: .destructive) {
                             propertyToDelete = property
                             showingDeleteConfirm = true
@@ -179,8 +179,7 @@ struct RealEstateListView: View {
                             Label("Archive", systemImage: "archivebox.fill")
                         }
                         .tint(FTColor.gold)
-                    }
-                    .swipeActions(edge: .leading, allowsFullSwipe: true) {
+
                         Button {
                             editingProperty = property
                         } label: {

@@ -108,15 +108,14 @@ struct RuleManagementView: View {
         .padding(.vertical, 11)
         .contentShape(Rectangle())
         .onTapGesture { editingRule = rule }
-        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+        .contextMenu {
             Button(role: .destructive) {
                 context.delete(rule)
                 try? context.save()
             } label: {
                 Label("Delete", systemImage: "trash")
             }
-        }
-        .swipeActions(edge: .leading) {
+
             Button {
                 editingRule = rule
             } label: {

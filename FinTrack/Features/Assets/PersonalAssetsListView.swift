@@ -121,7 +121,7 @@ struct PersonalAssetsListView: View {
                 PersonalAssetRow(asset: asset, base: base)
                     .contentShape(Rectangle())
                     .onTapGesture { editingAsset = asset }
-                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                    .contextMenu {
                         Button(role: .destructive) { deleteAsset(asset) } label: {
                             Label("Delete", systemImage: "trash")
                         }

@@ -207,7 +207,7 @@ struct MileageTrackerView: View {
         }
         .padding()
         .ftGlass(FTRadius.md)
-        .swipeActions(edge: .trailing) {
+        .contextMenu {
             Button(role: .destructive) {
                 context.delete(trip)
                 try? context.save()
