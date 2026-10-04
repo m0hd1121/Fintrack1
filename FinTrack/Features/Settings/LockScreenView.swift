@@ -20,12 +20,12 @@ struct LockScreenView: View {
     private var biometricsEnabled: Bool { settings?.useBiometrics != false || !pinEnabled }
 
     var body: some View {
-        ZStack {
-            FTColor.heroGradient
-                .ignoresSafeArea()
-
+        // Scrolls only when it doesn't fit (small phones, large text): the
+        // header + 4-row keypad + biometric button overflowed an iPhone SE.
+        GeometryReader { geo in
+        ScrollView {
             VStack(spacing: 40) {
-                Spacer()
+                Spacer(minLength: FTSpacing.lg)
 
                 VStack(spacing: 16) {
                     Image(systemName: "lock.shield.fill")
@@ -79,7 +79,12 @@ struct LockScreenView: View {
 
                 Spacer().frame(height: 40)
             }
+            .frame(maxWidth: .infinity, minHeight: geo.size.height)
         }
+        .scrollBounceBehavior(.basedOnSize)
+        }
+        .background { FTColor.heroGradient.ignoresSafeArea() }
+        .sensoryFeedback(.error, trigger: wrongAttempts) { old, new in new > old }
         .onAppear {
             // Small delay lets the UI render before showing the prompt
             if biometricsEnabled {
@@ -99,6 +104,9 @@ struct LockScreenView: View {
                         .frame(width: 12, height: 12)
                 }
             }
+            .accessibilityElement()
+            .accessibilityLabel("PIN")
+            .accessibilityValue("\(enteredPIN.count) of up to 6 digits entered")
             let rows: [[String]] = [["1","2","3"],["4","5","6"],["7","8","9"],["","0","⌫"]]
             VStack(spacing: FTSpacing.sm) {
                 ForEach(rows, id: \.self) { row in
@@ -155,8 +163,20 @@ struct LockScreenView: View {
             failed = true
             if wrongAttempts >= 5 {
                 // Back off after repeated failures to slow down guessing.
-                lockedUntil = Date().addingTimeInterval(30)
+                let until = Date().addingTimeInterval(30)
+                lockedUntil = until
                 errorMessage = "Too many attempts. Try again in 30 seconds."
+                // `isPINLockedOut` is computed, so nothing re-rendered the
+                // keypad when the 30 s ran out — it stayed disabled. Clear it.
+                Task {
+                    try? await Task.sleep(for: .seconds(30))
+                    if lockedUntil == until {
+                        lockedUntil = nil
+                        wrongAttempts = 0
+                        failed = false
+                        errorMessage = ""
+                    }
+                }
             } else {
                 errorMessage = "Incorrect PIN."
             }

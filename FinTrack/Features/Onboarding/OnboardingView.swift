@@ -6,8 +6,14 @@ struct OnboardingView: View {
     @Environment(\.modelContext) private var context
     @Query private var profiles: [UserProfile]
     @State private var currentPage = 0
-    @State private var selectedCurrency = "AED"
+    /// Start from the device's currency when it's one of the offered choices.
+    @State private var selectedCurrency: String = {
+        let offered = ["AED", "USD", "EUR", "GBP", "SAR", "QAR", "KWD", "INR"]
+        let local = Locale.current.currency?.identifier ?? "AED"
+        return offered.contains(local) ? local : "AED"
+    }()
     @State private var userName = ""
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private let pages: [OnboardingPage] = [
         OnboardingPage(
@@ -38,8 +44,6 @@ struct OnboardingView: View {
 
     var body: some View {
         ZStack {
-            backgroundGradient
-
             VStack(spacing: 0) {
                 TabView(selection: $currentPage) {
                     ForEach(pages.indices, id: \.self) { index in
@@ -54,12 +58,15 @@ struct OnboardingView: View {
                     .tag(pages.count)
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
-                .animation(.easeInOut, value: currentPage)
+                .animation(reduceMotion ? nil : .easeInOut, value: currentPage)
 
                 bottomControls
             }
         }
-        .ignoresSafeArea()
+        // Only the gradient bleeds to the edges. `.ignoresSafeArea()` on the
+        // whole stack also switched off keyboard avoidance, so the keyboard
+        // covered the name field's Continue button.
+        .background { backgroundGradient.ignoresSafeArea() }
     }
 
     private var backgroundGradient: some View {
@@ -68,7 +75,7 @@ struct OnboardingView: View {
             : [FTColor.accentDeep, FTColor.catBlue]
 
         return LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing)
-            .animation(.easeInOut(duration: 0.5), value: currentPage)
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.5), value: currentPage)
     }
 
     private var bottomControls: some View {
@@ -77,16 +84,20 @@ struct OnboardingView: View {
             HStack(spacing: FTSpacing.sm) {
                 ForEach(0...pages.count, id: \.self) { index in
                     Capsule()
-                        .fill(currentPage == index ? Color.white : FTColor.textMuted)
+                        // textMuted was low-contrast on the coloured gradient.
+                        .fill(currentPage == index ? Color.white : Color.white.opacity(0.4))
                         .frame(width: currentPage == index ? 22 : 7, height: 7)
-                        .animation(.spring(response: 0.35, dampingFraction: 0.7), value: currentPage)
+                        .animation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.7), value: currentPage)
                 }
             }
+            .accessibilityElement()
+            .accessibilityLabel("Page \(currentPage + 1) of \(pages.count + 1)")
 
             // Action button
             Button {
                 if currentPage < pages.count {
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) { currentPage += 1 }
+                    if reduceMotion { currentPage += 1 }
+                    else { withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) { currentPage += 1 } }
                 } else {
                     if !userName.isEmpty, let profile = profiles.first {
                         profile.name = userName
@@ -194,6 +205,8 @@ struct SetupPage: View {
                         .padding(.horizontal, FTSpacing.xxl + FTSpacing.sm)
 
                     TextField("Enter your name", text: $userName)
+                        .textContentType(.givenName)
+                        .submitLabel(.done)
                         .textFieldStyle(.plain)
                         .font(.ftBody)
                         .padding()
@@ -231,6 +244,8 @@ struct SetupPage: View {
                                             .stroke(selectedCurrency == code ? Color.white : Color.clear, lineWidth: 2)
                                     )
                                 }
+                                .accessibilityLabel(info?.name ?? code)
+                                .accessibilityAddTraits(selectedCurrency == code ? [.isSelected] : [])
                             }
                         }
                         .padding(.horizontal, FTSpacing.xxl + FTSpacing.sm)

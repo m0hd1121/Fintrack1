@@ -164,7 +164,7 @@ struct EmailReviewQueueView: View {
                                     Button { approve(item) } label: {
                                         Label("Approve", systemImage: "checkmark")
                                     }
-                                    .tint(.green)
+                                    .tint(FTColor.income)
                                 }
                             }
                             .swipeActions(edge: .trailing, allowsFullSwipe: !isSelecting) {
@@ -174,14 +174,29 @@ struct EmailReviewQueueView: View {
                                     }
                                 }
                             }
+                            // Swipes are invisible until discovered; long-press
+                            // offers the same actions.
+                            .contextMenu {
+                                if !isSelecting {
+                                    Button { approve(item) } label: { Label("Approve", systemImage: "checkmark") }
+                                    Button { editingItem = item } label: { Label("Edit", systemImage: "pencil") }
+                                    Button(role: .destructive) { reject(item) } label: { Label("Reject", systemImage: "xmark") }
+                                }
+                            }
                             .accessibilityAddTraits(isSelecting && isChecked ? [.isSelected] : [])
                             .listRowBackground(Color.clear)
                             .listRowSeparator(.hidden)
                             .listRowInsets(EdgeInsets(top: 4, leading: FTSpacing.screen, bottom: 4, trailing: FTSpacing.screen))
                     }
                 } header: {
-                    Text("PENDING · \(pendingItems.count)")
-                        .font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("PENDING · \(pendingItems.count)")
+                            .font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
+                        if !isSelecting {
+                            Text("Tap to review · swipe right to approve, left to reject")
+                                .font(.ftCaption).foregroundStyle(FTColor.textMuted)
+                        }
+                    }
                 }
             }
 
@@ -250,6 +265,7 @@ struct EmailReviewQueueView: View {
                 } label: {
                     Image(systemName: "ellipsis.circle")
                 }
+                .accessibilityLabel("More")
                 .disabled(pendingItems.isEmpty && reviewedItems.isEmpty)
             }
         }
@@ -606,7 +622,10 @@ private struct PendingEmailRow: View {
                 }
             }
 
-            HStack(spacing: FTSpacing.xs) {
+            // Up to six badges: they wrap (FlowLayout) instead of clipping in
+            // one row on narrow phones.
+            HStack(alignment: .top, spacing: FTSpacing.xs) {
+                FlowLayout(spacing: FTSpacing.xs) {
                 BadgeView(text: "AI \(item.confidencePercent)%", color: confidenceColor)
                 if item.isBNPLMerchant {
                     BadgeView(text: bnplBadgeText,
@@ -629,14 +648,17 @@ private struct PendingEmailRow: View {
                 if ImportLearningService.shared.isUsuallyRejected(rawMerchant: item.merchantRaw) {
                     BadgeView(text: "Usually rejected", color: FTColor.textMuted)
                 }
-                Spacer()
+                }
                 Button {
                     withAnimation(.snappy(duration: 0.2)) { showExplanation.toggle() }
                 } label: {
                     Image(systemName: showExplanation ? "questionmark.circle.fill" : "questionmark.circle")
                         .font(.ftCallout).foregroundStyle(FTColor.textMuted)
+                        .frame(minWidth: 32, minHeight: 32)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(showExplanation ? "Hide why this was detected" : "Why was this detected?")
             }
 
             if showExplanation {
