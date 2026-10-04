@@ -12,7 +12,7 @@ Excluded from line-by-line: `logo.png` (binary), `.xcworkspace/contents.xcworksp
 | 3 | Core/Utilities, UI/ | 5 / 1343 | done |
 | 4 | Core/Models | 30 / 6640 | done |
 | 5 | Core/Services (+SMS) | 52 / 16962 | done |
-| 6 | Features (by folder, alphabetical) | 104 / ~63k | in progress — done: AIAssistant, Accounts, AppIntents, Assets, Bills, Budget, Business, Categories, Dashboard, Debt, Family, Import, Income, LiveActivity |
+| 6 | Features (by folder, alphabetical) | 104 / ~63k | in progress — done: AIAssistant, Accounts, AppIntents, Assets, Bills, Budget, Business, Categories, Dashboard, Debt, Family, Import, Income, Intelligence, LiveActivity, NetWorth, Onboarding, Remittance |
 | 7 | FinTrackWidget, FinTrackWatch (not in any build target) | 6 / 1641 | todo |
 | 8 | Write architecture/maintenance, slim CLAUDE.md, retire PROJECT_MAP.md + docs/maps | — | todo |
 
