@@ -1,6 +1,6 @@
 # Architecture
 
-Verified by reading the source at commit `3411a90` (see `review-progress.md`). Symbols are named so you can grep; line numbers are deliberately avoided because they drift.
+Verified by reading the source at commit `3411a90` and updated for the fix pass (see `review-progress.md`). Symbols are named so you can grep; line numbers are deliberately avoided because they drift.
 
 ## Shape of the system
 - **One iOS target** (`FinTrack`, iOS 26.5, Swift 5 mode, `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`). The project uses a file-system-synchronised group, so every file under `FinTrack/` is compiled and nothing else is. No SPM packages, no tests, no CI.
@@ -11,8 +11,8 @@ Verified by reading the source at commit `3411a90` (see `review-progress.md`). S
 
 ## Launch and lifecycle (`App/FinTrackApp.swift`, `App/RootView.swift`)
 1. `FinTrackApp` compares UserDefaults `fintrack_schema_version` with `currentSchemaVersion` ("v28"); on mismatch it **deletes the store files** and pending notifications (wipe-and-recreate, no migrations), then builds the `ModelContainer` (`fatalError` on failure). Injects `AppState`, `CurrencyService`, `CryptoPriceService` into the environment.
-2. `RootView` routes: Keychain device-snapshot restore offer (fresh install + snapshot exists) → `OnboardingView` → `LockScreenView` (device biometrics/passcode only) → main UI.
-3. **On appear and every `.active`**: `ensureDefaults` (creates `UserProfile`/`AppSettings`), lock if configured, process recurring and scheduled transactions, bill/income/debt alerts, drain queues (Siri/Watch `pending_transactions`, SMS texts, Apple Pay, navigation requests), backup triggers; `.active` also runs an email sync pass. `.background` schedules the BG refresh task and locks. A `.task` starts auto email sync, change-driven local backup, Drive/email auto-backup and price refreshes.
+2. `RootView` routes: Keychain device-snapshot restore offer (fresh install + snapshot exists) → `OnboardingView` → `LockScreenView` (app PIN via `PINService` when set, plus biometrics when enabled) → main UI.
+3. **On appear and every `.active`**: `ensureDefaults` (creates `UserProfile`/`AppSettings`), lock if configured, process recurring and scheduled transactions, bill/income/debt alerts, drain queues (Siri `pending_transactions`, SMS texts, Apple Pay, navigation requests — all in `UserDefaults.standard`), backup triggers; `.active` also runs an email sync pass. `.background` schedules the BG refresh task and locks. A `.task` starts auto email sync, change-driven local backup, Drive/email auto-backup and price refreshes.
 
 ## Main flows
 - **Manual entry**: `AddTransactionView.commitSave` inserts a `Transaction` and mutates `Account.balance` directly (balances are stored, not derived), plus loyalty/bill/cheque side effects. Every other screen that posts or deletes money (Debt, Income, Savings… sheets, `TransactionsListView.deleteTransaction`) repeats the "post tx + adjust balance / reverse on delete" pattern inline, converting with **live** FX rates.
@@ -21,14 +21,16 @@ Verified by reading the source at commit `3411a90` (see `review-progress.md`). S
   - SMS: Shortcuts automation → `LogTransactionFromText` intent → queued text → `RootView.drainPendingSMSTexts` → `SMSIngestService.ingest` → `BankSMSParser` (bank templates, then on-device Foundation Models fallback with evidence grounding) → same filer.
   - Apple Pay: Shortcuts "Transaction" automation → intent → queue → `ApplePayIngestService` → same filer.
   - Review: `EmailReviewQueueView` (approve/reject/edit; gates for loan choice, BNPL plan allocation, possible duplicates) → `EmailSyncService.approveToLedger` is the **only** path from the queue to the ledger (creates txs, adjusts the account, advances BNPL plans / loans, creates `MoneyLent` shares).
-  - CSV import (`CSVImportView` → `CSVImportService`) inserts directly (no queue). The PDF and OFX screens are simulations (see maintenance).
+  - CSV import (`CSVImportView` → `CSVImportService`) inserts directly (no queue). OFX/QFX/QIF import (`OFXImportView` + `StatementFileParser`) parses real files and posts directly, adjusting the account; the PDF importer is still a simulation and is hidden (`DisableableFeature.pdfStatementImport`). CSV import also adjusts the chosen account.
 - **Backups**: `DataTransferService` (DTO export/import JSON) is the single engine; `BackupEncryptionService` encrypts with a device-bound Keychain key. Channels: `LocalBackupService` (Application Support file + Keychain snapshot that survives uninstall), `EmailBackupService` (SMTP to self, IMAP restore), `GoogleDriveBackupService` (disabled), manual import in Settings. Restore = merge (skip existing ids) or replace.
 - **Snapshots for intents/widgets**: `DashboardView.pushWidgetData` → `WidgetDataService.updateAll` writes JSON snapshots; App Intents (`Features/AppIntents`) read snapshots, never SwiftData, and write work into queues drained by `RootView`.
-- **Notifications**: `NotificationService` schedules reminders for bills, loans, BNPL, debts, cheques, salary, goals, budgets, digests. The Notification settings toggles are not consulted by these calls.
+- **Notifications**: `NotificationService` schedules reminders for bills, loans, BNPL, debts, cheques, salary, goals, budgets, digests. `apply(settings:)` (from Notification settings and `RootView`) mirrors the toggles/thresholds into UserDefaults; every request passes through `deliver(_:)`, which drops categories the user turned off.
 - **Clear All Data**: `DataResetService.clearAll` wipes every schema type except settings/profile/email account/bank rules, plus Spotlight, snapshots, queues, learned data, notifications, and on-device backups.
 
 ## Cross-cutting facts to keep in mind
-- Money values carry their own `currency`; `Transaction.amountInBaseCurrency` is locked at entry time. Aggregations are inconsistent about converting (many screens sum mixed currencies); the base currency can be changed without recomputing stored base amounts.
-- There are **five different net-worth computations** (`AccountsView`, `NetWorthService`, `DashboardView.computeMetrics`, `ReportsView.NetWorthReport`, `AICFOModeView`) and three VAT computations.
+- Money values carry their own `currency`; `Transaction.amountInBaseCurrency` is locked at entry time. Aggregations convert each record's currency to the base (fixed across services/screens in the fix pass — check new code does too). Changing the base currency recomputes every `amountInBaseCurrency` at current rates (`SettingsView.rebaseTransactions`). `CurrencyService.convert` prices crypto codes through `CryptoPriceService`.
+- **One net-worth definition**: `NetWorthService.netWorth`/`totalAssets`/`totalLiabilities` (used by Accounts, Dashboard/widgets, Net Worth screen, Reports, AI CFO). **One VAT formula**: `UAEVAT` in `TaxService.swift`.
+- **Income/expense totals skip `Transaction.isPrincipalMovement`** (person-to-person lending/borrowing and repayments); investment sales post only the realised gain as income.
+- **BNPL invariant**: each posted expense with `linkedBNPL` is one paid installment — link/unlink/delete through `BNPLPlan.applyInstallmentPayment`/`reverseInstallmentPayment`.
 - Loose `UUID?` links (`linked*Id`) are the norm; only a handful of real `@Relationship`s exist (e.g. `Transaction.account`, `linkedLoan`, `linkedBNPL`, attachments, custom-category tree).
 - Side stores avoid schema bumps: `PendingLoanLinkStore` (UserDefaults), BNPL allocations encoded in `PendingEmailTransaction.bnplSelectionRaw`, `NavigationRequestStore`, learned merchant/tag dictionaries.

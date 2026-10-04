@@ -1450,6 +1450,8 @@ struct AddTransactionView: View {
         guard let tx = editingTransaction else {
             // Set default account if available
             selectedAccount = accounts.first(where: { $0.isDefault }) ?? accounts.first
+            // New entries start in the user's base currency, not always AED.
+            currency = appState.baseCurrency
             return
         }
         title = tx.title

@@ -20,6 +20,9 @@ Excluded from line-by-line: `logo.png` (binary), `.xcworkspace/contents.xcworksp
 - Reading method for large SwiftUI view files (stage 6+): blank lines and lines that *start with* a pure styling modifier (`.font(`, `.foregroundStyle(`, `.padding(`, `.frame(`, `.ftGlass(`, `.tint(`, `.lineLimit(`, `.multilineTextAlignment(`, `Divider()`) are filtered out (`scripts` not committed; command: `grep -vE '^\s*$|^\s*(\.font\(|\.foregroundStyle\(|\.padding\(|\.frame\(|\.ftGlass\(|\.tint\(|\.lineLimit\(|\.multilineTextAlignment\(|Divider\(\))'`). Everything else — logic, bindings, labels, data flow — is read line by line. From `Features/Import` on, the filter also drops lines that are only `.clipShape(`/`.shadow(`/`.minimumScaleFactor(`/`.tracking(`, a bare `Image(systemName: "literal")`, or a literal-only `Text("…")`/brace/`Spacer()` line (pure presentation; every line with an identifier, binding or logic is still read). `AddAccountView.swift` lines ~1250–1800 were read with an earlier, looser filter that also hid label `Text` lines carrying `.font` on the same line (logic unaffected).
 - Canonical reference = `docs/ai/*`. `PROJECT_MAP.md` is now a redirect stub (kept because source comments cite "PROJECT_MAP §8", now `maintenance.md` → Invariants); `docs/maps/` removed. Old content recoverable from git at `3411a90`.
 
+## Fix pass (after the review)
+User request "Fix all problems": commits `085d3fc`…HEAD on this branch fix the issue register (see `maintenance.md` → Fixed / Decisions / Still open). Docs were updated in the same pass: `code-map.md` entries for every touched file, `architecture.md` flows, `CLAUDE.md` conventions. Validation was static reading only — nothing was built or run; the fixes need an Xcode build and device testing.
+
 ## Next step
 Review complete. For future work follow the workflow in `maintenance.md`. When code changes, re-read the touched files and update their `code-map.md` entries; to re-verify after many commits, diff from the reviewed commit (`git diff 3411a90 --stat -- FinTrack`) and re-read only changed files.
 
@@ -29,5 +32,5 @@ Every in-scope file listed in the plan was read (view files with the presentatio
 ## Items resolved during the review
 - `asPercentage()` fraction call sites — all listed in `maintenance.md` (Medium).
 - Notification toggles gate nothing; `%g` edit prefill rounds amounts; BNPL `.bnpl` payment link doesn't advance plans; list deletes do remove lent/borrowed/salary records — all recorded in `code-map.md`/`maintenance.md`.
-- Siri `LogExpense/LogIncome` queue goes through the App Group suite (`WidgetDataService.enqueuePendingTransaction`) — on-device persistence without the entitlement still to be verified (see `maintenance.md` → Unresolved questions).
+- Siri `LogExpense/LogIncome` queue moved to `UserDefaults.standard` in the fix pass.
 - Nested `NavigationStack`s in pushed screens: AIAssistant views, `DigitalAssetsListView`, `FamilySetupView`, `TaxManagementView` (cosmetic/navigation-bar duplication risk).

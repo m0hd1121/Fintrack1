@@ -55,14 +55,15 @@ FinTrackWidget/, FinTrackWatch/   source only — NOT in any build target
 - Radius `FTRadius`: `.sm=12 .md=16 .lg=22 .xl=26 .pill=30`.
 - Fonts: `.ftDisplay .ftAmount .ftTitle .ftHeadline .ftBody .ftBodySemibold .ftCallout .ftCaption .ftLabel` (section labels: pair with `.tracking(1.6).fixedSize(horizontal: true, vertical: false)` or the first glyph clips).
 - Glass: `.ftGlass(radius)`, `.ftGlassInteractive(radius)`, `.cardStyle(padding:)`, `FTBackdrop()` used as `.background { FTBackdrop() }` (never as a `ZStack` sibling of the screen's `ScrollView`; pin CTAs with `.safeAreaInset`).
-- Components: `FTCard`, `FTIconTile`, `FTChip`, `FTProgressBar`, `FTSegmentedControl`, `FTToggleRow`, `FTTransactionRow`, `GlassCard`/`Card`, `PrimaryButton`, `AmountDisplayView`, `SectionHeader`, `EmptyStateView`, `BadgeView`, `IconBadge`, `FilterChip` (in `TransactionsListView.swift`), `AmountTextField` (amount input; note its `string(from:)` uses `%g`).
-- `.swipeActions` only works inside a `List`. A `Button` wrapping a glass card needs `.contentShape(Rectangle())`.
+- Components: `FTCard`, `FTIconTile`, `FTChip`, `FTProgressBar`, `FTSegmentedControl`, `FTToggleRow`, `FTTransactionRow`, `GlassCard`/`Card`, `PrimaryButton`, `AmountDisplayView`, `SectionHeader`, `EmptyStateView`, `BadgeView`, `IconBadge`, `FilterChip` (in `TransactionsListView.swift`), `AmountTextField` (amount input; parse with `AmountTextField.double(from:)`, never `Double(text)`).
+- `.swipeActions` only works inside a `List` — rows in a `ScrollView`/`VStack` use `.contextMenu`. A `Button` wrapping a glass card needs `.contentShape(Rectangle())`.
 
 ## Data Patterns
 
 - Embedded arrays in `@Model`: store `Data` + JSON computed accessor (`itemsData` / `items { get set }`); use `@Attribute(.externalStorage)` for large blobs (receipts, files).
 - Cross-model links default to loose `UUID?` (`linked*Id`), not `@Relationship`.
 - Any sum/comparison across records with their own `currency` must go through `CurrencyService.shared.convert(_:from:to:)`; `Transaction.amountInBaseCurrency` is locked at entry time.
+- Income/expense totals skip `Transaction.isPrincipalMovement` (person-to-person lending). A posted expense with `linkedBNPL` = one installment: use `BNPLPlan.applyInstallmentPayment`/`reverseInstallmentPayment`. VAT maths go through `UAEVAT` (`TaxService.swift`).
 - `AppSettings` (in `Core/Models/UserProfile.swift`) holds all preferences; read/write via `@Query private var settings: [AppSettings]` and `settings.first`.
 - Local data encryption is always on and not configurable: **never add a toggle for it and never name the encryption algorithm in user-facing text** (code comments only).
 - `AuditLogEntry` (`SecurityModels.swift`) is append-only; read with `@Query(sort: \AuditLogEntry.timestamp, order: .reverse)`.
@@ -71,11 +72,11 @@ FinTrackWidget/, FinTrackWatch/   source only — NOT in any build target
 
 ## Core Utilities (`Extensions.swift`)
 
-`Double`: `.formatted(as:)`, `.asPercentage(decimals:)` (**does not multiply by 100** — pass percent values), `.asCompact(currency:)`. `Date`: `.startOfMonth`, `.endOfMonth`, `.startOfYear`, `.startOfWeek`, `.monthName` ("MMMM yyyy"), `.shortMonthName`, `.dayNumber`, `.formatted`, `.relativeFormatted`, `.isSameMonth(as:)`, `.isSameDay(as:)`. `View.dismissKeyboardOnTap()`. `Array.chunked(into:)`.
+`Double`: `.formatted(as:)`, `.asPercentage(decimals:)` (**does not multiply by 100** — pass percent values), `.asCompact(currency:)`. `Date`: `.startOfMonth`, `.endOfMonth`, `.startOfYear`, `.startOfWeek` (honours the first-day-of-week setting via `Calendar.app`), `.monthName` ("MMMM yyyy"), `.shortMonthName`, `.dayNumber`, `.formatted`, `.relativeFormatted`, `.isSameMonth(as:)`, `.isSameDay(as:)`. `View.dismissKeyboardOnTap()`. `Array.chunked(into:)`.
 
 ## Key Services
 
-`CurrencyService` (FX, `.convert`), `NotificationService`, `SpotlightService`, `WidgetDataService` (snapshots + queues), `AICategorizationService` (rules → learned → keywords), `EmailSyncService` (mail sync, review-queue posting, `KeychainStore`), `SMSIngestService`/`BankSMSParser`, `ImportFiler`/`ImportDeduper`/`ImportLearningService`, `DataTransferService` + `BackupEncryptionService` + `LocalBackupService`/`EmailBackupService` (backups), `DataResetService` (Clear All Data), `BiometricService`. Full list in `docs/ai/code-map.md`.
+`CurrencyService` (FX, `.convert`), `NotificationService` (send everything through `deliver(_:)` so settings apply), `NetWorthService` (the only net-worth definition), `PINService`, `SpotlightService`, `WidgetDataService` (snapshots + queues), `AICategorizationService` (rules → learned → keywords), `EmailSyncService` (mail sync, review-queue posting, `KeychainStore`), `SMSIngestService`/`BankSMSParser`, `ImportFiler`/`ImportDeduper`/`ImportLearningService`, `DataTransferService` + `BackupEncryptionService` + `LocalBackupService`/`EmailBackupService` (backups), `DataResetService` (Clear All Data), `BiometricService`. Full list in `docs/ai/code-map.md`.
 
 ## UAE Defaults
 
