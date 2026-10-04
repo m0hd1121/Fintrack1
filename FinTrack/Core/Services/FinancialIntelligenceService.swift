@@ -81,7 +81,7 @@ final class FinancialIntelligenceService {
         guard let start = cal.date(byAdding: .month, value: -monthsBack, to: Date().startOfMonth),
               let end = cal.date(byAdding: .month, value: 1, to: start) else { return 0 }
         return transactions
-            .filter { $0.type == .expense && !$0.isPending && $0.date >= start && $0.date < end }
+            .filter { ($0.type == .expense && !$0.isPrincipalMovement) && !$0.isPending && $0.date >= start && $0.date < end }
             .reduce(0) { $0 + $1.amountInBaseCurrency }
     }
 
@@ -90,7 +90,7 @@ final class FinancialIntelligenceService {
         guard let start = cal.date(byAdding: .month, value: -monthsBack, to: Date().startOfMonth),
               let end = cal.date(byAdding: .month, value: 1, to: start) else { return 0 }
         return transactions
-            .filter { $0.type == .income && !$0.isPending && $0.date >= start && $0.date < end }
+            .filter { ($0.type == .income && !$0.isPrincipalMovement) && !$0.isPending && $0.date >= start && $0.date < end }
             .reduce(0) { $0 + $1.amountInBaseCurrency }
     }
 
@@ -99,7 +99,7 @@ final class FinancialIntelligenceService {
         guard let start = cal.date(byAdding: .month, value: -monthsBack, to: Date().startOfMonth),
               let end = cal.date(byAdding: .month, value: 1, to: start) else { return [:] }
         let expenses = transactions.filter {
-            $0.type == .expense && !$0.isPending && $0.date >= start && $0.date < end
+            ($0.type == .expense && !$0.isPrincipalMovement) && !$0.isPending && $0.date >= start && $0.date < end
         }
         return Dictionary(grouping: expenses) { $0.category }
             .mapValues { $0.reduce(0) { $0 + $1.amountInBaseCurrency } }
@@ -241,7 +241,7 @@ final class FinancialIntelligenceService {
         // Hidden recurring charges: same merchant, similar amount, in 3 consecutive months
         let cal = Calendar.current
         let recent = transactions.filter {
-            $0.type == .expense && $0.date > (cal.date(byAdding: .month, value: -3, to: Date()) ?? Date())
+            ($0.type == .expense && !$0.isPrincipalMovement) && $0.date > (cal.date(byAdding: .month, value: -3, to: Date()) ?? Date())
         }
         let byMerchant = Dictionary(grouping: recent) {
             ImportLearningService.merchantKey($0.merchant ?? $0.title)
@@ -298,7 +298,7 @@ final class FinancialIntelligenceService {
 
         // Weekend and night spending behavior
         let monthExpenses = transactions.filter {
-            $0.type == .expense && !$0.isPending && $0.date >= Date().startOfMonth
+            ($0.type == .expense && !$0.isPrincipalMovement) && !$0.isPending && $0.date >= Date().startOfMonth
         }
         let total = monthExpenses.reduce(0) { $0 + $1.amountInBaseCurrency }
         if total > 500 {
@@ -382,7 +382,7 @@ final class FinancialIntelligenceService {
         let day = cal.component(.day, from: Date())
         let daysInMonth = cal.range(of: .day, in: .month, for: Date())?.count ?? 30
         let spentSoFar = transactions
-            .filter { $0.type == .expense && !$0.isPending && $0.date >= Date().startOfMonth }
+            .filter { ($0.type == .expense && !$0.isPrincipalMovement) && !$0.isPending && $0.date >= Date().startOfMonth }
             .reduce(0) { $0 + $1.amountInBaseCurrency }
         if day >= 3, spentSoFar > 0 {
             let remainingSpend = spentSoFar / Double(day) * Double(daysInMonth - day)

@@ -15,7 +15,7 @@ final class SavingsGoalService {
         let last3Months = (0..<3).compactMap { offset -> Double? in
             guard let monthStart = Calendar.current.date(byAdding: .month, value: -offset, to: now.startOfMonth) else { return nil }
             return transactions
-                .filter { $0.type == .income && !$0.isPending && !$0.isScheduled && $0.date.isSameMonth(as: monthStart) }
+                .filter { ($0.type == .income && !$0.isPrincipalMovement) && !$0.isPending && !$0.isScheduled && $0.date.isSameMonth(as: monthStart) }
                 .reduce(0) { $0 + $1.amountInBaseCurrency }
         }
         guard !last3Months.isEmpty else { return 0 }

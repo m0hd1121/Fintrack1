@@ -29,7 +29,7 @@ struct IncomeManagementView: View {
     // MARK: - Derived Metrics
 
     private var incomeTransactions: [Transaction] {
-        transactions.filter { $0.type == .income && !$0.isPending && !$0.isScheduled }
+        transactions.filter { ($0.type == .income && !$0.isPrincipalMovement) && !$0.isPending && !$0.isScheduled }
     }
 
     private var lastMonthIncome: Double {

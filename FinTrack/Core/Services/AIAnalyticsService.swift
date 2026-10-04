@@ -241,9 +241,9 @@ final class AIAnalyticsService {
         let recent = transactions.filter { $0.date >= threeMonthsAgo && !$0.isPending }
         let months = max(1.0, Double(cal.dateComponents([.month], from: threeMonthsAgo, to: now).month ?? 3))
 
-        let monthlyIncome = recent.filter { $0.type == .income }
+        let monthlyIncome = recent.filter { ($0.type == .income && !$0.isPrincipalMovement) }
             .reduce(0.0) { $0 + $1.amountInBaseCurrency } / months
-        let monthlyExpenses = recent.filter { $0.type == .expense }
+        let monthlyExpenses = recent.filter { ($0.type == .expense && !$0.isPrincipalMovement) }
             .reduce(0.0) { $0 + $1.amountInBaseCurrency } / months
         let netMonthly = monthlyIncome - monthlyExpenses
 
@@ -361,10 +361,10 @@ final class AIAnalyticsService {
         let currentMonthStart = now.startOfMonth
 
         let historical = transactions.filter {
-            $0.date >= sixMonthsAgo && !$0.date.isSameMonth(as: now) && $0.type == .expense && !$0.isPending
+            $0.date >= sixMonthsAgo && !$0.date.isSameMonth(as: now) && ($0.type == .expense && !$0.isPrincipalMovement) && !$0.isPending
         }
         let current = transactions.filter {
-            $0.date >= currentMonthStart && $0.type == .expense && !$0.isPending
+            $0.date >= currentMonthStart && ($0.type == .expense && !$0.isPrincipalMovement) && !$0.isPending
         }
 
         // Category spike via z-score
@@ -447,7 +447,7 @@ final class AIAnalyticsService {
             .reduce(0.0) { $0 + $1.balance }
 
         let recentExpenses = transactions.filter {
-            $0.type == .expense && $0.date >= threeMonthsAgo && !$0.isPending
+            ($0.type == .expense && !$0.isPrincipalMovement) && $0.date >= threeMonthsAgo && !$0.isPending
         }
         let daysCovered = max(1.0, Double(cal.dateComponents([.day], from: threeMonthsAgo, to: now).day ?? 90))
         let avgDailySpend = recentExpenses.reduce(0.0) { $0 + $1.amountInBaseCurrency } / daysCovered
@@ -509,7 +509,7 @@ final class AIAnalyticsService {
 
     func computeSpendingPatterns(transactions: [Transaction]) -> SpendingPatternData {
         let cal = Calendar.current
-        let expenses = transactions.filter { $0.type == .expense && !$0.isPending }
+        let expenses = transactions.filter { ($0.type == .expense && !$0.isPrincipalMovement) && !$0.isPending }
         var byDay: [Int: Double] = [:]
         var byHour: [Int: Double] = [:]
         var byMonth: [Int: Double] = [:]
@@ -549,7 +549,7 @@ final class AIAnalyticsService {
         let cal = Calendar.current
         let now = Date()
         let threeMonthsAgo = cal.date(byAdding: .month, value: -3, to: now) ?? now
-        let recent = transactions.filter { $0.type == .expense && $0.date >= threeMonthsAgo && !$0.isPending }
+        let recent = transactions.filter { ($0.type == .expense && !$0.isPrincipalMovement) && $0.date >= threeMonthsAgo && !$0.isPending }
         let months = max(1.0, Double(cal.dateComponents([.month], from: threeMonthsAgo, to: now).month ?? 3))
 
         let avgByCategory = Dictionary(grouping: recent) { $0.category }
@@ -622,8 +622,8 @@ final class AIAnalyticsService {
         let cal = Calendar.current
         let weekNumber = cal.component(.weekOfYear, from: now)
         let currentMonthTxs = transactions.filter { $0.date.isSameMonth(as: now) && !$0.isPending }
-        let expenses = currentMonthTxs.filter { $0.type == .expense }
-        let income = currentMonthTxs.filter { $0.type == .income }
+        let expenses = currentMonthTxs.filter { ($0.type == .expense && !$0.isPrincipalMovement) }
+        let income = currentMonthTxs.filter { ($0.type == .income && !$0.isPrincipalMovement) }
         let totalIncome = income.reduce(0.0) { $0 + $1.amountInBaseCurrency }
         let totalExpenses = expenses.reduce(0.0) { $0 + $1.amountInBaseCurrency }
         let savingsRate = totalIncome > 0 ? (totalIncome - totalExpenses) / totalIncome : 0
@@ -682,7 +682,7 @@ final class AIAnalyticsService {
         let cal = Calendar.current
         let now = Date()
         let threeMonthsAgo = cal.date(byAdding: .month, value: -3, to: now) ?? now
-        let recent = transactions.filter { $0.type == .expense && $0.date >= threeMonthsAgo && !$0.isPending }
+        let recent = transactions.filter { ($0.type == .expense && !$0.isPrincipalMovement) && $0.date >= threeMonthsAgo && !$0.isPending }
         let months = max(1.0, Double(cal.dateComponents([.month], from: threeMonthsAgo, to: now).month ?? 3))
 
         let telecomTxs = recent.filter {
@@ -745,7 +745,7 @@ final class AIAnalyticsService {
     // MARK: - 8. ESG Analysis
 
     func analyzeESG(transactions: [Transaction], currency: String) -> ESGResult {
-        let expenses = transactions.filter { $0.type == .expense && !$0.isPending }
+        let expenses = transactions.filter { ($0.type == .expense && !$0.isPrincipalMovement) && !$0.isPending }
 
         let esgMap: [TransactionCategory: ESGRating] = [
             .food: .neutral, .shopping: .yellow, .transportation: .yellow, .fuel: .red,
@@ -854,8 +854,8 @@ final class AIAnalyticsService {
         let start = cal.date(byAdding: .month, value: -monthsBack, to: now) ?? now
         let recent = transactions.filter { $0.date >= start && !$0.isPending }
         let months = max(1.0, Double(monthsBack))
-        let income = recent.filter { $0.type == .income }.reduce(0.0) { $0 + $1.amountInBaseCurrency } / months
-        let expenses = recent.filter { $0.type == .expense }.reduce(0.0) { $0 + $1.amountInBaseCurrency } / months
+        let income = recent.filter { ($0.type == .income && !$0.isPrincipalMovement) }.reduce(0.0) { $0 + $1.amountInBaseCurrency } / months
+        let expenses = recent.filter { ($0.type == .expense && !$0.isPrincipalMovement) }.reduce(0.0) { $0 + $1.amountInBaseCurrency } / months
         return (income, expenses)
     }
 }

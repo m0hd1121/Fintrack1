@@ -439,7 +439,7 @@ final class IncomeService {
         // Filter income transactions for the last 6 months
         let sixMonthsAgo    = startOfMonth(offsetBy: -5)
         let incomeTransactions = transactions.filter {
-            $0.type == .income && $0.date >= sixMonthsAgo && !$0.isPending && !$0.isScheduled
+            ($0.type == .income && !$0.isPrincipalMovement) && $0.date >= sixMonthsAgo && !$0.isPending && !$0.isScheduled
         }
 
         // Build monthly totals for the last 6 months, keeping the keys in
@@ -672,10 +672,10 @@ final class IncomeService {
         ) ?? now
 
         let income6m = transactions.filter {
-            $0.type == .income && $0.date >= sixMonthsAgo && !$0.isPending
+            ($0.type == .income && !$0.isPrincipalMovement) && $0.date >= sixMonthsAgo && !$0.isPending
         }
         let incomeYTD = transactions.filter {
-            $0.type == .income && $0.date >= yearStart && !$0.isPending
+            ($0.type == .income && !$0.isPrincipalMovement) && $0.date >= yearStart && !$0.isPending
         }
 
         let total6m = income6m.reduce(0.0) { $0 + $1.amountInBaseCurrency }
@@ -765,7 +765,7 @@ final class IncomeService {
         // ── Rental ────────────────────────────────────────────────────────────
         // Use rental income transactions from last 6 months
         let rentalTransactions = transactions.filter {
-            $0.type == .income && $0.category == .rental &&
+            ($0.type == .income && !$0.isPrincipalMovement) && $0.category == .rental &&
             $0.date >= sixMonthsAgo && !$0.isPending
         }
         let rentalFromTx = rentalTransactions.reduce(0.0) { $0 + $1.amountInBaseCurrency }
@@ -799,7 +799,7 @@ final class IncomeService {
 
         // ── Business Distributions ────────────────────────────────────────────
         let businessDistTransactions = transactions.filter {
-            $0.type == .income && $0.category == .business &&
+            ($0.type == .income && !$0.isPrincipalMovement) && $0.category == .business &&
             $0.date >= sixMonthsAgo && !$0.isPending
         }
         let businessDistTotal   = businessDistTransactions.reduce(0.0) { $0 + $1.amountInBaseCurrency }
@@ -841,7 +841,7 @@ final class IncomeService {
     ) -> [(month: String, amount: Double)] {
         let start = startOfMonth(offsetBy: -months)
         let incomeTransactions = transactions.filter {
-            $0.type == .income && $0.date >= start && !$0.isPending
+            ($0.type == .income && !$0.isPrincipalMovement) && $0.date >= start && !$0.isPending
         }
 
         // Pre-populate all months with zero

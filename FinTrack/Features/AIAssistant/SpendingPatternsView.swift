@@ -196,7 +196,7 @@ struct SpendingPatternsView: View {
     // MARK: - Top Merchants
 
     private func topMerchantsCard(_ d: SpendingPatternData) -> some View {
-        let expenses = transactions.filter { $0.type == .expense && !$0.isPending }
+        let expenses = transactions.filter { ($0.type == .expense && !$0.isPrincipalMovement) && !$0.isPending }
         let merchantGroups = Dictionary(grouping: expenses.compactMap { $0.merchant?.isEmpty == false ? $0 : nil }) { $0.merchant! }
         let topMerchants = merchantGroups
             .map { (name: $0.key, total: $0.value.reduce(0.0) { $0 + $1.amountInBaseCurrency }, count: $0.value.count) }

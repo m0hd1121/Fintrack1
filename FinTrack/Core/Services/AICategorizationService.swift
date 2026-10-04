@@ -147,8 +147,8 @@ final class AICategorizationService {
         var insights: [FinancialInsight] = []
 
         // Compare monthly spending by category
-        let currentExpenses = transactions.filter { $0.type == .expense }
-        let previousExpenses = previousMonthTransactions.filter { $0.type == .expense }
+        let currentExpenses = transactions.filter { ($0.type == .expense && !$0.isPrincipalMovement) }
+        let previousExpenses = previousMonthTransactions.filter { ($0.type == .expense && !$0.isPrincipalMovement) }
 
         let currentByCategory = Dictionary(grouping: currentExpenses) { $0.category }
             .mapValues { $0.reduce(0) { $0 + $1.amountInBaseCurrency } }
@@ -180,7 +180,7 @@ final class AICategorizationService {
         }
 
         // Savings rate insight
-        let totalIncome = transactions.filter { $0.type == .income }
+        let totalIncome = transactions.filter { ($0.type == .income && !$0.isPrincipalMovement) }
             .reduce(0) { $0 + $1.amountInBaseCurrency }
         let totalExpenses = currentExpenses.reduce(0) { $0 + $1.amountInBaseCurrency }
         if totalIncome > 0 {
@@ -213,9 +213,9 @@ final class AICategorizationService {
         let recent = transactions.filter { $0.date >= threeMonthsAgo }
         let months = max(1.0, Double(calendar.dateComponents([.month], from: threeMonthsAgo, to: now).month ?? 1))
 
-        let avgIncome = recent.filter { $0.type == .income }
+        let avgIncome = recent.filter { ($0.type == .income && !$0.isPrincipalMovement) }
             .reduce(0.0) { $0 + $1.amountInBaseCurrency } / months
-        let avgExpenses = recent.filter { $0.type == .expense }
+        let avgExpenses = recent.filter { ($0.type == .expense && !$0.isPrincipalMovement) }
             .reduce(0.0) { $0 + $1.amountInBaseCurrency } / months
 
         return (avgIncome, avgExpenses)

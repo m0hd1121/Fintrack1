@@ -396,8 +396,8 @@ struct FinancialChatView: View {
         let cal = Calendar.current
 
         let currentMonthTxs = transactions.filter { $0.date.isSameMonth(as: now) && !$0.isPending }
-        let expenses = currentMonthTxs.filter { $0.type == .expense }
-        let income = currentMonthTxs.filter { $0.type == .income }
+        let expenses = currentMonthTxs.filter { ($0.type == .expense && !$0.isPrincipalMovement) }
+        let income = currentMonthTxs.filter { ($0.type == .income && !$0.isPrincipalMovement) }
         let totalExpenses = expenses.reduce(0.0) { $0 + $1.amountInBaseCurrency }
         let totalIncome = income.reduce(0.0) { $0 + $1.amountInBaseCurrency }
         let savingsRate = totalIncome > 0 ? (totalIncome - totalExpenses) / totalIncome : 0
@@ -460,8 +460,8 @@ struct FinancialChatView: View {
         if lower.contains("year") || lower.contains("annual") || lower.contains("last year") {
             let yearStart = now.startOfYear
             let yearTxs = transactions.filter { $0.date >= yearStart && !$0.isPending }
-            let yearIncome = yearTxs.filter { $0.type == .income }.reduce(0.0) { $0 + $1.amountInBaseCurrency }
-            let yearExpenses = yearTxs.filter { $0.type == .expense }.reduce(0.0) { $0 + $1.amountInBaseCurrency }
+            let yearIncome = yearTxs.filter { ($0.type == .income && !$0.isPrincipalMovement) }.reduce(0.0) { $0 + $1.amountInBaseCurrency }
+            let yearExpenses = yearTxs.filter { ($0.type == .expense && !$0.isPrincipalMovement) }.reduce(0.0) { $0 + $1.amountInBaseCurrency }
             return "Year-to-date (\(now.startOfYear.formatted) to now):\n\n• **Income**: \(yearIncome.formatted(as: currency))\n• **Expenses**: \(yearExpenses.formatted(as: currency))\n• **Savings**: \((yearIncome - yearExpenses).formatted(as: currency))"
         }
 

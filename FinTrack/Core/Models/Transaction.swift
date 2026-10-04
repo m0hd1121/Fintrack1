@@ -242,7 +242,7 @@ extension Transaction {
     /// For split transactions, returns one pair per split item converted to base currency.
     /// For regular expense transactions, returns a single pair.
     var spendingPairs: [(TransactionCategory, Double)] {
-        guard type == .expense, !isPending, !isScheduled else { return [] }
+        guard type == .expense, !isPending, !isScheduled, !isPrincipalMovement else { return [] }
         if !splitItems.isEmpty, amount > 0 {
             let rate = amountInBaseCurrency / amount
             return splitItems.map { ($0.category, $0.amount * rate) }
@@ -258,6 +258,20 @@ extension Transaction {
         if let sub = subtype { return sub.rawValue }
         if isSplit { return "Split · \(splitItems.count) categories" }
         return category.rawValue
+    }
+}
+
+// MARK: - Principal movements
+
+extension Transaction {
+    /// Money lent to or borrowed from people, and repayments of it, moves
+    /// cash without being earned or spent. Income/expense totals and savings
+    /// rates skip these (the debt screens still post them so balances move).
+    var isPrincipalMovement: Bool {
+        switch category {
+        case .personalLent, .personalLentRepayment, .personalBorrowed: return true
+        default: return linkedMoneyLentId != nil || linkedMoneyBorrowedId != nil
+        }
     }
 }
 

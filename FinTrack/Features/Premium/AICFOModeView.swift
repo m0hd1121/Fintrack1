@@ -28,11 +28,11 @@ struct AICFOModeView: View {
     }
 
     private var totalIncome: Double {
-        periodTransactions.filter { $0.type == .income }.reduce(0) { $0 + $1.amountInBaseCurrency }
+        periodTransactions.filter { ($0.type == .income && !$0.isPrincipalMovement) }.reduce(0) { $0 + $1.amountInBaseCurrency }
     }
 
     private var totalExpenses: Double {
-        periodTransactions.filter { $0.type == .expense }.reduce(0) { $0 + $1.amountInBaseCurrency }
+        periodTransactions.filter { ($0.type == .expense && !$0.isPrincipalMovement) }.reduce(0) { $0 + $1.amountInBaseCurrency }
     }
 
     private var savingsRate: Double {
@@ -190,7 +190,7 @@ struct AICFOModeView: View {
     }
 
     private var topCategories: some View {
-        let cats = Dictionary(grouping: periodTransactions.filter { $0.type == .expense }, by: { $0.category })
+        let cats = Dictionary(grouping: periodTransactions.filter { ($0.type == .expense && !$0.isPrincipalMovement) }, by: { $0.category })
             .mapValues { $0.reduce(0) { $0 + $1.amountInBaseCurrency } }
             .sorted { $0.value > $1.value }
             .prefix(4)

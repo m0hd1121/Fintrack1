@@ -36,12 +36,12 @@ final class FamilyService {
         let now = Date()
         let monthTxs = transactions.filter { $0.date.isSameMonth(as: now) && !$0.isPending }
 
-        let income   = monthTxs.filter { $0.type == .income }.reduce(0) { $0 + $1.amountInBaseCurrency }
-        let expenses = monthTxs.filter { $0.type == .expense }.reduce(0) { $0 + $1.amountInBaseCurrency }
+        let income   = monthTxs.filter { ($0.type == .income && !$0.isPrincipalMovement) }.reduce(0) { $0 + $1.amountInBaseCurrency }
+        let expenses = monthTxs.filter { ($0.type == .expense && !$0.isPrincipalMovement) }.reduce(0) { $0 + $1.amountInBaseCurrency }
         let billsTotal = bills.filter { $0.isActive }.reduce(0) { $0 + $1.monthlyEquivalent }
         let savingsRate = income > 0 ? max(0, (income - expenses) / income) : 0
 
-        let top = Dictionary(grouping: monthTxs.filter { $0.type == .expense }) { $0.category.rawValue }
+        let top = Dictionary(grouping: monthTxs.filter { ($0.type == .expense && !$0.isPrincipalMovement) }) { $0.category.rawValue }
             .mapValues { $0.reduce(0) { $0 + $1.amountInBaseCurrency } }
             .sorted { $0.value > $1.value }
             .prefix(5)
@@ -144,8 +144,8 @@ final class FamilyService {
         // We distribute totals across the "current user" member.
         let now = Date()
         let monthTxs = transactions.filter { $0.date.isSameMonth(as: now) && !$0.isPending }
-        let income   = monthTxs.filter { $0.type == .income }.reduce(0) { $0 + $1.amountInBaseCurrency }
-        let expenses = monthTxs.filter { $0.type == .expense }.reduce(0) { $0 + $1.amountInBaseCurrency }
+        let income   = monthTxs.filter { ($0.type == .income && !$0.isPrincipalMovement) }.reduce(0) { $0 + $1.amountInBaseCurrency }
+        let expenses = monthTxs.filter { ($0.type == .expense && !$0.isPrincipalMovement) }.reduce(0) { $0 + $1.amountInBaseCurrency }
 
         return members.map { member in
             if member.isCurrentUser {

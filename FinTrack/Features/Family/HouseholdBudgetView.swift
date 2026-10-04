@@ -289,8 +289,8 @@ struct HouseholdBudgetView: View {
         return (0..<6).reversed().compactMap { offset -> MonthData? in
             guard let date = cal.date(byAdding: .month, value: -offset, to: now) else { return nil }
             let monthTxs = transactions.filter { cal.isDate($0.date, equalTo: date, toGranularity: .month) }
-            let income = monthTxs.filter { $0.type == .income }.reduce(0) { $0 + $1.amountInBaseCurrency }
-            let expenses = monthTxs.filter { $0.type == .expense }.reduce(0) { $0 + $1.amountInBaseCurrency }
+            let income = monthTxs.filter { ($0.type == .income && !$0.isPrincipalMovement) }.reduce(0) { $0 + $1.amountInBaseCurrency }
+            let expenses = monthTxs.filter { ($0.type == .expense && !$0.isPrincipalMovement) }.reduce(0) { $0 + $1.amountInBaseCurrency }
             let fmt = DateFormatter(); fmt.dateFormat = "MMM"
             return MonthData(month: fmt.string(from: date), income: income, expenses: expenses)
         }

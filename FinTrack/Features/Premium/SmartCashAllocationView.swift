@@ -16,7 +16,7 @@ struct SmartCashAllocationView: View {
 
     private var monthlyExpensesEstimate: Double {
         let threeMonthsAgo = Calendar.current.date(byAdding: .month, value: -3, to: Date()) ?? Date()
-        let recent = allTransactions.filter { $0.type == .expense && $0.date >= threeMonthsAgo }
+        let recent = allTransactions.filter { ($0.type == .expense && !$0.isPrincipalMovement) && $0.date >= threeMonthsAgo }
         guard !recent.isEmpty else {
             return max(totalCash * 0.05, 1000)
         }

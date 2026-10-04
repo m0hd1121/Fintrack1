@@ -33,12 +33,15 @@ struct ReportsView: View {
     @Environment(AppState.self) private var appState
     @Environment(CurrencyService.self) private var currencyService
     @Query private var allTransactions: [Transaction]
-    /// Reports cover money that actually moved: pending, scheduled and
-    /// future-dated entries are left out (the Cheques report, which is about
-    /// upcoming cheques, reads `allTransactions`).
+    /// Reports cover money that was actually earned or spent: pending,
+    /// scheduled and future-dated entries and person-to-person lending
+    /// (`isPrincipalMovement`) are left out. The Cheques report, which is
+    /// about upcoming cheques, reads `allTransactions`.
     private var transactions: [Transaction] {
         let endOfToday = Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: Date())) ?? Date()
-        return allTransactions.filter { !$0.isPending && !$0.isScheduled && $0.date < endOfToday }
+        return allTransactions.filter {
+            !$0.isPending && !$0.isScheduled && $0.date < endOfToday && !$0.isPrincipalMovement
+        }
     }
     @Query private var accounts: [Account]
     @Query private var investments: [Investment]

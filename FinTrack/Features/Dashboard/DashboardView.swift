@@ -126,7 +126,7 @@ struct DashboardView: View {
 
             if date >= monthStart {
                 currentMonth.append(tx)
-                if tx.type == .income && !tx.isPending && !tx.isScheduled {
+                if tx.type == .income && !tx.isPending && !tx.isScheduled && !tx.isPrincipalMovement {
                     m.monthlyIncome += tx.amountInBaseCurrency
                 }
                 for (cat, amount) in tx.spendingPairs {

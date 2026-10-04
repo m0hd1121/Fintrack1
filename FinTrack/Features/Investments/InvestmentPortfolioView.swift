@@ -2134,12 +2134,19 @@ private struct RecordSaleSheet: View {
         investment.quantity -= quantity
         investment.realizedPnL += gain.realizedPnL
         investment.updatedAt = Date()
-        let tx = Transaction(title: "Sold \(String(format: "%.4g", quantity)) \(investment.symbol)",
-                             amount: salePrice * quantity, currency: investment.currency,
-                             amountInBaseCurrency: CurrencyService.shared.amountInBase(salePrice * quantity, from: investment.currency),
-                             type: .income, category: .investmentIncome, date: saleDate,
-                             notes: notes.isEmpty ? nil : notes)
-        context.insert(tx)
+        // Only the realised gain is income — the rest of the proceeds is the
+        // user's own capital coming back (posting the full proceeds inflated
+        // income and savings rates by the principal).
+        if gain.realizedPnL > 0 {
+            let proceeds = salePrice * quantity
+            let saleNote = "Sold \(String(format: "%.4g", quantity)) for \(proceeds.formatted(as: investment.currency))"
+            let tx = Transaction(title: "Gain on \(investment.symbol) sale",
+                                 amount: gain.realizedPnL, currency: investment.currency,
+                                 amountInBaseCurrency: CurrencyService.shared.amountInBase(gain.realizedPnL, from: investment.currency),
+                                 type: .income, category: .investmentIncome, date: saleDate,
+                                 notes: notes.isEmpty ? saleNote : "\(saleNote) · \(notes)")
+            context.insert(tx)
+        }
         try? context.save()
         dismiss()
     }
