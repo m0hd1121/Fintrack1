@@ -14,36 +14,37 @@ struct FamilyFinanceView: View {
     private var group: FamilyGroup? { familyGroups.first(where: { $0.isActive }) }
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: FTSpacing.xxl) {
-                    if let g = group {
-                        familyHeroCard(g)
-                        quickStatsRow(g)
-                        featuresGrid(g)
-                    } else {
-                        welcomeCard
-                    }
-                    insightsSection
+        ScrollView {
+            VStack(spacing: FTSpacing.xxl) {
+                if let g = group {
+                    familyHeroCard(g)
+                    quickStatsRow(g)
+                    featuresGrid(g)
+                } else {
+                    welcomeCard
                 }
-                .padding(.horizontal, FTSpacing.screen)
-                .padding(.bottom, 40)
+                insightsSection
             }
-            .navigationTitle("Family Finance")
-            .background { FTBackdrop() }
-            .toolbar {
-                if group != nil {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        NavigationLink(destination: FamilySetupView(group: group)) {
-                            Image(systemName: "gear").font(.ftCallout).foregroundStyle(FTColor.accent)
-                        }
+            .padding(.horizontal, FTSpacing.screen)
+            .padding(.bottom, 40)
+        }
+        .navigationTitle("Family Finance")
+        .background { FTBackdrop() }
+        .toolbar {
+            if group != nil {
+                ToolbarItem(placement: .topBarTrailing) {
+                    NavigationLink(destination: FamilySetupView(group: group)) {
+                        Image(systemName: "gear").font(.ftCallout).foregroundStyle(FTColor.accent)
                     }
                 }
-            }
-            .sheet(isPresented: $showingSetup) {
-                FamilySetupView(group: nil)
             }
         }
+        .sheet(isPresented: $showingSetup) {
+            // FamilySetupView is also pushed (edit), so it no longer owns a
+            // NavigationStack; the create sheet provides one.
+            NavigationStack { FamilySetupView(group: nil) }
+        }
+    
     }
 
     // MARK: - Welcome Card (no family)

@@ -29,44 +29,43 @@ struct DigitalAssetsListView: View {
     private var totalGainLoss: Double { totalValue - totalAcquisitionValue }
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                ScrollView {
-                    VStack(spacing: FTSpacing.lg) {
-                        summaryCard
-                        filterRow
-                        if filtered.isEmpty {
-                            emptyState
-                        } else {
-                            assetList
-                        }
+        ZStack {
+            ScrollView {
+                VStack(spacing: FTSpacing.lg) {
+                    summaryCard
+                    filterRow
+                    if filtered.isEmpty {
+                        emptyState
+                    } else {
+                        assetList
                     }
-                    .padding(FTSpacing.screen)
-                    .padding(.bottom, FTSpacing.xxl)
                 }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background { FTBackdrop() }
-            .navigationTitle("Digital Assets")
-            .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Button { showingAdd = true } label: {
-                        Image(systemName: "plus.circle.fill")
-                            .foregroundStyle(FTColor.accent)
-                            .font(.title3)
-                    }
-                    .accessibilityLabel("Add")
-                }
-            }
-            .searchable(text: $searchText, prompt: "Search digital assets")
-            .sheet(isPresented: $showingAdd) {
-                AddDigitalAssetView()
-            }
-            .sheet(item: $editingAsset) { asset in
-                AddDigitalAssetView(editingAsset: asset)
+                .padding(FTSpacing.screen)
+                .padding(.bottom, FTSpacing.xxl)
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background { FTBackdrop() }
+        .navigationTitle("Digital Assets")
+        .navigationBarTitleDisplayMode(.large)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button { showingAdd = true } label: {
+                    Image(systemName: "plus.circle.fill")
+                        .foregroundStyle(FTColor.accent)
+                        .font(.title3)
+                }
+                .accessibilityLabel("Add")
+            }
+        }
+        .searchable(text: $searchText, prompt: "Search digital assets")
+        .sheet(isPresented: $showingAdd) {
+            AddDigitalAssetView()
+        }
+        .sheet(item: $editingAsset) { asset in
+            AddDigitalAssetView(editingAsset: asset)
+        }
+    
     }
 
     // MARK: - Summary Card

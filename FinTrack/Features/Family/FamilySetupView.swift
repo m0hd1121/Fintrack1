@@ -18,60 +18,59 @@ struct FamilySetupView: View {
     var isNew: Bool { group == nil }
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: FTSpacing.xxl) {
-                    groupInfoSection
-                    membersSection
-                    if !isNew { dangerZone }
-                }
-                .padding(FTSpacing.screen)
-                .padding(.bottom, 40)
+        ScrollView {
+            VStack(spacing: FTSpacing.xxl) {
+                groupInfoSection
+                membersSection
+                if !isNew { dangerZone }
             }
-            .navigationTitle(isNew ? "Set Up Family Group" : "Manage Family")
-            .navigationBarTitleDisplayMode(.inline)
-            .background { FTBackdrop() }
-            .toolbar {
-                ToolbarItem(placement: isNew ? .topBarTrailing : .topBarTrailing) {
-                    Button(isNew ? "Create" : "Save", action: save)
-                        .disabled(groupName.isEmpty || adminName.isEmpty)
-                        .font(.ftBodySemibold).foregroundStyle(FTColor.accent)
-                }
-                if isNew {
-                    ToolbarItem(placement: .topBarLeading) {
-                        Button("Cancel") { dismiss() }
-                    }
-                }
+            .padding(FTSpacing.screen)
+            .padding(.bottom, 40)
+        }
+        .navigationTitle(isNew ? "Set Up Family Group" : "Manage Family")
+        .navigationBarTitleDisplayMode(.inline)
+        .background { FTBackdrop() }
+        .toolbar {
+            ToolbarItem(placement: isNew ? .topBarTrailing : .topBarTrailing) {
+                Button(isNew ? "Create" : "Save", action: save)
+                    .disabled(groupName.isEmpty || adminName.isEmpty)
+                    .font(.ftBodySemibold).foregroundStyle(FTColor.accent)
             }
-            .onAppear {
-                if let g = group {
-                    groupName = g.name
-                    adminName = g.adminName
-                    members = g.members
-                } else {
-                    // Pre-populate with current user
-                    members = [FamilyMemberData(
-                        name: "Me",
-                        role: .parent,
-                        defaultPermission: .admin,
-                        avatarColorHex: "#0E9C8A",
-                        isCurrentUser: true
-                    )]
-                }
-            }
-            .sheet(isPresented: $showingAddMember) {
-                AddFamilyMemberSheet(currency: appState.baseCurrency) { newMember in
-                    members.append(newMember)
-                }
-            }
-            .sheet(item: $editingMember) { member in
-                EditFamilyMemberSheet(member: member) { updated in
-                    if let idx = members.firstIndex(where: { $0.id == updated.id }) {
-                        members[idx] = updated
-                    }
+            if isNew {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Cancel") { dismiss() }
                 }
             }
         }
+        .onAppear {
+            if let g = group {
+                groupName = g.name
+                adminName = g.adminName
+                members = g.members
+            } else {
+                // Pre-populate with current user
+                members = [FamilyMemberData(
+                    name: "Me",
+                    role: .parent,
+                    defaultPermission: .admin,
+                    avatarColorHex: "#0E9C8A",
+                    isCurrentUser: true
+                )]
+            }
+        }
+        .sheet(isPresented: $showingAddMember) {
+            AddFamilyMemberSheet(currency: appState.baseCurrency) { newMember in
+                members.append(newMember)
+            }
+        }
+        .sheet(item: $editingMember) { member in
+            EditFamilyMemberSheet(member: member) { updated in
+                if let idx = members.firstIndex(where: { $0.id == updated.id }) {
+                    members[idx] = updated
+                }
+            }
+        }
+    
     }
 
     // MARK: - Group Info

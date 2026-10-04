@@ -1,7 +1,6 @@
 import SwiftUI
 
 struct TermsOfServiceView: View {
-    @Environment(\.dismiss) private var dismiss
 
     private let sections: [(title: String, body: String)] = [
         ("Acceptance of Terms", "By downloading, installing, or using FinTrack, you agree to be bound by these Terms of Service. If you do not agree, do not use the application."),
@@ -20,57 +19,49 @@ struct TermsOfServiceView: View {
     ]
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: FTSpacing.xl) {
-                    VStack(alignment: .leading, spacing: FTSpacing.sm) {
-                        HStack(spacing: FTSpacing.md) {
-                            FTIconTile(symbol: "doc.text.fill", tint: FTColor.catPurple, size: 48)
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Terms of Service")
-                                    .font(.ftTitle).foregroundStyle(FTColor.textPrimary)
-                                Text("Effective: January 1, 2025")
-                                    .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
-                            }
+        ScrollView {
+            VStack(alignment: .leading, spacing: FTSpacing.xl) {
+                VStack(alignment: .leading, spacing: FTSpacing.sm) {
+                    HStack(spacing: FTSpacing.md) {
+                        FTIconTile(symbol: "doc.text.fill", tint: FTColor.catPurple, size: 48)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Terms of Service")
+                                .font(.ftTitle).foregroundStyle(FTColor.textPrimary)
+                            Text("Effective: January 1, 2025")
+                                .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
                         }
-                        Text("Please read these Terms carefully. They govern your use of FinTrack and describe your rights and obligations.")
+                    }
+                    Text("Please read these Terms carefully. They govern your use of FinTrack and describe your rights and obligations.")
+                        .font(.ftBody).foregroundStyle(FTColor.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(FTSpacing.lg)
+                .ftGlass(FTRadius.lg)
+
+                ForEach(sections, id: \.title) { section in
+                    VStack(alignment: .leading, spacing: FTSpacing.sm) {
+                        Text(section.title)
+                            .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                        Text(section.body)
                             .font(.ftBody).foregroundStyle(FTColor.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     .padding(FTSpacing.lg)
-                    .ftGlass(FTRadius.lg)
-
-                    ForEach(sections, id: \.title) { section in
-                        VStack(alignment: .leading, spacing: FTSpacing.sm) {
-                            Text(section.title)
-                                .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
-                            Text(section.body)
-                                .font(.ftBody).foregroundStyle(FTColor.textSecondary)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                        .padding(FTSpacing.lg)
-                        .ftGlass(FTRadius.md)
-                    }
-
-                    Text("Last updated: January 2025")
-                        .font(.ftCaption).foregroundStyle(FTColor.textMuted)
-                        .frame(maxWidth: .infinity, alignment: .center)
-                        .padding(.bottom, FTSpacing.xxl)
+                    .ftGlass(FTRadius.md)
                 }
-                .padding(.horizontal, FTSpacing.screen)
-                .padding(.top, FTSpacing.lg)
+
+                Text("Last updated: January 2025")
+                    .font(.ftCaption).foregroundStyle(FTColor.textMuted)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.bottom, FTSpacing.xxl)
             }
-            .scrollContentBackground(.hidden)
-            .background { FTBackdrop() }
-            .navigationTitle("Terms of Service")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") { dismiss() }
-                        .font(.ftBodySemibold)
-                        .foregroundStyle(FTColor.accent)
-                }
-            }
+            .padding(.horizontal, FTSpacing.screen)
+            .padding(.top, FTSpacing.lg)
         }
+        .scrollContentBackground(.hidden)
+        .background { FTBackdrop() }
+        .navigationTitle("Terms of Service")
+        .navigationBarTitleDisplayMode(.inline)
+    
     }
 }

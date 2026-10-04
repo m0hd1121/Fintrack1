@@ -1,7 +1,6 @@
 import SwiftUI
 
 struct PrivacyPolicyView: View {
-    @Environment(\.dismiss) private var dismiss
 
     private let sections: [(title: String, body: String)] = [
         ("Data Storage", "All your financial data is stored exclusively on your device using Apple's SwiftData framework. FinTrack never transmits your personal financial data to external servers without your explicit consent."),
@@ -18,57 +17,49 @@ struct PrivacyPolicyView: View {
     ]
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: FTSpacing.xl) {
-                    VStack(alignment: .leading, spacing: FTSpacing.sm) {
-                        HStack(spacing: FTSpacing.md) {
-                            FTIconTile(symbol: "checkmark.shield.fill", tint: FTColor.income, size: 48)
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Privacy Policy")
-                                    .font(.ftTitle).foregroundStyle(FTColor.textPrimary)
-                                Text("Effective: January 1, 2025")
-                                    .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
-                            }
+        ScrollView {
+            VStack(alignment: .leading, spacing: FTSpacing.xl) {
+                VStack(alignment: .leading, spacing: FTSpacing.sm) {
+                    HStack(spacing: FTSpacing.md) {
+                        FTIconTile(symbol: "checkmark.shield.fill", tint: FTColor.income, size: 48)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Privacy Policy")
+                                .font(.ftTitle).foregroundStyle(FTColor.textPrimary)
+                            Text("Effective: January 1, 2025")
+                                .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
                         }
-                        Text("Your privacy is our highest priority. FinTrack is designed with a local-first architecture — your financial data stays on your devices.")
+                    }
+                    Text("Your privacy is our highest priority. FinTrack is designed with a local-first architecture — your financial data stays on your devices.")
+                        .font(.ftBody).foregroundStyle(FTColor.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(FTSpacing.lg)
+                .ftGlass(FTRadius.lg)
+
+                ForEach(sections, id: \.title) { section in
+                    VStack(alignment: .leading, spacing: FTSpacing.sm) {
+                        Text(section.title)
+                            .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                        Text(section.body)
                             .font(.ftBody).foregroundStyle(FTColor.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     .padding(FTSpacing.lg)
-                    .ftGlass(FTRadius.lg)
-
-                    ForEach(sections, id: \.title) { section in
-                        VStack(alignment: .leading, spacing: FTSpacing.sm) {
-                            Text(section.title)
-                                .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
-                            Text(section.body)
-                                .font(.ftBody).foregroundStyle(FTColor.textSecondary)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                        .padding(FTSpacing.lg)
-                        .ftGlass(FTRadius.md)
-                    }
-
-                    Text("Last updated: January 2025")
-                        .font(.ftCaption).foregroundStyle(FTColor.textMuted)
-                        .frame(maxWidth: .infinity, alignment: .center)
-                        .padding(.bottom, FTSpacing.xxl)
+                    .ftGlass(FTRadius.md)
                 }
-                .padding(.horizontal, FTSpacing.screen)
-                .padding(.top, FTSpacing.lg)
+
+                Text("Last updated: January 2025")
+                    .font(.ftCaption).foregroundStyle(FTColor.textMuted)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.bottom, FTSpacing.xxl)
             }
-            .scrollContentBackground(.hidden)
-            .background { FTBackdrop() }
-            .navigationTitle("Privacy Policy")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") { dismiss() }
-                        .font(.ftBodySemibold)
-                        .foregroundStyle(FTColor.accent)
-                }
-            }
+            .padding(.horizontal, FTSpacing.screen)
+            .padding(.top, FTSpacing.lg)
         }
+        .scrollContentBackground(.hidden)
+        .background { FTBackdrop() }
+        .navigationTitle("Privacy Policy")
+        .navigationBarTitleDisplayMode(.inline)
+    
     }
 }

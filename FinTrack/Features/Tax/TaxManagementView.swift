@@ -24,20 +24,19 @@ struct TaxManagementView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: FTSpacing.xxl) {
-                    yearPicker
-                    summaryStrip
-                    featuresGrid
-                    quickInsights
-                }
-                .padding(.horizontal, FTSpacing.screen)
-                .padding(.bottom, 40)
+        ScrollView {
+            VStack(spacing: FTSpacing.xxl) {
+                yearPicker
+                summaryStrip
+                featuresGrid
+                quickInsights
             }
-            .navigationTitle("Tax Management")
-            .background { FTBackdrop() }
+            .padding(.horizontal, FTSpacing.screen)
+            .padding(.bottom, 40)
         }
+        .navigationTitle("Tax Management")
+        .background { FTBackdrop() }
+    
     }
 
     // MARK: - Year Picker
