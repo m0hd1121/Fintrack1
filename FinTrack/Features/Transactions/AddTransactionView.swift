@@ -1534,6 +1534,8 @@ struct AddTransactionView: View {
         var savedTx: Transaction!
 
         if let tx = editingTransaction {
+            // A posted expense linked to a BNPL plan counts as one installment.
+            let oldBNPLPayment = (tx.type == .expense && !tx.isPending && !tx.isScheduled) ? tx.linkedBNPL : nil
             // Reverse old balance effect (only if was previously posted)
             if !tx.isPending && !tx.isScheduled, let oldAccount = tx.account {
                 let oldDelta = currencyService.convert(tx.amount, from: tx.currency, to: oldAccount.currency)
@@ -1605,6 +1607,11 @@ struct AddTransactionView: View {
             tx.linkedLoyaltyProgramID = selectedLoyaltyProgram?.id
             tx.loyaltyPointsAmount = loyaltyPointsDouble
             tx.linkedBNPL = paymentMethod == .bnpl ? linkedBNPLPlan : nil
+            let newBNPLPayment = (type == .expense && !isPending && !isScheduled) ? tx.linkedBNPL : nil
+            if oldBNPLPayment?.id != newBNPLPayment?.id {
+                oldBNPLPayment?.reverseInstallmentPayment()
+                newBNPLPayment?.applyInstallmentPayment()
+            }
             tx.linkedBillId = linkedBillItem?.id
             if let img = receiptImage { tx.receiptImageData = img.jpegData(compressionQuality: 0.7) }
 
@@ -1682,6 +1689,9 @@ struct AddTransactionView: View {
             tx.linkedLoyaltyProgramID = isLoyaltyTransfer ? toLoyaltyProgram?.id : selectedLoyaltyProgram?.id
             tx.loyaltyPointsAmount = loyaltyPointsDouble
             tx.linkedBNPL = paymentMethod == .bnpl ? linkedBNPLPlan : nil
+            if type == .expense && !isPending && !isScheduled {
+                tx.linkedBNPL?.applyInstallmentPayment()
+            }
             tx.linkedBillId = linkedBillItem?.id
             context.insert(tx)
 

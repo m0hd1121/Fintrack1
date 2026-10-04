@@ -510,10 +510,16 @@ struct TransactionsListView: View {
                 }
             }
         }
+        // Same reversal as LoanDetailSheet.deletePayment: the loan is tracked
+        // in its own currency, and the payment counted as one installment.
         if let loan = tx.linkedLoan,
            tx.category == .personalLentRepayment || tx.category == .loanRepayment {
-            loan.outstandingBalance += tx.amount
+            loan.outstandingBalance += currencyService.convert(tx.amount, from: tx.currency, to: loan.currency)
+            loan.paidInstallments = max(0, loan.paidInstallments - 1)
             if !loan.isActive { loan.isActive = true }
+        }
+        if let plan = tx.linkedBNPL, tx.type == .expense, !tx.isPending, !tx.isScheduled {
+            plan.reverseInstallmentPayment()
         }
         // Reverse loyalty points balance
         if let programID = tx.linkedLoyaltyProgramID,

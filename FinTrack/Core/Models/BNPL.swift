@@ -60,6 +60,27 @@ final class BNPLPlan {
     }
 }
 
+// Invariant: every posted expense transaction with `linkedBNPL` set is one
+// paid installment. Anything that links, unlinks or deletes such a
+// transaction goes through these two methods.
+extension BNPLPlan {
+    func applyInstallmentPayment() {
+        paidInstallments = min(paidInstallments + 1, totalInstallments)
+        if paidInstallments >= totalInstallments {
+            isCompleted = true
+        } else {
+            nextPaymentDate = Calendar.current.date(byAdding: .month, value: 1, to: nextPaymentDate) ?? nextPaymentDate
+        }
+    }
+
+    func reverseInstallmentPayment() {
+        guard paidInstallments > 0 else { return }
+        paidInstallments -= 1
+        isCompleted = false
+        nextPaymentDate = Calendar.current.date(byAdding: .month, value: -1, to: nextPaymentDate) ?? nextPaymentDate
+    }
+}
+
 enum BNPLProvider: String, Codable, CaseIterable {
     case tabby = "Tabby"
     case tamara = "Tamara"

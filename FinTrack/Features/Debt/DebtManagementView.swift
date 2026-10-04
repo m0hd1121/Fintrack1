@@ -1765,12 +1765,7 @@ struct RecordBNPLPaymentSheet: View {
         }
         context.insert(tx)
 
-        plan.paidInstallments = min(plan.paidInstallments + 1, plan.totalInstallments)
-        if plan.paidInstallments >= plan.totalInstallments {
-            plan.isCompleted = true
-        } else {
-            plan.nextPaymentDate = Calendar.current.date(byAdding: .month, value: 1, to: plan.nextPaymentDate) ?? plan.nextPaymentDate
-        }
+        plan.applyInstallmentPayment()
 
         try? context.save()
         dismiss()
@@ -2019,8 +2014,9 @@ struct BNPLDetailSheet: View {
             let delta = currencyService.convert(tx.amount, from: tx.currency, to: account.currency)
             account.balance += delta
         }
-        plan.paidInstallments = max(0, plan.paidInstallments - 1)
-        if plan.isCompleted { plan.isCompleted = false }
+        if tx.type == .expense && !tx.isPending && !tx.isScheduled {
+            plan.reverseInstallmentPayment()
+        }
         context.delete(tx)
         try? context.save()
     }
