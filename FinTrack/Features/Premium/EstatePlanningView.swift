@@ -58,7 +58,7 @@ struct EstatePlanningView: View {
     /// at the user's metal price), else its defaults — converted to the base
     /// currency the wealth figure is in. Was a fixed 7,200 compared in any
     /// base currency.
-    private var nisabAED: Double {
+    private var nisabInBase: Double {
         currencyService.convert((zakatRecords.first ?? ZakatRecord()).nisabThresholdAED, from: "AED", to: currency)
     }
 
@@ -200,7 +200,7 @@ struct EstatePlanningView: View {
                 Spacer()
             }
 
-            if zakatableWealth >= nisabAED {
+            if zakatableWealth >= nisabInBase {
                 let zakat = zakatableWealth * 0.025
                 HStack {
                     Text("Zakatable Wealth")
@@ -217,7 +217,7 @@ struct EstatePlanningView: View {
                         .font(.ftHeadline).foregroundStyle(FTColor.gold)
                 }
             } else {
-                Text("Below nisab threshold (\(nisabAED.formatted(as: currency))). No Zakat due.")
+                Text("Below nisab threshold (\(nisabInBase.formatted(as: currency))). No Zakat due.")
                     .font(.ftBody).foregroundStyle(FTColor.textMuted)
             }
         }
