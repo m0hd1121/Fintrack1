@@ -21,6 +21,17 @@ struct EmailReviewQueueView: View {
         return loans.first { $0.id == id }?.name
     }
 
+    /// A payment categorised as a loan repayment, with active loans to choose
+    /// from but none chosen yet. Like a BNPL charge with no plan, it shouldn't
+    /// be approved without at least being shown the choice — otherwise the
+    /// loan's balance and due date silently never move.
+    private func needsLoanChoice(_ item: PendingEmailTransaction) -> Bool {
+        item.direction == .debit && !item.isBNPLMerchant
+            && item.suggestedCategory == .loanRepayment
+            && loans.contains { $0.isActive }
+            && PendingLoanLinkStore.loanId(for: item.id) == nil
+    }
+
     private func accountName(for item: PendingEmailTransaction) -> String? {
         guard let id = item.matchedAccountId else { return nil }
         return accounts.first { $0.id == id }?.name
@@ -70,6 +81,7 @@ struct EmailReviewQueueView: View {
         pendingItems.filter {
             $0.confidence >= 0.9 && !$0.isPossibleDuplicate && !$0.isSuspiciousParse
                 && !($0.isBNPLMerchant && (!$0.bnplResolved || $0.bnplNeedsAmountFix))
+                && !needsLoanChoice($0)
         }
     }
 
@@ -137,7 +149,8 @@ struct EmailReviewQueueView: View {
                                     .accessibilityHidden(true)
                             }
                             PendingEmailRow(item: item, accountName: accountName(for: item),
-                                        loanName: loanName(for: item))
+                                        loanName: loanName(for: item),
+                                        needsLoan: needsLoanChoice(item))
                         }
                             .contentShape(.rect)
                             .onTapGesture {
@@ -302,7 +315,7 @@ struct EmailReviewQueueView: View {
                 accounts: accounts.filter { !$0.isArchived },
                 bnplPlans: bnplPlans.filter { !$0.isCompleted },
                 loans: loans.filter { $0.isActive },
-                onApprove: { shares in approve(item, lentShares: shares) }
+                onApprove: { shares in approve(item, lentShares: shares, fromSheet: true) }
             )
         }
     }
@@ -421,9 +434,10 @@ struct EmailReviewQueueView: View {
     /// action isn't allowed to be the way around either. Skipped items stay
     /// selected so the user can fix them and go again.
     private func approveSelected() {
-        var approved = 0, needsPlan = 0, duplicates = 0
+        var approved = 0, needsPlan = 0, needsLoan = 0, duplicates = 0
         for item in selectedItems {
             if item.isBNPLMerchant && (!item.bnplResolved || item.bnplNeedsAmountFix) { needsPlan += 1; continue }
+            if needsLoanChoice(item) { needsLoan += 1; continue }
             if item.isPossibleDuplicate { duplicates += 1; continue }
             EmailSyncService.shared.approveToLedger(item: item, context: context)
             if item.status == .approved {
@@ -435,6 +449,9 @@ struct EmailReviewQueueView: View {
         var skipped: [String] = []
         if needsPlan > 0 {
             skipped.append("\(needsPlan) BNPL charge\(needsPlan == 1 ? "" : "s") with no plan chosen — use Plan first")
+        }
+        if needsLoan > 0 {
+            skipped.append("\(needsLoan) loan repayment\(needsLoan == 1 ? "" : "s") with no loan chosen — open \(needsLoan == 1 ? "it" : "each") to pick one")
         }
         if duplicates > 0 {
             skipped.append("\(duplicates) possible duplicate\(duplicates == 1 ? "" : "s") — approve \(duplicates == 1 ? "it" : "those") individually")
@@ -462,7 +479,18 @@ struct EmailReviewQueueView: View {
 
     /// `lentShares` is only ever supplied by the edit sheet, where the user said
     /// they paid for someone else. Swipe and bulk approvals never pass it.
-    private func approve(_ item: PendingEmailTransaction, lentShares: [LentShare] = []) {
+    ///
+    /// `fromSheet`: the user is already in the edit sheet, where they've seen the
+    /// loan choice and may legitimately leave it empty (a loan FinTrack doesn't
+    /// track). Without this the loan prompt below would bounce them straight
+    /// back into the sheet they just confirmed.
+    private func approve(_ item: PendingEmailTransaction, lentShares: [LentShare] = [],
+                         fromSheet: Bool = false) {
+        // A loan repayment with no loan chosen goes to the sheet to pick one.
+        if !fromSheet && needsLoanChoice(item) {
+            editingItem = item
+            return
+        }
         // BNPL charges need a plan selection first — route to the edit sheet.
         // Also when a charge pays several plans but its per-plan amounts don't
         // add up to the charge, which only the sheet can fix.
@@ -525,6 +553,7 @@ private struct PendingEmailRow: View {
     let item: PendingEmailTransaction
     var accountName: String? = nil
     var loanName: String? = nil
+    var needsLoan = false
 
     @State private var showExplanation = false
 
@@ -587,6 +616,8 @@ private struct PendingEmailRow: View {
                 }
                 if let loanName {
                     BadgeView(text: "Loan · \(loanName)", color: FTColor.catBlue)
+                } else if needsLoan {
+                    BadgeView(text: "Loan repayment · select loan", color: FTColor.gold)
                 }
                 if item.isPossibleDuplicate {
                     BadgeView(text: "Possible duplicate", color: FTColor.expense)
@@ -681,7 +712,9 @@ private struct EditPendingEmailSheet: View {
 
     private var loanExplanation: String {
         guard let id = selectedLoanId, let loan = loans.first(where: { $0.id == id }) else {
-            return "If this payment is an instalment on one of your loans, pick it so the loan's balance and next due date update."
+            return loanChoiceMissing
+                ? "This is categorised as a loan repayment — pick the loan it pays so its balance and next due date update."
+                : "If this payment is an instalment on one of your loans, pick it so the loan's balance and next due date update."
         }
         return "Approving records this as a payment on \(loan.name): the loan's balance and next due date update, and your account is debited once."
     }
@@ -767,8 +800,13 @@ private struct EditPendingEmailSheet: View {
     private func selectLoan(_ id: UUID?) {
         selectedLoanId = id
         PendingLoanLinkStore.set(id, for: item.id)
-        // A loan instalment isn't a purchase for a friend.
-        if id != nil { paidForOthers = false }
+        if id != nil {
+            // A loan instalment isn't a purchase for a friend.
+            paidForOthers = false
+            // The approval records it as a loan repayment whatever the category
+            // says, so make the sheet say the same rather than show a stale one.
+            if item.suggestedCategory != .loanRepayment { item.suggestedCategory = .loanRepayment }
+        }
     }
 
     /// A loan whose EMI matches this payment — the usual shape of a fetched
@@ -786,8 +824,19 @@ private struct EditPendingEmailSheet: View {
     /// Loans only make sense for money going out, and a BNPL instalment is a
     /// plan payment, not a loan. Hidden while "paid for someone else" is on —
     /// a payment can't be both.
+    private var isLoanRepaymentCategory: Bool { item.suggestedCategory == .loanRepayment }
+
+    /// Shown whenever there are loans to pick from, and also — so it never just
+    /// vanishes — when the category is Loan Repayment but there are none yet.
     private var canLinkLoan: Bool {
-        item.direction == .debit && !item.isBNPLMerchant && !loans.isEmpty && !paidForOthers
+        item.direction == .debit && !item.isBNPLMerchant && !paidForOthers
+            && (!loans.isEmpty || isLoanRepaymentCategory)
+    }
+
+    /// Category says "loan repayment" but no loan is chosen: the one case that
+    /// needs the user's attention, so it's flagged rather than left implicit.
+    private var loanChoiceMissing: Bool {
+        isLoanRepaymentCategory && selectedLoanId == nil && !loans.isEmpty
     }
 
     /// Money in (a refund, a salary) isn't paid on anyone's behalf, and a BNPL
@@ -982,6 +1031,12 @@ private struct EditPendingEmailSheet: View {
                         // Loan repayment — this payment is an instalment on one of the user's loans.
                         if canLinkLoan {
                             VStack(spacing: 0) {
+                                if loans.isEmpty {
+                                    Text("There are no active loans to link this to. Add the loan under Debt Management → Loans first, then link this payment to update its balance and due date.")
+                                        .font(.ftCaption).foregroundStyle(FTColor.gold)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .padding(.vertical, FTSpacing.sm)
+                                } else {
                                 fieldRow("Loan repayment") {
                                     Picker("", selection: Binding(
                                         get: { selectedLoanId?.uuidString ?? "" },
@@ -994,6 +1049,7 @@ private struct EditPendingEmailSheet: View {
                                     }
                                     .pickerStyle(.menu)
                                     .accentColor(FTColor.accent)
+                                }
                                 }
 
                                 if let suggestion = suggestedLoan {
@@ -1008,7 +1064,8 @@ private struct EditPendingEmailSheet: View {
                                 }
 
                                 Text(loanExplanation)
-                                    .font(.ftCaption).foregroundStyle(FTColor.textMuted)
+                                    .font(.ftCaption)
+                                    .foregroundStyle(loanChoiceMissing ? FTColor.gold : FTColor.textMuted)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .padding(.bottom, FTSpacing.sm)
                             }
@@ -1129,6 +1186,12 @@ private struct EditPendingEmailSheet: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                 }
+            }
+            // Picking a different category after linking a loan means the user
+            // changed their mind: drop the link, or the approval would still file
+            // it as a loan repayment against the category they just chose.
+            .onChange(of: item.suggestedCategory) { _, category in
+                if category != .loanRepayment, selectedLoanId != nil { selectLoan(nil) }
             }
             .onAppear {
                 amountText = AmountTextField.format(String(format: "%.2f", item.amount))
