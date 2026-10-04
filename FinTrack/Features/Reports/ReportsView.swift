@@ -32,7 +32,14 @@ private extension View {
 struct ReportsView: View {
     @Environment(AppState.self) private var appState
     @Environment(CurrencyService.self) private var currencyService
-    @Query private var transactions: [Transaction]
+    @Query private var allTransactions: [Transaction]
+    /// Reports cover money that actually moved: pending, scheduled and
+    /// future-dated entries are left out (the Cheques report, which is about
+    /// upcoming cheques, reads `allTransactions`).
+    private var transactions: [Transaction] {
+        let endOfToday = Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: Date())) ?? Date()
+        return allTransactions.filter { !$0.isPending && !$0.isScheduled && $0.date < endOfToday }
+    }
     @Query private var accounts: [Account]
     @Query private var investments: [Investment]
     @Query private var cryptoHoldings: [CryptoHolding]
@@ -204,7 +211,7 @@ struct ReportsView: View {
                                     currency: baseCurrency
                                 )
                             case .cheques:
-                                ChequesReport(transactions: transactions, currency: baseCurrency)
+                                ChequesReport(transactions: allTransactions, currency: baseCurrency)
                             case .netWorth:
                                 NetWorthReport(
                                     accounts: accounts,
@@ -535,17 +542,19 @@ struct CashFlowReport: View {
         }
     }
 
+    /// The most recent 14 days with activity, oldest first. Grouped by real
+    /// day (sorting the "MMM d" labels put "Apr 10" before "Apr 2").
     private var dailyData: [(day: String, income: Double, expense: Double)] {
         let formatter = DateFormatter()
         formatter.dateFormat = "MMM d"
-        let grouped = Dictionary(grouping: transactions) { tx -> String in
-            formatter.string(from: tx.date)
-        }
-        return grouped.map { key, txs in
+        let calendar = Calendar.current
+        let grouped = Dictionary(grouping: transactions) { calendar.startOfDay(for: $0.date) }
+        return grouped.keys.sorted().suffix(14).map { day in
+            let txs = grouped[day] ?? []
             let income = txs.filter { $0.type == .income }.reduce(0) { $0 + $1.amountInBaseCurrency }
             let expense = txs.filter { $0.type == .expense }.reduce(0) { $0 + $1.amountInBaseCurrency }
-            return (key, income, expense)
-        }.sorted { $0.day < $1.day }.prefix(14).map { $0 }
+            return (formatter.string(from: day), income, expense)
+        }
     }
 
     var body: some View {
@@ -1114,6 +1123,7 @@ struct ChequesReport: View {
         let endOfMonth = cal.date(byAdding: .month, value: 1, to: today)!
 
         var overdue: [Transaction] = []
+        var cleared: [Transaction] = []
         var todayCheques: [Transaction] = []
         var thisWeek: [Transaction] = []
         var thisMonth: [Transaction] = []
@@ -1122,7 +1132,9 @@ struct ChequesReport: View {
         for tx in cheques {
             guard let chequeDate = tx.chequeDate else { continue }
             if chequeDate < today {
-                overdue.append(tx)
+                // A past-dated cheque that was posted has cleared; only one
+                // still marked pending is overdue.
+                if Self.isCleared(tx) { cleared.append(tx) } else { overdue.append(tx) }
             } else if chequeDate < endOfToday {
                 todayCheques.append(tx)
             } else if chequeDate < endOfWeek {
@@ -1140,16 +1152,23 @@ struct ChequesReport: View {
         if !thisWeek.isEmpty { groups.append(("This Week", thisWeek)) }
         if !thisMonth.isEmpty { groups.append(("This Month", thisMonth)) }
         if !later.isEmpty { groups.append(("Later", later)) }
+        if !cleared.isEmpty { groups.append(("Cleared", cleared.reversed())) }
         return groups
     }
 
+    private static func isCleared(_ tx: Transaction) -> Bool {
+        let today = Calendar.current.startOfDay(for: Date())
+        return !tx.isPending && !tx.isScheduled && (tx.chequeDate ?? .distantFuture) < today
+    }
+
     private var totalDue: Double {
-        cheques.reduce(0) { $0 + currencyService.convert($1.amount, from: $1.currency, to: currency) }
+        cheques.filter { !Self.isCleared($0) }
+            .reduce(0) { $0 + currencyService.convert($1.amount, from: $1.currency, to: currency) }
     }
 
     private var overdueCount: Int {
         let today = Calendar.current.startOfDay(for: Date())
-        return cheques.filter { ($0.chequeDate ?? .distantFuture) < today }.count
+        return cheques.filter { ($0.chequeDate ?? .distantFuture) < today && !Self.isCleared($0) }.count
     }
 
     var body: some View {
