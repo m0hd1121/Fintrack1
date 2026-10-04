@@ -21,6 +21,7 @@ struct EmailImportView: View {
     @State private var showingPrivacy = false
     @State private var showingBankWizard = false
     @State private var editingBankRule: BankEmailRule? = nil
+    @State private var ruleToDelete: BankEmailRule? = nil
     @State private var oauthSetupProvider: EmailProvider? = nil
     @State private var imapSignInProvider: EmailProvider? = nil
 
@@ -42,6 +43,18 @@ struct EmailImportView: View {
         .sheet(isPresented: $showingPasteSheet) { pasteSheet }
         .sheet(isPresented: $showingBankWizard) { BankSetupWizardView() }
         .sheet(item: $editingBankRule) { rule in BankSetupWizardView(editingRule: rule) }
+        .confirmationDialog("Delete \(ruleToDelete?.displayName ?? "this bank")?",
+                            isPresented: Binding(get: { ruleToDelete != nil },
+                                                 set: { if !$0 { ruleToDelete = nil } }),
+                            titleVisibility: .visible) {
+            Button("Delete", role: .destructive) {
+                if let rule = ruleToDelete { context.delete(rule); try? context.save() }
+                ruleToDelete = nil
+            }
+            Button("Cancel", role: .cancel) { ruleToDelete = nil }
+        } message: {
+            Text("Emails from this bank will no longer be recognised by this rule. Transactions already imported are kept.")
+        }
         .sheet(item: $oauthSetupProvider) { provider in
             OAuthSetupSheet(provider: provider) {
                 oauthSetupProvider = nil
@@ -101,8 +114,7 @@ struct EmailImportView: View {
                         set: { rule.isEnabled = $0; try? context.save() }
                     ))
                     Button(role: .destructive) {
-                        context.delete(rule)
-                        try? context.save()
+                        ruleToDelete = rule
                     } label: {
                         Label("Delete", systemImage: "trash")
                     }

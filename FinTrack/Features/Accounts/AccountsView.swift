@@ -61,6 +61,22 @@ struct AccountsView: View {
     @State private var moduleRoute: ModuleRoute? = nil
     @State private var showingNetWorth = false
     @State private var showingNotifications = false
+    /// Every delete here goes through one confirmation; the context-menu
+    /// deletes used to fire immediately (an account delete cascades to all of
+    /// its transactions).
+    @State private var pendingDeletion: PendingDeletion? = nil
+
+    private struct PendingDeletion: Identifiable {
+        let id = UUID()
+        let title: String
+        let message: String
+        let perform: () -> Void
+    }
+
+    private func confirmDelete(_ name: String, message: String = "This can't be undone.",
+                               _ perform: @escaping () -> Void) {
+        pendingDeletion = PendingDeletion(title: "Delete \(name)?", message: message, perform: perform)
+    }
 
     private let tabs = ["Accounts", "Investments", "Crypto", "Assets"]
     private var baseCurrency: String { appState.baseCurrency }
@@ -243,6 +259,16 @@ struct AccountsView: View {
                 }
             }
             .sheet(isPresented: $showingNetWorth) { NetWorthDashboardView() }
+            .confirmationDialog(pendingDeletion?.title ?? "Delete?",
+                                isPresented: Binding(get: { pendingDeletion != nil },
+                                                     set: { if !$0 { pendingDeletion = nil } }),
+                                titleVisibility: .visible,
+                                presenting: pendingDeletion) { pending in
+                Button("Delete", role: .destructive) { pending.perform(); pendingDeletion = nil }
+                Button("Cancel", role: .cancel) { pendingDeletion = nil }
+            } message: { pending in
+                Text(pending.message)
+            }
             .sheet(isPresented: $showingNotifications) { NotificationSettingsView() }
             // Tapping the Accounts tab pops any pushed module screen back here.
             .onChange(of: appState.popToRootTick) { moduleRoute = nil }
@@ -521,7 +547,10 @@ struct AccountsView: View {
                             .contextMenu {
                                 Button { selectedAccount = account } label: { Label("View", systemImage: "eye") }
                                 Button(role: .destructive) {
-                                    context.delete(account); try? context.save()
+                                    confirmDelete(account.name,
+                                                  message: "This also deletes the account's \(account.transactions.count) transaction(s). Archive it instead to keep its history.") {
+                                        context.delete(account); try? context.save()
+                                    }
                                 } label: { Label("Delete", systemImage: "trash") }
                                 Button {
                                     account.isArchived = true; try? context.save()
@@ -533,7 +562,7 @@ struct AccountsView: View {
                             .contentShape(Rectangle())
                             .contextMenu {
                                 Button(role: .destructive) {
-                                    context.delete(card); try? context.save()
+                                    confirmDelete(card.name) { context.delete(card); try? context.save() }
                                 } label: { Label("Delete", systemImage: "trash") }
                             }
                     }
@@ -557,7 +586,7 @@ struct AccountsView: View {
                             .contextMenu {
                                 Button { editingInvestment = inv } label: { Label("Edit", systemImage: "pencil") }
                                 Button(role: .destructive) {
-                                    context.delete(inv); try? context.save()
+                                    confirmDelete(inv.name) { context.delete(inv); try? context.save() }
                                 } label: { Label("Delete", systemImage: "trash") }
                             }
                     }
@@ -581,7 +610,7 @@ struct AccountsView: View {
                             .contextMenu {
                                 Button { editingCrypto = holding } label: { Label("Edit", systemImage: "pencil") }
                                 Button(role: .destructive) {
-                                    context.delete(holding); try? context.save()
+                                    confirmDelete(holding.name) { context.delete(holding); try? context.save() }
                                 } label: { Label("Delete", systemImage: "trash") }
                             }
                     }
@@ -608,7 +637,7 @@ struct AccountsView: View {
                                     holding.isArchived = true; try? context.save()
                                 } label: { Label("Archive", systemImage: "archivebox") }
                                 Button(role: .destructive) {
-                                    context.delete(holding); try? context.save()
+                                    confirmDelete(holding.name) { context.delete(holding); try? context.save() }
                                 } label: { Label("Delete", systemImage: "trash") }
                             }
                     }
@@ -622,7 +651,7 @@ struct AccountsView: View {
                                     card.isUsedUp = true; try? context.save()
                                 } label: { Label("Mark Used", systemImage: "checkmark.circle") }
                                 Button(role: .destructive) {
-                                    context.delete(card); try? context.save()
+                                    confirmDelete(card.merchant) { context.delete(card); try? context.save() }
                                 } label: { Label("Delete", systemImage: "trash") }
                             }
                     }
@@ -633,7 +662,7 @@ struct AccountsView: View {
                             .contextMenu {
                                 Button { editingLoyalty = program } label: { Label("Edit", systemImage: "pencil") }
                                 Button(role: .destructive) {
-                                    context.delete(program); try? context.save()
+                                    confirmDelete(program.name) { context.delete(program); try? context.save() }
                                 } label: { Label("Delete", systemImage: "trash") }
                             }
                     }

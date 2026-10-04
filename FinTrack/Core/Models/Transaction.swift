@@ -429,6 +429,25 @@ struct RecurringRule: Codable {
     var nextDueDate: Date
 }
 
+extension RecurringRule {
+    /// The occurrence after `date` for this rule's frequency and interval.
+    /// Shared by entry (`AddTransactionView`) and generation (`RootView`) so the
+    /// first due date always matches the chosen frequency.
+    func occurrence(after date: Date, calendar: Calendar = .current) -> Date {
+        let step = max(interval, 1)
+        let advance: DateComponents
+        switch frequency {
+        case .daily:     advance = DateComponents(day: step)
+        case .weekly:    advance = DateComponents(weekOfYear: step)
+        case .biweekly:  advance = DateComponents(weekOfYear: step * 2)
+        case .monthly:   advance = DateComponents(month: step)
+        case .quarterly: advance = DateComponents(month: step * 3)
+        case .yearly:    advance = DateComponents(year: step)
+        }
+        return calendar.date(byAdding: advance, to: date) ?? date
+    }
+}
+
 enum RecurringFrequency: String, Codable, CaseIterable {
     case daily     = "Daily"
     case weekly    = "Weekly"

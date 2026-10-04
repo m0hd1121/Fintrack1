@@ -108,7 +108,10 @@ enum ApplePayIngestService {
 
         let resolution = ImportFiler.file(
             parsed, channel: .applePay,
-            rawText: "\(trimmedMerchant) \(resolvedCurrency) \(amount)",
+            // Include the payment time: without it two identical purchases (same
+            // merchant and amount, e.g. a daily coffee) produced the same messageId
+            // and the second one was silently dropped as "already imported".
+            rawText: "\(trimmedMerchant) \(resolvedCurrency) \(amount) @\(Int((date ?? Date()).timeIntervalSince1970))",
             receivedAt: date ?? Date(),
             categoryOverride: mappedCategory(walletCategory),
             context: context

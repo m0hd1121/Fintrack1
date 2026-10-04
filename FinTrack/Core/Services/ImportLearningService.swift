@@ -267,7 +267,14 @@ final class ImportLearningService {
         if !candidateKey.isEmpty && !targetKey.isEmpty {
             if candidateKey == targetKey { score += 0.25 }
             else if targetKey.contains(candidateKey) || candidateKey.contains(targetKey) { score += 0.20 }
-            else { score += tokenOverlap(merchant, targetMerchant) * 0.20 }
+            else {
+                let overlap = tokenOverlap(merchant, targetMerchant)
+                // Two known, unrelated merchants are different purchases even at the
+                // same amount and time — keep the score below `duplicateThreshold`
+                // so `ImportDeduper` never merges them.
+                if overlap == 0 { return min(score, Self.duplicateThreshold - 0.1) }
+                score += overlap * 0.20
+            }
         }
 
         if let last4 = cardLast4, let targetCardLast4, targetCardLast4.hasSuffix(last4) {

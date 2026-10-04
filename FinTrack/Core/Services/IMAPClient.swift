@@ -363,22 +363,42 @@ enum MIMEDecoder {
     /// Decodes RFC 2047 encoded words: =?UTF-8?B?...?= and =?UTF-8?Q?...?=
     static func decodeEncodedWords(_ text: String) -> String {
         var output = text
-        while let range = output.range(of: "=\\?[^?]+\\?[BbQq]\\?[^?]*\\?=", options: .regularExpression) {
+        // Always search *after* the last replacement. Re-searching from the start
+        // looped forever when a word couldn't be decoded (e.g. a non-UTF-8 "B"
+        // word): it was "replaced" with itself and matched again.
+        var searchStart = output.startIndex
+        while let range = output.range(of: "=\\?[^?]+\\?[BbQq]\\?[^?]*\\?=",
+                                       options: .regularExpression,
+                                       range: searchStart..<output.endIndex) {
             let token = String(output[range])
             let pieces = token.components(separatedBy: "?")
             guard pieces.count >= 5 else { break }
+            let charset = pieces[1]
             let encoding = pieces[2].uppercased()
             let payload = pieces[3]
             var decoded = token
             if encoding == "B", let data = Data(base64Encoded: payload),
-               let text = String(data: data, encoding: .utf8) {
+               let text = string(from: data, charset: charset) {
                 decoded = text
             } else if encoding == "Q" {
                 decoded = decodeQuotedPrintable(payload.replacingOccurrences(of: "_", with: " "))
             }
+            let lowerOffset = output.distance(from: output.startIndex, to: range.lowerBound)
             output.replaceSubrange(range, with: decoded)
+            searchStart = output.index(output.startIndex, offsetBy: lowerOffset + decoded.count)
         }
         return output
+    }
+
+    /// Decodes bytes using the MIME charset name (UTF-8, ISO-8859-x,
+    /// windows-125x, …), falling back to UTF-8 then Latin-1.
+    private static func string(from data: Data, charset: String) -> String? {
+        let cfEncoding = CFStringConvertIANACharSetNameToEncoding(charset as CFString)
+        if cfEncoding != kCFStringEncodingInvalidId {
+            let nsEncoding = CFStringConvertEncodingToNSStringEncoding(cfEncoding)
+            if let text = String(data: data, encoding: String.Encoding(rawValue: nsEncoding)) { return text }
+        }
+        return String(data: data, encoding: .utf8) ?? String(data: data, encoding: .isoLatin1)
     }
 
     /// Pulls a single header value ("From", "Subject", "Date") out of a raw

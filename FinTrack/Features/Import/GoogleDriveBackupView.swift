@@ -171,7 +171,7 @@ struct GoogleDriveBackupView: View {
                             get: { backup.backupEnabled },
                             set: { backup.backupEnabled = $0 }
                         ))
-            Text("While this device and another connected device are both open, new accounts, transactions, budgets, etc. added on either one appear on the other within a couple of minutes.")
+            Text("Backs up automatically to the single FinTrack file in your Drive. Backups are encrypted with a key that stays on this iPhone, so they restore here — another device can't open them.")
                 .font(.ftCaption).foregroundStyle(FTColor.textMuted)
                 .padding(.horizontal, FTSpacing.md)
             Divider().background(FTColor.textMuted.opacity(0.3)).padding(.top, FTSpacing.xs)
@@ -193,7 +193,7 @@ struct GoogleDriveBackupView: View {
             Image(systemName: "exclamationmark.triangle.fill").font(.ftCallout).foregroundStyle(FTColor.gold)
             VStack(alignment: .leading, spacing: 4) {
                 Text("New Records Only").font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
-                Text("Sync only adds records your other devices don't have yet. Editing or deleting something that already exists on another device won't change it there — you'd need to make the same edit on each device, or use Restore \u{2192} Replace to force one device's data to fully overwrite another's.")
+                Text("Restore → Merge only adds records this device doesn't have yet; it never edits or deletes existing ones. Use Restore → Replace to make this device match the backup exactly.")
                     .font(.ftCaption).foregroundStyle(FTColor.textMuted)
             }
         }

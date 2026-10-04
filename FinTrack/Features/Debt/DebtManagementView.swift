@@ -42,6 +42,15 @@ struct DebtManagementView: View {
     @State private var recordingPaymentBNPL: BNPLPlan? = nil
     @State private var showingAddBill = false
     @State private var selectedBill: Bill? = nil
+    /// Context-menu deletes used to run immediately; they also reverse every
+    /// linked payment, so they now ask first (like the detail sheets do).
+    @State private var pendingDeletion: PendingDebtDeletion? = nil
+
+    struct PendingDebtDeletion: Identifiable {
+        let id = UUID()
+        let name: String
+        let perform: () -> Void
+    }
 
     private let tabs = ["Overview", "Loans", "Snowball", "Avalanche", "Calculator", "Lent", "Borrowed", "BNPL", "Utilization", "Bills"]
 
@@ -109,6 +118,16 @@ struct DebtManagementView: View {
             ToolbarItem(placement: .navigationBarTrailing) {
                 addButton
             }
+        }
+        .confirmationDialog("Delete \(pendingDeletion?.name ?? "this record")?",
+                            isPresented: Binding(get: { pendingDeletion != nil },
+                                                 set: { if !$0 { pendingDeletion = nil } }),
+                            titleVisibility: .visible,
+                            presenting: pendingDeletion) { pending in
+            Button("Delete", role: .destructive) { pending.perform(); pendingDeletion = nil }
+            Button("Cancel", role: .cancel) { pendingDeletion = nil }
+        } message: { _ in
+            Text("This also reverses any payments recorded against it, so the linked account balances stay correct.")
         }
         .sheet(isPresented: $showingAddLoan) {
             AddLoanView()
@@ -453,7 +472,7 @@ struct DebtManagementView: View {
                                     Label("Edit", systemImage: "pencil")
                                 }
                                 Button(role: .destructive) {
-                                    deleteLoan(loan)
+                                    pendingDeletion = PendingDebtDeletion(name: loan.name) { deleteLoan(loan) }
                                 } label: {
                                     Label("Delete", systemImage: "trash")
                                 }
@@ -500,7 +519,7 @@ struct DebtManagementView: View {
                                     Label("Edit", systemImage: "pencil")
                                 }
                                 Button(role: .destructive) {
-                                    deleteBNPLPlan(plan)
+                                    pendingDeletion = PendingDebtDeletion(name: plan.name) { deleteBNPLPlan(plan) }
                                 } label: {
                                     Label("Delete", systemImage: "trash")
                                 }
@@ -968,7 +987,7 @@ struct DebtManagementView: View {
                                     Label("Edit", systemImage: "pencil")
                                 }
                                 Button(role: .destructive) {
-                                    deleteLoan(loan)
+                                    pendingDeletion = PendingDebtDeletion(name: loan.name) { deleteLoan(loan) }
                                 } label: {
                                     Label("Delete", systemImage: "trash")
                                 }
@@ -1038,7 +1057,7 @@ struct DebtManagementView: View {
                                     Label("Edit", systemImage: "pencil")
                                 }
                                 Button(role: .destructive) {
-                                    deleteLentItem(item)
+                                    pendingDeletion = PendingDebtDeletion(name: item.borrowerName) { deleteLentItem(item) }
                                 } label: {
                                     Label("Delete", systemImage: "trash")
                                 }
@@ -1108,7 +1127,7 @@ struct DebtManagementView: View {
                                     Label("Edit", systemImage: "pencil")
                                 }
                                 Button(role: .destructive) {
-                                    deleteBorrowedItem(item)
+                                    pendingDeletion = PendingDebtDeletion(name: item.lenderName) { deleteBorrowedItem(item) }
                                 } label: {
                                     Label("Delete", systemImage: "trash")
                                 }
@@ -1181,7 +1200,7 @@ struct DebtManagementView: View {
                                     Label("Edit", systemImage: "pencil")
                                 }
                                 Button(role: .destructive) {
-                                    deleteBNPLPlan(plan)
+                                    pendingDeletion = PendingDebtDeletion(name: plan.name) { deleteBNPLPlan(plan) }
                                 } label: {
                                     Label("Delete", systemImage: "trash")
                                 }

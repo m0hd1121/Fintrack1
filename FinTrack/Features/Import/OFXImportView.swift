@@ -6,6 +6,7 @@ struct OFXImportView: View {
     @Environment(\.modelContext) private var context
     @Environment(AppState.self) private var appState
     @Query private var accounts: [Account]
+    @Query(sort: \CategorizationRule.priority) private var categorizationRules: [CategorizationRule]
 
     @State private var showingFilePicker = false
     @State private var step: OFXStep = .upload
@@ -16,6 +17,7 @@ struct OFXImportView: View {
     @State private var selectedAccountId = ""
     @State private var importedCount = 0
     @State private var deduplicateEnabled = true
+    @State private var parseError: String?
 
     enum OFXStep { case upload, review, done }
 
@@ -47,8 +49,16 @@ struct OFXImportView: View {
             if case .success(let urls) = result, let url = urls.first {
                 selectedFileName = url.lastPathComponent
                 detectFileType(name: url.lastPathComponent)
-                startParsing()
+                startParsing(url: url)
             }
+        }
+        .alert("Import Failed", isPresented: Binding(
+            get: { parseError != nil },
+            set: { if !$0 { parseError = nil } }
+        )) {
+            Button("OK", role: .cancel) { parseError = nil }
+        } message: {
+            Text(parseError ?? "")
         }
     }
 
@@ -298,35 +308,50 @@ struct OFXImportView: View {
         }
     }
 
-    private func startParsing() {
+    /// Reads and parses the picked file, then flags rows that already exist
+    /// in the ledger (same day, amount and title) as duplicates.
+    private func startParsing(url: URL) {
         isParsing = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
-            parsedItems = generateSampleItems()
+        let accessed = url.startAccessingSecurityScopedResource()
+        defer { if accessed { url.stopAccessingSecurityScopedResource() } }
+        let account = accounts.first(where: { $0.id.uuidString == selectedAccountId })
+        let fallbackCurrency = account?.currency ?? appState.baseCurrency
+        do {
+            let data = try Data(contentsOf: url)
+            var items = try StatementFileParser.parse(data: data, fileType: selectedFileType,
+                                                      defaultCurrency: fallbackCurrency)
+            let existing = (try? context.fetch(FetchDescriptor<Transaction>())) ?? []
+            let calendar = Calendar.current
+            for index in items.indices {
+                let item = items[index]
+                let type: TransactionType = item.transactionType == "income" ? .income : .expense
+                let prediction = AICategorizationService.shared.predictCategory(
+                    for: item.description, merchant: nil, amount: item.amount,
+                    type: type, rules: Array(categorizationRules))
+                items[index].suggestedCategory = prediction.category.rawValue
+                if deduplicateEnabled, existing.contains(where: {
+                    abs($0.amount - item.amount) < 0.01
+                        && calendar.isDate($0.date, inSameDayAs: item.date)
+                        && $0.title.caseInsensitiveCompare(item.description) == .orderedSame
+                }) {
+                    items[index].isDuplicate = true
+                    items[index].isSelected = false
+                }
+            }
+            parsedItems = items
             isParsing = false
             step = .review
+        } catch {
+            isParsing = false
+            parseError = error.localizedDescription
         }
-    }
-
-    private func generateSampleItems() -> [ParsedTransactionItem] {
-        let cal = Calendar.current; let now = Date()
-        var items = [
-            ParsedTransactionItem(date: cal.date(byAdding: .day, value: -1, to: now) ?? now, description: "WOOLWORTH SUPERMARKET", amount: 210, currency: "AED", transactionType: "expense", suggestedCategory: "Groceries"),
-            ParsedTransactionItem(date: cal.date(byAdding: .day, value: -4, to: now) ?? now, description: "RTA SALIK TOPUP", amount: 100, currency: "AED", transactionType: "expense", suggestedCategory: "Transport"),
-            ParsedTransactionItem(date: cal.date(byAdding: .day, value: -7, to: now) ?? now, description: "FREELANCE PAYMENT", amount: 8500, currency: "AED", transactionType: "income", suggestedCategory: "Income"),
-            ParsedTransactionItem(date: cal.date(byAdding: .day, value: -9, to: now) ?? now, description: "GYM MEMBERSHIP", amount: 350, currency: "AED", transactionType: "expense", suggestedCategory: "Health"),
-            ParsedTransactionItem(date: cal.date(byAdding: .day, value: -11, to: now) ?? now, description: "ZOMATO DELIVERY", amount: 67.5, currency: "AED", transactionType: "expense", suggestedCategory: "Food & Drink"),
-        ]
-        if deduplicateEnabled {
-            items[items.count - 1].isDuplicate = true
-            items[items.count - 1].isSelected = false
-        }
-        return items
     }
 
     private func performImport() {
         let selected = parsedItems.filter { $0.isSelected && !$0.isDuplicate }
         let account = accounts.first(where: { $0.id.uuidString == selectedAccountId })
         for item in selected {
+            let type: TransactionType = item.transactionType == "income" ? .income : .expense
             let tx = Transaction(
                 title: item.description,
                 amount: item.amount,
@@ -334,12 +359,17 @@ struct OFXImportView: View {
                 // Convert to base at import time instead of storing the raw
                 // foreign amount as base (the statement carries no FX rate).
                 amountInBaseCurrency: CurrencyService.shared.convert(item.amount, from: item.currency, to: appState.baseCurrency),
-                type: item.transactionType == "income" ? .income : .expense,
-                category: .other,
+                type: type,
+                category: TransactionCategory(rawValue: item.suggestedCategory) ?? .other,
                 date: item.date,
-                notes: "Imported from \(selectedFileType.rawValue): \(selectedFileName)"
+                notes: item.notes ?? "Imported from \(selectedFileType.rawValue): \(selectedFileName)"
             )
             tx.account = account
+            // Balances are stored: an imported row must move the account like a manual one.
+            if let account {
+                let delta = CurrencyService.shared.convert(item.amount, from: item.currency, to: account.currency)
+                account.balance += type == .income ? delta : -delta
+            }
             context.insert(tx)
         }
         let file = ImportedFile(fileName: selectedFileName, fileType: selectedFileType)

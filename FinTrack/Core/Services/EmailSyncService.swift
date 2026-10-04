@@ -1322,11 +1322,30 @@ nonisolated enum KeychainStore {
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrAccount as String: key,
         ]
-        SecItemDelete(query as CFDictionary)
+        // Update in place first; add only if nothing exists. The old
+        // delete-then-add ignored SecItemAdd's status, so a failed add silently
+        // destroyed the previous value (fatal for the backup key).
+        let update: [String: Any] = [
+            kSecValueData as String: data,
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
+        ]
+        let updateStatus = SecItemUpdate(query as CFDictionary, update as CFDictionary)
+        if updateStatus == errSecSuccess { return }
+        guard updateStatus == errSecItemNotFound else { throw KeychainError.status(updateStatus) }
         var attributes = query
         attributes[kSecValueData as String] = data
         attributes[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
-        SecItemAdd(attributes as CFDictionary, nil)
+        let addStatus = SecItemAdd(attributes as CFDictionary, nil)
+        guard addStatus == errSecSuccess else { throw KeychainError.status(addStatus) }
+    }
+
+    enum KeychainError: LocalizedError {
+        case status(OSStatus)
+        var errorDescription: String? {
+            switch self {
+            case .status(let code): return "Couldn't save to the Keychain (error \(code))."
+            }
+        }
     }
 
     static func load<T: Codable>(key: String) -> T? {

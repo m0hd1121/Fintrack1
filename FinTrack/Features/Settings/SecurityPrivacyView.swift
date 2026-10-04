@@ -29,10 +29,15 @@ struct SecurityPrivacyView: View {
         Binding(
             get: { settings?.usePIN ?? false },
             set: { v in
-                settings?.usePIN = v
-                if v { showingPINSetup = true }
-                else { settings?.pinHash = nil }
-                try? context.save()
+                // Turning PIN on only opens setup; `PINSetupSheet.savePIN` enables it
+                // once a PIN actually exists, so cancelling can't leave "PIN on" with no PIN.
+                if v {
+                    showingPINSetup = true
+                } else {
+                    settings?.usePIN = false
+                    settings?.pinHash = nil
+                    try? context.save()
+                }
             }
         )
     }
@@ -40,12 +45,12 @@ struct SecurityPrivacyView: View {
     private var auditLogBinding: Binding<Bool> { settingsBind(\.auditLogEnabled, default: true) }
 
     private var securityScore: Int {
-        var score = 15 // end-to-end encryption is always on, not user-configurable
-        if settings?.useBiometrics == true  { score += 30 }
-        if settings?.usePIN == true          { score += 20 }
-        if settings?.twoFactorEnabled == true { score += 25 }
+        var score = 30 // local data encryption is always on, not user-configurable
+        if settings?.useBiometrics == true  { score += 35 }
+        if settings?.usePIN == true && settings?.pinHash != nil { score += 25 }
+        if DisableableFeature.twoFactorAuth.isEnabled && settings?.twoFactorEnabled == true { score += 10 }
         if settings?.auditLogEnabled != false   { score += 10 }
-        return score
+        return min(score, 100)
     }
 
     var body: some View {
@@ -98,7 +103,9 @@ struct SecurityPrivacyView: View {
             HStack(spacing: FTSpacing.sm) {
                 scoreFeatureTile("Biometrics", enabled: settings?.useBiometrics == true)
                 scoreFeatureTile("PIN", enabled: settings?.usePIN == true)
-                scoreFeatureTile("2FA", enabled: settings?.twoFactorEnabled == true)
+                if DisableableFeature.twoFactorAuth.isEnabled {
+                    scoreFeatureTile("2FA", enabled: settings?.twoFactorEnabled == true)
+                }
                 scoreFeatureTile("Encrypted", enabled: true)
             }
         }
@@ -204,19 +211,21 @@ struct SecurityPrivacyView: View {
             Text("ADVANCED SECURITY").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.textMuted)
 
             VStack(spacing: 0) {
-                NavigationLink(destination: TwoFactorSetupView()) {
-                    securityRow(icon: "checkmark.shield.fill", tint: FTColor.income,
-                                title: "Two-Factor Authentication",
-                                subtitle: settings?.twoFactorEnabled == true ? "Enabled" : "Disabled",
-                                subtitleColor: settings?.twoFactorEnabled == true ? FTColor.income : FTColor.textMuted,
-                                chevron: true)
-                }
-                .buttonStyle(.plain)
+                if DisableableFeature.twoFactorAuth.isEnabled {
+                    NavigationLink(destination: TwoFactorSetupView()) {
+                        securityRow(icon: "checkmark.shield.fill", tint: FTColor.income,
+                                    title: "Two-Factor Authentication",
+                                    subtitle: settings?.twoFactorEnabled == true ? "Enabled" : "Disabled",
+                                    subtitleColor: settings?.twoFactorEnabled == true ? FTColor.income : FTColor.textMuted,
+                                    chevron: true)
+                    }
+                    .buttonStyle(.plain)
 
-                divider
+                    divider
+                }
 
                 securityRow(icon: "lock.shield.fill", tint: FTColor.catTeal,
-                            title: "End-to-End Encryption",
+                            title: "Encrypted On-Device Storage",
                             subtitle: "Always on",
                             subtitleColor: FTColor.income)
                     .padding(.vertical, 13)
@@ -467,9 +476,7 @@ struct PINSetupSheet: View {
             pin = ""; confirmPin = ""; stage = .enter
             return
         }
-        let hash = SHA256.hash(data: Data(pin.utf8))
-            .compactMap { String(format: "%02x", $0) }.joined()
-        settings?.pinHash = hash
+        settings?.pinHash = PINService.makeHash(for: pin)
         settings?.usePIN = true
         let entry = AuditLogEntry(eventType: .pinChanged, description: "PIN changed")
         context.insert(entry)
@@ -486,6 +493,7 @@ struct TwoFactorSetupView: View {
 
     @State private var tfaStage: TFAStage = .intro
     @State private var verificationCode = ""
+    @State private var codeRejected = false
     @State private var showingRecoveryCodes = false
     @State private var secretKey: String = TwoFactorSetupView.makeSecret()
     @State private var recoveryCodes: [String] = TwoFactorSetupView.makeRecoveryCodes()
@@ -674,8 +682,20 @@ struct TwoFactorSetupView: View {
                         verificationCode = String(v.filter { $0.isNumber }.prefix(6))
                     }
 
+                if codeRejected {
+                    Text("That code doesn't match. Check your authenticator app and try again.")
+                        .font(.ftCaption)
+                        .foregroundStyle(FTColor.expense)
+                }
+
                 Button {
                     guard verificationCode.count == 6 else { return }
+                    // Accept only a real authenticator code for this secret (±1 step).
+                    guard Self.isValidTOTP(verificationCode, secret: secretKey) else {
+                        codeRejected = true
+                        return
+                    }
+                    codeRejected = false
                     settings?.twoFactorEnabled = true
                     settings?.twoFactorSecret = secretKey
                     try? context.save()
@@ -722,6 +742,38 @@ struct TwoFactorSetupView: View {
     }
 
     // MARK: Helpers
+
+    /// RFC 6238 TOTP (HMAC-SHA1, 30 s, 6 digits) with one step of clock drift.
+    static func isValidTOTP(_ code: String, secret: String, date: Date = Date()) -> Bool {
+        guard let key = base32Decode(secret) else { return false }
+        let counter = Int64(date.timeIntervalSince1970 / 30)
+        for drift in -1...1 {
+            var value = (counter + Int64(drift)).bigEndian
+            let message = withUnsafeBytes(of: &value) { Data($0) }
+            let mac = Array(HMAC<Insecure.SHA1>.authenticationCode(for: message, using: SymmetricKey(data: key)))
+            let offset = Int(mac[mac.count - 1] & 0x0f)
+            let binary = (UInt32(mac[offset] & 0x7f) << 24) | (UInt32(mac[offset + 1]) << 16)
+                | (UInt32(mac[offset + 2]) << 8) | UInt32(mac[offset + 3])
+            if String(format: "%06u", binary % 1_000_000) == code { return true }
+        }
+        return false
+    }
+
+    private static func base32Decode(_ text: String) -> Data? {
+        let alphabet = Array("ABCDEFGHIJKLMNOPQRSTUVWXYZ234567")
+        var buffer: UInt32 = 0, bits = 0
+        var bytes: [UInt8] = []
+        for ch in text.uppercased() where ch != "=" {
+            guard let index = alphabet.firstIndex(of: ch) else { return nil }
+            buffer = (buffer << 5) | UInt32(index)
+            bits += 5
+            if bits >= 8 {
+                bits -= 8
+                bytes.append(UInt8((buffer >> UInt32(bits)) & 0xff))
+            }
+        }
+        return Data(bytes)
+    }
 
     static func makeSecret() -> String {
         let chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"

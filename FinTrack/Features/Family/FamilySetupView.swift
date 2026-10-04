@@ -13,6 +13,7 @@ struct FamilySetupView: View {
     @State private var members: [FamilyMemberData] = []
     @State private var showingAddMember = false
     @State private var editingMember: FamilyMemberData?
+    @State private var showingDissolveConfirm = false
 
     var isNew: Bool { group == nil }
 
@@ -165,7 +166,7 @@ struct FamilySetupView: View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
             Text("DANGER ZONE").font(.ftLabel).tracking(1.6).fixedSize(horizontal: true, vertical: false).foregroundStyle(FTColor.expense)
             Button(role: .destructive) {
-                if let g = group { context.delete(g); try? context.save(); dismiss() }
+                showingDissolveConfirm = true
             } label: {
                 Label("Dissolve Family Group", systemImage: "person.fill.xmark")
                     .font(.ftBody).foregroundStyle(FTColor.expense)
@@ -178,6 +179,15 @@ struct FamilySetupView: View {
         .padding()
         .overlay(RoundedRectangle(cornerRadius: FTRadius.xl).stroke(FTColor.expense.opacity(0.2), lineWidth: 1))
         .clipShape(RoundedRectangle(cornerRadius: FTRadius.xl))
+        .confirmationDialog("Dissolve this family group?", isPresented: $showingDissolveConfirm,
+                            titleVisibility: .visible) {
+            Button("Dissolve", role: .destructive) {
+                if let g = group { context.delete(g); try? context.save(); dismiss() }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("The group and its members are removed. Shared goals and child profiles are kept.")
+        }
     }
 
     // MARK: - Save

@@ -404,6 +404,8 @@ struct RootView: View {
         for tx in recurringTxs {
             guard var rule = tx.recurringRule else { continue }
             while rule.nextDueDate <= now {
+                // Stop at the rule's end date instead of generating forever.
+                if let end = rule.endDate, rule.nextDueDate > end { break }
                 // Create the next instance
                 let next = Transaction(
                     title: tx.title, amount: tx.amount, currency: tx.currency,
@@ -413,28 +415,21 @@ struct RootView: View {
                     merchant: tx.merchant, paymentMethod: tx.paymentMethod
                 )
                 next.account = tx.account
+                next.toAccount = tx.type == .transfer ? tx.toAccount : nil
                 context.insert(next)
-                // Update account balance
+                // Update account balances (a transfer moves money between both accounts)
                 if let account = tx.account {
                     let delta = currencyService.convert(tx.amount, from: tx.currency, to: account.currency)
                     switch tx.type {
                     case .income:   account.balance += delta
                     case .expense:  account.balance -= delta
-                    case .transfer: break
+                    case .transfer: account.balance -= delta
                     }
                 }
-                // Advance due date
-                let cal = Calendar.current
-                let advance: DateComponents
-                switch rule.frequency {
-                case .daily:     advance = DateComponents(day: rule.interval)
-                case .weekly:    advance = DateComponents(weekOfYear: rule.interval)
-                case .biweekly:  advance = DateComponents(weekOfYear: rule.interval * 2)
-                case .monthly:   advance = DateComponents(month: rule.interval)
-                case .quarterly: advance = DateComponents(month: rule.interval * 3)
-                case .yearly:    advance = DateComponents(year: rule.interval)
+                if tx.type == .transfer, let to = tx.toAccount {
+                    to.balance += currencyService.convert(tx.amount, from: tx.currency, to: to.currency)
                 }
-                rule.nextDueDate = cal.date(byAdding: advance, to: rule.nextDueDate) ?? rule.nextDueDate
+                rule.nextDueDate = rule.occurrence(after: rule.nextDueDate)
                 tx.recurringRule = rule
                 didInsert = true
             }

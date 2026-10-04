@@ -40,9 +40,15 @@ struct SettingsView: View {
     private var pinBinding: Binding<Bool> {
         Binding(get: { setting?.usePIN ?? false },
                 set: { newValue in
-                    setting?.usePIN = newValue
-                    if newValue { showingPINSetup = true }
-                    try? context.save()
+                    // Turning PIN on opens setup; `PINSetupSheet` enables it once a PIN
+                    // is saved. Turning it off also forgets the stored hash.
+                    if newValue {
+                        showingPINSetup = true
+                    } else {
+                        setting?.usePIN = false
+                        setting?.pinHash = nil
+                        try? context.save()
+                    }
                 })
     }
     private var notificationsBinding: Binding<Bool> {
@@ -248,9 +254,14 @@ struct SettingsView: View {
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showingCurrencyPicker) {
             CurrencyPickerView(selectedCurrency: appState.baseCurrency) { currency in
+                let previous = appState.baseCurrency
                 appState.baseCurrency = currency
                 UserDefaults.standard.set(currency, forKey: "base_currency")
+                if previous != currency { rebaseTransactions(to: currency) }
             }
+        }
+        .sheet(isPresented: $showingPINSetup) {
+            PINSetupSheet()
         }
         .sheet(isPresented: $showingAbout) {
             AboutView()
@@ -407,6 +418,8 @@ struct SettingsView: View {
         case .businessFreelancer:   BusinessFreelancerView()
         case .auditLog:             AuditLogView()
         case .googleDriveBackup:    GoogleDriveBackupView()
+        case .pdfStatementImport:   PDFImportView()
+        case .twoFactorAuth:        TwoFactorSetupView()
         }
     }
 
@@ -469,6 +482,21 @@ struct SettingsView: View {
     /// outside the database — Spotlight, Siri/widget snapshots, learned
     /// merchants, on-device backups. It reports anything it couldn't delete, so
     /// a partial clear is never mistaken for a complete one.
+    /// Every report sums `amountInBaseCurrency` and labels it with the base
+    /// currency, so after a base-currency change the stored values must be
+    /// re-expressed in the new currency (at today's rates — the original
+    /// transaction-time rate isn't stored separately).
+    private func rebaseTransactions(to newBase: String) {
+        let all = (try? context.fetch(FetchDescriptor<Transaction>())) ?? []
+        for tx in all {
+            tx.amountInBaseCurrency = tx.currency == newBase
+                ? tx.amount
+                : currencyService.convert(tx.amount, from: tx.currency, to: newBase)
+        }
+        if let profile { profile.baseCurrency = newBase }
+        try? context.save()
+    }
+
     private func clearAllData() {
         Task {
             let leftover = await DataResetService.clearAll(context: context)

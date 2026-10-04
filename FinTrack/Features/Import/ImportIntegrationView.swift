@@ -100,12 +100,16 @@ struct ImportIntegrationView: View {
             }
             .buttonStyle(.plain)
 
-            NavigationLink(destination: PDFImportView()) {
-                methodRow(icon: "doc.fill", color: FTColor.expense,
-                          title: "PDF Bank Statement",
-                          subtitle: "AI-powered parsing · ENBD, FAB, ADCB and more")
+            // The PDF importer has no real statement parser yet — hidden until it does
+            // (see DisableableFeature.pdfStatementImport / docs/DISABLED_FEATURES.md).
+            if DisableableFeature.pdfStatementImport.isEnabled {
+                NavigationLink(destination: PDFImportView()) {
+                    methodRow(icon: "doc.fill", color: FTColor.expense,
+                              title: "PDF Bank Statement",
+                              subtitle: "AI-powered parsing · ENBD, FAB, ADCB and more")
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
 
             NavigationLink(destination: OFXImportView()) {
                 methodRow(icon: "arrow.down.doc.fill", color: FTColor.catBlue,
@@ -117,7 +121,7 @@ struct ImportIntegrationView: View {
             NavigationLink(destination: LocalBackupView()) {
                 methodRow(icon: "internaldrive.fill", color: FTColor.accent,
                           title: "Backup",
-                          subtitle: "Encrypted · Saved on this device, visible in Files")
+                          subtitle: "Encrypted · Saved privately on this device")
             }
             .buttonStyle(.plain)
         }

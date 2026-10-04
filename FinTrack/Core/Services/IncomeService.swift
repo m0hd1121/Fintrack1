@@ -94,6 +94,21 @@ final class IncomeService {
     // MARK: - Private Helpers
 
     private let calendar = Calendar.current
+
+    /// Day `day` of the month containing `date` (clamped to the month's length).
+    /// `Calendar.date(bySetting:value:of:)` searches *forward*, so once the day
+    /// had passed it returned next month's date — salary alerts computed a
+    /// negative "days past" and never fired, and rent stubs skipped months.
+    private func day(_ day: Int, inMonthOf date: Date) -> Date {
+        var comps = calendar.dateComponents([.year, .month], from: date)
+        let length = calendar.range(of: .day, in: .month, for: date)?.count ?? 28
+        comps.day = min(max(day, 1), length)
+        let anchor = calendar.date(from: comps) ?? date
+        // Keep the original time of day so comparisons with `date` stay meaningful.
+        let time = calendar.dateComponents([.hour, .minute, .second], from: date)
+        return calendar.date(bySettingHour: time.hour ?? 0, minute: time.minute ?? 0,
+                             second: time.second ?? 0, of: anchor) ?? anchor
+    }
     private let notificationCenter = UNUserNotificationCenter.current()
 
     /// Returns the start of a month offset by `offset` months from today.
@@ -174,11 +189,7 @@ final class IncomeService {
 
         for record in records where record.isActive {
             let expectedDay = record.expectedPaymentDay
-            guard let expectedThisMonth = calendar.date(
-                bySetting: .day,
-                value: expectedDay,
-                of: now
-            ) else { continue }
+            let expectedThisMonth = day(expectedDay, inMonthOf: now)
 
             // Check we are at least 3 days past the expected date
             let daysPast = calendar.dateComponents([.day], from: expectedThisMonth, to: now).day ?? 0
@@ -307,11 +318,7 @@ final class IncomeService {
             property.paymentHistory[idx].notes          = notes
         } else if unpaid.isEmpty {
             // No unpaid record found — create a new one for the current month
-            let expectedDate = calendar.date(
-                bySetting: .day,
-                value: property.rentDueDay,
-                of: date
-            ) ?? date
+            let expectedDate = day(property.rentDueDay, inMonthOf: date)
 
             var newRecord                = RentPaymentRecord(
                 expectedDate:   expectedDate,
@@ -345,11 +352,7 @@ final class IncomeService {
         var currentStart = period.leaseStartDate
 
         while currentStart <= endDate {
-            let expectedDate = calendar.date(
-                bySetting: .day,
-                value: property.rentDueDay,
-                of: currentStart
-            ) ?? currentStart
+            let expectedDate = day(property.rentDueDay, inMonthOf: currentStart)
 
             let record = RentPaymentRecord(
                 expectedDate:   expectedDate,
@@ -434,23 +437,26 @@ final class IncomeService {
     ) -> IncomeStabilityScore {
 
         // Filter income transactions for the last 6 months
-        let sixMonthsAgo    = startOfMonth(offsetBy: -6)
+        let sixMonthsAgo    = startOfMonth(offsetBy: -5)
         let incomeTransactions = transactions.filter {
-            $0.type == .income && $0.date >= sixMonthsAgo && !$0.isPending
+            $0.type == .income && $0.date >= sixMonthsAgo && !$0.isPending && !$0.isScheduled
         }
 
-        // Build monthly totals map for last 6 months
+        // Build monthly totals for the last 6 months, keeping the keys in
+        // chronological order (sorting the "MMM yyyy" strings alphabetically
+        // put e.g. "Apr" before "Jan" and broke the trend comparison).
         var monthlyTotals: [String: Double] = [:]
+        var sortedKeys: [String] = []
         for offset in -5...0 {
-            let monthStart = startOfMonth(offsetBy: offset)
-            monthlyTotals[monthKey(for: monthStart)] = 0
+            let key = monthKey(for: startOfMonth(offsetBy: offset))
+            monthlyTotals[key] = 0
+            sortedKeys.append(key)
         }
         for tx in incomeTransactions {
             let key = monthKey(for: tx.date)
-            monthlyTotals[key, default: 0] += tx.amountInBaseCurrency
+            if monthlyTotals[key] != nil { monthlyTotals[key, default: 0] += tx.amountInBaseCurrency }
         }
 
-        let sortedKeys    = monthlyTotals.keys.sorted()
         let monthlyValues = sortedKeys.map { monthlyTotals[$0] ?? 0 }
 
         // ── Factor 1: Payment Regularity (weight: 0.25) ──────────────────────

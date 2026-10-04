@@ -634,13 +634,10 @@ struct PropertyDetailSheet: View {
     // MARK: Actions
 
     private func endTenancy() {
+        // RentalProperty is a class (@Model): the service mutates this same
+        // object through the inout reference, so nothing needs repeating here.
         var mutableProperty = property
         IncomeService.shared.endOccupancy(property: &mutableProperty)
-        property.isOccupied = false
-        if let lastIdx = property.occupancyPeriods.indices.last {
-            property.occupancyPeriods[lastIdx].leaseEndDate = Date()
-        }
-        property.updatedAt = Date()
         try? context.save()
     }
 }
@@ -812,12 +809,11 @@ struct AddTenancySheet: View {
             notes: notes.trimmingCharacters(in: .whitespaces).isEmpty ? nil : notes.trimmingCharacters(in: .whitespaces)
         )
 
+        // RentalProperty is a class (@Model): `addOccupancyPeriod` already marks
+        // it occupied, appends the period and generates the rent stubs on this
+        // same object. Appending again here recorded every tenancy twice.
         var mutableProperty = property
         IncomeService.shared.addOccupancyPeriod(property: &mutableProperty, period: period)
-
-        // Apply changes to the SwiftData @Model object directly
-        property.isOccupied = true
-        property.occupancyPeriods.append(period)
         property.updatedAt = Date()
 
         try? context.save()

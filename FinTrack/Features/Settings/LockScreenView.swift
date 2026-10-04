@@ -1,12 +1,23 @@
 import SwiftUI
+import SwiftData
 import LocalAuthentication
 
 // #10 – Fixed Face ID / Touch ID authentication
 struct LockScreenView: View {
     @Environment(AppState.self) private var appState
+    @Query private var allSettings: [AppSettings]
     @State private var isAuthenticating = false
     @State private var failed = false
     @State private var errorMessage = ""
+    @State private var enteredPIN = ""
+    @State private var wrongAttempts = 0
+    @State private var lockedUntil: Date? = nil
+
+    private var settings: AppSettings? { allSettings.first }
+    /// The app PIN is enforced here whenever one has been set. Biometrics stay
+    /// available alongside it when that option is on.
+    private var pinEnabled: Bool { settings?.usePIN == true && (settings?.pinHash?.isEmpty == false) }
+    private var biometricsEnabled: Bool { settings?.useBiometrics != false || !pinEnabled }
 
     var body: some View {
         ZStack {
@@ -34,7 +45,10 @@ struct LockScreenView: View {
                 Spacer()
 
                 VStack(spacing: 16) {
+                    if pinEnabled { pinPad }
+
                     // Biometric button
+                    if biometricsEnabled {
                     Button { authenticate() } label: {
                         HStack(spacing: 12) {
                             Image(systemName: biometricIcon).font(.ftHeadline)
@@ -48,14 +62,17 @@ struct LockScreenView: View {
                         .padding(.horizontal, 32)
                     }
                     .disabled(isAuthenticating)
+                    }
 
                     if failed {
                         VStack(spacing: 8) {
                             Label(errorMessage.isEmpty ? "Authentication failed." : errorMessage,
                                   systemImage: "exclamationmark.triangle.fill")
                                 .font(.ftCaption).foregroundColor(.white.opacity(0.9))
-                            Button("Try Again") { authenticate() }
-                                .font(.ftCaption).foregroundColor(.white.opacity(0.7))
+                            if biometricsEnabled {
+                                Button("Try Again") { authenticate() }
+                                    .font(.ftCaption).foregroundColor(.white.opacity(0.7))
+                            }
                         }
                     }
                 }
@@ -65,7 +82,84 @@ struct LockScreenView: View {
         }
         .onAppear {
             // Small delay lets the UI render before showing the prompt
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { authenticate() }
+            if biometricsEnabled {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { authenticate() }
+            }
+        }
+    }
+
+    // MARK: - PIN entry
+
+    private var pinPad: some View {
+        VStack(spacing: FTSpacing.lg) {
+            HStack(spacing: FTSpacing.md) {
+                ForEach(0..<6, id: \.self) { i in
+                    Circle()
+                        .fill(i < enteredPIN.count ? Color.white : Color.white.opacity(0.25))
+                        .frame(width: 12, height: 12)
+                }
+            }
+            let rows: [[String]] = [["1","2","3"],["4","5","6"],["7","8","9"],["","0","⌫"]]
+            VStack(spacing: FTSpacing.sm) {
+                ForEach(rows, id: \.self) { row in
+                    HStack(spacing: FTSpacing.xl) {
+                        ForEach(row, id: \.self) { key in
+                            if key.isEmpty {
+                                Color.clear.frame(width: 64, height: 64)
+                            } else {
+                                Button { handlePINKey(key) } label: {
+                                    Text(key)
+                                        .font(.ftTitle)
+                                        .foregroundColor(.white)
+                                        .frame(width: 64, height: 64)
+                                        .background(Color.white.opacity(key == "⌫" ? 0 : 0.15), in: Circle())
+                                }
+                                .accessibilityLabel(key == "⌫" ? "Delete" : key)
+                                .disabled(isPINLockedOut)
+                            }
+                        }
+                    }
+                }
+            }
+            Button("Unlock") { checkPIN() }
+                .font(.ftBodySemibold)
+                .foregroundColor(.white)
+                .disabled(enteredPIN.count < 4 || isPINLockedOut)
+        }
+    }
+
+    private var isPINLockedOut: Bool {
+        if let until = lockedUntil, until > Date() { return true }
+        return false
+    }
+
+    private func handlePINKey(_ key: String) {
+        if key == "⌫" {
+            if !enteredPIN.isEmpty { enteredPIN.removeLast() }
+            return
+        }
+        guard enteredPIN.count < 6 else { return }
+        enteredPIN.append(key)
+        if enteredPIN.count == 6 { checkPIN() }
+    }
+
+    private func checkPIN() {
+        guard !isPINLockedOut else { return }
+        if PINService.verify(pin: enteredPIN, against: settings?.pinHash) {
+            wrongAttempts = 0
+            enteredPIN = ""
+            appState.unlock()
+        } else {
+            wrongAttempts += 1
+            enteredPIN = ""
+            failed = true
+            if wrongAttempts >= 5 {
+                // Back off after repeated failures to slow down guessing.
+                lockedUntil = Date().addingTimeInterval(30)
+                errorMessage = "Too many attempts. Try again in 30 seconds."
+            } else {
+                errorMessage = "Incorrect PIN."
+            }
         }
     }
 
@@ -111,7 +205,8 @@ struct LockScreenView: View {
                     default:               errorMessage = laError.localizedDescription
                     }
                     // For .userCancel or passcode fall-back, try deviceOwner policy
-                    if laError.code == .userCancel || laError.code == .biometryLockout {
+                    // With an app PIN set, cancelling falls back to the PIN pad instead.
+                    if !pinEnabled && (laError.code == .userCancel || laError.code == .biometryLockout) {
                         retryWithPasscode()
                     }
                 }

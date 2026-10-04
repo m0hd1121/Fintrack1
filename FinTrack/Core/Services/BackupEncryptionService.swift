@@ -52,14 +52,16 @@ nonisolated enum BackupEncryptionService {
     /// serializes first-run provisioning so two backups triggered at once (e.g.
     /// iCloud + email auto-backup on launch) can't each mint a different key
     /// and race on save.
-    private static var encryptionKey: String {
+    /// Throws if a freshly minted key can't be stored: encrypting with a key
+    /// that was never saved would produce a backup nothing can ever open.
+    private static func encryptionKey() throws -> String {
         keyLock.lock()
         defer { keyLock.unlock() }
         if let existing: String = KeychainStore.load(key: keyKeychainKey) {
             return existing
         }
         let fresh = randomKeyString()
-        try? KeychainStore.save(fresh, key: keyKeychainKey)
+        try KeychainStore.save(fresh, key: keyKeychainKey)
         return fresh
     }
 
@@ -84,7 +86,7 @@ nonisolated enum BackupEncryptionService {
     /// Encrypts the data. Backup encryption is mandatory and always on — there
     /// is no "disabled" path. (Name kept for its existing call sites.)
     static func encryptIfEnabled(_ data: Data) async throws -> Data {
-        try await encrypt(data, key: encryptionKey)
+        try await encrypt(data, key: try encryptionKey())
     }
 
     /// Decrypts an encrypted backup with this device's key. Plain (legacy,
@@ -92,7 +94,7 @@ nonisolated enum BackupEncryptionService {
     /// importable.
     static func decryptIfNeeded(_ data: Data) async throws -> Data {
         guard isEncrypted(data) else { return data }
-        return try await decrypt(data, key: encryptionKey)
+        return try await decrypt(data, key: try encryptionKey())
     }
 
     /// The 100k-iteration PBKDF2 pass is CPU-bound; run it off the caller's

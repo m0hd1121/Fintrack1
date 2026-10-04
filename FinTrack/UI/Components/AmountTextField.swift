@@ -80,8 +80,13 @@ struct AmountTextField: View {
     /// Produce a formatted display string from a Double (for pre-filling)
     static func string(from value: Double) -> String {
         if value == 0 { return "" }
-        // Show up to 2 decimal places, strip trailing zeros
-        let raw = String(format: "%g", value)
+        // Fixed-point with up to 3 decimals (3-decimal currencies such as KWD/BHD),
+        // trailing zeros stripped. Never "%g": it keeps only 6 significant digits
+        // (12345.67 → "12345.7") and switches to exponent notation at 1e6, so an
+        // edit form pre-filled with it silently rewrote amounts on save.
+        var raw = String(format: "%.3f", abs(value))
+        while raw.hasSuffix("0") { raw.removeLast() }
+        if raw.hasSuffix(".") { raw.removeLast() }
         return format(raw)
     }
 }

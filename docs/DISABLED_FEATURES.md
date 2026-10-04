@@ -24,6 +24,8 @@ case there, update the table below in the same commit.
 | Business & Freelancer | Settings → its own section | Whole `sectionCard` hidden. |
 | Audit Log | Security & Privacy → Audit Log card | UI card hidden. Background audit **logging** keeps running; only the toggle + viewer are hidden. |
 | Google Drive Backup | Settings → Data & Privacy | Row hidden **and** the background sync loop in `RootView` is gated off, so previously-connected accounts stop uploading. |
+| PDF Statement Import | Settings → Import & Sync → PDF Bank Statement | Row hidden. The screen only simulated parsing (it inserted hard-coded sample transactions); re-enable only once a real PDF parser exists. |
+| Two-Factor Authentication | Security & Privacy → Two-Factor Authentication | Row hidden and excluded from the security score. Setup never verified codes and nothing enforced a second factor at unlock. |
 
 ## How to disable a feature
 

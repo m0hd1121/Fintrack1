@@ -23,6 +23,8 @@ enum DisableableFeature: String, CaseIterable, Identifiable, Codable {
     case businessFreelancer = "Business & Freelancer"
     case auditLog = "Audit Log"
     case googleDriveBackup = "Google Drive Backup"
+    case pdfStatementImport = "PDF Statement Import"
+    case twoFactorAuth = "Two-Factor Authentication"
 
     var id: String { rawValue }
 
@@ -43,7 +45,8 @@ enum DisableableFeature: String, CaseIterable, Identifiable, Codable {
     var category: Category {
         switch self {
         case .taxManagement, .businessFreelancer: return .topLevelSection
-        case .auditLog, .googleDriveBackup:        return .nested
+        case .auditLog, .googleDriveBackup,
+             .pdfStatementImport, .twoFactorAuth: return .nested
         default:                                   return .premium
         }
     }
@@ -63,6 +66,8 @@ enum DisableableFeature: String, CaseIterable, Identifiable, Codable {
         case .businessFreelancer:   return "briefcase.fill"
         case .auditLog:             return "list.bullet.clipboard.fill"
         case .googleDriveBackup:    return "doc.badge.gearshape.fill"
+        case .pdfStatementImport:   return "doc.fill"
+        case .twoFactorAuth:        return "checkmark.shield.fill"
         }
     }
 
@@ -81,6 +86,8 @@ enum DisableableFeature: String, CaseIterable, Identifiable, Codable {
         case .businessFreelancer:   return FTColor.catBlue
         case .auditLog:             return FTColor.gold
         case .googleDriveBackup:    return FTColor.income
+        case .pdfStatementImport:   return FTColor.expense
+        case .twoFactorAuth:        return FTColor.income
         }
     }
 
@@ -94,6 +101,8 @@ enum DisableableFeature: String, CaseIterable, Identifiable, Codable {
         .businessFreelancer,
         .auditLog,
         .googleDriveBackup,
+        .pdfStatementImport,
+        .twoFactorAuth,
     ]
 
     /// Whether this feature should currently be shown/active in the app.

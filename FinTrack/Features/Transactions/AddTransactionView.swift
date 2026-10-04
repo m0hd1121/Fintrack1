@@ -1461,6 +1461,7 @@ struct AddTransactionView: View {
         notes = tx.notes ?? ""
         paymentMethod = tx.paymentMethod
         isRecurring = tx.isRecurring
+        if let rule = tx.recurringRule { recurringFrequency = rule.frequency }
         merchant = tx.merchant ?? ""
         selectedAccount = tx.account
         chequeNumber = tx.chequeNumber ?? ""
@@ -1565,6 +1566,24 @@ struct AddTransactionView: View {
             tx.amountInBaseCurrency = convertedAmount; tx.type = type; tx.category = effectiveSplitItems.isEmpty ? category : (effectiveSplitItems.first?.category ?? .other)
             tx.date = date; tx.notes = notes.isEmpty ? nil : notes
             tx.paymentMethod = paymentMethod; tx.isRecurring = isRecurring
+            // Keep the rule in step with the toggle: RootView only generates
+            // instances from `recurringRule`, so a flag without a rule did nothing.
+            if isRecurring {
+                if var rule = tx.recurringRule {
+                    if rule.frequency != recurringFrequency {
+                        rule.frequency = recurringFrequency
+                        rule.nextDueDate = rule.occurrence(after: date)
+                    }
+                    tx.recurringRule = rule
+                } else {
+                    var rule = RecurringRule(frequency: recurringFrequency, interval: 1,
+                                             endDate: nil, maxOccurrences: nil, nextDueDate: date)
+                    rule.nextDueDate = rule.occurrence(after: date)
+                    tx.recurringRule = rule
+                }
+            } else {
+                tx.recurringRule = nil
+            }
             tx.merchant = merchant.isEmpty ? nil : merchant
             tx.chequeNumber = paymentMethod == .cheque && !chequeNumber.isEmpty ? chequeNumber : nil
             tx.chequeDate   = paymentMethod == .cheque ? chequeDate : nil
@@ -1616,14 +1635,11 @@ struct AddTransactionView: View {
 
             savedTx = tx
         } else {
-            // For loyalty categories the user's explicit choice always wins over AI
-            let aiCategory = AICategorizationService.shared.suggestCategory(for: title, amount: amountValue, type: type)
-            let resolvedCategory: TransactionCategory
-            if isLoyaltyCategory || !effectiveSplitItems.isEmpty {
-                resolvedCategory = effectiveSplitItems.isEmpty ? category : (effectiveSplitItems.first?.category ?? .other)
-            } else {
-                resolvedCategory = aiCategory != .other ? aiCategory : category
-            }
+            // The category on screen is what gets saved. Auto-categorization already
+            // ran live (`runAutoCategorization`) and pre-selected its suggestion, so
+            // the user has seen it and may have changed it — never override that here.
+            let resolvedCategory: TransactionCategory =
+                effectiveSplitItems.isEmpty ? category : (effectiveSplitItems.first?.category ?? .other)
 
             // For a loyalty transfer the main tx earns into the destination program
             let effectiveCategory = isLoyaltyTransfer ? .loyaltyEarned : resolvedCategory
@@ -1634,10 +1650,12 @@ struct AddTransactionView: View {
                 category: effectiveCategory,
                 date: date, notes: notes.isEmpty ? nil : notes,
                 isRecurring: isRecurring,
-                recurringRule: isRecurring ? RecurringRule(
-                    frequency: recurringFrequency, interval: 1, endDate: nil, maxOccurrences: nil,
-                    nextDueDate: Calendar.current.date(byAdding: .month, value: 1, to: date) ?? date
-                ) : nil,
+                recurringRule: isRecurring ? {
+                    var rule = RecurringRule(frequency: recurringFrequency, interval: 1,
+                                             endDate: nil, maxOccurrences: nil, nextDueDate: date)
+                    rule.nextDueDate = rule.occurrence(after: date)
+                    return rule
+                }() : nil,
                 merchant: merchant.isEmpty ? nil : merchant,
                 paymentMethod: paymentMethod,
                 chequeNumber: paymentMethod == .cheque && !chequeNumber.isEmpty ? chequeNumber : nil,

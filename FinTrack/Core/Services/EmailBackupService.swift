@@ -170,7 +170,7 @@ final class EmailBackupService {
             try await smtp.sendMessage(
                 from: creds.email, to: creds.email,
                 subject: "\(subjectPrefix) — \(Self.dateStamp(Date()))",
-                textBody: "This is an automatic backup from FinTrack. Restore it from Settings → Email Backup → Restore on any device signed into this same email account.",
+                textBody: "This is an automatic backup from FinTrack. Restore it from Settings → Email Backup → Restore. The attachment is encrypted and can only be opened by FinTrack on the iPhone that created it.",
                 attachment: finalData, attachmentFilename: backupFileName
             )
             try await smtp.quit()
