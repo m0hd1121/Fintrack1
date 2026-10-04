@@ -354,10 +354,10 @@ struct ReportsView: View {
                 PDFSection(title: "By Category", rows: cats.map { PDFRow($0.label, $0.amount.formatted(as: cur)) })
             ]
         case .vatReport:
-            let vatRate = 0.05
             let vatPaid = txs.filter { $0.isVATReclaimable && $0.type == .expense }
-                .reduce(0) { $0 + $1.amountInBaseCurrency * vatRate }
-            let vatCollected = txs.filter { $0.type == .income }.reduce(0) { $0 + $1.amountInBaseCurrency * vatRate }
+                .reduce(0) { $0 + UAEVAT.vatPortion(ofInclusive: $1.amountInBaseCurrency) }
+            let vatCollected = txs.filter { $0.type == .income && UAEVAT.isVATableIncome($0.category) }
+                .reduce(0) { $0 + UAEVAT.vatPortion(ofInclusive: $1.amountInBaseCurrency) }
             let net = vatCollected - vatPaid
             return [PDFSection(title: "UAE VAT Summary (5%)", rows: [
                 PDFRow("VAT Rate", "5%"),
@@ -442,11 +442,10 @@ struct ReportsView: View {
             return svc.writeCSV(lines.joined(separator: "\n"), filename: "tax_summary_\(label)")
 
         case .vatReport:
-            let vatRate = 0.05
             let reclaimable = txs.filter { $0.isVATReclaimable && $0.type == .expense }
-            let vatPaid = reclaimable.reduce(0.0) { $0 + $1.amountInBaseCurrency * vatRate }
-            let incTxs = txs.filter { $0.type == .income }
-            let vatCollected = incTxs.reduce(0.0) { $0 + $1.amountInBaseCurrency * vatRate }
+            let vatPaid = reclaimable.reduce(0.0) { $0 + UAEVAT.vatPortion(ofInclusive: $1.amountInBaseCurrency) }
+            let incTxs = txs.filter { $0.type == .income && UAEVAT.isVATableIncome($0.category) }
+            let vatCollected = incTxs.reduce(0.0) { $0 + UAEVAT.vatPortion(ofInclusive: $1.amountInBaseCurrency) }
             let net = vatCollected - vatPaid
             var lines = ["UAE VAT REPORT - \(periodLabel)", "",
                          "VAT Rate,5%",
@@ -455,11 +454,11 @@ struct ReportsView: View {
                          "Net VAT Position,\(String(format: "%.2f", net))", "",
                          "Date,Merchant,Category,Amount (\(cur)),VAT Amount (\(cur)),Type"]
             for tx in reclaimable.sorted(by: { $0.date > $1.date }) {
-                let vat = tx.amountInBaseCurrency * vatRate
+                let vat = UAEVAT.vatPortion(ofInclusive: tx.amountInBaseCurrency)
                 lines.append("\(fmt.string(from: tx.date)),\(tx.merchant?.csvEscaped ?? ""),\(tx.category.rawValue.csvEscaped),\(String(format: "%.2f", tx.amountInBaseCurrency)),\(String(format: "%.2f", vat)),Input")
             }
             for tx in incTxs.sorted(by: { $0.date > $1.date }) {
-                let vat = tx.amountInBaseCurrency * vatRate
+                let vat = UAEVAT.vatPortion(ofInclusive: tx.amountInBaseCurrency)
                 lines.append("\(fmt.string(from: tx.date)),,\(tx.category.rawValue.csvEscaped),\(String(format: "%.2f", tx.amountInBaseCurrency)),\(String(format: "%.2f", vat)),Output")
             }
             return svc.writeCSV(lines.joined(separator: "\n"), filename: "vat_report_\(label)")
@@ -2138,22 +2137,25 @@ struct VATReport: View {
     let transactions: [Transaction]
     let currency: String
 
-    private let vatRate = 0.05
+    // Same rules as TaxService / Tax tags (UAEVAT): VAT is the portion inside
+    // VAT-inclusive amounts, and output VAT only applies to business and
+    // freelance income — not salary, dividends or other personal income.
+    private func vat(_ tx: Transaction) -> Double { UAEVAT.vatPortion(ofInclusive: tx.amountInBaseCurrency) }
 
     private var inputTxs: [Transaction] {
         transactions.filter { $0.isVATReclaimable && $0.type == .expense }
     }
     private var outputTxs: [Transaction] {
-        transactions.filter { $0.type == .income }
+        transactions.filter { $0.type == .income && UAEVAT.isVATableIncome($0.category) }
     }
 
-    private var vatPaid: Double { inputTxs.reduce(0) { $0 + $1.amountInBaseCurrency * vatRate } }
-    private var vatCollected: Double { outputTxs.reduce(0) { $0 + $1.amountInBaseCurrency * vatRate } }
+    private var vatPaid: Double { inputTxs.reduce(0) { $0 + vat($1) } }
+    private var vatCollected: Double { outputTxs.reduce(0) { $0 + vat($1) } }
     private var netVAT: Double { vatCollected - vatPaid }
 
     private var inputByCategory: [(category: String, amount: Double, vat: Double)] {
         Dictionary(grouping: inputTxs) { $0.category.rawValue }
-            .map { (category: $0.key, amount: $0.value.reduce(0) { $0 + $1.amountInBaseCurrency }, vat: $0.value.reduce(0) { $0 + $1.amountInBaseCurrency * vatRate }) }
+            .map { (category: $0.key, amount: $0.value.reduce(0) { $0 + $1.amountInBaseCurrency }, vat: $0.value.reduce(0) { $0 + vat($1) }) }
             .sorted { $0.vat > $1.vat }
     }
 

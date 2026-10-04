@@ -1,5 +1,25 @@
 import Foundation
 
+// MARK: - VAT arithmetic
+
+/// The one VAT formula used app-wide. Ledger amounts are what was paid or
+/// received, i.e. VAT-inclusive, so the VAT inside them is amount × r / (1 + r)
+/// — not amount × r, which overstates it.
+nonisolated enum UAEVAT {
+    static let standardRate = 0.05
+
+    static func vatPortion(ofInclusive amount: Double, rate: Double = standardRate) -> Double {
+        amount * rate / (1 + rate)
+    }
+
+    /// Income on which output VAT is charged: business and freelance supplies.
+    /// Salary, rent from residential property, dividends and interest are not
+    /// VAT-able supplies for an individual.
+    static func isVATableIncome(_ category: TransactionCategory) -> Bool {
+        category == .business || category == .freelance
+    }
+}
+
 // MARK: - Result Types
 
 struct VATSummary {
@@ -189,7 +209,7 @@ final class TaxService {
         }
 
         let deductible  = eligible.filter { $0.isTaxDeductible }.reduce(0) { $0 + $1.amountInBaseCurrency }
-        let reclaimable = eligible.filter { $0.isVATReclaimable }.reduce(0) { $0 + $1.amountInBaseCurrency * 0.05 / 1.05 }
+        let reclaimable = eligible.filter { $0.isVATReclaimable }.reduce(0) { $0 + UAEVAT.vatPortion(ofInclusive: $1.amountInBaseCurrency) }
 
         let byCategory = Dictionary(grouping: eligible.filter { $0.isTaxDeductible }) { $0.category.rawValue }
             .mapValues { $0.reduce(0) { $0 + $1.amountInBaseCurrency } }

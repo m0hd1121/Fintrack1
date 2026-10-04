@@ -48,7 +48,7 @@ struct BusinessExpenseView: View {
 
     private var vatReclaimable: Double {
         filteredExpenses.filter { $0.isVATReclaimable }
-                       .reduce(0) { $0 + $1.amountInBaseCurrency * 0.05 }
+                       .reduce(0) { $0 + UAEVAT.vatPortion(ofInclusive: $1.amountInBaseCurrency) }
     }
 
     private var taxDeductible: Double {
