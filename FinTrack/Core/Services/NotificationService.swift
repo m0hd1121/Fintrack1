@@ -92,7 +92,7 @@ final class NotificationService {
     func resetPreferences() {
         let defaults = UserDefaults.standard
         defaults.removeObject(forKey: Self.preferencesKey)
-        for key in defaults.dictionaryRepresentation().keys where key.hasPrefix("ft_budget_alert_") {
+        for key in defaults.dictionaryRepresentation().keys where key.hasPrefix("ft_budget_alert_") || key.hasPrefix("ft_bill_price_alert_") {
             defaults.removeObject(forKey: key)
         }
     }
@@ -111,7 +111,8 @@ final class NotificationService {
         return true
     }
 
-    private func deliver(_ request: UNNotificationRequest) {
+    /// Adds the request unless the user's settings turn its category off.
+    func deliver(_ request: UNNotificationRequest) {
         guard isAllowed(request.identifier) else { return }
         UNUserNotificationCenter.current().add(request)
     }

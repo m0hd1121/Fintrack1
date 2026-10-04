@@ -120,6 +120,10 @@ enum DataResetService {
         ApplePayIngestService.clearReceived()
         PendingLoanLinkStore.prune(keeping: [])
         _ = NavigationRequestStore.consume()
+        // Queued Siri/SMS/Apple Pay items not yet drained into the app.
+        _ = WidgetDataService.shared.dequeuePendingTransactions()
+        _ = WidgetDataService.shared.dequeuePendingSMS()
+        _ = WidgetDataService.shared.dequeuePendingApplePay()
         let defaults = UserDefaults.standard
         for channel in [ImportChannel.email, .sms, .applePay] {
             defaults.removeObject(forKey: channel.lastImportKey)

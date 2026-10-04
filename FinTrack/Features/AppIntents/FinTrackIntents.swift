@@ -74,7 +74,7 @@ struct LogExpenseIntent: AppIntent {
     var currency: String
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        await MainActor.run {
+        let saved = await MainActor.run {
             let tx = PendingWidgetTransaction(
                 title: title_,
                 amount: amount,
@@ -82,7 +82,10 @@ struct LogExpenseIntent: AppIntent {
                 type: "expense",
                 categoryName: category
             )
-            WidgetDataService.shared.enqueuePendingTransaction(tx)
+            return WidgetDataService.shared.enqueuePendingTransaction(tx)
+        }
+        guard saved else {
+            return .result(dialog: "Couldn't save that to FinTrack. Open the app and add it there.")
         }
         return .result(dialog: "Logged \(currency) \(String(format: "%.2f", amount)) for \(title_) in \(category).")
     }
@@ -105,7 +108,7 @@ struct LogIncomeIntent: AppIntent {
     var currency: String
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        await MainActor.run {
+        let saved = await MainActor.run {
             let tx = PendingWidgetTransaction(
                 title: source,
                 amount: amount,
@@ -113,7 +116,10 @@ struct LogIncomeIntent: AppIntent {
                 type: "income",
                 categoryName: "Income"
             )
-            WidgetDataService.shared.enqueuePendingTransaction(tx)
+            return WidgetDataService.shared.enqueuePendingTransaction(tx)
+        }
+        guard saved else {
+            return .result(dialog: "Couldn't save that to FinTrack. Open the app and add it there.")
         }
         return .result(dialog: "Logged \(currency) \(String(format: "%.2f", amount)) income from \(source).")
     }
@@ -275,6 +281,8 @@ struct LogApplePayTransaction: AppIntent {
 // MARK: – Get Balance Intent
 
 struct GetBalanceIntent: AppIntent {
+    /// Speaks balances — require an unlocked device.
+    static var authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
     static var title: LocalizedStringResource = "Get Net Worth"
     static var description = IntentDescription("Get your current net worth from FinTrack.")
     static var openAppWhenRun: Bool = false
@@ -303,6 +311,8 @@ struct GetBalanceIntent: AppIntent {
 // MARK: – Get Budget Status Intent
 
 struct GetBudgetStatusIntent: AppIntent {
+    /// Speaks balances — require an unlocked device.
+    static var authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
     static var title: LocalizedStringResource = "Get Budget Status"
     static var description = IntentDescription("Check your current budget usage in FinTrack.")
     static var openAppWhenRun: Bool = false

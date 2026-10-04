@@ -261,8 +261,13 @@ final class BillService {
     private func checkPriceChanges(bills: [Bill]) {
         for bill in bills {
             let result = detectPriceChange(for: bill)
-            guard result.changed, let pct = result.changePercent as Double?, pct > 0 else { continue }
-            sendPriceChangeAlert(bill: bill, previousAmount: result.previousAmount, changePercent: pct)
+            guard result.changed, result.changePercent > 0 else { continue }
+            // Alert once per new price, not on every check while it stays raised.
+            let key = "ft_bill_price_alert_\(bill.id.uuidString)"
+            if let alerted = UserDefaults.standard.object(forKey: key) as? Double,
+               abs(alerted - bill.amount) < 0.001 { continue }
+            UserDefaults.standard.set(bill.amount, forKey: key)
+            sendPriceChangeAlert(bill: bill, previousAmount: result.previousAmount, changePercent: result.changePercent)
         }
     }
 
@@ -291,7 +296,7 @@ final class BillService {
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
         let id = "bill_overdue_\(bill.id.uuidString)"
         let request = UNNotificationRequest(identifier: id, content: content, trigger: trigger)
-        UNUserNotificationCenter.current().add(request)
+        NotificationService.shared.deliver(request)
     }
 
     private func sendAutoPayMissedAlert(bill: Bill) {
@@ -302,7 +307,7 @@ final class BillService {
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
         let id = "bill_autopay_\(bill.id.uuidString)"
         let request = UNNotificationRequest(identifier: id, content: content, trigger: trigger)
-        UNUserNotificationCenter.current().add(request)
+        NotificationService.shared.deliver(request)
     }
 
     private func sendPriceChangeAlert(bill: Bill, previousAmount: Double?, changePercent: Double) {
@@ -316,6 +321,6 @@ final class BillService {
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
         let id = "bill_pricechange_\(bill.id.uuidString)"
         let request = UNNotificationRequest(identifier: id, content: content, trigger: trigger)
-        UNUserNotificationCenter.current().add(request)
+        NotificationService.shared.deliver(request)
     }
 }

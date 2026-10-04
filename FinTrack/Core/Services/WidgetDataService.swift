@@ -148,22 +148,28 @@ final class WidgetDataService {
 
     // MARK: – Pending Siri intent queue
 
-    func enqueuePendingTransaction(_ tx: PendingWidgetTransaction) {
-        guard let defaults = UserDefaults(suiteName: suiteName) else { return }
+    /// Same store as the SMS/Apple Pay queues (`smsDefaults`) — the Siri log
+    /// intents run in this process too. Returns whether the write stuck so the
+    /// intent can report failure instead of always saying it logged.
+    @discardableResult
+    func enqueuePendingTransaction(_ tx: PendingWidgetTransaction) -> Bool {
+        migrateLegacyQueue(forKey: "pending_transactions")
+        let defaults = smsDefaults
         var queue: [PendingWidgetTransaction] = []
         if let data = defaults.data(forKey: "pending_transactions"),
            let existing = try? JSONDecoder().decode([PendingWidgetTransaction].self, from: data) {
             queue = existing
         }
         queue.append(tx)
-        if let data = try? JSONEncoder().encode(queue) {
-            defaults.set(data, forKey: "pending_transactions")
-        }
+        guard let data = try? JSONEncoder().encode(queue) else { return false }
+        defaults.set(data, forKey: "pending_transactions")
+        return defaults.data(forKey: "pending_transactions") == data
     }
 
     func dequeuePendingTransactions() -> [PendingWidgetTransaction] {
-        guard let defaults = UserDefaults(suiteName: suiteName),
-              let data = defaults.data(forKey: "pending_transactions"),
+        migrateLegacyQueue(forKey: "pending_transactions")
+        let defaults = smsDefaults
+        guard let data = defaults.data(forKey: "pending_transactions"),
               let queue = try? JSONDecoder().decode([PendingWidgetTransaction].self, from: data)
         else { return [] }
         defaults.removeObject(forKey: "pending_transactions")
