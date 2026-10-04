@@ -17,7 +17,8 @@ struct EmailReviewQueueView: View {
 
     /// The loan a queue item was marked as a repayment on, for its row badge.
     private func loanName(for item: PendingEmailTransaction) -> String? {
-        guard let id = PendingLoanLinkStore.loanId(for: item.id) else { return nil }
+        guard item.suggestedCategory == .loanRepayment,
+              let id = PendingLoanLinkStore.loanId(for: item.id) else { return nil }
         return loans.first { $0.id == id }?.name
     }
 
@@ -800,13 +801,8 @@ private struct EditPendingEmailSheet: View {
     private func selectLoan(_ id: UUID?) {
         selectedLoanId = id
         PendingLoanLinkStore.set(id, for: item.id)
-        if id != nil {
-            // A loan instalment isn't a purchase for a friend.
-            paidForOthers = false
-            // The approval records it as a loan repayment whatever the category
-            // says, so make the sheet say the same rather than show a stale one.
-            if item.suggestedCategory != .loanRepayment { item.suggestedCategory = .loanRepayment }
-        }
+        // A loan instalment isn't a purchase for a friend.
+        if id != nil { paidForOthers = false }
     }
 
     /// A loan whose EMI matches this payment — the usual shape of a fetched
@@ -826,11 +822,12 @@ private struct EditPendingEmailSheet: View {
     /// a payment can't be both.
     private var isLoanRepaymentCategory: Bool { item.suggestedCategory == .loanRepayment }
 
-    /// Shown whenever there are loans to pick from, and also — so it never just
-    /// vanishes — when the category is Loan Repayment but there are none yet.
+    /// Only for the Loan Repayment category — no other payment gets a loan
+    /// picker. With no active loans it's still shown (to say where to add one)
+    /// rather than vanishing from the one category that asked for it.
     private var canLinkLoan: Bool {
         item.direction == .debit && !item.isBNPLMerchant && !paidForOthers
-            && (!loans.isEmpty || isLoanRepaymentCategory)
+            && isLoanRepaymentCategory
     }
 
     /// Category says "loan repayment" but no loan is chosen: the one case that
@@ -1187,9 +1184,10 @@ private struct EditPendingEmailSheet: View {
                     Button("Cancel") { dismiss() }
                 }
             }
-            // Picking a different category after linking a loan means the user
-            // changed their mind: drop the link, or the approval would still file
-            // it as a loan repayment against the category they just chose.
+            // The loan picker only exists for Loan Repayment, so moving to any
+            // other category removes it — and with it the link, which would
+            // otherwise sit there unseen and still file the payment as a loan
+            // repayment against the category the user just chose.
             .onChange(of: item.suggestedCategory) { _, category in
                 if category != .loanRepayment, selectedLoanId != nil { selectLoan(nil) }
             }

@@ -709,7 +709,11 @@ final class EmailSyncService: NSObject {
         // because the money has already left it. A loan that was deleted or paid
         // off since the choice was made degrades to an ordinary approval.
         let linkedLoan: Loan? = {
+            // Only honoured for the Loan Repayment category: the picker exists
+            // nowhere else, so a link on any other category is stale and must
+            // not file an unrelated payment against a loan.
             guard type == .expense, !item.isBNPLMerchant,
+                  item.suggestedCategory == .loanRepayment,
                   let loanId = PendingLoanLinkStore.loanId(for: item.id),
                   let loans = try? context.fetch(FetchDescriptor<Loan>()) else { return nil }
             return loans.first { $0.id == loanId && $0.isActive }
