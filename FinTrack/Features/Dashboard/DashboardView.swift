@@ -48,6 +48,7 @@ struct DashboardView: View {
     @State private var showingAI = false
     @State private var showingBills = false
     @State private var showingUpcomingPayments = false
+    @State private var selectedTransaction: Transaction? = nil
 
     private var baseCurrency: String { appState.baseCurrency }
 
@@ -327,7 +328,6 @@ struct DashboardView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FTBackdrop()
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
                         header
@@ -372,6 +372,8 @@ struct DashboardView: View {
                 }
                 .collapsesTabBarOnScroll()
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(item: $dashRoute) { route in
                 switch route {
@@ -387,6 +389,9 @@ struct DashboardView: View {
             }
             .sheet(isPresented: $showingUpcomingPayments) {
                 UpcomingPaymentsView()
+            }
+            .sheet(item: $selectedTransaction, onDismiss: { refreshDashboard() }) { tx in
+                TransactionDetailView(transaction: tx)
             }
             .task(id: dataStamp) { refreshDashboard() }
             // `.task(id:)` already covers the first appearance, so refreshing
@@ -477,7 +482,7 @@ struct DashboardView: View {
                         }
                         .padding(15)
                         .frame(width: 150, alignment: .leading)
-                        .background(Color(UIColor.secondarySystemBackground), in: .rect(cornerRadius: FTRadius.lg))
+                        .background(FTColor.bgElevated, in: .rect(cornerRadius: FTRadius.lg))
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("\(account.name), \(account.balance.formatted(as: account.currency))")
@@ -578,7 +583,9 @@ struct DashboardView: View {
     private var billsAlertCard: some View {
         let overdueBills = bills.filter { $0.isOverdue }
         let dueSoonBills = bills.filter { !$0.isOverdue && $0.daysUntilDue <= 7 }
-        let totalMonthly = bills.reduce(0) { $0 + $1.monthlyEquivalent }
+        let totalMonthly = bills.reduce(0) {
+            $0 + currencyService.convert($1.monthlyEquivalent, from: $1.currency, to: baseCurrency)
+        }
 
         return Button { showingBills = true } label: {
             HStack(spacing: FTSpacing.md) {
@@ -595,7 +602,7 @@ struct DashboardView: View {
                             .font(.ftCaption).foregroundStyle(FTColor.expense)
                     } else if !dueSoonBills.isEmpty {
                         Text("\(dueSoonBills.count) due soon · \(totalMonthly.formatted(as: baseCurrency))/mo")
-                            .font(.ftCaption).foregroundStyle(.orange)
+                            .font(.ftCaption).foregroundStyle(FTColor.gold)
                     } else {
                         Text("\(bills.count) active · \(totalMonthly.formatted(as: baseCurrency))/mo")
                             .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
@@ -691,7 +698,14 @@ struct DashboardView: View {
                 let recent = metrics.recentTransactions
                 VStack(spacing: 0) {
                     ForEach(Array(recent.enumerated()), id: \.element.id) { idx, tx in
-                        TransactionRowView(transaction: tx, baseCurrency: baseCurrency)
+                        // Rows used to be inert; tapping now opens the same
+                        // detail (and edit) sheet as the Transactions tab.
+                        Button { selectedTransaction = tx } label: {
+                            TransactionRowView(transaction: tx, baseCurrency: baseCurrency)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityHint("Shows details")
                         if idx < recent.count - 1 {
                             Divider().padding(.leading, 56)
                         }
@@ -750,8 +764,19 @@ struct UpcomingPaymentRow: View {
     let date: Date
     let type: String
 
+    /// Whole calendar days (time of day ignored), negative when overdue.
     private var daysUntil: Int {
-        Calendar.current.dateComponents([.day], from: Date(), to: date).day ?? 0
+        let cal = Calendar.current
+        return cal.dateComponents([.day], from: cal.startOfDay(for: Date()), to: cal.startOfDay(for: date)).day ?? 0
+    }
+
+    private var dueLabel: String {
+        switch daysUntil {
+        case ..<0: return "Overdue"
+        case 0:    return "Today"
+        case 1:    return "Tomorrow"
+        default:   return "in \(daysUntil)d"
+        }
     }
 
     private var urgencyColor: Color {
@@ -779,7 +804,7 @@ struct UpcomingPaymentRow: View {
                 Text(amount.formatted(as: currency))
                     .font(.ftBodySemibold)
                     .foregroundStyle(FTColor.textPrimary)
-                Text(daysUntil == 0 ? "Today" : "in \(daysUntil)d")
+                Text(dueLabel)
                     .font(.ftCaption)
                     .foregroundStyle(urgencyColor)
             }
@@ -878,13 +903,17 @@ struct TransactionRowView: View {
             Spacer()
 
             VStack(alignment: .trailing, spacing: 2) {
-                Text((transaction.type == .expense ? "-" : "+") + transaction.amount.formatted(as: transaction.currency))
+                // Transfers move money between your own accounts: no sign and a
+                // neutral colour (they were shown as green "+" income).
+                Text(signPrefix + transaction.amount.formatted(as: transaction.currency))
                     .font(.ftBodySemibold)
                     .foregroundStyle(
                         transaction.isPending || transaction.isScheduled
                             ? FTColor.textMuted
-                            : transaction.type == .expense ? FTColor.expense : FTColor.income
+                            : amountColor
                     )
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
                 // For a foreign-currency transaction, show its base value locked
                 // at the transaction-time rate (stored amountInBaseCurrency), not
                 // a live re-conversion.
@@ -900,5 +929,21 @@ struct TransactionRowView: View {
         }
         .padding(.vertical, 13)
         .opacity(transaction.isPending || transaction.isScheduled ? 0.75 : 1)
+    }
+
+    private var signPrefix: String {
+        switch transaction.type {
+        case .expense:  return "-"
+        case .income:   return "+"
+        case .transfer: return ""
+        }
+    }
+
+    private var amountColor: Color {
+        switch transaction.type {
+        case .expense:  return FTColor.expense
+        case .income:   return FTColor.income
+        case .transfer: return FTColor.textPrimary
+        }
     }
 }

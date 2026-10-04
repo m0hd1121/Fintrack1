@@ -295,7 +295,6 @@ struct InviteAdvisorView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FTBackdrop()
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
                         VStack(spacing: 0) {
@@ -374,6 +373,8 @@ struct InviteAdvisorView: View {
                 .scrollContentBackground(.hidden)
                 .scrollDismissesKeyboard(.interactively)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle("Invite Advisor")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

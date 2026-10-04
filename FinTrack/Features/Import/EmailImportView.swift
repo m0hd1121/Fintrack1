@@ -378,7 +378,6 @@ struct EmailImportView: View {
     private var pasteSheet: some View {
         NavigationStack {
             ZStack(alignment: .bottom) {
-                FTBackdrop()
 
                 VStack(spacing: FTSpacing.lg) {
                     Text("Paste the full text of a bank notification email — including the From and Subject lines if you have them.")
@@ -408,6 +407,8 @@ struct EmailImportView: View {
                 .padding(.horizontal, FTSpacing.screen)
                 .padding(.bottom, FTSpacing.md)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle("Paste Bank Email")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -480,7 +481,6 @@ private struct IMAPSignInSheet: View {
     var body: some View {
         NavigationStack {
             ZStack(alignment: .bottom) {
-                FTBackdrop()
 
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
@@ -553,6 +553,8 @@ private struct IMAPSignInSheet: View {
                 .padding(.horizontal, FTSpacing.screen)
                 .padding(.bottom, FTSpacing.md)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle("Sign In to \(provider.rawValue)")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -630,7 +632,6 @@ private struct OAuthSetupSheet: View {
     var body: some View {
         NavigationStack {
             ZStack(alignment: .bottom) {
-                FTBackdrop()
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: FTSpacing.lg) {
@@ -691,6 +692,8 @@ private struct OAuthSetupSheet: View {
                 .padding(.horizontal, FTSpacing.screen)
                 .padding(.bottom, FTSpacing.md)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle("Connect \(provider.rawValue)")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

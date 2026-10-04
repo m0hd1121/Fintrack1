@@ -29,7 +29,6 @@ struct SavingsGoalDetailView: View {
 
     var body: some View {
         ZStack {
-            FTBackdrop()
             VStack(spacing: 0) {
                 heroCard
                     .padding(.horizontal, FTSpacing.screen)
@@ -57,6 +56,8 @@ struct SavingsGoalDetailView: View {
                 .scrollContentBackground(.hidden)
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background { FTBackdrop() }
         .navigationTitle(goal.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

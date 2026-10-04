@@ -32,7 +32,6 @@ struct BillDetailView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FTBackdrop()
                 ScrollView {
                     VStack(spacing: FTSpacing.xl) {
                         heroCard
@@ -49,6 +48,8 @@ struct BillDetailView: View {
                     .padding(.bottom, 100)
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle(bill.name)
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
@@ -690,7 +691,6 @@ private struct RecordPaymentSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FTBackdrop()
                 VStack(spacing: FTSpacing.xl) {
                     // Bill summary
                     HStack(spacing: FTSpacing.md) {
@@ -802,6 +802,8 @@ private struct RecordPaymentSheet: View {
                 .padding(.top, FTSpacing.lg)
                 .padding(.bottom, FTSpacing.xl)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle("Record Payment")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)

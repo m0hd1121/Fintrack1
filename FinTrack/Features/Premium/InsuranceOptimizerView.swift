@@ -309,7 +309,6 @@ struct AddInsurancePolicyView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FTBackdrop()
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
                         VStack(spacing: 0) {
@@ -468,6 +467,8 @@ struct AddInsurancePolicyView: View {
                 .scrollContentBackground(.hidden)
                 .scrollDismissesKeyboard(.interactively)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle(isEditing ? "Edit Policy" : "Add Insurance")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

@@ -240,7 +240,6 @@ struct RetirementEditView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FTBackdrop()
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
                         VStack(spacing: 0) {
@@ -339,6 +338,8 @@ struct RetirementEditView: View {
                 .scrollContentBackground(.hidden)
                 .scrollDismissesKeyboard(.interactively)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle("Retirement Plan")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

@@ -33,7 +33,6 @@ struct ContributeToGoalView: View {
     var body: some View {
         NavigationStack {
             ZStack(alignment: .bottom) {
-                FTBackdrop()
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
                         // Hero
@@ -115,6 +114,8 @@ struct ContributeToGoalView: View {
                     .padding(.horizontal, FTSpacing.screen)
                     .padding(.bottom, FTSpacing.sm)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle(isWithdrawal ? "Withdraw Funds" : "Add Funds")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

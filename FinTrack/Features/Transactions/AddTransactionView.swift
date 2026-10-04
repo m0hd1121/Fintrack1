@@ -69,6 +69,7 @@ struct AddTransactionView: View {
     @State private var longitude: Double? = nil
     @State private var locationLabel = ""
     @State private var showingLocationPicker = false
+    @State private var showingLocationUnavailable = false
     @StateObject private var locationHelper = LocationHelper()
 
     // — New: documents
@@ -263,7 +264,6 @@ struct AddTransactionView: View {
     var body: some View {
         NavigationStack {
             ZStack(alignment: .bottom) {
-                FTBackdrop()
 
                 ScrollView {
                     cardStack()
@@ -297,6 +297,8 @@ struct AddTransactionView: View {
                 .padding(.horizontal, FTSpacing.screen)
                 .padding(.bottom, FTSpacing.sm)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle(isEditing ? "Edit Transaction" : "New Transaction")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -336,6 +338,14 @@ struct AddTransactionView: View {
                                 titleVisibility: .visible) {
                 Button("Discard Changes", role: .destructive) { dismiss() }
                 Button("Keep Editing", role: .cancel) {}
+            }
+            .alert("Location Unavailable", isPresented: $showingLocationUnavailable) {
+                Button("Open Settings") {
+                    if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
+                }
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("FinTrack couldn't get your location. Check that Location access is allowed for FinTrack in Settings.")
             }
             .alert("Possible Duplicate", isPresented: $showingDuplicateWarning, presenting: potentialDuplicate) { _ in
                 Button("Save Anyway") { commitSave() }
@@ -1423,6 +1433,9 @@ struct AddTransactionView: View {
                 longitude = coord?.longitude
                 if let c = coord {
                     locationLabel = String(format: "%.4f, %.4f", c.latitude, c.longitude)
+                } else {
+                    // Was silent: the button just didn't change.
+                    showingLocationUnavailable = true
                 }
             }
         }
@@ -1919,8 +1932,11 @@ struct AddTransactionView: View {
         guard let budget = BudgetService.shared.matchingBudget(
             title: title, merchant: merchant.isEmpty ? nil : merchant, category: category, budgets: Array(budgets)
         ) else { return }
-        let allTx = (try? context.fetch(FetchDescriptor<Transaction>())) ?? []
-        let spent = BudgetService.shared.spending(for: budget, allBudgets: Array(budgets), transactions: allTx, in: now)
+        // `spending` only looks at this month — fetch just that.
+        let monthStart = now.startOfMonth
+        let monthTx = (try? context.fetch(FetchDescriptor<Transaction>(
+            predicate: #Predicate { $0.date >= monthStart }))) ?? []
+        let spent = BudgetService.shared.spending(for: budget, allBudgets: Array(budgets), transactions: monthTx, in: now)
         let limit = currencyService.convert(budget.amount, from: budget.currency, to: base)
         if limit > 0 && spent / limit >= 0.75 {
             NotificationService.shared.scheduleBudgetAlert(
@@ -2110,7 +2126,10 @@ private struct SplitItemRow: View {
             } label: {
                 FTIconTile(symbol: item.category.icon,
                            tint: Color.fromString(item.category.color), size: 34)
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(Rectangle())
             }
+            .accessibilityLabel("Split category, \(item.category.rawValue)")
 
             // Amount field
             AmountTextField("0.00", text: $amountText, font: .ftBodySemibold)
@@ -2135,7 +2154,10 @@ private struct SplitItemRow: View {
             Button(action: onDelete) {
                 Image(systemName: "minus.circle.fill")
                     .foregroundStyle(FTColor.expense)
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(Rectangle())
             }
+            .accessibilityLabel("Remove \(item.category.rawValue) split")
         }
         .padding(.vertical, 10)
     }
@@ -2182,8 +2204,11 @@ final class LocationHelper: NSObject, ObservableObject, CLLocationManagerDelegat
 
     nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         Task { @MainActor in
-            if manager.authorizationStatus == .authorizedWhenInUse ||
-               manager.authorizationStatus == .authorizedAlways {
+            let status = manager.authorizationStatus
+            // Still waiting on the permission prompt — not a failure.
+            guard status != .notDetermined else { return }
+            if status == .authorizedWhenInUse || status == .authorizedAlways {
+                guard self.completion != nil else { return }
                 manager.requestLocation()
             } else {
                 self.completion?(nil)

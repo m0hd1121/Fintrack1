@@ -213,7 +213,6 @@ struct BudgetView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FTBackdrop()
 
                 VStack(spacing: 0) {
                     FTSegmentedControl(options: tabs, selection: .init(
@@ -239,6 +238,8 @@ struct BudgetView: View {
                     .collapsesTabBarOnScroll()
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle("Budget & Goals")
             .navigationBarTitleDisplayMode(.large)
             .toolbar { toolbarContent }
@@ -1322,7 +1323,6 @@ struct BudgetDetailView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FTBackdrop()
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
                         // Header card
@@ -1443,6 +1443,8 @@ struct BudgetDetailView: View {
                 }
                 .scrollContentBackground(.hidden)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle("Budget Detail")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -1804,7 +1806,6 @@ struct AddEnvelopeView: View {
     var body: some View {
         NavigationStack {
             ZStack(alignment: .bottom) {
-                FTBackdrop()
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
                         VStack(spacing: 0) {
@@ -1912,6 +1913,8 @@ struct AddEnvelopeView: View {
                     .opacity(name.isEmpty || amount.isEmpty ? 0.55 : 1)
                     .padding(.horizontal, FTSpacing.screen).padding(.bottom, FTSpacing.sm)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle("New Envelope").navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .navigationBarLeading) { Button("Cancel") { dismiss() } } }
             .dismissKeyboardOnTap()
@@ -1974,7 +1977,6 @@ struct EnvelopeDetailView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FTBackdrop()
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
                         // Hero
@@ -2065,6 +2067,8 @@ struct EnvelopeDetailView: View {
                 }
                 .scrollContentBackground(.hidden)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle("Envelope").navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) { Button("Done") { dismiss() } }
@@ -2119,7 +2123,6 @@ struct EnvelopeDetailView: View {
     private var transferSheet: some View {
         NavigationStack {
             ZStack(alignment: .bottom) {
-                FTBackdrop()
                 VStack(spacing: FTSpacing.lg) {
                     VStack(spacing: 0) {
                         HStack {
@@ -2170,6 +2173,8 @@ struct EnvelopeDetailView: View {
                 }
                 .padding(.horizontal, FTSpacing.screen).padding(.top, FTSpacing.xxl)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle("Transfer Funds").navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -2196,7 +2201,6 @@ struct BudgetTemplatesView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FTBackdrop()
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
                         Text("Start with a pre-built seasonal template optimized for UAE spending patterns, or save your own.")
@@ -2228,6 +2232,8 @@ struct BudgetTemplatesView: View {
                 }
                 .scrollContentBackground(.hidden)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle("Seasonal Templates")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -2285,7 +2291,6 @@ struct ApplyTemplateView: View {
     var body: some View {
         NavigationStack {
             ZStack(alignment: .bottom) {
-                FTBackdrop()
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
                         // Header
@@ -2347,6 +2352,8 @@ struct ApplyTemplateView: View {
                 .buttonStyle(.ftPrimary)
                 .padding(.horizontal, FTSpacing.screen).padding(.bottom, FTSpacing.sm)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle("Apply Template").navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) { Button("Cancel") { dismiss() } }
@@ -2403,7 +2410,6 @@ struct BudgetRecommendationsView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FTBackdrop()
                 if activeRecs.isEmpty {
                     EmptyStateView(
                         icon: "sparkles",
@@ -2429,6 +2435,8 @@ struct BudgetRecommendationsView: View {
                     .scrollContentBackground(.hidden)
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle("AI Recommendations")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

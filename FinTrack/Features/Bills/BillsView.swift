@@ -28,7 +28,6 @@ struct BillsView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FTBackdrop()
 
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
@@ -59,6 +58,8 @@ struct BillsView: View {
                     .padding(.bottom, FTSpacing.xxl)
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle("Bills & Subscriptions")
             .navigationBarTitleDisplayMode(.large)
             .toolbarBackground(.hidden, for: .navigationBar)
@@ -1015,9 +1016,10 @@ private struct EmptyBillsView: View {
 
 #Preview {
     ZStack {
-        FTBackdrop()
         BillsView()
     }
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .background { FTBackdrop() }
     .environment(AppState())
     .modelContainer(for: [Bill.self, Transaction.self], inMemory: true)
 }

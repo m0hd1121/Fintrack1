@@ -565,7 +565,6 @@ struct RecordSalaryPaymentSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FTBackdrop()
 
                 ScrollView {
                     VStack(spacing: FTSpacing.xl) {
@@ -707,6 +706,8 @@ struct RecordSalaryPaymentSheet: View {
                     .padding(.bottom, FTSpacing.xl)
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle("Record Payment")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
@@ -799,7 +800,6 @@ struct SalaryPaymentHistoryView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FTBackdrop()
 
                 Group {
                     if sortedPayments.isEmpty {
@@ -831,6 +831,8 @@ struct SalaryPaymentHistoryView: View {
                     }
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle("Payment History")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
@@ -1044,7 +1046,6 @@ private struct EditSalaryPaymentSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FTBackdrop()
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
                         VStack(spacing: 0) {
@@ -1082,6 +1083,8 @@ private struct EditSalaryPaymentSheet: View {
                     .padding(.top, FTSpacing.lg)
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle("Edit Payment")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)

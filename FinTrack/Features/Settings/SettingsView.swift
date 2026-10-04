@@ -569,7 +569,6 @@ struct AboutView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FTBackdrop()
                 VStack(spacing: 32) {
                     Spacer()
 
@@ -625,6 +624,8 @@ struct AboutView: View {
                     Spacer()
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {

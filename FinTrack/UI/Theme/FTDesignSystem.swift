@@ -552,7 +552,6 @@ struct FTBackdrop: View {
 
 #Preview("Components") {
     ZStack {
-        FTBackdrop()
         ScrollView {
             VStack(spacing: FTSpacing.lg) {
                 FTSegmentedControlPreview()
@@ -569,6 +568,8 @@ struct FTBackdrop: View {
             .padding(FTSpacing.screen)
         }
     }
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .background { FTBackdrop() }
 }
 
 private struct FTSegmentedControlPreview: View {

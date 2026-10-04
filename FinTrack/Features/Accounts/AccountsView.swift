@@ -209,7 +209,6 @@ struct AccountsView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FTBackdrop()
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
                         header
@@ -243,6 +242,8 @@ struct AccountsView: View {
                 }
                 .collapsesTabBarOnScroll()
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .toolbar(.hidden, for: .navigationBar)
             .sheet(isPresented: $showingAddAccount) { AddAccountView() }
             .sheet(isPresented: $showingAddCreditCard) { AddCreditCardView() }

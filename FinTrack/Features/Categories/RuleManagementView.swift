@@ -14,7 +14,6 @@ struct RuleManagementView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FTBackdrop()
                 Group {
                     if rules.isEmpty {
                         emptyState
@@ -23,6 +22,8 @@ struct RuleManagementView: View {
                     }
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .scrollContentBackground(.hidden)
             .navigationTitle("Categorization Rules")
             .navigationBarTitleDisplayMode(.inline)
@@ -190,7 +191,6 @@ struct EditRuleView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FTBackdrop()
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
                         basicCard
@@ -205,6 +205,8 @@ struct EditRuleView: View {
                 .scrollContentBackground(.hidden)
                 .scrollDismissesKeyboard(.interactively)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle(isEditing ? "Edit Rule" : "New Rule")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

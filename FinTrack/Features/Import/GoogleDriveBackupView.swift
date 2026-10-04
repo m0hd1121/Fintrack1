@@ -264,7 +264,6 @@ private struct DriveOAuthSetupSheet: View {
     var body: some View {
         NavigationStack {
             ZStack(alignment: .bottom) {
-                FTBackdrop()
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: FTSpacing.lg) {
@@ -322,6 +321,8 @@ private struct DriveOAuthSetupSheet: View {
                 .padding(.horizontal, FTSpacing.screen)
                 .padding(.bottom, FTSpacing.md)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle("Connect Google Drive")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

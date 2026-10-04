@@ -48,18 +48,30 @@ struct TransactionsListView: View {
         pendingEmailItems.filter { $0.status == .pending }.count
     }
 
-    private var hasDuplicates: Bool {
-        transactions.contains { $0.isDuplicate }
+    // Cached by `recomputeGroups` — these were two full-ledger scans on every
+    // body evaluation, i.e. on every search keystroke.
+    @State private var duplicateCount = 0
+    private var hasDuplicates: Bool { duplicateCount > 0 }
+    @State private var showDuplicatesOnly = false
+
+    private var hasActiveFilters: Bool {
+        !debouncedSearch.isEmpty || selectedType != nil || selectedCategory != nil
+            || dateFilterActive || showDuplicatesOnly
     }
 
-    private var duplicateCount: Int {
-        transactions.filter { $0.isDuplicate }.count
+    private func clearFilters() {
+        searchText = ""
+        debouncedSearch = ""
+        selectedType = nil
+        selectedCategory = nil
+        dateFilterActive = false
+        showDuplicatesOnly = false
     }
 
     private var groupingKey: String {
         let dateKey = dateFilterActive ? "\(startDate.timeIntervalSince1970)-\(endDate.timeIntervalSince1970)" : "off"
         let pendingID = pendingDelete?.id.uuidString ?? ""
-        return "\(debouncedSearch)|\(selectedType?.rawValue ?? "")|\(selectedCategory?.rawValue ?? "")|\(dateKey)|\(transactions.count)|\(pendingID)"
+        return "\(debouncedSearch)|\(selectedType?.rawValue ?? "")|\(selectedCategory?.rawValue ?? "")|\(dateKey)|\(transactions.count)|\(pendingID)|\(showDuplicatesOnly)"
     }
 
     private func recomputeGroups() {
@@ -68,8 +80,12 @@ struct TransactionsListView: View {
         let rangeStart = Calendar.current.startOfDay(for: startDate)
         let rangeEnd = Calendar.current.date(bySettingHour: 23, minute: 59, second: 59, of: endDate) ?? endDate
 
+        let duplicatesOnly = showDuplicatesOnly
+        var duplicates = 0
         let filtered = transactions.filter { tx in
+            if tx.isDuplicate { duplicates += 1 }
             if let excl = excludeID, tx.id == excl { return false }
+            if duplicatesOnly && !tx.isDuplicate { return false }
             let matchesSearch = search.isEmpty ||
                 tx.title.localizedCaseInsensitiveContains(search) ||
                 tx.category.rawValue.localizedCaseInsensitiveContains(search) ||
@@ -79,6 +95,8 @@ struct TransactionsListView: View {
             let matchesDate = !dateFilterActive || (tx.date >= rangeStart && tx.date <= rangeEnd)
             return matchesSearch && matchesType && matchesCategory && matchesDate
         }
+        duplicateCount = duplicates
+        if duplicates == 0 { showDuplicatesOnly = false }
         // Resolved once instead of per row: this closure runs for every
         // filtered transaction, and it was building a fresh `Date()` and doing
         // calendar arithmetic on each pass — two calendar operations per row
@@ -110,7 +128,6 @@ struct TransactionsListView: View {
                 Group {
                     if transactions.isEmpty {
                         ZStack {
-                            FTBackdrop()
                             EmptyStateView(
                                 icon: "arrow.left.arrow.right.circle",
                                 title: "No Transactions",
@@ -120,6 +137,8 @@ struct TransactionsListView: View {
                                 showingAddTransaction = true
                             }
                         }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background { FTBackdrop() }
                     } else {
                         List {
                             // Pending email imports banner
@@ -156,6 +175,30 @@ struct TransactionsListView: View {
                             .listRowSeparator(.hidden)
                             .listRowBackground(Color.clear)
                             .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 8))
+
+                            // Filters/search that match nothing used to leave a
+                            // blank list with no way back but undoing each filter.
+                            if groupedCache.isEmpty && hasActiveFilters {
+                                VStack(spacing: FTSpacing.md) {
+                                    Image(systemName: "magnifyingglass")
+                                        .font(.system(size: 32, weight: .semibold))
+                                        .foregroundStyle(FTColor.textMuted)
+                                        .accessibilityHidden(true)
+                                    Text("No matching transactions")
+                                        .font(.ftHeadline).foregroundStyle(FTColor.textPrimary)
+                                    Text("Try a different search or clear the filters.")
+                                        .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                                        .multilineTextAlignment(.center)
+                                    Button("Clear Filters") { clearFilters() }
+                                        .font(.ftBodySemibold)
+                                        .foregroundStyle(FTColor.accent)
+                                        .padding(.top, FTSpacing.xs)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, FTSpacing.xxl * 2)
+                                .listRowBackground(Color.clear)
+                                .listRowSeparator(.hidden)
+                            }
 
                             ForEach(groupedCache, id: \.0) { group in
                                 Section(header: SectionDateHeader(title: group.0, transactions: group.1, baseCurrency: appState.baseCurrency)) {
@@ -246,6 +289,7 @@ struct TransactionsListView: View {
                         } label: {
                             Image(systemName: "plus")
                         }
+                        .accessibilityLabel("Add")
                     }
                 }
                 .sheet(isPresented: $showingDateFilter) {
@@ -345,7 +389,7 @@ struct TransactionsListView: View {
         .background(
             isSelected && isEditing
                 ? FTColor.accent.opacity(0.08)
-                : Color(UIColor.secondarySystemBackground),
+                : FTColor.bgElevated,
             in: .rect(cornerRadius: FTRadius.md)
         )
         .padding(.horizontal, FTSpacing.screen)
@@ -386,10 +430,11 @@ struct TransactionsListView: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel({
-            let typeLabel = tx.type == .income ? "Income" : "Expense"
+            let typeLabel = tx.type.rawValue
             let amountStr = tx.amount.formatted(as: tx.currency)
             let dateStr = tx.date.relativeFormatted
-            return "\(tx.title), \(typeLabel), \(amountStr), \(tx.category.rawValue), \(dateStr)"
+            let status = tx.isPending ? ", pending" : tx.isScheduled ? ", scheduled" : ""
+            return "\(tx.title), \(typeLabel), \(amountStr), \(tx.category.rawValue), \(dateStr)\(status)"
         }())
         .accessibilityHint(isEditing ? "Double-tap to \(selectedIDs.contains(tx.id) ? "deselect" : "select")" : "Double-tap to view details")
     }
@@ -424,6 +469,11 @@ struct TransactionsListView: View {
     }
 
     private var duplicateBanner: some View {
+        // Was a chevron that only cleared the type/category filters; the
+        // whole banner now toggles a "duplicates only" view.
+        Button {
+            withAnimation(.snappy(duration: 0.2)) { showDuplicatesOnly.toggle() }
+        } label: {
         HStack(spacing: FTSpacing.sm) {
             Image(systemName: "doc.on.doc.fill")
                 .foregroundStyle(FTColor.gold)
@@ -433,24 +483,16 @@ struct TransactionsListView: View {
                 Text("\(duplicateCount) duplicate transaction\(duplicateCount == 1 ? "" : "s") detected")
                     .font(.ftBodySemibold)
                     .foregroundStyle(FTColor.textPrimary)
-                Text("Review and remove them to keep your data clean.")
+                Text(showDuplicatesOnly ? "Showing duplicates only — swipe to delete." : "Review and remove them to keep your data clean.")
                     .font(.ftCaption)
                     .foregroundStyle(FTColor.textSecondary)
             }
 
             Spacer()
 
-            Button {
-                selectedType = nil
-                selectedCategory = nil
-                // Show duplicates in search
-                searchText = ""
-            } label: {
-                Image(systemName: "chevron.right")
-                    .font(.ftCaption)
-                    .foregroundStyle(FTColor.textMuted)
-            }
-            .buttonStyle(.plain)
+            Text(showDuplicatesOnly ? "Show All" : "Review")
+                .font(.ftCallout)
+                .foregroundStyle(FTColor.gold)
         }
         .padding(FTSpacing.md)
         .background(FTColor.gold.opacity(0.12), in: .rect(cornerRadius: FTRadius.md))
@@ -458,6 +500,10 @@ struct TransactionsListView: View {
             RoundedRectangle(cornerRadius: FTRadius.md)
                 .strokeBorder(FTColor.gold.opacity(0.3), lineWidth: 1)
         )
+        .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint(showDuplicatesOnly ? "Shows all transactions" : "Shows only the possible duplicates")
     }
 
     // MARK: - Delete / Undo
@@ -674,7 +720,6 @@ struct BulkCategoryPickerSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FTBackdrop()
                 List(categories, id: \.self) { cat in
                     Button {
                         selectedCategory = cat
@@ -699,6 +744,8 @@ struct BulkCategoryPickerSheet: View {
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle("Change Category")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -722,7 +769,6 @@ struct DateRangeFilterSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FTBackdrop()
                 VStack(spacing: FTSpacing.lg) {
                     // Quick presets
                     ScrollView(.horizontal, showsIndicators: false) {
@@ -773,6 +819,8 @@ struct DateRangeFilterSheet: View {
                 }
                 .padding(FTSpacing.screen)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle("Filter by Date")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -874,7 +922,6 @@ struct TransactionDetailView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FTBackdrop()
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
                         // Hero
@@ -899,12 +946,13 @@ struct TransactionDetailView: View {
                             }
                             .padding(.bottom, transaction.isPending || transaction.isScheduled ? 16 : 0)
 
-                            Text((transaction.type == .expense ? "-" : "+") + transaction.amount.formatted(as: transaction.currency))
+                            Text((transaction.type == .expense ? "-" : transaction.type == .income ? "+" : "") + transaction.amount.formatted(as: transaction.currency))
                                 .font(.ftAmount)
                                 .foregroundStyle(
                                     transaction.isPending || transaction.isScheduled
                                         ? FTColor.textMuted
-                                        : transaction.type == .expense ? FTColor.expense : FTColor.income
+                                        : transaction.type == .expense ? FTColor.expense
+                                        : transaction.type == .income ? FTColor.income : FTColor.textPrimary
                                 )
                                 .lineLimit(1).minimumScaleFactor(0.5)
                             // Base-currency equivalent locked at the transaction's
@@ -970,7 +1018,7 @@ struct TransactionDetailView: View {
                                 detailRow(label: "Location", value: String(format: "%.4f, %.4f", lat, lon), icon: "location.fill")
                             }
                         }
-                        .background(Color(UIColor.secondarySystemBackground), in: .rect(cornerRadius: FTRadius.md))
+                        .background(FTColor.bgElevated, in: .rect(cornerRadius: FTRadius.md))
 
                         // Split items
                         if transaction.isSplit {
@@ -995,7 +1043,7 @@ struct TransactionDetailView: View {
                                 }
                             }
                             .padding(FTSpacing.md)
-                            .background(Color(UIColor.secondarySystemBackground), in: .rect(cornerRadius: FTRadius.md))
+                            .background(FTColor.bgElevated, in: .rect(cornerRadius: FTRadius.md))
                         }
 
                         // Tags
@@ -1015,7 +1063,7 @@ struct TransactionDetailView: View {
                                 }
                             }
                             .padding(FTSpacing.md)
-                            .background(Color(UIColor.secondarySystemBackground), in: .rect(cornerRadius: FTRadius.md))
+                            .background(FTColor.bgElevated, in: .rect(cornerRadius: FTRadius.md))
                         }
 
                         // Notes
@@ -1030,7 +1078,7 @@ struct TransactionDetailView: View {
                                     .frame(maxWidth: .infinity, alignment: .leading)
                             }
                             .padding(FTSpacing.md)
-                            .background(Color(UIColor.secondarySystemBackground), in: .rect(cornerRadius: FTRadius.md))
+                            .background(FTColor.bgElevated, in: .rect(cornerRadius: FTRadius.md))
                         }
 
                         // Receipt
@@ -1046,7 +1094,7 @@ struct TransactionDetailView: View {
                                     .clipShape(RoundedRectangle(cornerRadius: FTRadius.sm))
                             }
                             .padding(FTSpacing.md)
-                            .background(Color(UIColor.secondarySystemBackground), in: .rect(cornerRadius: FTRadius.md))
+                            .background(FTColor.bgElevated, in: .rect(cornerRadius: FTRadius.md))
                         }
 
                         // Document attachments
@@ -1075,7 +1123,7 @@ struct TransactionDetailView: View {
                                 }
                             }
                             .padding(FTSpacing.md)
-                            .background(Color(UIColor.secondarySystemBackground), in: .rect(cornerRadius: FTRadius.md))
+                            .background(FTColor.bgElevated, in: .rect(cornerRadius: FTRadius.md))
                         }
 
                         Color.clear.frame(height: FTSpacing.xl)
@@ -1083,6 +1131,8 @@ struct TransactionDetailView: View {
                     .padding(.horizontal, FTSpacing.screen)
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .scrollContentBackground(.hidden)
             .navigationTitle("Transaction")
             .navigationBarTitleDisplayMode(.inline)

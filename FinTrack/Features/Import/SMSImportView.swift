@@ -327,7 +327,6 @@ struct SMSBankRuleSheet: View {
     var body: some View {
         NavigationStack {
             ZStack(alignment: .bottom) {
-                FTBackdrop()
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
                         bankSection
@@ -343,6 +342,8 @@ struct SMSBankRuleSheet: View {
                 .padding(.horizontal, FTSpacing.screen)
                 .padding(.bottom, FTSpacing.md)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle(isEditing ? "Edit Bank" : "Add Bank")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

@@ -315,7 +315,6 @@ struct FreelanceProjectDetailSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FTBackdrop()
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
                         headerCard
@@ -327,6 +326,8 @@ struct FreelanceProjectDetailSheet: View {
                     .padding(.top, FTSpacing.lg)
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle(project.projectName)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -598,6 +599,7 @@ struct AddInvoiceSheet: View {
                 .padding(.horizontal, FTSpacing.screen)
                 .padding(.top, FTSpacing.lg)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background { FTBackdrop() }
             .safeAreaInset(edge: .bottom) { saveButtonArea }
             .navigationTitle("New Invoice")
@@ -785,6 +787,7 @@ struct RecordInvoicePaymentSheet: View {
                 .padding(.horizontal, FTSpacing.screen)
                 .padding(.top, FTSpacing.lg)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background { FTBackdrop() }
             .safeAreaInset(edge: .bottom) { saveButtonArea }
             .navigationTitle("Record Payment")

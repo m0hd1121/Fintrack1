@@ -33,7 +33,6 @@ struct CategoryManagementView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FTBackdrop()
                 Group {
                     if rootCategories.isEmpty && searchText.isEmpty {
                         emptyState
@@ -42,6 +41,8 @@ struct CategoryManagementView: View {
                     }
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .searchable(text: $searchText, prompt: "Search categories…")
             .scrollContentBackground(.hidden)
             .navigationTitle("Custom Categories")
@@ -312,7 +313,6 @@ struct EditCategoryView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FTBackdrop()
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
                         previewCard
@@ -325,6 +325,8 @@ struct EditCategoryView: View {
                 }
                 .scrollContentBackground(.hidden)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -580,7 +582,6 @@ struct IconPickerView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FTBackdrop()
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: FTSpacing.xl, pinnedViews: .sectionHeaders) {
                         ForEach(filteredSections, id: \.section) { section in
@@ -593,6 +594,8 @@ struct IconPickerView: View {
                 }
                 .scrollContentBackground(.hidden)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .searchable(text: $search, prompt: "Search icons…")
             .navigationTitle("Choose Icon")
             .navigationBarTitleDisplayMode(.inline)

@@ -68,7 +68,6 @@ struct IncomeManagementView: View {
 
     var body: some View {
         ZStack {
-            FTBackdrop()
 
             VStack(spacing: 0) {
                 tabBar
@@ -91,6 +90,8 @@ struct IncomeManagementView: View {
                 }
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background { FTBackdrop() }
         .navigationTitle("Income")
         .navigationBarTitleDisplayMode(.large)
         .toolbarBackground(.hidden, for: .navigationBar)
@@ -1281,9 +1282,10 @@ private struct IncomeEmptyState: View {
 
 #Preview {
     ZStack {
-        FTBackdrop()
         IncomeManagementView()
     }
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .background { FTBackdrop() }
     .environment(AppState())
     .environment(CurrencyService.shared)
     .modelContainer(

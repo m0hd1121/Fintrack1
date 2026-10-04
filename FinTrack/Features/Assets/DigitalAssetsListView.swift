@@ -31,7 +31,6 @@ struct DigitalAssetsListView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FTBackdrop()
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
                         summaryCard
@@ -46,6 +45,8 @@ struct DigitalAssetsListView: View {
                     .padding(.bottom, FTSpacing.xxl)
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle("Digital Assets")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
@@ -281,7 +282,6 @@ struct AddDigitalAssetView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FTBackdrop()
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
                         typeGrid
@@ -294,6 +294,8 @@ struct AddDigitalAssetView: View {
                     .padding(.bottom, FTSpacing.xxl)
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle(isEditing ? "Edit Digital Asset" : "Add Digital Asset")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

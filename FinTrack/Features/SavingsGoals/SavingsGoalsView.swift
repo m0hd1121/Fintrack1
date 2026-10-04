@@ -56,7 +56,6 @@ struct SavingsGoalsView: View {
 
     var body: some View {
         ZStack {
-            FTBackdrop()
             ScrollView {
                 VStack(spacing: FTSpacing.lg) {
                     heroCard
@@ -74,6 +73,8 @@ struct SavingsGoalsView: View {
                 .padding(.top, FTSpacing.sm)
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background { FTBackdrop() }
         .navigationTitle("Savings Goals")
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
@@ -433,7 +434,6 @@ struct GoalConflictView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FTBackdrop()
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
                         // Summary card
@@ -511,6 +511,8 @@ struct GoalConflictView: View {
                     .padding(.top, FTSpacing.sm)
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle("Conflict Analysis")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

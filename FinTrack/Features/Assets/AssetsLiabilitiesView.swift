@@ -66,7 +66,6 @@ struct AssetsLiabilitiesView: View {
 
     var body: some View {
         ZStack {
-            FTBackdrop()
 
             ScrollView {
                 VStack(spacing: FTSpacing.lg) {
@@ -131,6 +130,8 @@ struct AssetsLiabilitiesView: View {
                 .padding(.top, FTSpacing.md)
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background { FTBackdrop() }
         .navigationTitle("Assets & Liabilities")
         .navigationBarTitleDisplayMode(.large)
         .toolbarBackground(.hidden, for: .navigationBar)

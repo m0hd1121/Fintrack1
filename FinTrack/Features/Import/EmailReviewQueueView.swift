@@ -916,7 +916,6 @@ private struct EditPendingEmailSheet: View {
     var body: some View {
         NavigationStack {
             ZStack(alignment: .bottom) {
-                FTBackdrop()
 
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
@@ -1203,6 +1202,8 @@ private struct EditPendingEmailSheet: View {
                 .padding(.horizontal, FTSpacing.screen)
                 .padding(.bottom, FTSpacing.md)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle("Edit Import")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

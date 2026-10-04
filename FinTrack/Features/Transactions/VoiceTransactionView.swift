@@ -9,7 +9,6 @@ struct VoiceTransactionView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FTBackdrop()
 
                 VStack(spacing: FTSpacing.xl) {
                     Spacer()
@@ -102,6 +101,8 @@ struct VoiceTransactionView: View {
                 }
                 .animation(.spring(response: 0.4, dampingFraction: 0.75), value: service.parsedResult?.title)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .scrollContentBackground(.hidden)
             .navigationTitle("Voice Entry")
             .navigationBarTitleDisplayMode(.inline)

@@ -47,7 +47,6 @@ struct VehicleListView: View {
 
     var body: some View {
         ZStack {
-            FTBackdrop()
 
             if vehicles.isEmpty {
                 emptyState
@@ -71,6 +70,8 @@ struct VehicleListView: View {
                 }
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background { FTBackdrop() }
         .navigationTitle("Vehicles")
         .navigationBarTitleDisplayMode(.large)
         .toolbarBackground(.hidden, for: .navigationBar)
@@ -407,6 +408,7 @@ struct AddVehicleView: View {
                 .padding(.horizontal, FTSpacing.screen)
                 .padding(.top, FTSpacing.lg)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background { FTBackdrop() }
             .safeAreaInset(edge: .bottom) { saveButtonArea }
             .navigationTitle(isEditing ? "Edit Vehicle" : "Add Vehicle")

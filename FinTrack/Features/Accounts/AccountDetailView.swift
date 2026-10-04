@@ -393,7 +393,6 @@ struct RecordLoanPaymentSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FTBackdrop()
 
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
@@ -474,6 +473,8 @@ struct RecordLoanPaymentSheet: View {
                     .padding(.top, FTSpacing.lg)
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle("Record Payment")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)

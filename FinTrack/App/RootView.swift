@@ -49,13 +49,14 @@ struct RootView: View {
 
     private var snapshotRestoreScreen: some View {
         ZStack {
-            FTBackdrop()
             VStack(spacing: FTSpacing.lg) {
                 ProgressView().scaleEffect(1.2)
                 Text("Restoring your data…")
                     .font(.ftBody).foregroundStyle(FTColor.textSecondary)
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background { FTBackdrop() }
         .task {
             let restored = await LocalBackupService.shared
                 .restoreFromDeviceSnapshotIfNeeded(container: context.container)

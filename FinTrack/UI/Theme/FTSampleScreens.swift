@@ -43,7 +43,6 @@ struct FTRootView: View {
 struct FTDashboardView: View {
     var body: some View {
         ZStack {
-            FTBackdrop()
             ScrollView {
                 VStack(spacing: FTSpacing.lg) {
                     header
@@ -56,6 +55,8 @@ struct FTDashboardView: View {
                 .padding(.bottom, 120)   // clear the floating tab bar
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background { FTBackdrop() }
     }
 
     private var header: some View {

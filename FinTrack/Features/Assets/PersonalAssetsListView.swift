@@ -35,7 +35,6 @@ struct PersonalAssetsListView: View {
 
     var body: some View {
         ZStack {
-            FTBackdrop()
             if assets.isEmpty {
                 emptyState
             } else {
@@ -51,6 +50,8 @@ struct PersonalAssetsListView: View {
                 }
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background { FTBackdrop() }
         .navigationTitle("Personal Assets")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -231,7 +232,6 @@ struct AddPersonalAssetView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FTBackdrop()
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
                         categoryGrid
@@ -245,6 +245,8 @@ struct AddPersonalAssetView: View {
                     .padding(.bottom, 100)
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle(editingItem == nil ? "Add Asset" : "Edit Asset")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

@@ -39,7 +39,6 @@ struct AddAccountView: View {
     var body: some View {
         NavigationStack {
             ZStack(alignment: .bottom) {
-                FTBackdrop()
 
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
@@ -298,6 +297,8 @@ struct AddAccountView: View {
                 .padding(.horizontal, FTSpacing.screen)
                 .padding(.bottom, FTSpacing.sm)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle(isEditing ? "Edit Account" : "Add Account")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -439,7 +440,6 @@ struct AddCreditCardView: View {
     var body: some View {
         NavigationStack {
             ZStack(alignment: .bottom) {
-                FTBackdrop()
 
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
@@ -595,6 +595,8 @@ struct AddCreditCardView: View {
                     .padding(.horizontal, FTSpacing.screen)
                     .padding(.bottom, FTSpacing.sm)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle("Add Credit Card")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -657,7 +659,6 @@ struct AddLoanView: View {
     var body: some View {
         NavigationStack {
             ZStack(alignment: .bottom) {
-                FTBackdrop()
 
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
@@ -864,6 +865,8 @@ struct AddLoanView: View {
                 .padding(.horizontal, FTSpacing.screen)
                 .padding(.bottom, FTSpacing.sm)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle(isEditing ? "Edit Loan" : "Add Loan")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -965,7 +968,6 @@ struct AddBNPLView: View {
     var body: some View {
         NavigationStack {
             ZStack(alignment: .bottom) {
-                FTBackdrop()
 
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
@@ -1105,6 +1107,8 @@ struct AddBNPLView: View {
                     .padding(.horizontal, FTSpacing.screen)
                     .padding(.bottom, FTSpacing.sm)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle(isEditing ? "Edit BNPL Plan" : "Add BNPL Plan")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -1189,7 +1193,6 @@ struct AddGiftCardView: View {
     var body: some View {
         NavigationStack {
             ZStack(alignment: .bottom) {
-                FTBackdrop()
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
 
@@ -1319,6 +1322,8 @@ struct AddGiftCardView: View {
                     .padding(.horizontal, FTSpacing.screen)
                     .padding(.bottom, FTSpacing.sm)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle("Add Gift Card")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -1379,7 +1384,6 @@ struct AddLoyaltyProgramView: View {
     var body: some View {
         NavigationStack {
             ZStack(alignment: .bottom) {
-                FTBackdrop()
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
 
@@ -1555,6 +1559,8 @@ struct AddLoyaltyProgramView: View {
                     .padding(.horizontal, FTSpacing.screen)
                     .padding(.bottom, FTSpacing.sm)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle("Add Loyalty Program")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -1609,7 +1615,6 @@ struct EditInvestmentView: View {
     var body: some View {
         NavigationStack {
             ZStack(alignment: .bottom) {
-                FTBackdrop()
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
                         VStack(spacing: 0) {
@@ -1658,6 +1663,8 @@ struct EditInvestmentView: View {
                     .buttonStyle(.ftPrimary)
                     .padding(.horizontal, FTSpacing.screen).padding(.bottom, FTSpacing.xl)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle("Edit \(investment.name)")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .navigationBarLeading) { Button("Cancel") { dismiss() } } }
@@ -1696,7 +1703,6 @@ struct EditCryptoView: View {
     var body: some View {
         NavigationStack {
             ZStack(alignment: .bottom) {
-                FTBackdrop()
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
                         VStack(spacing: 0) {
@@ -1745,6 +1751,8 @@ struct EditCryptoView: View {
                     .buttonStyle(.ftPrimary)
                     .padding(.horizontal, FTSpacing.screen).padding(.bottom, FTSpacing.xl)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle("Edit \(holding.name)")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .navigationBarLeading) { Button("Cancel") { dismiss() } } }
@@ -1783,7 +1791,6 @@ struct EditGoldHoldingView: View {
     var body: some View {
         NavigationStack {
             ZStack(alignment: .bottom) {
-                FTBackdrop()
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
                         VStack(spacing: 0) {
@@ -1832,6 +1839,8 @@ struct EditGoldHoldingView: View {
                     .buttonStyle(.ftPrimary)
                     .padding(.horizontal, FTSpacing.screen).padding(.bottom, FTSpacing.xl)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle("Edit \(holding.metal.rawValue)")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .navigationBarLeading) { Button("Cancel") { dismiss() } } }
@@ -1871,7 +1880,6 @@ struct EditGiftCardView: View {
     var body: some View {
         NavigationStack {
             ZStack(alignment: .bottom) {
-                FTBackdrop()
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
                         VStack(spacing: 0) {
@@ -1915,6 +1923,8 @@ struct EditGiftCardView: View {
                     .buttonStyle(.ftPrimary)
                     .padding(.horizontal, FTSpacing.screen).padding(.bottom, FTSpacing.xl)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle("Edit Gift Card")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .navigationBarLeading) { Button("Cancel") { dismiss() } } }
@@ -1954,7 +1964,6 @@ struct EditLoyaltyProgramView: View {
     var body: some View {
         NavigationStack {
             ZStack(alignment: .bottom) {
-                FTBackdrop()
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
                         VStack(spacing: 0) {
@@ -2007,6 +2016,8 @@ struct EditLoyaltyProgramView: View {
                     .buttonStyle(.ftPrimary)
                     .padding(.horizontal, FTSpacing.screen).padding(.bottom, FTSpacing.xl)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle("Edit \(program.name)")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .navigationBarLeading) { Button("Cancel") { dismiss() } } }

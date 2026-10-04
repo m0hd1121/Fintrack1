@@ -138,7 +138,6 @@ struct ReportsView: View {
 
     var body: some View {
             ZStack {
-                FTBackdrop()
 
                 VStack(spacing: FTSpacing.md) {
                     // Period selector
@@ -259,6 +258,8 @@ struct ReportsView: View {
                     }
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle("Reports")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

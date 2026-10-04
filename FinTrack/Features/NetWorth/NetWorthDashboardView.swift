@@ -182,7 +182,6 @@ struct NetWorthDashboardView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FTBackdrop()
 
                 VStack(spacing: 0) {
                     tabBar
@@ -202,6 +201,8 @@ struct NetWorthDashboardView: View {
                     }
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle("Net Worth")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)

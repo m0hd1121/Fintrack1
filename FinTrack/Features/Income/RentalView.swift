@@ -312,7 +312,6 @@ struct PropertyDetailSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FTBackdrop()
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
                         propertyHeaderCard
@@ -325,6 +324,8 @@ struct PropertyDetailSheet: View {
                     .padding(.top, FTSpacing.lg)
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle(property.propertyName)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -677,6 +678,7 @@ struct AddTenancySheet: View {
                 .padding(.horizontal, FTSpacing.screen)
                 .padding(.top, FTSpacing.lg)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background { FTBackdrop() }
             .safeAreaInset(edge: .bottom) { saveButtonArea }
             .navigationTitle("Add Tenancy")
@@ -882,6 +884,7 @@ struct RecordRentPaymentSheet: View {
                 .padding(.horizontal, FTSpacing.screen)
                 .padding(.top, FTSpacing.lg)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background { FTBackdrop() }
             .safeAreaInset(edge: .bottom) { saveButtonArea }
             .navigationTitle("Record Payment")

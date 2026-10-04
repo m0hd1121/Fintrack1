@@ -29,7 +29,6 @@ struct CSVImportView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FTBackdrop()
 
                 Group {
                     switch step {
@@ -39,6 +38,8 @@ struct CSVImportView: View {
                     }
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .scrollContentBackground(.hidden)
             .navigationTitle(stepTitle)
             .navigationBarTitleDisplayMode(.inline)

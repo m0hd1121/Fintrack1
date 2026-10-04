@@ -43,7 +43,6 @@ struct RealEstateListView: View {
 
     var body: some View {
         ZStack {
-            FTBackdrop()
 
             if properties.isEmpty {
                 emptyState
@@ -62,6 +61,8 @@ struct RealEstateListView: View {
                 }
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background { FTBackdrop() }
         .navigationTitle("Real Estate")
         .navigationBarTitleDisplayMode(.large)
         .toolbarBackground(.hidden, for: .navigationBar)

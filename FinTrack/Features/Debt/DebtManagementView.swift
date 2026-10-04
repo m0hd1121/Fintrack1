@@ -99,7 +99,6 @@ struct DebtManagementView: View {
 
     var body: some View {
         ZStack {
-            FTBackdrop()
 
             VStack(spacing: 0) {
                 tabBar
@@ -111,6 +110,8 @@ struct DebtManagementView: View {
                 }
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background { FTBackdrop() }
         .navigationTitle("Debt Management")
         .navigationBarTitleDisplayMode(.large)
         .toolbarBackground(.hidden, for: .navigationBar)
@@ -1632,7 +1633,6 @@ struct RecordBNPLPaymentSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FTBackdrop()
 
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
@@ -1713,6 +1713,8 @@ struct RecordBNPLPaymentSheet: View {
                     .padding(.top, FTSpacing.lg)
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle("Record Payment")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
@@ -1803,7 +1805,6 @@ struct BNPLDetailSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FTBackdrop()
 
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
@@ -1944,6 +1945,8 @@ struct BNPLDetailSheet: View {
                     }
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle("BNPL Plan")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
@@ -2475,7 +2478,6 @@ struct MoneyLentDetailSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FTBackdrop()
 
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
@@ -2620,6 +2622,8 @@ struct MoneyLentDetailSheet: View {
                     }
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle("Money Lent")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
@@ -2790,7 +2794,6 @@ private struct RecordLentRepaymentSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FTBackdrop()
 
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
@@ -2854,6 +2857,8 @@ private struct RecordLentRepaymentSheet: View {
                     .padding(.top, FTSpacing.lg)
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle("Record Repayment")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
@@ -2940,7 +2945,6 @@ struct MoneyBorrowedDetailSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FTBackdrop()
 
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
@@ -3084,6 +3088,8 @@ struct MoneyBorrowedDetailSheet: View {
                     }
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle("Money Borrowed")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
@@ -3258,7 +3264,6 @@ struct LoanDetailSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FTBackdrop()
 
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
@@ -3394,6 +3399,8 @@ struct LoanDetailSheet: View {
                     }
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle("Loan")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
@@ -3511,7 +3518,6 @@ private struct RecordBorrowedRepaymentSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FTBackdrop()
 
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
@@ -3575,6 +3581,8 @@ private struct RecordBorrowedRepaymentSheet: View {
                     .padding(.top, FTSpacing.lg)
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle("Record Repayment")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
@@ -3661,7 +3669,6 @@ private struct EditDebtRepaymentSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FTBackdrop()
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
                         VStack(spacing: 0) {
@@ -3716,6 +3723,8 @@ private struct EditDebtRepaymentSheet: View {
                     .padding(.top, FTSpacing.lg)
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle("Edit Repayment")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
@@ -3751,9 +3760,10 @@ private struct EditDebtRepaymentSheet: View {
 
 #Preview {
     ZStack {
-        FTBackdrop()
         DebtManagementView()
     }
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .background { FTBackdrop() }
     .environment(AppState())
     .environment(CurrencyService.shared)
     .modelContainer(

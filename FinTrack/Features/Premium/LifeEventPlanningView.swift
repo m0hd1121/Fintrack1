@@ -331,7 +331,6 @@ struct AddLifeEventView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FTBackdrop()
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
                         VStack(spacing: 0) {
@@ -422,6 +421,8 @@ struct AddLifeEventView: View {
                 .scrollContentBackground(.hidden)
                 .scrollDismissesKeyboard(.interactively)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle(isEditing ? "Edit Event" : "New Life Event")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

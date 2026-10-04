@@ -133,7 +133,6 @@ struct InvestmentPortfolioView: View {
 
     var body: some View {
         ZStack {
-            FTBackdrop()
             VStack(spacing: 0) {
                 tabBar.padding(.top, FTSpacing.xs)
                 ScrollView {
@@ -161,6 +160,8 @@ struct InvestmentPortfolioView: View {
                 }
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background { FTBackdrop() }
         .navigationTitle("Portfolio")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
@@ -1870,7 +1871,6 @@ private struct InvestmentDetailSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FTBackdrop()
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
                         VStack(spacing: FTSpacing.md) {
@@ -1974,6 +1974,8 @@ private struct InvestmentDetailSheet: View {
                     }
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle(investment.symbol)
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
@@ -2030,7 +2032,6 @@ private struct RecordSaleSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FTBackdrop()
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
                         VStack(spacing: 0) {
@@ -2097,6 +2098,8 @@ private struct RecordSaleSheet: View {
                     .padding(.top, FTSpacing.lg)
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle("Record Sale")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
@@ -2174,7 +2177,6 @@ private struct CryptoDetailSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FTBackdrop()
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
                         VStack(spacing: FTSpacing.md) {
@@ -2276,6 +2278,8 @@ private struct CryptoDetailSheet: View {
                     }
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle(holding.symbol.uppercased())
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
@@ -2341,7 +2345,6 @@ private struct GoldDetailSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FTBackdrop()
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
                         VStack(spacing: FTSpacing.md) {
@@ -2398,6 +2401,8 @@ private struct GoldDetailSheet: View {
                     }
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle(holding.metal.rawValue)
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)

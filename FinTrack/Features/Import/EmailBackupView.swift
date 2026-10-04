@@ -244,7 +244,6 @@ private struct EmailBackupSignInSheet: View {
     var body: some View {
         NavigationStack {
             ZStack(alignment: .bottom) {
-                FTBackdrop()
 
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
@@ -317,6 +316,8 @@ private struct EmailBackupSignInSheet: View {
                 .padding(.horizontal, FTSpacing.screen)
                 .padding(.bottom, FTSpacing.md)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { FTBackdrop() }
             .navigationTitle("Sign In to Email")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
