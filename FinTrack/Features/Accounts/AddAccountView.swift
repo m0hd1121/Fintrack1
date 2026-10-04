@@ -266,6 +266,9 @@ struct AddAccountView: View {
                                 Text("Shared Members").font(.ftBody).foregroundStyle(FTColor.textSecondary)
                                 Spacer()
                                 TextField("Emails, comma-separated", text: $sharedMembersText)
+                                    .keyboardType(.emailAddress)
+                                    .textInputAutocapitalization(.never)
+                                    .autocorrectionDisabled()
                                     .multilineTextAlignment(.trailing)
                                     .font(.ftCaption).foregroundStyle(FTColor.textPrimary)
                             }
