@@ -31,13 +31,15 @@ enum BankSMSParser {
     /// recorded in each `ParsedBankEmail.explanationLines`, not in a
     /// separate return value — neither tier ever auto-approves, so
     /// `SMSIngestService` has no need to distinguish them structurally.
-    static func parse(rawText: String, senderId: String?, userTemplates: [BankSMSTemplate] = []) async -> [ParsedBankEmail] {
+    /// `receivedAt` dates a message whose text carries no date of its own.
+    static func parse(rawText: String, senderId: String?, userTemplates: [BankSMSTemplate] = [],
+                      receivedAt: Date = Date()) async -> [ParsedBankEmail] {
         let normalized = TextNormalizer.normalize(rawText).normalized
         let lower = normalized.lowercased()
 
         guard !skipKeywords.contains(where: { lower.contains($0) }) else { return [] }
 
-        if let templateResult = parseWithTemplate(normalized, senderId: senderId, userTemplates: userTemplates) {
+        if let templateResult = parseWithTemplate(normalized, senderId: senderId, userTemplates: userTemplates, receivedAt: receivedAt) {
             return [templateResult]
         }
 
@@ -46,13 +48,14 @@ enum BankSMSParser {
         else { return [] }
 
         return extraction.transactions.compactMap {
-            groundedResult(from: $0, rawText: normalized)
+            groundedResult(from: $0, rawText: normalized, receivedAt: receivedAt)
         }
     }
 
     // MARK: - Template path (deterministic, reuses BankEmailParser's grammar)
 
-    private static func parseWithTemplate(_ text: String, senderId: String?, userTemplates: [BankSMSTemplate]) -> ParsedBankEmail? {
+    private static func parseWithTemplate(_ text: String, senderId: String?, userTemplates: [BankSMSTemplate],
+                                          receivedAt: Date) -> ParsedBankEmail? {
         guard let (amount, currency, amountMatch) = BankEmailParser.extractAmount(from: text) else { return nil }
 
         let bank = BankSMSTemplateStore.identify(senderId: senderId, text: text, extraTemplates: userTemplates)
@@ -87,7 +90,7 @@ enum BankSMSParser {
         let cardLast4 = BankEmailParser.extractCardLast4(from: text)
         if let cardLast4 { lines.append("Card ending \(cardLast4)"); score += 0.1 }
 
-        let (date, dateSource) = BankEmailParser.extractDate(from: text) ?? (Date(), "SMS received time")
+        let (date, dateSource) = BankEmailParser.extractDate(from: text) ?? (receivedAt, "SMS received time")
         lines.append("Date from \(dateSource)")
 
         let balance = BankEmailParser.extractBalance(from: text)
@@ -115,7 +118,8 @@ enum BankSMSParser {
 
     // MARK: - On-device model path
 
-    private static func groundedResult(from raw: SMSExtractedTransaction, rawText: String) -> ParsedBankEmail? {
+    private static func groundedResult(from raw: SMSExtractedTransaction, rawText: String,
+                                       receivedAt: Date) -> ParsedBankEmail? {
         // Amount and currency are required — without both there's nothing
         // safe to post, grounded or not.
         guard let amount = raw.amount, amount > 0,
@@ -138,16 +142,16 @@ enum BankSMSParser {
         var suspicious = raw.transactionDirection == .unknown
         var suspiciousReason = suspicious ? "The model couldn't tell debit from credit — please confirm" : nil
 
-        var date = Date()
+        var date = receivedAt
         if let dateString = raw.date, TextNormalizer.isGrounded(raw.datetimeEvidence, in: rawText) {
             let formatter = DateFormatter()
             formatter.locale = Locale(identifier: "en_US_POSIX")
             let hasTime = raw.time != nil
             formatter.dateFormat = hasTime ? "yyyy-MM-dd HH:mm:ss" : "yyyy-MM-dd"
             let combined = hasTime ? "\(dateString) \(raw.time!)" : dateString
-            date = formatter.date(from: combined) ?? Date()
+            date = formatter.date(from: combined) ?? receivedAt
         } else {
-            lines.append("No grounded date — using processing time")
+            lines.append("No grounded date — using SMS received time")
         }
 
         if amount > 100_000 {

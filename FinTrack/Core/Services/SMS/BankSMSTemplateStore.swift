@@ -77,15 +77,32 @@ enum BankSMSTemplateStore {
         let lowerText = text.lowercased()
         if let senderId, !senderId.isEmpty {
             let lowerSender = senderId.lowercased()
+            // Exact sender id, or an exact token of a decorated one
+            // ("AD-FAB" → "fab").
+            let tokens = Set(lowerSender.components(separatedBy: CharacterSet.alphanumerics.inverted))
             if let match = candidates.first(where: { template in
-                template.senderIds.contains {
-                    lowerSender.contains($0.lowercased()) || $0.lowercased().contains(lowerSender)
+                template.senderIds.contains { $0.lowercased() == lowerSender || tokens.contains($0.lowercased()) }
+            }) {
+                return match
+            }
+            // Carriers decorate ids ("AD-ENBD", "ENBD-T"), so containment is
+            // allowed — but only when the shorter side has 4+ characters, so a
+            // short id like "CB" can't claim "ADCB".
+            if let match = candidates.first(where: { template in
+                template.senderIds.contains { id in
+                    let lowerId = id.lowercased()
+                    guard min(lowerId.count, lowerSender.count) >= 4 else { return false }
+                    return lowerSender.contains(lowerId) || lowerId.contains(lowerSender)
                 }
             }) {
                 return match
             }
         }
-        return candidates.first { lowerText.contains($0.bankName.lowercased()) }
+        // Bank name as a whole word in the text ("CBD" must not match "ACBD").
+        return candidates.first { template in
+            let pattern = "\\b" + NSRegularExpression.escapedPattern(for: template.bankName.lowercased()) + "\\b"
+            return lowerText.range(of: pattern, options: .regularExpression) != nil
+        }
     }
 
     /// Stable, comparable identity for a bank name — shared by

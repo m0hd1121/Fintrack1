@@ -31,7 +31,8 @@ enum SMSIngestService {
             .filter { $0.isEnabled && $0.senderEmail.hasPrefix("sms:") && !$0.keywords.isEmpty }
             .map { BankSMSTemplate(bankId: BankSMSTemplateStore.slug($0.bankName), bankName: $0.bankName, senderIds: $0.keywords) }
 
-        let results = await BankSMSParser.parse(rawText: rawText, senderId: senderId, userTemplates: userTemplates)
+        let results = await BankSMSParser.parse(rawText: rawText, senderId: senderId, userTemplates: userTemplates,
+                                                 receivedAt: receivedAt)
         guard !results.isEmpty else {
             // Never drop a message silently: an unparsed SMS is either a
             // non-transaction (fine) or a bank that changed its wording

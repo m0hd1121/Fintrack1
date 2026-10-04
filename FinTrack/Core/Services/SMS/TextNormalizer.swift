@@ -140,18 +140,28 @@ enum TextNormalizer {
         guard seenDigit else { return nil }
 
         // Whichever separator comes last is the decimal point ("1,234.56" and
-        // "1.234,56" are both real). A lone separator is a decimal point only
-        // when exactly two digits follow it, otherwise it groups thousands.
+        // "1.234,56" are both real). A lone separator type needs a guess:
+        //   • repeated ("1,234,567") → thousands grouping;
+        //   • a comma followed by exactly three digits ("1,234") → grouping;
+        //   • otherwise it's the decimal point — "45.5", "45,50", and the
+        //     three-decimal Gulf currencies ("KWD 1.250", "OMR 12.345").
         let lastDot = digits.lastIndex(of: ".")
         let lastComma = digits.lastIndex(of: ",")
+        func loneSeparatorIsDecimal(_ index: String.Index, _ separator: Character) -> Bool {
+            let following = digits.distance(from: index, to: digits.endIndex) - 1
+            guard following > 0 else { return false }
+            if digits.filter({ $0 == separator }).count > 1 { return false }
+            if separator == "," && following == 3 { return false }
+            return true
+        }
         var decimalIndex: String.Index?
         switch (lastDot, lastComma) {
         case let (dot?, comma?):
             decimalIndex = dot > comma ? dot : comma
         case let (dot?, nil):
-            decimalIndex = digits.distance(from: dot, to: digits.endIndex) == 3 ? dot : nil
+            decimalIndex = loneSeparatorIsDecimal(dot, ".") ? dot : nil
         case let (nil, comma?):
-            decimalIndex = digits.distance(from: comma, to: digits.endIndex) == 3 ? comma : nil
+            decimalIndex = loneSeparatorIsDecimal(comma, ",") ? comma : nil
         case (nil, nil):
             decimalIndex = nil
         }
