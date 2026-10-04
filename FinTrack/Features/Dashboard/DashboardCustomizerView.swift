@@ -1,11 +1,13 @@
 import SwiftUI
 import SwiftData
 
-// Identifiers for each dashboard section. Must match DashboardView.isWidgetHidden(id:).
+// Identifiers for each dashboard section, stored comma-separated in
+// AppSettings.dashboardHiddenWidgets. Each case must gate a section via
+// DashboardView.isWidgetVisible(_:). ("budgets" was removed — the dashboard
+// has no budget section; a stored "budgets" id is simply ignored.)
 enum DashboardWidget: String, CaseIterable, Identifiable {
     case hero          = "hero"
     case metrics       = "metrics"
-    case budgets       = "budgets"
     case bills         = "bills"
     case aiInsights    = "aiInsights"
 
@@ -13,9 +15,8 @@ enum DashboardWidget: String, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .hero:        return "Net Worth Summary"
+        case .hero:        return "Account Cards"
         case .metrics:     return "Monthly Metrics"
-        case .budgets:     return "Budget Overview"
         case .bills:       return "Upcoming Bills"
         case .aiInsights:  return "AI Insights"
         }
@@ -23,9 +24,8 @@ enum DashboardWidget: String, CaseIterable, Identifiable {
 
     var icon: String {
         switch self {
-        case .hero:        return "chart.line.uptrend.xyaxis"
+        case .hero:        return "creditcard.fill"
         case .metrics:     return "arrow.left.arrow.right.circle.fill"
-        case .budgets:     return "chart.pie.fill"
         case .bills:       return "calendar.badge.clock"
         case .aiInsights:  return "brain.head.profile"
         }
@@ -35,7 +35,6 @@ enum DashboardWidget: String, CaseIterable, Identifiable {
         switch self {
         case .hero:        return FTColor.accent
         case .metrics:     return FTColor.income
-        case .budgets:     return FTColor.catPurple
         case .bills:       return FTColor.catTeal
         case .aiInsights:  return FTColor.catPurple
         }

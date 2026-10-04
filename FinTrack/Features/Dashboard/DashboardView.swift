@@ -73,8 +73,7 @@ struct DashboardView: View {
         var totalBalance: Double = 0
         var spendingByCategory: [(category: TransactionCategory, amount: Double)] = []
         /// Every category's month-to-date spend, not just the top 6 shown on
-        /// the card. `pushWidgetData` reads each budget's figure straight out
-        /// of here instead of re-scanning the ledger per budget.
+        /// the card.
         var spendingTotals: [TransactionCategory: Double] = [:]
         var upcomingPayments: [(name: String, amount: Double, date: Date, type: String)] = []
         var recentTransactions: [Transaction] = []
@@ -222,7 +221,7 @@ struct DashboardView: View {
             baseCurrency: baseCurrency
         )
 
-        pushWidgetData()
+        pushWidgetData(currentMonth: computed.currentMonth)
         // Newest-first from the query, so this is the most recent 200 rather
         // than an arbitrary 200. Re-indexing identical content is skipped
         // inside the service — see `SpotlightService`.
@@ -230,7 +229,7 @@ struct DashboardView: View {
         SpotlightService.shared.indexAccounts(accounts)
     }
 
-    private func pushWidgetData() {
+    private func pushWidgetData(currentMonth: [Transaction]) {
         let txSnapshots = transactions.prefix(10).map { tx in
             WidgetTxSnapshot(
                 id: tx.id,
@@ -243,17 +242,18 @@ struct DashboardView: View {
             )
         }
 
-        let budgetSnapshots = budgets.map { b -> WidgetBudgetSnapshot in
-            // Was: a fresh full-ledger filter + flatMap per budget, i.e.
-            // O(budgets × transactions) with a calendar comparison and a
-            // `spendingPairs` array built for every cell. The same figure is
-            // already in the single-pass totals.
-            let spent = metrics.spendingTotals[b.category] ?? 0
+        // Same figure the Budget tab shows: BudgetService applies each budget's
+        // keyword/merchant filter and excludes spend claimed by more specific
+        // budgets, which a per-category total doesn't.
+        let activeBudgets = budgets.filter(\.isActive)
+        let budgetSnapshots = activeBudgets.map { b -> WidgetBudgetSnapshot in
+            let spent = BudgetService.shared.spending(for: b, allBudgets: activeBudgets,
+                                                      transactions: currentMonth, in: Date())
             return WidgetBudgetSnapshot(
                 id: b.id,
                 name: b.name.isEmpty ? b.category.rawValue : b.name,
                 spent: spent,
-                total: b.amount,
+                total: currencyService.convert(b.amount, from: b.currency, to: baseCurrency),
                 currency: baseCurrency,
                 color: "#0E9C8A",
                 icon: b.category.icon
@@ -340,7 +340,7 @@ struct DashboardView: View {
                         header
                             .padding(.horizontal, FTSpacing.screen)
 
-                        if !activeAccounts.isEmpty {
+                        if isWidgetVisible(.hero) && !activeAccounts.isEmpty {
                             accountsRow
                         }
 
