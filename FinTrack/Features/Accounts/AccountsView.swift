@@ -149,10 +149,23 @@ struct AccountsView: View {
     private var activeIncomeStreams: Int {
         (salaryRecords.isEmpty ? 0 : 1) + (freelanceProjects.isEmpty ? 0 : 1) + (rentalProperties.isEmpty ? 0 : 1)
     }
-    private var monthlyIncome: Double {
-        transactions
-            .filter { $0.type == .income && !$0.isPending && !$0.isScheduled && $0.date.isSameMonth(as: Date()) }
+    /// Ledger-derived values, cached: both used to re-scan every transaction
+    /// on each body evaluation (including during the animated tab switch).
+    @State private var monthlyIncome: Double = 0
+    @State private var goalHasConflict = false
+
+    private var ledgerKey: String {
+        "\(transactions.count)|\(activeGoals.map { "\($0.id)\($0.currentAmount)\($0.targetAmount)" }.joined().hashValue)"
+    }
+
+    private func recomputeLedgerValues() {
+        monthlyIncome = transactions
+            .filter { $0.type == .income && !$0.isPending && !$0.isScheduled && !$0.isPrincipalMovement
+                && $0.date.isSameMonth(as: Date()) }
             .reduce(0) { $0 + $1.amountInBaseCurrency }
+        goalHasConflict = SavingsGoalService.shared.analyzeConflicts(
+            goals: activeGoals, transactions: transactions, currencyService: currencyService, base: baseCurrency
+        ).hasConflict
     }
     private var overdueIncomeCount: Int {
         freelanceProjects.flatMap { $0.overdueInvoices }.count + rentalProperties.flatMap { $0.overduePayments }.count
@@ -172,10 +185,6 @@ struct AccountsView: View {
         investments.count + cryptoHoldings.count + activeGoldHoldings.count
     }
 
-    private var goalConflict: SavingsGoalService.GoalConflict {
-        SavingsGoalService.shared.analyzeConflicts(
-            goals: activeGoals, transactions: transactions, currencyService: currencyService, base: baseCurrency)
-    }
     private var goalsSaved: Double {
         activeGoals.reduce(0) { $0 + currencyService.convert($1.currentAmount, from: $1.currency, to: baseCurrency) }
     }
@@ -281,6 +290,8 @@ struct AccountsView: View {
             .sheet(isPresented: $showingNotifications) { NotificationSettingsView() }
             // Tapping the Accounts tab pops any pushed module screen back here.
             .onChange(of: appState.popToRootTick) { moduleRoute = nil }
+            .task(id: ledgerKey) { recomputeLedgerValues() }
+            .onAppear { recomputeLedgerValues() }
         }
     }
 
@@ -421,7 +432,7 @@ struct AccountsView: View {
                 icon: "star.fill", tint: FTColor.catTeal,
                 label: "Savings Goals",
                 value: goalsSaved.asCompact(currency: baseCurrency),
-                valueColor: FTColor.textPrimary, sub: goalsSub, wide: false, badge: goalConflict.hasConflict,
+                valueColor: FTColor.textPrimary, sub: goalsSub, wide: false, badge: goalHasConflict,
                 action: { moduleRoute = .goals }
             ),
             ModuleCardData(
@@ -447,8 +458,9 @@ struct AccountsView: View {
     // the 2-column grid instead, rather than relying on a modifier that would silently
     // no-op here.
     private var moduleGrid: some View {
-        let regular = moduleCards.filter { !$0.wide }
-        let wide = moduleCards.first { $0.wide }
+        let cards = moduleCards   // built once (it computes several totals)
+        let regular = cards.filter { !$0.wide }
+        let wide = cards.first { $0.wide }
 
         return VStack(spacing: FTSpacing.sm) {
             LazyVGrid(columns: [GridItem(.flexible(), spacing: FTSpacing.sm), GridItem(.flexible(), spacing: FTSpacing.sm)], spacing: FTSpacing.sm) {
