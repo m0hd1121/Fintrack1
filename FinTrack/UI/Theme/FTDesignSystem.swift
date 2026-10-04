@@ -331,6 +331,10 @@ struct FTSegmentedControl: View {
             ForEach(options.indices, id: \.self) { i in
                 Text(options[i])
                     .font(.ftCallout)
+                    // Up to four equal-width segments: with Dynamic Type the
+                    // labels shrink slightly before truncating.
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
                     .foregroundStyle(selection == i ? .white : FTColor.textSecondary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
