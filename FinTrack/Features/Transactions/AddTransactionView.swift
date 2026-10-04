@@ -1800,6 +1800,10 @@ struct AddTransactionView: View {
         if type == .expense && !isPending && !isScheduled {
             fireBudgetAlertIfNeeded(category: category, amountInBase: convertedAmount)
         }
+        if type != .income && !isPending && !isScheduled {
+            NotificationService.shared.checkTransactionAlerts(
+                title: title, amount: convertedAmount, currency: baseCurrency, account: selectedAccount)
+        }
 
         isSaving = false
         dismiss()
@@ -1845,7 +1849,7 @@ struct AddTransactionView: View {
         let allTx = (try? context.fetch(FetchDescriptor<Transaction>())) ?? []
         let spent = BudgetService.shared.spending(for: budget, allBudgets: Array(budgets), transactions: allTx, in: now)
         let limit = currencyService.convert(budget.amount, from: budget.currency, to: base)
-        if limit > 0 && spent / limit >= 0.8 {
+        if limit > 0 && spent / limit >= 0.75 {
             NotificationService.shared.scheduleBudgetAlert(
                 categoryName: budget.name, spent: spent, budget: limit, currency: base
             )

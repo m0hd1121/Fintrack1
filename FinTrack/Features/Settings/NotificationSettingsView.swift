@@ -4,6 +4,7 @@ import UserNotifications
 
 struct NotificationSettingsView: View {
     @Environment(\.modelContext) private var context
+    @Environment(AppState.self) private var appState
     @Query private var allSettings: [AppSettings]
     @Query private var accounts: [Account]
     @Query private var budgets: [Budget]
@@ -18,7 +19,10 @@ struct NotificationSettingsView: View {
         Binding(
             get: { settings?[keyPath: kp] ?? def },
             set: { v in
-                if let s = allSettings.first { s[keyPath: kp] = v }
+                if let s = allSettings.first {
+                    s[keyPath: kp] = v
+                    NotificationService.shared.apply(settings: s)
+                }
                 try? context.save()
             }
         )
@@ -209,7 +213,7 @@ struct NotificationSettingsView: View {
                     Button {
                         showingLowBalanceEditor = true
                     } label: {
-                        Text((settings?.lowBalanceThreshold ?? 100).formatted(.currency(code: "AED").precision(.fractionLength(0))))
+                        Text((settings?.lowBalanceThreshold ?? 100).formatted(.currency(code: appState.baseCurrency).precision(.fractionLength(0))))
                             .font(.ftCallout).foregroundStyle(FTColor.accent)
                             .padding(.horizontal, FTSpacing.sm).padding(.vertical, 4)
                             .background(FTColor.accent.opacity(0.1), in: Capsule())
@@ -229,7 +233,7 @@ struct NotificationSettingsView: View {
                     Button {
                         showingLargeThresholdEditor = true
                     } label: {
-                        Text((settings?.largeTransactionThreshold ?? 1000).formatted(.currency(code: "AED").precision(.fractionLength(0))))
+                        Text((settings?.largeTransactionThreshold ?? 1000).formatted(.currency(code: appState.baseCurrency).precision(.fractionLength(0))))
                             .font(.ftCallout).foregroundStyle(FTColor.accent)
                             .padding(.horizontal, FTSpacing.sm).padding(.vertical, 4)
                             .background(FTColor.accent.opacity(0.1), in: Capsule())
@@ -241,14 +245,14 @@ struct NotificationSettingsView: View {
             ThresholdEditorSheet(
                 title: "Low Balance Threshold",
                 value: bind(\.lowBalanceThreshold, default: 100),
-                currency: "AED"
+                currency: appState.baseCurrency
             )
         }
         .sheet(isPresented: $showingLargeThresholdEditor) {
             ThresholdEditorSheet(
                 title: "Large Transaction Threshold",
                 value: bind(\.largeTransactionThreshold, default: 1000),
-                currency: "AED"
+                currency: appState.baseCurrency
             )
         }
     }
@@ -352,14 +356,6 @@ struct NotificationSettingsView: View {
                 }
             }
         }
-        .onChange(of: settings?.weeklyDigestEnabled) { _, enabled in
-            if enabled == true { scheduleWeeklyDigest() }
-            else { NotificationService.shared.cancelNotification(id: "weekly_digest") }
-        }
-        .onChange(of: settings?.monthlyDigestEnabled) { _, enabled in
-            if enabled == true { scheduleMonthlyDigest() }
-            else { NotificationService.shared.cancelNotification(id: "monthly_digest") }
-        }
     }
 
     // MARK: - Card Builder
@@ -417,34 +413,6 @@ struct NotificationSettingsView: View {
         comps.hour = h
         comps.minute = 0
         return Calendar.current.date(from: comps).map { fmt.string(from: $0) } ?? "\(h):00"
-    }
-
-    private func scheduleWeeklyDigest() {
-        let content = UNMutableNotificationContent()
-        content.title = "Your Weekly FinTrack Digest"
-        content.body = "Review your spending summary and financial highlights from the past week."
-        content.sound = .default
-        var comps = DateComponents()
-        comps.weekday = settings?.digestDayOfWeek ?? 2
-        comps.hour = settings?.digestHour ?? 9
-        comps.minute = 0
-        let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: true)
-        let request = UNNotificationRequest(identifier: "weekly_digest", content: content, trigger: trigger)
-        UNUserNotificationCenter.current().add(request)
-    }
-
-    private func scheduleMonthlyDigest() {
-        let content = UNMutableNotificationContent()
-        content.title = "Your Monthly FinTrack Report"
-        content.body = "Your financial month in review — income, spending, savings, and more."
-        content.sound = .default
-        var comps = DateComponents()
-        comps.day = settings?.digestDayOfMonth ?? 1
-        comps.hour = settings?.digestHour ?? 9
-        comps.minute = 0
-        let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: true)
-        let request = UNNotificationRequest(identifier: "monthly_digest", content: content, trigger: trigger)
-        UNUserNotificationCenter.current().add(request)
     }
 
     @MainActor

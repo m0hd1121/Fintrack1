@@ -1,9 +1,168 @@
 import Foundation
 import UserNotifications
 
+/// Mirror of the notification toggles in `AppSettings`. Services that post
+/// alerts have no model context, so `NotificationSettingsView` and `RootView`
+/// copy the settings here (UserDefaults.standard) and every request goes
+/// through `deliver(_:)`, which drops the ones the user turned off.
+struct NotificationPreferences: Codable, Equatable {
+    var notificationsEnabled = true
+    var billReminders = true
+    var reminderDaysBefore = 3
+    var budgetAlerts = true
+    var budgetAt75 = true
+    var budgetAt90 = true
+    var budgetAt100 = true
+    var salaryReminders = true
+    var lowBalance = true
+    var lowBalanceThreshold = 100.0
+    var largeTransaction = true
+    var largeTransactionThreshold = 1000.0
+    var goalMilestones = true
+    var weeklyDigest = false
+    var monthlyDigest = false
+    var digestDayOfWeek = 2
+    var digestDayOfMonth = 1
+    var digestHour = 9
+
+    init() {}
+
+    init(_ s: AppSettings) {
+        notificationsEnabled = s.notificationsEnabled
+        billReminders = s.billRemindersEnabled
+        reminderDaysBefore = s.reminderDaysBefore
+        budgetAlerts = s.budgetAlertsEnabled
+        budgetAt75 = s.budgetAlertAt75
+        budgetAt90 = s.budgetAlertAt90
+        budgetAt100 = s.budgetAlertAt100
+        salaryReminders = s.salaryReminderEnabled
+        lowBalance = s.lowBalanceAlertEnabled
+        lowBalanceThreshold = s.lowBalanceThreshold
+        largeTransaction = s.largeTransactionAlertEnabled
+        largeTransactionThreshold = s.largeTransactionThreshold
+        goalMilestones = s.goalMilestoneAlertEnabled
+        weeklyDigest = s.weeklyDigestEnabled
+        monthlyDigest = s.monthlyDigestEnabled
+        digestDayOfWeek = s.digestDayOfWeek
+        digestDayOfMonth = s.digestDayOfMonth
+        digestHour = s.digestHour
+    }
+}
+
 final class NotificationService {
     static let shared = NotificationService()
     private init() {}
+
+    private static let preferencesKey = "ft_notification_preferences"
+
+    var preferences: NotificationPreferences {
+        guard let data = UserDefaults.standard.data(forKey: Self.preferencesKey),
+              let prefs = try? JSONDecoder().decode(NotificationPreferences.self, from: data)
+        else { return NotificationPreferences() }
+        return prefs
+    }
+
+    /// Copies the user's notification settings and re-applies them: digests
+    /// are (re)scheduled for the chosen day/hour, and turning a category off
+    /// removes its pending reminders.
+    func apply(settings: AppSettings) {
+        let prefs = NotificationPreferences(settings)
+        if let data = try? JSONEncoder().encode(prefs) {
+            UserDefaults.standard.set(data, forKey: Self.preferencesKey)
+        }
+        rescheduleDigests(prefs)
+        var disabledPrefixes: [String] = []
+        if !prefs.notificationsEnabled {
+            disabledPrefixes = [""]
+        } else {
+            if !prefs.billReminders { disabledPrefixes += ["bill_", "cc_", "loan_", "bnpl_", "cheque_"] }
+            if !prefs.salaryReminders { disabledPrefixes += ["salary_"] }
+            if !prefs.goalMilestones { disabledPrefixes += ["goal_"] }
+        }
+        guard !disabledPrefixes.isEmpty else { return }
+        UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
+            let ids = requests.map(\.identifier).filter { id in
+                disabledPrefixes.contains { id.hasPrefix($0) }
+            }
+            UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ids)
+        }
+    }
+
+    /// Used by Clear All Data.
+    func resetPreferences() {
+        let defaults = UserDefaults.standard
+        defaults.removeObject(forKey: Self.preferencesKey)
+        for key in defaults.dictionaryRepresentation().keys where key.hasPrefix("ft_budget_alert_") {
+            defaults.removeObject(forKey: key)
+        }
+    }
+
+    /// Whether a request with this identifier is allowed by the user's settings.
+    private func isAllowed(_ identifier: String) -> Bool {
+        let p = preferences
+        guard p.notificationsEnabled else { return false }
+        let id = identifier
+        if ["bill_", "cc_", "loan_", "bnpl_", "cheque_"].contains(where: id.hasPrefix) { return p.billReminders }
+        if id.hasPrefix("budget_") { return p.budgetAlerts }
+        if id.hasPrefix("salary_") { return p.salaryReminders }
+        if id.hasPrefix("minbal_") || id.hasPrefix("lowbal_") { return p.lowBalance }
+        if id.hasPrefix("large_tx_") { return p.largeTransaction }
+        if id.hasPrefix("goal_milestone_") || id.hasPrefix("goal_completed_") { return p.goalMilestones }
+        return true
+    }
+
+    private func deliver(_ request: UNNotificationRequest) {
+        guard isAllowed(request.identifier) else { return }
+        UNUserNotificationCenter.current().add(request)
+    }
+
+    private func rescheduleDigests(_ p: NotificationPreferences) {
+        cancelNotification(id: "weekly_digest")
+        cancelNotification(id: "monthly_digest")
+        guard p.notificationsEnabled else { return }
+        if p.weeklyDigest {
+            let content = UNMutableNotificationContent()
+            content.title = "Your Weekly FinTrack Digest"
+            content.body = "Review your spending summary and financial highlights from the past week."
+            content.sound = .default
+            var comps = DateComponents()
+            comps.weekday = p.digestDayOfWeek
+            comps.hour = p.digestHour
+            comps.minute = 0
+            let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: true)
+            deliver(UNNotificationRequest(identifier: "weekly_digest", content: content, trigger: trigger))
+        }
+        if p.monthlyDigest {
+            let content = UNMutableNotificationContent()
+            content.title = "Your Monthly FinTrack Report"
+            content.body = "Your financial month in review — income, spending, savings, and more."
+            content.sound = .default
+            var comps = DateComponents()
+            comps.day = p.digestDayOfMonth
+            comps.hour = p.digestHour
+            comps.minute = 0
+            let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: true)
+            deliver(UNNotificationRequest(identifier: "monthly_digest", content: content, trigger: trigger))
+        }
+    }
+
+    /// Large-transaction and low-balance alerts for a just-saved transaction.
+    /// Thresholds are entered in the base currency: pass the amount converted
+    /// to it; the account balance is converted before comparing.
+    func checkTransactionAlerts(title: String, amount: Double, currency: String, account: Account?) {
+        let p = preferences
+        if p.largeTransaction, amount >= p.largeTransactionThreshold {
+            sendLargeTransactionAlert(title: title, amount: amount, currency: currency,
+                                      accountName: account?.name ?? "No account")
+        }
+        if let account, p.lowBalance,
+           CurrencyService.shared.convert(account.balance, from: account.currency, to: currency) < p.lowBalanceThreshold,
+           !(account.minimumBalanceEnabled && account.balance < account.minimumBalance) {
+            sendLowBalanceAlert(accountName: account.name,
+                                balance: CurrencyService.shared.convert(account.balance, from: account.currency, to: currency),
+                                threshold: p.lowBalanceThreshold, currency: currency)
+        }
+    }
 
     func requestPermission() async -> Bool {
         let center = UNUserNotificationCenter.current()
@@ -40,13 +199,13 @@ final class NotificationService {
 
     // MARK: – Credit card reminder
     func scheduleCreditCardReminder(cardName: String, dueDate: Date, minimumPayment: Double,
-                                    currency: String, daysBefore: Int = 7, id: String) {
+                                    currency: String, daysBefore: Int? = nil, id: String) {
         schedule(
             identifier: "cc_\(id)",
             title: "Credit Card Payment Due",
             body: "\(cardName) minimum payment of \(minimumPayment.formatted(as: currency)) is due on \(dueDate.formatted)",
             dueDate: dueDate,
-            daysBefore: daysBefore
+            daysBefore: daysBefore ?? preferences.reminderDaysBefore
         )
     }
 
@@ -77,15 +236,28 @@ final class NotificationService {
 
     // MARK: – Budget alert (immediate)
     func scheduleBudgetAlert(categoryName: String, spent: Double, budget: Double, currency: String) {
+        guard budget > 0 else { return }
+        let ratio = spent / budget
+        let p = preferences
+        let level: Int
+        if ratio >= 1.0, p.budgetAt100 { level = 100 }
+        else if ratio >= 0.9, p.budgetAt90 { level = 90 }
+        else if ratio >= 0.75, p.budgetAt75 { level = 75 }
+        else { return }
+        // One alert per budget, level and month — not one per transaction.
+        let month = Calendar.current.dateComponents([.year, .month], from: Date())
+        let sentKey = "ft_budget_alert_\(categoryName)_\(month.year ?? 0)_\(month.month ?? 0)"
+        guard UserDefaults.standard.integer(forKey: sentKey) < level else { return }
+        UserDefaults.standard.set(level, forKey: sentKey)
         let content = UNMutableNotificationContent()
-        let pct = Int((spent / budget) * 100)
+        let pct = Int(ratio * 100)
         content.title = "Budget Alert — \(categoryName)"
         content.body = "You've used \(pct)% of your \(categoryName) budget (\(spent.formatted(as: currency)) of \(budget.formatted(as: currency)))"
         content.sound = .default
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
         let id = "budget_\(categoryName.lowercased().replacingOccurrences(of: " ", with: "_"))"
         let request = UNNotificationRequest(identifier: id, content: content, trigger: trigger)
-        UNUserNotificationCenter.current().add(request)
+        deliver(request)
     }
 
     // MARK: – Gift card expiry reminder
@@ -121,7 +293,7 @@ final class NotificationService {
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
         let id = "minbal_\(accountName.lowercased().replacingOccurrences(of: " ", with: "_"))"
         let request = UNNotificationRequest(identifier: id, content: content, trigger: trigger)
-        UNUserNotificationCenter.current().add(request)
+        deliver(request)
     }
 
     // MARK: – Salary reminder
@@ -136,7 +308,7 @@ final class NotificationService {
         let components = Calendar.current.dateComponents([.year, .month, .day, .hour], from: triggerDate)
         let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
         let request = UNNotificationRequest(identifier: "salary_\(recordId)", content: content, trigger: trigger)
-        UNUserNotificationCenter.current().add(request)
+        deliver(request)
     }
 
     // MARK: – Salary not received alert
@@ -148,7 +320,7 @@ final class NotificationService {
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
         let id = "salary_late_\(employerName.lowercased().replacingOccurrences(of: " ", with: "_"))"
         let request = UNNotificationRequest(identifier: id, content: content, trigger: trigger)
-        UNUserNotificationCenter.current().add(request)
+        deliver(request)
     }
 
     // MARK: – Freelance invoice overdue
@@ -160,7 +332,7 @@ final class NotificationService {
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
         let id = "invoice_overdue_\(invoiceNumber.replacingOccurrences(of: "#", with: ""))"
         let request = UNNotificationRequest(identifier: id, content: content, trigger: trigger)
-        UNUserNotificationCenter.current().add(request)
+        deliver(request)
     }
 
     // MARK: – Rent late alert
@@ -172,7 +344,7 @@ final class NotificationService {
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
         let id = "rent_late_\(propertyName.lowercased().replacingOccurrences(of: " ", with: "_"))"
         let request = UNNotificationRequest(identifier: id, content: content, trigger: trigger)
-        UNUserNotificationCenter.current().add(request)
+        deliver(request)
     }
 
     // MARK: – Money lent reminder
@@ -208,7 +380,7 @@ final class NotificationService {
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
         let id = "utilization_\(cardName.lowercased().replacingOccurrences(of: " ", with: "_"))"
         let request = UNNotificationRequest(identifier: id, content: content, trigger: trigger)
-        UNUserNotificationCenter.current().add(request)
+        deliver(request)
     }
 
     // MARK: – Savings Goal Milestone
@@ -221,7 +393,7 @@ final class NotificationService {
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
         let id = "goal_milestone_\(goal.id.uuidString)_\(Int(milestone * 100))"
         let request = UNNotificationRequest(identifier: id, content: content, trigger: trigger)
-        UNUserNotificationCenter.current().add(request)
+        deliver(request)
     }
 
     // MARK: – Savings Goal Completed
@@ -234,7 +406,7 @@ final class NotificationService {
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
         let id = "goal_completed_\(goalName.lowercased().replacingOccurrences(of: " ", with: "_"))"
         let request = UNNotificationRequest(identifier: id, content: content, trigger: trigger)
-        UNUserNotificationCenter.current().add(request)
+        deliver(request)
     }
 
     // MARK: – Auto-Contribution Reminder
@@ -264,7 +436,7 @@ final class NotificationService {
         let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: true)
         let id = "goal_contribution_\(goal.id.uuidString)"
         let request = UNNotificationRequest(identifier: id, content: content, trigger: trigger)
-        UNUserNotificationCenter.current().add(request)
+        deliver(request)
     }
 
     // MARK: – Large Transaction Alert
@@ -277,7 +449,7 @@ final class NotificationService {
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
         let id = "large_tx_\(UUID().uuidString)"
         let request = UNNotificationRequest(identifier: id, content: content, trigger: trigger)
-        UNUserNotificationCenter.current().add(request)
+        deliver(request)
     }
 
     // MARK: – Low Balance Alert (threshold-based)
@@ -290,7 +462,7 @@ final class NotificationService {
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
         let id = "lowbal_threshold_\(accountName.lowercased().replacingOccurrences(of: " ", with: "_"))"
         let request = UNNotificationRequest(identifier: id, content: content, trigger: trigger)
-        UNUserNotificationCenter.current().add(request)
+        deliver(request)
     }
 
     // MARK: – Email Import Alert
@@ -309,7 +481,7 @@ final class NotificationService {
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
         let id = "email_import_\(UUID().uuidString)"
         let request = UNNotificationRequest(identifier: id, content: content, trigger: trigger)
-        UNUserNotificationCenter.current().add(request)
+        deliver(request)
     }
 
     // MARK: – App icon badge
@@ -345,6 +517,6 @@ final class NotificationService {
         let components = Calendar.current.dateComponents([.year, .month, .day, .hour], from: triggerDate)
         let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
         let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
-        UNUserNotificationCenter.current().add(request)
+        deliver(request)
     }
 }

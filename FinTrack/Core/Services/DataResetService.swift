@@ -139,5 +139,6 @@ enum DataResetService {
             UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: stale)
         }
         NotificationService.shared.setBadgeCount(0)
+        NotificationService.shared.resetPreferences()
     }
 }

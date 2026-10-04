@@ -36,7 +36,7 @@ struct AddBillView: View {
     @State private var autoPayWindowDays: Int = 3
 
     // Section 5: Reminders
-    @State private var reminderDays: Set<Int> = [3]
+    @State private var reminderDays: Set<Int> = [NotificationService.shared.preferences.reminderDaysBefore]
 
     // Section 6: Notes
     @State private var notes: String = ""

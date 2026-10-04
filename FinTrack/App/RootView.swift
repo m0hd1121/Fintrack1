@@ -97,6 +97,7 @@ struct RootView: View {
         }
         .onAppear {
             ensureDefaults()
+            if let s = settings.first { NotificationService.shared.apply(settings: s) }
             NotificationService.shared.setBadgeCount(pendingReviewItems.count)
             if appState.hasCompletedOnboarding,
                let setting = settings.first,

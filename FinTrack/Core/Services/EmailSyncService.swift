@@ -1377,6 +1377,9 @@ nonisolated enum KeychainStore {
 enum AuditLogService {
     @MainActor
     static func log(context: ModelContext, _ description: String) {
+        // Respect Security & Privacy → Audit Log.
+        let settings = try? context.fetch(FetchDescriptor<AppSettings>())
+        guard settings?.first?.auditLogEnabled != false else { return }
         let entry = AuditLogEntry(eventType: .dataImported, description: description)
         context.insert(entry)
     }
