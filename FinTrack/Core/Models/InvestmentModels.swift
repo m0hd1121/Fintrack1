@@ -23,12 +23,18 @@ struct SaleRecord: Codable, Identifiable, Equatable {
     var costBasis: Double
     var method: CostBasisMethod
     var notes: String?
+    /// Purchase date of the earliest lot the sale drew on. Optional so sales
+    /// recorded before it existed still decode; those count as short-term.
+    var acquiredDate: Date? = nil
 
     var proceeds: Double { quantity * salePricePerUnit }
     var realizedPnL: Double { proceeds - costBasis }
     var isGain: Bool { realizedPnL >= 0 }
+    /// Held 12+ months between purchase and sale. (Was measured from the sale
+    /// date to today, so every sale became "long-term" a year later.)
     var isLongTerm: Bool {
-        let months = Calendar.current.dateComponents([.month], from: saleDate, to: Date()).month ?? 0
+        guard let acquiredDate else { return false }
+        let months = Calendar.current.dateComponents([.month], from: acquiredDate, to: saleDate).month ?? 0
         return months >= 12
     }
 }

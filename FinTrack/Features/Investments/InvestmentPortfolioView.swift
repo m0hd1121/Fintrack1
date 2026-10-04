@@ -2127,8 +2127,13 @@ private struct RecordSaleSheet: View {
     private func recordSale() {
         guard isValid else { return }
         let gain = InvestmentService.shared.calculateGain(lots: investment.lots, selling: quantity, at: salePrice, method: method)
+        // Lots the sale consumed: FIFO draws from the oldest, LIFO from the
+        // newest; average cost draws proportionally, so take the oldest.
+        let byDate = investment.lots.sorted { $0.purchaseDate < $1.purchaseDate }
+        let acquired = (method == .lifo ? byDate.last : byDate.first)?.purchaseDate
         let record = SaleRecord(quantity: quantity, salePricePerUnit: salePrice, saleDate: saleDate,
-                                costBasis: gain.costBasis, method: method, notes: notes.isEmpty ? nil : notes)
+                                costBasis: gain.costBasis, method: method, notes: notes.isEmpty ? nil : notes,
+                                acquiredDate: acquired)
         investment.sales = investment.sales + [record]
         investment.lots = gain.remainingLots
         investment.quantity -= quantity
