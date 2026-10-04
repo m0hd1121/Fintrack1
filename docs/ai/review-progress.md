@@ -13,7 +13,7 @@ Excluded from line-by-line: `logo.png` (binary), `.xcworkspace/contents.xcworksp
 | 4 | Core/Models | 30 / 6640 | done |
 | 5 | Core/Services (+SMS) | 52 / 16962 | done |
 | 6 | Features (by folder, alphabetical) | 104 / ~63k | done (all 29 folders) |
-| 7 | FinTrackWidget, FinTrackWatch (not in any build target) | 6 / 1641 | todo |
+| 7 | FinTrackWidget, FinTrackWatch (not in any build target) | 6 / 1641 | done |
 | 8 | Write architecture/maintenance, slim CLAUDE.md, retire PROJECT_MAP.md + docs/maps | — | todo |
 
 ## Decisions
@@ -21,7 +21,7 @@ Excluded from line-by-line: `logo.png` (binary), `.xcworkspace/contents.xcworksp
 - Canonical reference = `docs/ai/*`. The older `PROJECT_MAP.md` + `docs/maps/MAP_*.md` (~200 KB, partly unverified, with a changelog section) are migrated after verification and retired in stage 8 (recoverable from git at `3411a90`).
 
 ## Next step
-Stage 7: read `FinTrackWidget/FinTrackWidget.swift` and `FinTrackWatch/*` (not in any build target), then stage 8 (architecture.md, maintenance.md, slim CLAUDE.md, retire PROJECT_MAP/docs/maps).
+Stage 8: write `docs/ai/architecture.md` and `docs/ai/maintenance.md` (consolidate every ⚠ from code-map with file evidence), slim `CLAUDE.md` (<150 lines, pointing at docs/ai), retire `PROJECT_MAP.md` + `docs/maps/` after migrating anything still useful, final update here.
 
 ## Open items to verify while reading Features (stage 6)
 - `Double.asPercentage()` does **not** multiply by 100 (`Extensions.swift:130`). Call sites passing 0…1 fractions render 100× too small (25% → "0.3%"). Confirmed: `AIAnalyticsService.swift:339,636`, `AIAssistantView.swift:78,439,484`, `DigitalTwinView.swift:94`. Also confirmed: utilization fractions in `DebtManagementView` (hero, `CreditCardDebtCard`, `CardUtilizationRow`). Check the rest of the list from `grep -rn "asPercentage(" FinTrack` as each file is read (all confirmed: Family, AICFOMode, EstatePlanning, Reports DebtReport; remaining Reports call sites pass ×100 values correctly).
