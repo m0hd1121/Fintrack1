@@ -242,8 +242,10 @@ final class BusinessInvoice {
     }
 
     var subtotal: Double     { lineItems.reduce(0) { $0 + $1.subtotal } }
-    var totalVAT: Double     { lineItems.reduce(0) { $0 + $1.vatAmount } }
-    var totalAmount: Double  { lineItems.reduce(0) { $0 + $1.total } }
+    // "Include VAT" off means no VAT is charged — the line items still carry
+    // a 5% rate, so these must not add it regardless.
+    var totalVAT: Double     { vatIncluded ? lineItems.reduce(0) { $0 + $1.vatAmount } : 0 }
+    var totalAmount: Double  { subtotal + totalVAT }
     var totalPaid: Double    { invoicePayments.reduce(0) { $0 + $1.amount } }
     var balanceDue: Double   { max(0, totalAmount - totalPaid) }
 

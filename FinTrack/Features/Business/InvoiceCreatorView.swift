@@ -28,7 +28,7 @@ struct InvoiceCreatorView: View {
     private var isEditing: Bool { invoice != nil }
 
     private var subtotal: Double { lineItems.reduce(0) { $0 + $1.subtotal } }
-    private var totalVAT: Double { lineItems.reduce(0) { $0 + $1.vatAmount } }
+    private var totalVAT: Double { vatIncluded ? lineItems.reduce(0) { $0 + $1.vatAmount } : 0 }
     private var totalAmount: Double { vatIncluded ? lineItems.reduce(0) { $0 + $1.total } : subtotal }
 
     var body: some View {

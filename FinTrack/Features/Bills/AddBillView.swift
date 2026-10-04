@@ -211,11 +211,22 @@ struct AddBillView: View {
                 divider
 
                 // Currency
-                formTextField(
-                    label: "Currency",
-                    placeholder: "AED",
-                    text: $currency
-                )
+                // A picker, not free text: an unknown code converted 1:1.
+                HStack(spacing: FTSpacing.md) {
+                    fieldLabel("Currency")
+                    Spacer()
+                    Picker("", selection: $currency) {
+                        ForEach(CurrencyService.shared.supportedCurrencies, id: \.code) { info in
+                            Text("\(info.code) — \(info.name)").tag(info.code)
+                        }
+                        if !CurrencyService.shared.supportedCurrencies.contains(where: { $0.code == currency }) {
+                            Text(currency).tag(currency)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .tint(FTColor.accent)
+                }
+                .padding(.vertical, FTSpacing.md)
 
                 divider
 
@@ -618,6 +629,9 @@ struct AddBillView: View {
         let reminderArray   = reminderDays.sorted()
 
         if let bill = editingBill {
+            // Cancel against the *old* reminder days first — once they're
+            // replaced, reminders for removed days can't be found any more.
+            BillService.shared.cancelReminders(for: bill)
             // Update existing
             bill.name               = trimmedName
             bill.provider           = trimmedProvider.isEmpty ? nil : trimmedProvider
