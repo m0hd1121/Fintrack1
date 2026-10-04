@@ -14,20 +14,20 @@ Excluded from line-by-line: `logo.png` (binary), `.xcworkspace/contents.xcworksp
 | 5 | Core/Services (+SMS) | 52 / 16962 | done |
 | 6 | Features (by folder, alphabetical) | 104 / ~63k | done (all 29 folders) |
 | 7 | FinTrackWidget, FinTrackWatch (not in any build target) | 6 / 1641 | done |
-| 8 | Write architecture/maintenance, slim CLAUDE.md, retire PROJECT_MAP.md + docs/maps | — | todo |
+| 8 | Write architecture/maintenance, slim CLAUDE.md, retire PROJECT_MAP.md + docs/maps | — | done |
 
 ## Decisions
 - Reading method for large SwiftUI view files (stage 6+): blank lines and lines that *start with* a pure styling modifier (`.font(`, `.foregroundStyle(`, `.padding(`, `.frame(`, `.ftGlass(`, `.tint(`, `.lineLimit(`, `.multilineTextAlignment(`, `Divider()`) are filtered out (`scripts` not committed; command: `grep -vE '^\s*$|^\s*(\.font\(|\.foregroundStyle\(|\.padding\(|\.frame\(|\.ftGlass\(|\.tint\(|\.lineLimit\(|\.multilineTextAlignment\(|Divider\(\))'`). Everything else — logic, bindings, labels, data flow — is read line by line. From `Features/Import` on, the filter also drops lines that are only `.clipShape(`/`.shadow(`/`.minimumScaleFactor(`/`.tracking(`, a bare `Image(systemName: "literal")`, or a literal-only `Text("…")`/brace/`Spacer()` line (pure presentation; every line with an identifier, binding or logic is still read). `AddAccountView.swift` lines ~1250–1800 were read with an earlier, looser filter that also hid label `Text` lines carrying `.font` on the same line (logic unaffected).
-- Canonical reference = `docs/ai/*`. The older `PROJECT_MAP.md` + `docs/maps/MAP_*.md` (~200 KB, partly unverified, with a changelog section) are migrated after verification and retired in stage 8 (recoverable from git at `3411a90`).
+- Canonical reference = `docs/ai/*`. `PROJECT_MAP.md` is now a redirect stub (kept because source comments cite "PROJECT_MAP §8", now `maintenance.md` → Invariants); `docs/maps/` removed. Old content recoverable from git at `3411a90`.
 
 ## Next step
-Stage 8: write `docs/ai/architecture.md` and `docs/ai/maintenance.md` (consolidate every ⚠ from code-map with file evidence), slim `CLAUDE.md` (<150 lines, pointing at docs/ai), retire `PROJECT_MAP.md` + `docs/maps/` after migrating anything still useful, final update here.
+Review complete. For future work follow the workflow in `maintenance.md`. When code changes, re-read the touched files and update their `code-map.md` entries; to re-verify after many commits, diff from the reviewed commit (`git diff 3411a90 --stat -- FinTrack`) and re-read only changed files.
 
-## Open items to verify while reading Features (stage 6)
-- `Double.asPercentage()` does **not** multiply by 100 (`Extensions.swift:130`). Call sites passing 0…1 fractions render 100× too small (25% → "0.3%"). Confirmed: `AIAnalyticsService.swift:339,636`, `AIAssistantView.swift:78,439,484`, `DigitalTwinView.swift:94`. Also confirmed: utilization fractions in `DebtManagementView` (hero, `CreditCardDebtCard`, `CardUtilizationRow`). Check the rest of the list from `grep -rn "asPercentage(" FinTrack` as each file is read (all confirmed: Family, AICFOMode, EstatePlanning, Reports DebtReport; remaining Reports call sites pass ×100 values correctly).
-- ~~Notification toggles~~ RESOLVED: they gate nothing (see Settings in code-map).
-- ~~Siri queue~~ CONFIRMED: `LogExpense/LogIncome` (`FinTrackIntents.swift:85,116`) → `WidgetDataService.enqueuePendingTransaction` → App Group suite only (no entitlement → not persisted).
-- ~~`%g` prefill~~ CONFIRMED: edit prefill rounds amounts (see Transactions).
-- ~~BNPL link~~ RESOLVED (see Transactions). `AddTransactionView` sets `linkedBNPL` for `.bnpl` payment-method txs (line ~1588): is that tx an installment (does it advance the plan)? `BNPLDetailSheet` treats every linked tx as a payment.
-- ~~Repayment delete~~ RESOLVED: records are removed. Deleting a Lent/Borrowed repayment tx from the Transactions list: does it also remove the `RepaymentRecord`? (check `TransactionsListView` delete path ~line 490–530)
-- Pushed destinations that wrap themselves in their own `NavigationStack` (all AIAssistant views do) → nested stacks.
+## Coverage
+Every in-scope file listed in the plan was read (view files with the presentation-line filter described in Decisions; models, services, config and all logic read in full). Nothing in scope is unread. Not reviewed: `logo.png`, generated `contents.xcworkspacedata`. No build or tests were run (no toolchain in the container; no tests exist).
+
+## Items resolved during the review
+- `asPercentage()` fraction call sites — all listed in `maintenance.md` (Medium).
+- Notification toggles gate nothing; `%g` edit prefill rounds amounts; BNPL `.bnpl` payment link doesn't advance plans; list deletes do remove lent/borrowed/salary records — all recorded in `code-map.md`/`maintenance.md`.
+- Siri `LogExpense/LogIncome` queue goes through the App Group suite (`WidgetDataService.enqueuePendingTransaction`) — on-device persistence without the entitlement still to be verified (see `maintenance.md` → Unresolved questions).
+- Nested `NavigationStack`s in pushed screens: AIAssistant views, `DigitalAssetsListView`, `FamilySetupView`, `TaxManagementView` (cosmetic/navigation-bar duplication risk).
