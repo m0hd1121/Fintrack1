@@ -149,6 +149,49 @@ final class SavingsGoalService {
         return newMilestones
     }
 
+    // MARK: - Round-Up & Salary-Share Contributions
+
+    /// Goals are earmarks, not accounts: these add to `currentAmount` the way a
+    /// manual contribution without a funding account does.
+    /// Round-up: the spare change of a posted expense (up to the next whole unit).
+    func applyRoundUp(expenseAmount: Double, currency: String, context: ModelContext) {
+        let spare = (expenseAmount.rounded(.up) - expenseAmount)
+        guard spare > 0.0001 else { return }
+        contribute(spare, from: currency, to: { $0.roundUpEnabled }, context: context)
+    }
+
+    /// Salary share: each goal's `salaryPercentage` of a received salary.
+    func applySalaryShare(salary: Double, currency: String, context: ModelContext) {
+        let goals = activeGoals(context).filter { $0.salaryPercentage > 0 }
+        for goal in goals {
+            add(salary * goal.salaryPercentage / 100, from: currency, to: goal, context: context)
+        }
+    }
+
+    private func activeGoals(_ context: ModelContext) -> [SavingsGoal] {
+        ((try? context.fetch(FetchDescriptor<SavingsGoal>())) ?? []).filter { !$0.isCompleted && !$0.isArchived }
+    }
+
+    private func contribute(_ amount: Double, from currency: String,
+                            to include: (SavingsGoal) -> Bool, context: ModelContext) {
+        for goal in activeGoals(context) where include(goal) {
+            add(amount, from: currency, to: goal, context: context)
+        }
+    }
+
+    private func add(_ amount: Double, from currency: String, to goal: SavingsGoal, context: ModelContext) {
+        guard amount > 0 else { return }
+        goal.currentAmount += CurrencyService.shared.convert(amount, from: currency, to: goal.currency)
+        goal.updatedAt = Date()
+        if goal.currentAmount >= goal.targetAmount {
+            goal.isCompleted = true
+            NotificationService.shared.sendGoalCompletedAlert(goalName: goal.name, amount: goal.targetAmount, currency: goal.currency)
+        }
+        for milestone in checkMilestones(goal: goal, context: context) {
+            NotificationService.shared.scheduleSavingsGoalMilestone(goal: goal, milestone: milestone)
+        }
+    }
+
     // MARK: - Auto-Contribution Processing
 
     /// Returns goals that have a due auto-contribution today.

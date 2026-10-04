@@ -768,6 +768,7 @@ struct RecordSalaryPaymentSheet: View {
         }
 
         context.insert(tx)
+        SavingsGoalService.shared.applySalaryShare(salary: amount, currency: record.currency, context: context)
         try? context.save()
         isProcessing = false
         dismiss()

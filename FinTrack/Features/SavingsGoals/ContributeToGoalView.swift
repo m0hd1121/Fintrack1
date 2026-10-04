@@ -18,6 +18,10 @@ struct ContributeToGoalView: View {
 
     private var baseCurrency: String { appState.baseCurrency }
     private var activeAccounts: [Account] { accounts.filter { !$0.isArchived } }
+    private var goalAccount: Account? {
+        goal.linkedAccountId.flatMap { id in accounts.first { $0.id == id } }
+    }
+    private var fundingAccounts: [Account] { activeAccounts.filter { $0.id != goal.linkedAccountId } }
 
     private var parsedAmount: Double { AmountTextField.double(from: amount) }
     private var newBalance: Double {
@@ -58,18 +62,18 @@ struct ContributeToGoalView: View {
                                     .frame(maxWidth: 140)
                             }.padding(.vertical, 13)
 
-                            if !activeAccounts.isEmpty {
+                            // Money only moves when the goal has its own account:
+                            // the contribution is then a transfer between that
+                            // account and the one picked here.
+                            if goalAccount != nil && !fundingAccounts.isEmpty {
                                 Divider().opacity(0.4)
                                 HStack(spacing: FTSpacing.md) {
                                     Text(isWithdrawal ? "To Account" : "From Account")
                                         .font(.ftBody).foregroundStyle(FTColor.textSecondary)
                                     Spacer()
-                                    Picker("", selection: Binding<UUID?>(
-                                        get: { selectedAccountId ?? goal.linkedAccountId },
-                                        set: { selectedAccountId = $0 }
-                                    )) {
+                                    Picker("", selection: $selectedAccountId) {
                                         Text("None").tag(Optional<UUID>(nil))
-                                        ForEach(activeAccounts) { acc in
+                                        ForEach(fundingAccounts) { acc in
                                             Text(acc.name).tag(Optional(acc.id))
                                         }
                                     }
@@ -120,7 +124,6 @@ struct ContributeToGoalView: View {
             }
             .dismissKeyboardOnTap()
         }
-        .onAppear { selectedAccountId = goal.linkedAccountId }
     }
 
     // MARK: - Goal Hero Card
@@ -214,7 +217,11 @@ struct ContributeToGoalView: View {
             goal.currentAmount += parsedAmount
         }
         goal.updatedAt = Date()
-        if goal.currentAmount >= goal.targetAmount {
+        postTransfer()
+        if isWithdrawal && goal.currentAmount < goal.targetAmount {
+            goal.isCompleted = false
+        }
+        if !goal.isCompleted && goal.currentAmount >= goal.targetAmount {
             goal.isCompleted = true
             NotificationService.shared.sendGoalCompletedAlert(goalName: goal.name, amount: goal.targetAmount, currency: goal.currency)
         }
@@ -224,5 +231,30 @@ struct ContributeToGoalView: View {
         }
         try? context.save()
         dismiss()
+    }
+
+    /// Moves the money between the picked account and the goal's own account.
+    private func postTransfer() {
+        guard let goalAccount,
+              let other = selectedAccountId.flatMap({ id in accounts.first { $0.id == id } })
+        else { return }
+        let from = isWithdrawal ? goalAccount : other
+        let to = isWithdrawal ? other : goalAccount
+        let currencyService = CurrencyService.shared
+        let tx = Transaction(
+            title: isWithdrawal ? "Withdrawal from \(goal.name)" : "Contribution to \(goal.name)",
+            amount: parsedAmount,
+            currency: goal.currency,
+            amountInBaseCurrency: currencyService.amountInBase(parsedAmount, from: goal.currency),
+            type: .transfer,
+            category: .transfer,
+            notes: notes.isEmpty ? nil : notes,
+            paymentMethod: .bankTransfer
+        )
+        tx.account = from
+        tx.toAccount = to
+        from.balance -= currencyService.convert(parsedAmount, from: goal.currency, to: from.currency)
+        to.balance += currencyService.convert(parsedAmount, from: goal.currency, to: to.currency)
+        context.insert(tx)
     }
 }

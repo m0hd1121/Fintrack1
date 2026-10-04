@@ -1691,6 +1691,7 @@ struct AddTransactionView: View {
             tx.linkedBNPL = paymentMethod == .bnpl ? linkedBNPLPlan : nil
             if type == .expense && !isPending && !isScheduled {
                 tx.linkedBNPL?.applyInstallmentPayment()
+                SavingsGoalService.shared.applyRoundUp(expenseAmount: amountValue, currency: currency, context: context)
             }
             tx.linkedBillId = linkedBillItem?.id
             context.insert(tx)
