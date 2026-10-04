@@ -188,6 +188,7 @@ struct IncomeManagementView: View {
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(FTColor.accent)
             }
+            .accessibilityLabel("Add")
         }
     }
 

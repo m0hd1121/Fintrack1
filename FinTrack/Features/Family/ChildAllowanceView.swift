@@ -36,6 +36,7 @@ struct ChildAllowanceView: View {
                 Button { showingAddChild = true } label: {
                     Image(systemName: "plus").font(.ftCallout).foregroundStyle(FTColor.accent)
                 }
+                .accessibilityLabel("Add")
             }
         }
         .sheet(isPresented: $showingAddChild) {
@@ -306,6 +307,8 @@ struct AddChildProfileSheet: View {
                             .background(selectedIcon == icon ? Color(hex: selectedColor).opacity(0.12) : FTColor.textMuted.opacity(0.06),
                                         in: RoundedRectangle(cornerRadius: FTRadius.sm))
                     }
+                    .accessibilityLabel(icon.replacingOccurrences(of: ".fill", with: "").replacingOccurrences(of: ".", with: " "))
+                    .accessibilityAddTraits(selectedIcon == icon ? [.isSelected] : [])
                     .buttonStyle(.plain)
                 }
             }

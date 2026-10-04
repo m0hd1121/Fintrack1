@@ -951,6 +951,7 @@ struct SalaryPaymentHistoryView: View {
                         .frame(width: 28, height: 28)
                         .background(.regularMaterial, in: .circle)
                 }
+                .accessibilityLabel("Edit")
                 .buttonStyle(.plain)
                 Button { deletePayment(payment) } label: {
                     Image(systemName: "trash")
@@ -959,6 +960,7 @@ struct SalaryPaymentHistoryView: View {
                         .frame(width: 28, height: 28)
                         .background(.regularMaterial, in: .circle)
                 }
+                .accessibilityLabel("Delete")
                 .buttonStyle(.plain)
             }
         }

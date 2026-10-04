@@ -44,6 +44,7 @@ struct LifeEventPlanningView: View {
                     Image(systemName: "plus.circle.fill")
                         .foregroundStyle(FTColor.accent)
                 }
+                .accessibilityLabel("Add")
             }
         }
         .sheet(isPresented: $showingAdd) { AddLifeEventView() }
@@ -258,6 +259,8 @@ struct LifeEventDetailView: View {
                             .foregroundStyle(localChecklist[idx].isCompleted ? FTColor.income : FTColor.textMuted)
                             .font(.system(size: 20))
                     }
+                    .accessibilityLabel(localChecklist[idx].title)
+                    .accessibilityValue(localChecklist[idx].isCompleted ? "Done" : "Not done")
                     Text(localChecklist[idx].title)
                         .font(.ftBody)
                         .foregroundStyle(localChecklist[idx].isCompleted ? FTColor.textMuted : FTColor.textPrimary)

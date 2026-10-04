@@ -1286,6 +1286,7 @@ private struct MilestoneBanner: View {
                     .font(.system(size: 20))
                     .foregroundStyle(FTColor.textMuted)
             }
+            .accessibilityLabel("Dismiss")
         }
         .padding(FTSpacing.md)
         .background(FTColor.gold.opacity(0.08))

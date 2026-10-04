@@ -66,6 +66,7 @@ struct BillDetailView: View {
                             Image(systemName: "pencil")
                                 .font(.ftBody)
                         }
+                        .accessibilityLabel("Edit")
                         Button {
                             showingDeleteAlert = true
                         } label: {
@@ -73,6 +74,7 @@ struct BillDetailView: View {
                                 .font(.ftBody)
                                 .foregroundStyle(FTColor.expense)
                         }
+                        .accessibilityLabel("Delete")
                     }
                 }
             }

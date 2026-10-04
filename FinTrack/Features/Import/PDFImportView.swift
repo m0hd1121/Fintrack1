@@ -271,6 +271,8 @@ struct PDFImportView: View {
                 Image(systemName: item.wrappedValue.isSelected ? "checkmark.circle.fill" : "circle")
                     .foregroundStyle(item.wrappedValue.isSelected ? FTColor.accent : FTColor.textMuted)
             }
+            .accessibilityLabel("Include \(item.wrappedValue.description)")
+            .accessibilityAddTraits(item.wrappedValue.isSelected ? [.isSelected] : [])
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(item.wrappedValue.description).font(.ftBody).foregroundStyle(FTColor.textPrimary)

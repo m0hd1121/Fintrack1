@@ -248,7 +248,9 @@ struct AddSavingsGoalView: View {
                                     .clipShape(RoundedRectangle(cornerRadius: FTRadius.sm))
                                     .overlay(RoundedRectangle(cornerRadius: FTRadius.sm)
                                         .strokeBorder(selectedIcon == icon ? Color.fromString(effectiveColor) : Color.clear, lineWidth: 1.5))
-                            }.buttonStyle(.plain)
+                            }
+                            .accessibilityLabel(icon.replacingOccurrences(of: ".fill", with: "").replacingOccurrences(of: ".", with: " "))
+                            .accessibilityAddTraits(selectedIcon == icon ? [.isSelected] : []).buttonStyle(.plain)
                         }
                     }
                 }

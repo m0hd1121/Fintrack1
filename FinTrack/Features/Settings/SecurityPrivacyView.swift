@@ -901,6 +901,7 @@ struct AuditLogView: View {
                     Image(systemName: "line.3.horizontal.decrease.circle")
                         .foregroundStyle(FTColor.accent)
                 }
+                .accessibilityLabel("Filter")
             }
         }
         .confirmationDialog("Clear Audit Log", isPresented: $showingClearConfirm) {

@@ -52,6 +52,7 @@ struct InsuranceOptimizerView: View {
                 Button { showingAdd = true } label: {
                     Image(systemName: "plus.circle.fill").foregroundStyle(FTColor.accent)
                 }
+                .accessibilityLabel("Add")
             }
         }
         .sheet(isPresented: $showingAdd) { AddInsurancePolicyView() }

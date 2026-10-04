@@ -53,6 +53,7 @@ struct SharedFamilyGoalsView: View {
                 Button { showingAddGoal = true } label: {
                     Image(systemName: "plus").font(.ftCallout).foregroundStyle(FTColor.accent)
                 }
+                .accessibilityLabel("Add")
             }
         }
         .sheet(isPresented: $showingAddGoal) {
@@ -335,6 +336,8 @@ struct AddSharedGoalSheet: View {
                                 in: RoundedRectangle(cornerRadius: FTRadius.sm)
                             )
                     }
+                    .accessibilityLabel(icon.replacingOccurrences(of: ".fill", with: "").replacingOccurrences(of: ".", with: " "))
+                    .accessibilityAddTraits(selectedIcon == icon ? [.isSelected] : [])
                     .buttonStyle(.plain)
                 }
             }

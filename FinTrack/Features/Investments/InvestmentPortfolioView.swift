@@ -232,6 +232,7 @@ struct InvestmentPortfolioView: View {
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(FTColor.accent)
             }
+            .accessibilityLabel("Add")
         }
     }
 
@@ -1984,7 +1985,7 @@ private struct InvestmentDetailSheet: View {
                     Button("Done") { dismiss() }.font(.ftBodySemibold).foregroundStyle(FTColor.accent)
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button { showingEdit = true } label: { Image(systemName: "pencil").foregroundStyle(FTColor.accent) }
+                    Button { showingEdit = true } label: { Image(systemName: "pencil").foregroundStyle(FTColor.accent) } .accessibilityLabel("Edit")
                 }
             }
             .sheet(isPresented: $showingRecordSale) { RecordSaleSheet(investment: investment) }
@@ -2288,7 +2289,7 @@ private struct CryptoDetailSheet: View {
                     Button("Done") { dismiss() }.font(.ftBodySemibold).foregroundStyle(FTColor.accent)
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button { showingEdit = true } label: { Image(systemName: "pencil").foregroundStyle(FTColor.accent) }
+                    Button { showingEdit = true } label: { Image(systemName: "pencil").foregroundStyle(FTColor.accent) } .accessibilityLabel("Edit")
                 }
             }
             .sheet(isPresented: $showingEdit) { AddCryptoView(editingItem: holding) }
@@ -2411,7 +2412,7 @@ private struct GoldDetailSheet: View {
                     Button("Done") { dismiss() }.font(.ftBodySemibold).foregroundStyle(FTColor.accent)
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button { showingEdit = true } label: { Image(systemName: "pencil").foregroundStyle(FTColor.accent) }
+                    Button { showingEdit = true } label: { Image(systemName: "pencil").foregroundStyle(FTColor.accent) } .accessibilityLabel("Edit")
                 }
             }
             .sheet(isPresented: $showingEdit) { AddGoldHoldingView(editingItem: holding) }

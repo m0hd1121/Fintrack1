@@ -139,6 +139,7 @@ struct AddCryptoView: View {
                                 .font(.system(size: 16))
                                 .foregroundStyle(FTColor.textMuted)
                         }
+                        .accessibilityLabel("Clear search")
                         .buttonStyle(.plain)
                     }
                 }
@@ -305,6 +306,7 @@ struct AddCryptoView: View {
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundStyle(FTColor.textMuted)
                     }
+                    .accessibilityLabel(showWalletAddress ? "Hide wallet address" : "Show wallet address")
                     .buttonStyle(.plain)
                 }
                 .padding(.vertical, FTSpacing.md)
@@ -483,6 +485,7 @@ struct AddCryptoView: View {
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(FTColor.expense)
             }
+            .accessibilityLabel("Delete")
             .buttonStyle(.plain)
         }
         .padding(.vertical, FTSpacing.md)

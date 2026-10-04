@@ -72,6 +72,7 @@ struct BillsView: View {
                             .font(.system(size: 17, weight: .semibold))
                             .foregroundStyle(FTColor.accent)
                     }
+                    .accessibilityLabel("Add")
                 }
             }
             .sheet(isPresented: $showingAddBill) {
@@ -168,6 +169,7 @@ private struct CalendarTabContent: View {
                         .frame(width: 36, height: 36)
                         .ftGlassInteractive(FTRadius.sm)
                 }
+                .accessibilityLabel("Previous month")
 
                 Spacer()
 
@@ -191,6 +193,7 @@ private struct CalendarTabContent: View {
                         .frame(width: 36, height: 36)
                         .ftGlassInteractive(FTRadius.sm)
                 }
+                .accessibilityLabel("Next month")
             }
             .padding(.horizontal, FTSpacing.screen)
 
@@ -896,6 +899,7 @@ private struct CategoryBillsSection: View {
                         .padding(.leading, FTSpacing.screen)
                         .padding(.vertical, FTSpacing.sm)
                     }
+                    .accessibilityLabel("Next month")
                     .buttonStyle(.plain)
 
                     if bill.id != bills.last?.id {

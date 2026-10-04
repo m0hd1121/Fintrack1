@@ -146,6 +146,7 @@ struct FreelanceView: View {
                         .font(.system(size: 20, weight: .semibold))
                         .foregroundStyle(FTColor.accent)
                 }
+                .accessibilityLabel("Add")
             }
             .padding(.leading, FTSpacing.xs)
 
@@ -343,6 +344,7 @@ struct FreelanceProjectDetailSheet: View {
                         Image(systemName: "plus")
                             .font(.system(size: 15, weight: .semibold))
                     }
+                    .accessibilityLabel("Add")
                     .tint(FTColor.accent)
                 }
             }

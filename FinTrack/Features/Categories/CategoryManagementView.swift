@@ -61,6 +61,7 @@ struct CategoryManagementView: View {
                                 Image(systemName: showingArchived ? "archivebox.fill" : "archivebox")
                                     .foregroundStyle(FTColor.textSecondary)
                             }
+                            .accessibilityLabel(showingArchived ? "Hide archived categories" : "Show archived categories")
                         }
                         Button {
                             editingCategory = nil
@@ -70,6 +71,7 @@ struct CategoryManagementView: View {
                                 .foregroundStyle(FTColor.accent)
                                 .font(.system(size: 20))
                         }
+                        .accessibilityLabel("Add")
                     }
                 }
             }
@@ -426,6 +428,8 @@ struct EditCategoryView: View {
                                     }
                                 }
                             }
+                            .accessibilityLabel(palette.name)
+                            .accessibilityAddTraits(colorHex.uppercased() == palette.hex.uppercased() ? [.isSelected] : [])
                             .buttonStyle(.plain)
                         }
                     }
@@ -635,6 +639,8 @@ struct IconPickerView: View {
                                 .strokeBorder(selectedIcon == iconName ? tintColor : Color.clear, lineWidth: 2)
                         )
                     }
+                    .accessibilityLabel(iconName.replacingOccurrences(of: ".fill", with: "").replacingOccurrences(of: ".", with: " "))
+                    .accessibilityAddTraits(selectedIcon == iconName ? [.isSelected] : [])
                     .buttonStyle(.plain)
                 }
             }

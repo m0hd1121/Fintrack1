@@ -122,6 +122,7 @@ struct EmailImportView: View {
                     Image(systemName: "ellipsis.circle")
                         .font(.ftHeadline).foregroundStyle(FTColor.textMuted)
                 }
+                .accessibilityLabel("More options")
             }
             .padding(FTSpacing.md)
             .ftGlassInteractive(FTRadius.md)
@@ -191,6 +192,7 @@ struct EmailImportView: View {
                 Image(systemName: "ellipsis.circle")
                     .font(.ftHeadline).foregroundStyle(FTColor.textMuted)
             }
+            .accessibilityLabel("More options")
         }
         .padding(FTSpacing.md)
         .ftGlass(FTRadius.md)
@@ -344,6 +346,7 @@ struct EmailImportView: View {
                     Image(systemName: showingPrivacy ? "chevron.up" : "chevron.down")
                         .font(.ftCaption).foregroundStyle(FTColor.textMuted)
                 }
+                .accessibilityLabel(showingPrivacy ? "Hide privacy details" : "Show privacy details")
             }
 
             if showingPrivacy {

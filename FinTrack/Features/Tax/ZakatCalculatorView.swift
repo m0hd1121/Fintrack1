@@ -51,6 +51,7 @@ struct ZakatCalculatorView: View {
                 } label: {
                     Image(systemName: "arrow.clockwise").font(.ftCallout).foregroundStyle(FTColor.accent)
                 }
+                .accessibilityLabel("Refresh")
             }
         }
         .sheet(isPresented: $showingPayment) {

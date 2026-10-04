@@ -1535,6 +1535,7 @@ struct BudgetDetailView: View {
                             Image(systemName: "trash")
                                 .foregroundStyle(FTColor.expense)
                         }
+                        .accessibilityLabel("Delete")
                         NavigationLink(destination: LazyView { AddBudgetView(editingBudget: budget) }) {
                             Image(systemName: "pencil")
                         }
@@ -1954,7 +1955,9 @@ struct AddEnvelopeView: View {
                                             .clipShape(RoundedRectangle(cornerRadius: FTRadius.sm))
                                             .overlay(RoundedRectangle(cornerRadius: FTRadius.sm)
                                                 .strokeBorder(selectedIcon == icon ? Color(hex: selectedColorHex) : Color.clear, lineWidth: 1.5))
-                                    }.buttonStyle(.plain)
+                                    }
+                                    .accessibilityLabel(icon.replacingOccurrences(of: ".fill", with: "").replacingOccurrences(of: ".", with: " "))
+                                    .accessibilityAddTraits(selectedIcon == icon ? [.isSelected] : []).buttonStyle(.plain)
                                 }
                             }
                         }
@@ -2155,6 +2158,7 @@ struct EnvelopeDetailView: View {
                         Image(systemName: "trash")
                             .foregroundStyle(FTColor.expense)
                     }
+                    .accessibilityLabel("Delete")
                 }
             }
             .confirmationDialog("Delete this envelope?", isPresented: $showingDeleteConfirm, titleVisibility: .visible) {
@@ -2551,6 +2555,7 @@ struct BudgetRecommendationsView: View {
                         .font(.system(size: 18))
                         .foregroundStyle(FTColor.textMuted)
                 }
+                .accessibilityLabel("Dismiss recommendation")
             }
 
             Text(rec.description)

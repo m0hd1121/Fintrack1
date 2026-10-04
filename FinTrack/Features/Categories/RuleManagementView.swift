@@ -40,6 +40,7 @@ struct RuleManagementView: View {
                             .foregroundStyle(FTColor.accent)
                             .font(.system(size: 20))
                     }
+                    .accessibilityLabel("Add")
                 }
             }
             .sheet(isPresented: $showingAddSheet) {
@@ -386,6 +387,7 @@ struct EditRuleView: View {
                                             Image(systemName: "xmark").font(.system(size: 9, weight: .bold))
                                                 .foregroundStyle(FTColor.textMuted)
                                         }
+                                        .accessibilityLabel("Remove")
                                     }
                                     .padding(.horizontal, 10).padding(.vertical, 5)
                                     .background(.regularMaterial, in: Capsule())

@@ -40,6 +40,7 @@ struct CollaborativePlannerView: View {
                 Button { showingInvite = true } label: {
                     Image(systemName: "person.badge.plus").foregroundStyle(FTColor.accent)
                 }
+                .accessibilityLabel("Invite member")
             }
         }
         .sheet(isPresented: $showingInvite) { InviteAdvisorView() }
@@ -235,6 +236,7 @@ struct AdvisorDetailView: View {
                 } label: {
                     Image(systemName: "doc.on.doc").foregroundStyle(FTColor.accent)
                 }
+                .accessibilityLabel("Copy")
             }
             .padding(FTSpacing.md)
             .background(FTColor.accent.opacity(0.08))

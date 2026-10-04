@@ -348,6 +348,8 @@ struct AddRentalPropertyView: View {
                         }
                     }
                 }
+                .accessibilityLabel(item.name.capitalized)
+                .accessibilityAddTraits(isSelected ? [.isSelected] : [])
                 .buttonStyle(.plain)
                 .animation(.snappy(duration: 0.2), value: isSelected)
             }

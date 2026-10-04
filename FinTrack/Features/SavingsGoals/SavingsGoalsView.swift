@@ -84,6 +84,7 @@ struct SavingsGoalsView: View {
                         .foregroundStyle(FTColor.accent)
                         .font(.title3)
                 }
+                .accessibilityLabel("Add")
             }
         }
         .sheet(isPresented: $showingAdd) {

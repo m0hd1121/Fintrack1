@@ -76,6 +76,7 @@ struct MileageTrackerView: View {
                 Button { showingAdd = true } label: {
                     Image(systemName: "plus").foregroundStyle(FTColor.accent)
                 }
+                .accessibilityLabel("Add")
             }
         }
         .sheet(isPresented: $showingAdd) {

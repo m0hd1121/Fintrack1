@@ -45,6 +45,7 @@ struct ClientManagementView: View {
                 Button { showingAdd = true } label: {
                     Image(systemName: "plus").foregroundStyle(FTColor.accent)
                 }
+                .accessibilityLabel("Add")
             }
         }
         .sheet(isPresented: $showingAdd) {
@@ -343,6 +344,7 @@ struct ClientDetailSheet: View {
                     Button { showingEdit = true } label: {
                         Image(systemName: "pencil").foregroundStyle(FTColor.accent)
                     }
+                    .accessibilityLabel("Edit")
                 }
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Done") { dismiss() }.foregroundStyle(FTColor.accent)

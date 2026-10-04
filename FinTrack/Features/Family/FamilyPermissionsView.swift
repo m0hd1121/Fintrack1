@@ -123,6 +123,7 @@ struct FamilyPermissionsView: View {
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(FTColor.textMuted)
                 }
+                .accessibilityLabel("Edit permissions for \(member.name)")
             }
         }
         .padding()

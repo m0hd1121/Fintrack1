@@ -337,6 +337,7 @@ struct FinancialChatView: View {
                             .font(.ftAmount)
                             .foregroundStyle(inputText.isEmpty ? FTColor.textMuted : FTColor.accent)
                     }
+                    .accessibilityLabel("Send")
                     .disabled(inputText.isEmpty || isThinking)
                 }
                 .padding()

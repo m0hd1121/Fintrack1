@@ -48,6 +48,7 @@ struct TaxDocumentVaultView: View {
                     Button { showingAdd = true } label: {
                         Image(systemName: "plus").font(.ftCallout).foregroundStyle(FTColor.accent)
                     }
+                    .accessibilityLabel("Add")
                 }
             }
             .sheet(isPresented: $showingAdd) {
@@ -70,6 +71,7 @@ struct TaxDocumentVaultView: View {
                 Button { searchText = "" } label: {
                     Image(systemName: "xmark.circle.fill").foregroundStyle(FTColor.textMuted)
                 }
+                .accessibilityLabel("Clear search")
             }
         }
         .padding()

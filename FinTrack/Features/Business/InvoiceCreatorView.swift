@@ -312,6 +312,7 @@ struct LineItemRow: View {
                 Button(action: onDelete) {
                     Image(systemName: "minus.circle.fill").foregroundStyle(FTColor.expense)
                 }
+                .accessibilityLabel("Remove line item")
             }
             HStack(spacing: FTSpacing.md) {
                 VStack(alignment: .leading, spacing: 2) {
@@ -392,6 +393,7 @@ struct InvoiceListView: View {
                 Button { showingCreate = true } label: {
                     Image(systemName: "plus").foregroundStyle(FTColor.accent)
                 }
+                .accessibilityLabel("Add")
             }
         }
         .sheet(isPresented: $showingCreate) {

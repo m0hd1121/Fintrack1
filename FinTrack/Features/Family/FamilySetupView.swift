@@ -149,6 +149,7 @@ struct FamilySetupView: View {
                 } label: {
                     Image(systemName: "pencil").font(.ftCaption).foregroundStyle(FTColor.textMuted)
                 }
+                .accessibilityLabel("Edit")
             }
         }
         .contextMenu {

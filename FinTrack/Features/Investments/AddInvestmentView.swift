@@ -361,6 +361,7 @@ struct AddInvestmentView: View {
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(FTColor.expense)
             }
+            .accessibilityLabel("Delete")
             .buttonStyle(.plain)
         }
         .padding(.vertical, FTSpacing.md)

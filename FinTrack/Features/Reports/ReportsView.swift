@@ -268,6 +268,7 @@ struct ReportsView: View {
                         Image(systemName: "square.and.arrow.up")
                             .font(.system(size: 16, weight: .medium))
                     }
+                    .accessibilityLabel("Export")
                 }
             }
             .confirmationDialog("Export \(selectedReport.rawValue) Report", isPresented: $showingExportMenu, titleVisibility: .visible) {

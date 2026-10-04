@@ -56,6 +56,7 @@ struct DigitalAssetsListView: View {
                             .foregroundStyle(FTColor.accent)
                             .font(.title3)
                     }
+                    .accessibilityLabel("Add")
                 }
             }
             .searchable(text: $searchText, prompt: "Search digital assets")

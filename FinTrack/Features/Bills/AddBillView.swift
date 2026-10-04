@@ -507,6 +507,8 @@ struct AddBillView: View {
                             in: .rect(cornerRadius: FTRadius.sm - 2)
                         )
                 }
+                .accessibilityLabel(icon.replacingOccurrences(of: ".fill", with: "").replacingOccurrences(of: ".", with: " "))
+                .accessibilityAddTraits(selectedIcon == icon ? [.isSelected] : [])
                 .buttonStyle(.plain)
                 .animation(.snappy(duration: 0.2), value: isSelected)
             }
@@ -538,6 +540,8 @@ struct AddBillView: View {
                         }
                     }
                 }
+                .accessibilityLabel(item.name.capitalized)
+                .accessibilityAddTraits(isSelected ? [.isSelected] : [])
                 .buttonStyle(.plain)
                 .animation(.snappy(duration: 0.2), value: isSelected)
             }

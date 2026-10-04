@@ -52,6 +52,7 @@ struct VATTrackerView: View {
                 Button { showingAdd = true } label: {
                     Image(systemName: "plus").font(.ftCallout).foregroundStyle(FTColor.accent)
                 }
+                .accessibilityLabel("Add")
             }
         }
         .sheet(isPresented: $showingAdd) {

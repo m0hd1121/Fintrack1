@@ -75,6 +75,7 @@ struct RealEstateListView: View {
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundStyle(FTColor.accent)
                 }
+                .accessibilityLabel("Add")
             }
         }
         .sheet(isPresented: $showingAdd) {

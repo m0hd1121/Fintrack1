@@ -84,6 +84,7 @@ struct SavingsGoalDetailView: View {
                 } label: {
                     Image(systemName: "ellipsis.circle")
                 }
+                .accessibilityLabel("More options")
             }
         }
         .sheet(isPresented: $showingContribute) {

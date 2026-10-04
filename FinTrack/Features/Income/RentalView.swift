@@ -153,6 +153,7 @@ struct RentalView: View {
                         .font(.system(size: 20, weight: .semibold))
                         .foregroundStyle(FTColor.accent)
                 }
+                .accessibilityLabel("Add")
             }
             .padding(.leading, FTSpacing.xs)
 
@@ -341,6 +342,7 @@ struct PropertyDetailSheet: View {
                         Image(systemName: "plus.circle")
                             .font(.system(size: 16, weight: .semibold))
                     }
+                    .accessibilityLabel("Add")
                     .tint(FTColor.accent)
                 }
             }

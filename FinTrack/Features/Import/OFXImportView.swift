@@ -238,6 +238,8 @@ struct OFXImportView: View {
                             Image(systemName: item.isSelected ? "checkmark.circle.fill" : "circle")
                                 .foregroundStyle(item.isSelected ? FTColor.accent : FTColor.textMuted)
                         }
+                        .accessibilityLabel("Include \(item.description)")
+                        .accessibilityAddTraits(item.isSelected ? [.isSelected] : [])
                         VStack(alignment: .leading, spacing: 2) {
                             Text(item.description).font(.ftBody).foregroundStyle(FTColor.textPrimary)
                             HStack(spacing: FTSpacing.xs) {

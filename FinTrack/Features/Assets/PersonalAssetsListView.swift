@@ -59,6 +59,7 @@ struct PersonalAssetsListView: View {
                 Button { showingAdd = true } label: {
                     Image(systemName: "plus")
                 }
+                .accessibilityLabel("Add")
             }
         }
         .sheet(isPresented: $showingAdd) { AddPersonalAssetView() }
