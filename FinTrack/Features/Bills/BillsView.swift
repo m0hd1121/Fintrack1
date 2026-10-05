@@ -15,6 +15,14 @@ struct BillsView: View {
 
     @Query private var transactions: [Transaction]
 
+    // Other scheduled payments, so the Calendar shows the same sources as the
+    // Upcoming view (filters match `UpcomingPaymentsView`).
+    @Query(filter: #Predicate<Loan> { $0.isActive }) private var loans: [Loan]
+    @Query(filter: #Predicate<CreditCard> { $0.isActive }) private var creditCards: [CreditCard]
+    @Query(filter: #Predicate<BNPLPlan> { $0.isCompleted == false }) private var bnplPlans: [BNPLPlan]
+    @Query(filter: #Predicate<Transaction> { $0.isRecurring }) private var recurringTransactions: [Transaction]
+    @Query private var moneyBorrowed: [MoneyBorrowed]
+
     @State private var tab: Int = 0
     @State private var showingAddBill = false
     @State private var selectedBill: Bill? = nil
@@ -51,6 +59,9 @@ struct BillsView: View {
                         } else if tab == 1 {
                             CalendarTabContent(
                                 activeBills: activeBills,
+                                sources: CalendarPaymentSources(
+                                    loans: loans, creditCards: creditCards, bnplPlans: bnplPlans,
+                                    recurring: recurringTransactions, borrowed: moneyBorrowed),
                                 displayedMonth: $displayedMonth,
                                 selectedCalendarDay: $selectedCalendarDay,
                                 selectedBill: $selectedBill,
@@ -106,42 +117,92 @@ struct BillsView: View {
 
 // MARK: - Calendar Tab
 
+/// The non-bill payment sources the calendar projects into each month.
+private struct CalendarPaymentSources {
+    let loans: [Loan]
+    let creditCards: [CreditCard]
+    let bnplPlans: [BNPLPlan]
+    let recurring: [Transaction]
+    let borrowed: [MoneyBorrowed]
+}
+
+/// One dated payment on the calendar: a bill occurrence, or a loan EMI, card
+/// payment, BNPL instalment, recurring expense or money borrowed — the same
+/// sources as the Upcoming view. Amounts are in the base currency.
+private struct CalendarPayment: Identifiable {
+    enum Kind: String {
+        case bill = "Bill", loan = "Loan EMI", creditCard = "Card payment"
+        case bnpl = "BNPL instalment", recurring = "Recurring expense", borrowed = "Money borrowed"
+
+        /// Legend / dot colour per kind (bills use their own colour).
+        var tint: Color {
+            switch self {
+            case .bill:       return FTColor.accent
+            case .loan:       return FTColor.catBlue
+            case .creditCard: return FTColor.catPurple
+            case .bnpl:       return FTColor.gold
+            case .recurring:  return FTColor.catTeal
+            case .borrowed:   return FTColor.catCoral
+            }
+        }
+        var symbol: String {
+            switch self {
+            case .bill:       return "calendar.badge.clock"
+            case .loan:       return "banknote"
+            case .creditCard: return "creditcard.fill"
+            case .bnpl:       return "cart"
+            case .recurring:  return "repeat"
+            case .borrowed:   return "person.badge.minus"
+            }
+        }
+    }
+
+    let id: String
+    let kind: Kind
+    let name: String
+    let subtitle: String
+    let amount: Double
+    let date: Date
+    let isOverdue: Bool
+    let tint: Color
+    let symbol: String
+    /// Set for bill occurrences: tapping opens the bill.
+    let bill: Bill?
+}
+
 private struct CalendarTabContent: View {
     let activeBills: [Bill]
+    let sources: CalendarPaymentSources
     @Binding var displayedMonth: Date
     @Binding var selectedCalendarDay: Date?
     @Binding var selectedBill: Bill?
     let baseCurrency: String
 
+    @Environment(CurrencyService.self) private var currencyService
+
     private var calendar: Calendar { .current }
 
-    // All bill/date pairs that fall in the displayed month
-    private var monthProjections: [(bill: Bill, date: Date)] {
-        projectedBillsForMonth(bills: activeBills, month: displayedMonth)
-    }
-
-    // Days in the displayed month that have at least one bill due
-    private var dueDays: Set<Int> {
-        let cal = Calendar.current
-        var days = Set<Int>()
-        for pair in monthProjections {
-            days.insert(cal.component(.day, from: pair.date))
+    // Every payment that falls in the displayed month, sorted by date
+    private var monthProjections: [CalendarPayment] {
+        guard let month = Calendar.current.dateInterval(of: .month, for: displayedMonth) else { return [] }
+        let bills = projectedBillsForMonth(bills: activeBills, month: displayedMonth).map { pair in
+            CalendarPayment(
+                id: "bill-\(pair.bill.id)-\(pair.date.timeIntervalSince1970)",
+                kind: .bill, name: pair.bill.name,
+                subtitle: pair.bill.provider ?? pair.bill.billCategory.rawValue,
+                amount: currencyService.convert(pair.bill.amount, from: pair.bill.currency, to: baseCurrency),
+                date: pair.date,
+                // Only the unpaid occurrence is overdue (not later projections).
+                isOverdue: pair.bill.isOverdue && pair.date.isSameDay(as: pair.bill.nextDueDate),
+                tint: Color.fromString(pair.bill.colorName), symbol: pair.bill.icon, bill: pair.bill)
         }
-        return days
+        return (bills + otherPayments(in: month)).sorted { $0.date < $1.date }
     }
 
-    // Bill/date pairs filtered to selected day (or all month if none selected)
-    private var filteredProjections: [(bill: Bill, date: Date)] {
-        guard let selected = selectedCalendarDay else { return monthProjections }
-        return monthProjections.filter { $0.date.isSameDay(as: selected) }
-    }
-
-    private var overdueProjections: [(bill: Bill, date: Date)] {
-        filteredProjections.filter { $0.bill.isOverdue }
-    }
-
-    private var upcomingProjections: [(bill: Bill, date: Date)] {
-        filteredProjections.filter { !$0.bill.isOverdue }
+    /// Kinds present this month, for the legend under the grid.
+    private func kindsPresent(in payments: [CalendarPayment]) -> [CalendarPayment.Kind] {
+        let present = Set(payments.map(\.kind))
+        return [.bill, .loan, .creditCard, .bnpl, .recurring, .borrowed].filter { present.contains($0) }
     }
 
     // Nil-padded array: leading nils for offset, then Date objects per day
@@ -162,6 +223,14 @@ private struct CalendarTabContent: View {
     }
 
     var body: some View {
+        // Computed once per render (projection walks every payment source).
+        let payments = monthProjections
+        let paymentsByDay = Dictionary(grouping: payments) { Calendar.current.component(.day, from: $0.date) }
+        let filtered = selectedCalendarDay.map { day in payments.filter { $0.date.isSameDay(as: day) } } ?? payments
+        let overduePayments = filtered.filter(\.isOverdue)
+        let upcomingPayments = filtered.filter { !$0.isOverdue }
+        let kindsThisMonth = kindsPresent(in: payments)
+
         VStack(spacing: FTSpacing.lg) {
 
             // Month navigation
@@ -235,10 +304,11 @@ private struct CalendarTabContent: View {
                         if let date = calendarDays[index] {
                             CalendarDayCell(
                                 date: date,
-                                hasBills: dueDays.contains(Calendar.current.component(.day, from: date)),
+                                hasBills: paymentsByDay[Calendar.current.component(.day, from: date)] != nil,
                                 isSelected: selectedCalendarDay?.isSameDay(as: date) ?? false,
                                 isToday: Calendar.current.isDateInToday(date),
-                                billsForDay: monthProjections.filter { $0.date.isSameDay(as: date) }
+                                paymentsForDay: paymentsByDay[Calendar.current.component(.day, from: date)] ?? [],
+                                baseCurrency: baseCurrency
                             )
                             .onTapGesture {
                                 withAnimation(.snappy(duration: 0.2)) {
@@ -261,15 +331,33 @@ private struct CalendarTabContent: View {
             .ftGlass(FTRadius.lg)
             .padding(.horizontal, FTSpacing.screen)
 
-            // Bill list for selected month/day
-            if monthProjections.isEmpty {
-                EmptyBillsView()
+            // Legend: what each dot colour means (the list below also names
+            // the kind on every row, so colour isn't the only cue).
+            if kindsThisMonth.count > 1 {
+                FlowLayout(spacing: FTSpacing.sm) {
+                    ForEach(kindsThisMonth, id: \.self) { kind in
+                        HStack(spacing: FTSpacing.xs) {
+                            Circle().fill(kind.tint).frame(width: 8, height: 8)
+                            Text(kind == .bill ? "Bills" : kind.rawValue)
+                                .font(.ftCaption)
+                                .foregroundStyle(FTColor.textSecondary)
+                        }
+                    }
+                }
+                .padding(.horizontal, FTSpacing.screen)
+                .accessibilityHidden(true)
+            }
+
+            // Payment list for selected month/day
+            if payments.isEmpty {
+                EmptyBillsView(title: "No Payments This Month",
+                               message: "Bills, subscriptions, loan EMIs, card payments, BNPL instalments and other payments due this month appear here.")
                     .padding(.horizontal, FTSpacing.screen)
             } else {
                 VStack(spacing: FTSpacing.md) {
                     // Section header
                     HStack {
-                        Text(selectedCalendarDay != nil ? selectedCalendarDay!.formatted : "All Bills This Month")
+                        Text(selectedCalendarDay != nil ? selectedCalendarDay!.formatted : "All Payments This Month")
                             .font(.ftCallout)
                             .foregroundStyle(FTColor.textSecondary)
                         Spacer()
@@ -285,8 +373,8 @@ private struct CalendarTabContent: View {
                     }
                     .padding(.horizontal, FTSpacing.screen)
 
-                    if filteredProjections.isEmpty {
-                        Text("No bills due on this day")
+                    if filtered.isEmpty {
+                        Text("No payments due on this day")
                             .font(.ftBody)
                             .foregroundStyle(FTColor.textMuted)
                             .frame(maxWidth: .infinity)
@@ -295,22 +383,22 @@ private struct CalendarTabContent: View {
                             .padding(.horizontal, FTSpacing.screen)
                     } else {
                         // Overdue section
-                        if !overdueProjections.isEmpty {
+                        if !overduePayments.isEmpty {
                             CalendarBillSection(
                                 title: "Overdue",
                                 titleColor: FTColor.expense,
-                                projections: overdueProjections,
+                                projections: overduePayments,
                                 baseCurrency: baseCurrency,
                                 selectedBill: $selectedBill
                             )
                         }
 
                         // Upcoming section
-                        if !upcomingProjections.isEmpty {
+                        if !upcomingPayments.isEmpty {
                             CalendarBillSection(
                                 title: "Upcoming",
                                 titleColor: FTColor.textSecondary,
-                                projections: upcomingProjections,
+                                projections: upcomingPayments,
                                 baseCurrency: baseCurrency,
                                 selectedBill: $selectedBill
                             )
@@ -319,6 +407,88 @@ private struct CalendarTabContent: View {
                 }
             }
         }
+    }
+
+    /// Loan EMIs, card payments, BNPL instalments, recurring expenses and money
+    /// borrowed that fall in `month`. Repeating ones are projected forward from
+    /// their next due date (loans and BNPL only for their remaining
+    /// instalments); only that next date can be overdue.
+    private func otherPayments(in month: DateInterval) -> [CalendarPayment] {
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: Date())
+        let monthly: (Date) -> Date = { cal.date(byAdding: .month, value: 1, to: $0) ?? $0 }
+        var result: [CalendarPayment] = []
+
+        func add(_ kind: CalendarPayment.Kind, source: UUID, name: String, subtitle: String,
+                 amount: Double, dates: [(index: Int, date: Date)]) {
+            for (index, date) in dates {
+                result.append(CalendarPayment(
+                    id: "\(kind.rawValue)-\(source)-\(date.timeIntervalSince1970)",
+                    kind: kind, name: name, subtitle: subtitle, amount: amount, date: date,
+                    isOverdue: index == 0 && date < today,
+                    tint: kind.tint, symbol: kind.symbol, bill: nil))
+            }
+        }
+
+        for loan in sources.loans {
+            let remaining = max(loan.totalInstallments - loan.paidInstallments, 1)
+            add(.loan, source: loan.id, name: loan.name, subtitle: "\(loan.loanType.rawValue) · EMI",
+                amount: currencyService.convert(loan.emiAmount, from: loan.currency, to: baseCurrency),
+                dates: occurrences(from: loan.nextPaymentDate, in: month, maxCount: remaining,
+                                   until: loan.endDate, next: monthly))
+        }
+        for card in sources.creditCards where card.outstandingBalance > 0 {
+            add(.creditCard, source: card.id, name: card.name, subtitle: "Minimum payment",
+                amount: currencyService.convert(card.minimumPayment, from: card.currency, to: baseCurrency),
+                dates: occurrences(from: card.dueDate, in: month, maxCount: nil, until: nil, next: monthly))
+        }
+        for plan in sources.bnplPlans {
+            let remaining = plan.totalInstallments - plan.paidInstallments
+            guard remaining > 0 else { continue }
+            let dates = occurrences(from: plan.nextPaymentDate, in: month, maxCount: remaining,
+                                    until: nil, next: monthly)
+            for occurrence in dates {
+                add(.bnpl, source: plan.id, name: plan.name,
+                    subtitle: "Instalment \(plan.paidInstallments + 1 + occurrence.index) of \(plan.totalInstallments)",
+                    amount: currencyService.convert(plan.installmentAmount, from: plan.currency, to: baseCurrency),
+                    dates: [occurrence])
+            }
+        }
+        for tx in sources.recurring where tx.type == .expense {
+            guard let rule = tx.recurringRule else { continue }
+            add(.recurring, source: tx.id, name: tx.title, subtitle: rule.frequency.rawValue,
+                amount: tx.amountInBaseCurrency,
+                dates: occurrences(from: rule.nextDueDate, in: month, maxCount: nil,
+                                   until: rule.endDate, next: { rule.occurrence(after: $0) }))
+        }
+        for item in sources.borrowed {
+            guard item.status != .writtenOff, !item.isFullyRepaid, let due = item.dueDate,
+                  due >= month.start, due < month.end else { continue }
+            add(.borrowed, source: item.id, name: item.lenderName, subtitle: "Personal debt",
+                amount: currencyService.convert(item.remainingBalance, from: item.currency, to: baseCurrency),
+                dates: [(0, due)])
+        }
+        return result
+    }
+
+    /// Dates from `first` stepping with `next`, kept when inside `month`.
+    /// `index` counts from the first (next-due) occurrence, so index 0 is the
+    /// only one that can be overdue. Bounded so a bad rule can't loop forever.
+    private func occurrences(from first: Date, in month: DateInterval, maxCount: Int?, until end: Date?,
+                             next: (Date) -> Date) -> [(index: Int, date: Date)] {
+        var found: [(index: Int, date: Date)] = []
+        var date = first
+        var index = 0
+        let limit = min(maxCount ?? 500, 500)
+        while date < month.end && index < limit {
+            if let end, date > end { break }
+            if date >= month.start { found.append((index, date)) }
+            let following = next(date)
+            guard following > date else { break }
+            date = following
+            index += 1
+        }
+        return found
     }
 
     // Project each active bill to the date it falls on within the given month (if any)
@@ -378,7 +548,23 @@ private struct CalendarDayCell: View {
     let hasBills: Bool
     let isSelected: Bool
     let isToday: Bool
-    let billsForDay: [(bill: Bill, date: Date)]
+    let paymentsForDay: [CalendarPayment]
+    let baseCurrency: String
+
+    /// e.g. "Monday 14 October, today, 2 payments: DEWA, Car loan — ENBD, total AED 2,790.30"
+    private var accessibilityText: String {
+        var parts = [DateFormatter.localizedString(from: date, dateStyle: .full, timeStyle: .none)]
+        if isToday { parts.append("today") }
+        if paymentsForDay.isEmpty {
+            parts.append("no payments")
+        } else {
+            let total = paymentsForDay.reduce(0) { $0 + $1.amount }
+            parts.append("\(paymentsForDay.count) payment\(paymentsForDay.count == 1 ? "" : "s"): "
+                         + paymentsForDay.map(\.name).joined(separator: ", ")
+                         + ", total \(total.formatted(as: baseCurrency))")
+        }
+        return parts.joined(separator: ", ")
+    }
 
     var body: some View {
         VStack(spacing: 3) {
@@ -398,15 +584,15 @@ private struct CalendarDayCell: View {
                     .foregroundStyle(isSelected ? .white : (isToday ? FTColor.accent : FTColor.textPrimary))
             }
 
-            // Bill dots row
+            // Payment dots row (colour per bill / payment kind)
             if hasBills {
                 HStack(spacing: 2) {
-                    ForEach(billsForDay.prefix(3), id: \.bill.id) { pair in
+                    ForEach(paymentsForDay.prefix(3)) { payment in
                         Circle()
-                            .fill(Color.fromString(pair.bill.colorName))
+                            .fill(payment.tint)
                             .frame(width: 5, height: 5)
                     }
-                    if billsForDay.count > 3 {
+                    if paymentsForDay.count > 3 {
                         Circle()
                             .fill(FTColor.textMuted)
                             .frame(width: 5, height: 5)
@@ -420,15 +606,19 @@ private struct CalendarDayCell: View {
         .frame(height: 52)
         .frame(maxWidth: .infinity)
         .contentShape(.rect)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityText)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : [.isButton])
+        .accessibilityHint(isSelected ? "Shows the whole month" : "Shows this day's payments")
     }
 }
 
-// MARK: - Calendar Bill Section
+// MARK: - Calendar Payment Section
 
 private struct CalendarBillSection: View {
     let title: String
     let titleColor: Color
-    let projections: [(bill: Bill, date: Date)]
+    let projections: [CalendarPayment]
     let baseCurrency: String
     @Binding var selectedBill: Bill?
 
@@ -441,17 +631,24 @@ private struct CalendarBillSection: View {
                 .padding(.horizontal, FTSpacing.screen)
 
             VStack(spacing: 1) {
-                ForEach(projections, id: \.bill.id) { pair in
-                    Button {
-                        selectedBill = pair.bill
-                    } label: {
-                        BillRow(bill: pair.bill, baseCurrency: baseCurrency)
-                            .padding(.horizontal, FTSpacing.screen)
-                            .padding(.vertical, FTSpacing.sm)
+                ForEach(projections) { payment in
+                    Group {
+                        if let bill = payment.bill {
+                            // Bills open their detail (record payment, history…).
+                            Button {
+                                selectedBill = bill
+                            } label: {
+                                BillRow(bill: bill, baseCurrency: baseCurrency)
+                            }
+                            .buttonStyle(.plain)
+                        } else {
+                            CalendarPaymentRow(payment: payment, baseCurrency: baseCurrency)
+                        }
                     }
-                    .buttonStyle(.plain)
+                    .padding(.horizontal, FTSpacing.screen)
+                    .padding(.vertical, FTSpacing.sm)
 
-                    if pair.bill.id != projections.last?.bill.id {
+                    if payment.id != projections.last?.id {
                         Divider()
                             .padding(.leading, FTSpacing.screen + 42 + FTSpacing.md)
                     }
@@ -460,6 +657,40 @@ private struct CalendarBillSection: View {
             .ftGlass(FTRadius.lg)
             .padding(.horizontal, FTSpacing.screen)
         }
+    }
+}
+
+/// A non-bill payment on the calendar (loan EMI, card payment, BNPL
+/// instalment, recurring expense, money borrowed). Same layout as `BillRow`;
+/// the kind is written out so it isn't conveyed by colour alone.
+private struct CalendarPaymentRow: View {
+    let payment: CalendarPayment
+    let baseCurrency: String
+
+    var body: some View {
+        HStack(spacing: FTSpacing.md) {
+            FTIconTile(symbol: payment.symbol, tint: payment.tint, size: 42)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(payment.name)
+                    .font(.ftBodySemibold)
+                    .foregroundStyle(FTColor.textPrimary)
+                    .lineLimit(1)
+                Text("\(payment.kind.rawValue) · \(payment.subtitle)")
+                    .font(.ftCaption)
+                    .foregroundStyle(FTColor.textSecondary)
+                    .lineLimit(2)
+            }
+            Spacer(minLength: FTSpacing.sm)
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(payment.amount.formatted(as: baseCurrency))
+                    .font(.ftBodySemibold)
+                    .foregroundStyle(payment.isOverdue ? FTColor.expense : FTColor.textPrimary)
+                Text(payment.isOverdue ? "Overdue" : payment.date.formatted)
+                    .font(.ftCaption)
+                    .foregroundStyle(payment.isOverdue ? FTColor.expense : FTColor.textSecondary)
+            }
+        }
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -999,6 +1230,9 @@ private struct BillRow: View {
 // MARK: - Empty State
 
 private struct EmptyBillsView: View {
+    var title = "No Bills This Month"
+    var message = "Add your recurring bills and subscriptions to track them here."
+
     var body: some View {
         VStack(spacing: FTSpacing.lg) {
             ZStack {
@@ -1011,10 +1245,10 @@ private struct EmptyBillsView: View {
             }
 
             VStack(spacing: FTSpacing.xs) {
-                Text("No Bills This Month")
+                Text(title)
                     .font(.ftHeadline)
                     .foregroundStyle(FTColor.textPrimary)
-                Text("Add your recurring bills and subscriptions to track them here.")
+                Text(message)
                     .font(.ftBody)
                     .foregroundStyle(FTColor.textSecondary)
                     .multilineTextAlignment(.center)
