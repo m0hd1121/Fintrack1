@@ -26,6 +26,9 @@ User request "Fix all problems": commits `085d3fc`…HEAD on this branch fix the
 ## UI/UX audit
 Follow-up request: audit and fix the whole UI. Primary journeys were read line by line and the rest of `Features/` swept by pattern; details, what was fixed and what remains are in `maintenance.md` → "UI/UX audit". Validation was a tree-sitter Swift syntax parse of every file plus brace/paren balance checks — no build, run, screenshots or profiling were possible in this container.
 
+## Redesign proposal (awaiting approval)
+`prototype/` (repo root, outside the compiled `FinTrack/` group) holds an interactive HTML prototype of a proposed UI/UX redesign plus `prototype/README.md` (problems, navigation, iOS 27 / iPhone Duo verification, feature coverage matrix, implementation plan). No app code was changed for it; do not implement it until the owner approves.
+
 ## Next step
 Review complete. For future work follow the workflow in `maintenance.md`. When code changes, re-read the touched files and update their `code-map.md` entries; to re-verify after many commits, diff from the reviewed commit (`git diff 3411a90 --stat -- FinTrack`) and re-read only changed files.
 

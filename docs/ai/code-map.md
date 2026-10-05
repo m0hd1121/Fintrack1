@@ -239,7 +239,7 @@ Common: Freelance/Rental/Dividend totals mostly unconverted; payment-recording s
 - `AddCryptoView.swift` — coin search (`CryptoPriceService.searchCoins`, 80 shown), qty/avg cost, currency USD/AED/EUR/**USDT** (no FX rate for USDT), live price read-only from `CryptoPriceService` (`currentPrice = 0` if prices haven't loaded yet), wallet address (masked toggle), lots.
 - `AddGoldHoldingView.swift` — metal/form, weight in a chosen unit (stored in grams), purchase and **manually entered** current price per gram (no live metal price), 4 currencies, Dubai Gold Souk flag/shop, storage, auto-name.
 
-### Premium (all **disabled** via `DisableableFeature`; routed from `SettingsView`'s feature switch when enabled)
+### Premium (Settings → Premium Features; AI CFO, Retirement, Life Events, Estate, Smart Cash, Education are **enabled**; Insurance Optimizer and Collaborative Planner are disabled via `DisableableFeature`)
 None of these touch the ledger; amounts are typed with `AmountTextField` and mostly summed without conversion.
 - `AICFOModeView.swift` — period (week / month / 3 months) income, expenses, savings rate, a 4th ad-hoc "net worth" (= raw, **unconverted** sum of account balances), a local 0–100 "financial health score" (different from `FinancialIntelligenceService`'s), rule-based recommendations, burn rate, top categories. Rates ×100 before `asPercentage()`; net worth via `NetWorthService`.
 - `SmartCashAllocationView.swift` — cash = raw sum of balances, 6-month emergency fund from 3-month average spend, idle cash, rule-based allocations (emergency fund, high-rate loans, goals, investing) — unconverted except goal shortfalls; static waterfall and UAE product tips.

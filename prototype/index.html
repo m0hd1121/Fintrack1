@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>FinTrack Redesign Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&display=swap">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="wb">
+  <aside class="wb-panel wb-controls" aria-label="Prototype controls">
+    <h1>FinTrack redesign</h1>
+    <p class="wb-sub">Interactive prototype for approval. Sample data only. The app itself is unchanged.</p>
+
+    <h2>Screen size</h2>
+    <div class="seg" data-pref="size" role="group" aria-label="Screen size">
+      <button data-v="compact">Small</button><button data-v="standard">iPhone</button><button data-v="large">Large</button><button data-v="regular">Regular width</button>
+    </div>
+    <p class="wb-sub" id="size-label" style="margin-top:6px"></p>
+
+    <h2>Appearance</h2>
+    <div class="seg" data-pref="appearance" role="group" aria-label="Appearance"><button data-v="light">Light</button><button data-v="dark">Dark</button></div>
+
+    <h2>Text size (Dynamic Type)</h2>
+    <div class="seg" data-pref="text" role="group" aria-label="Text size"><button data-v="default">Default</button><button data-v="large">Large</button><button data-v="xxl">XXL</button><button data-v="ax3">AX3</button></div>
+
+    <h2>Accessibility &amp; language</h2>
+    <label class="chk"><input type="checkbox" data-flag="transparency" data-on="reduced" data-off="normal"> Reduce Transparency</label>
+    <label class="chk"><input type="checkbox" data-flag="motion" data-on="reduced" data-off="normal"> Reduce Motion</label>
+    <label class="chk"><input type="checkbox" data-flag="contrast" data-on="high" data-off="normal"> Increase Contrast</label>
+    <label class="chk"><input type="checkbox" data-flag="rtl"> Right-to-left layout</label>
+    <label class="chk"><input type="checkbox" data-flag="pseudo"> Long text (pseudo-localisation +40%)</label>
+
+    <h2>Data &amp; states</h2>
+    <div class="seg" data-pref="dataset" role="group" aria-label="Data"><button data-v="sample">Sample data</button><button data-v="empty">New user (empty)</button></div>
+    <label class="chk"><input type="checkbox" data-flag="loading"> Loading (2.5 s)</label>
+    <label class="chk"><input type="checkbox" data-flag="network" data-on="offline" data-off="online"> Offline</label>
+    <label class="chk"><input type="checkbox" data-flag="syncError"> Email sync error</label>
+    <label class="chk"><input type="checkbox" data-flag="notifPerm" data-on="denied" data-off="granted"> Notifications denied</label>
+    <label class="chk"><input type="checkbox" data-flag="camPerm" data-on="denied" data-off="granted"> Camera &amp; location denied</label>
+
+    <h2>Flows</h2>
+    <button class="wb-btn" data-wb="scene:onboarding">First launch (onboarding)</button>
+    <button class="wb-btn" data-wb="scene:lock">Lock screen</button>
+    <button class="wb-btn" data-wb="scene:restore">Reinstall: restore from this iPhone</button>
+    <button class="wb-btn" data-wb="sheet:add">Add transaction</button>
+
+    <h2>System integrations <span class="sim-tag">Simulated</span></h2>
+    <p class="wb-sub">These stand in for Siri, Shortcuts and Wallet. Nothing here is a real system call.</p>
+    <button class="wb-btn" data-wb="siriLog">Siri: “Log 45 dirhams at Starbucks”</button>
+    <button class="wb-btn" data-wb="siriBudget">Siri: “Show my budget status”</button>
+    <button class="wb-btn" data-wb="siriBalance">Siri: “What’s my balance?”</button>
+    <button class="wb-btn" data-wb="simSMS">Bank SMS automation fires</button>
+    <button class="wb-btn" data-wb="simApplePay">Apple Pay automation fires</button>
+    <button class="wb-btn" data-wb="siriThis">iOS 27 proposal: “Split this with Layla”</button>
+
+    <h2>Reset</h2>
+    <button class="wb-btn" id="reset">Reset prototype</button>
+  </aside>
+
+  <section class="wb-stage" aria-label="Device preview">
+    <div class="stage-bar"><span class="sim-tag">Web approximation of Liquid Glass</span><span id="route-label" aria-live="off"></span></div>
+    <div class="stage-scroll"><div id="device" class="device" tabindex="-1"></div></div>
+    <p class="wb-sub" style="max-width:520px;text-align:center">Tap anything that looks active. Esc goes back or closes a sheet. Every row in the coverage matrix below has a Show button that opens that feature here.</p>
+  </section>
+
+  <aside class="wb-panel wb-notes notes" aria-label="Notes for the current screen">
+    <div class="k">This screen</div>
+    <div id="notes-body"></div>
+    <h2>Legend</h2>
+    <p><span class="sim-tag">Simulated</span> stands in for a system feature or file picker.<br><span class="sim-tag">Proposal</span> is a new capability that needs your approval; it is not part of the redesign scope.</p>
+  </aside>
+
+  <section class="wb-panel matrix-panel" aria-labelledby="matrix-h">
+    <h1 id="matrix-h" style="font-size:16px">Feature coverage matrix <span class="wb-sub" id="matrix-count"></span></h1>
+    <p class="wb-sub">Every user-facing feature in the current app, where it lives today, the problem, and where it lives in the redesign.</p>
+    <div class="matrix-wrap"><table class="matrix"><thead><tr><th>Area</th><th>Feature</th><th>Current entry point</th><th>UX problem</th><th>Proposed entry point</th><th>Prototype</th></tr></thead><tbody id="matrix-body"></tbody></table></div>
+  </section>
+</div>
+<script src="data.js"></script>
+<script src="screens.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
