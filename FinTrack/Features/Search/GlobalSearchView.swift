@@ -165,6 +165,7 @@ struct GlobalSearchView: View {
     @State private var selectedTransaction: Transaction? = nil
     @State private var selectedAccount: Account? = nil
     @State private var path = NavigationPath()
+    @FocusState private var isSearchFocused: Bool
 
     private var trimmed: String { query.trimmingCharacters(in: .whitespacesAndNewlines) }
 
@@ -200,7 +201,10 @@ struct GlobalSearchView: View {
             .scrollContentBackground(.hidden)
             .background { FTBackdrop() }
             .navigationTitle("Search")
-            .searchable(text: $query, prompt: "Merchants, accounts, bills, settings")
+            // Top placement: on iPhone the bottom edge belongs to the tab bar.
+            .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always),
+                        prompt: "Merchants, accounts, bills, settings")
+            .searchFocused($isSearchFocused)
             .overlay {
                 if !trimmed.isEmpty && !hasResults {
                     ContentUnavailableView.search(text: trimmed)
@@ -218,6 +222,11 @@ struct GlobalSearchView: View {
                 transactionResults = fetchTransactions(matching: trimmed)
             }
             .onChange(of: appState.popToRootTick) { path = NavigationPath() }
+            // Choosing Search in the tab bar starts a search, as the system
+            // search tab does (only when nothing has been typed yet).
+            .onChange(of: appState.selectedTab) { _, tab in
+                if tab == .search && trimmed.isEmpty && path.isEmpty { isSearchFocused = true }
+            }
         }
     }
 

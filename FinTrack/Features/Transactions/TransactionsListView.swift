@@ -218,7 +218,9 @@ struct TransactionsListView: View {
                         }
                         .listStyle(.plain)
                         .contentMargins(.bottom, 100, for: .scrollContent)
-                        .searchable(text: $searchText, prompt: "Search transactions...")
+                        // Top placement: the bottom edge belongs to the tab bar.
+                        .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .automatic),
+                                    prompt: "Search transactions...")
                         .environment(\.editMode, .constant(isEditing ? .active : .inactive))
                         .refreshable {
                             await EmailSyncService.shared.runSyncPass(context: context)

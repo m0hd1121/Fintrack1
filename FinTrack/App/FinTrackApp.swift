@@ -93,10 +93,10 @@ final class AppState {
     func unlock() { isLocked = false }
 }
 
-/// Top-level destinations. The first five are the tab bar (Home, Activity,
-/// Plan, Wealth and the Search tab); the rest only appear in the sidebar on
-/// regular width (iPad, a foldable's inner display), where `.sidebarAdaptable`
-/// turns the tab bar into a sidebar. Case names are kept from the old tabs
+/// Top-level destinations. The first five are the bottom bar's destinations
+/// (Home, Activity, Plan, Wealth, Search — see `AppTabBar`); `newTransaction`
+/// is an action item; the rest only appear in the sidebar on regular width
+/// (iPad, a foldable's inner display). Case names are kept from the old tabs
 /// (`dashboard`, `transactions`, `budget`, `accounts`) because
 /// `PendingNavigationTarget` maps Siri's "Open…" intents onto them. Raw values
 /// are display names only and are never persisted.
@@ -106,6 +106,9 @@ enum AppTab: String, CaseIterable, Hashable {
     case budget        = "Plan"
     case accounts      = "Wealth"
     case search        = "Search"
+    /// Not a destination: selecting it opens the New Transaction sheet and
+    /// leaves the current selection unchanged (see `MainTabView.selection`).
+    case newTransaction = "New Transaction"
 
     // Sidebar-only (regular width)
     case budgets       = "Budgets"
@@ -130,6 +133,7 @@ enum AppTab: String, CaseIterable, Hashable {
         case .budget:        return "chart.pie"
         case .accounts:      return "building.columns"
         case .search:        return "magnifyingglass"
+        case .newTransaction: return "plus.circle"
         case .budgets:       return "chart.pie.fill"
         case .bills:         return "calendar.badge.clock"
         case .goals:         return "star"
@@ -153,6 +157,7 @@ enum AppTab: String, CaseIterable, Hashable {
     var compactParent: AppTab {
         switch self {
         case .dashboard, .transactions, .budget, .accounts, .search: return self
+        case .newTransaction: return .dashboard
         case .budgets, .bills, .goals, .income, .debt, .household, .planningTools: return .budget
         case .netWorth, .investments, .assets: return .accounts
         case .importSync: return .transactions

@@ -58,7 +58,8 @@ struct DigitalAssetsListView: View {
                 .accessibilityLabel("Add")
             }
         }
-        .searchable(text: $searchText, prompt: "Search digital assets")
+        .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .automatic),
+                    prompt: "Search digital assets")
         .sheet(isPresented: $showingAdd) {
             AddDigitalAssetView()
         }

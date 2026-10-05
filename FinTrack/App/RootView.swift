@@ -1,6 +1,8 @@
 import SwiftUI
 import SwiftData
 import CoreSpotlight
+import UIKit      // keyboard notifications (member import visibility is on)
+import Combine    // NotificationCenter publisher for .onReceive
 
 struct RootView: View {
     @Environment(AppState.self) private var appState
@@ -400,23 +402,43 @@ struct RootView: View {
 
 // MARK: – Main tab container
 
-/// Native, adaptive tab container. On compact width it is the system Liquid
-/// Glass tab bar (Home · Activity · Plan · Wealth + the Search tab) with the
-/// Add Transaction accessory above it; on regular width `.sidebarAdaptable`
-/// shows a sidebar whose sections also list every module, so iPad and a
-/// foldable's inner display get the same hierarchy one level flatter.
+/// Adaptive navigation container.
+///
+/// - **Compact width** (iPhone, iPad Slide Over): a `TabView` holding only the
+///   five destinations, with the system tab bar hidden and `AppTabBar` as the
+///   bottom bar — Home · Activity · New · Plan · Wealth · Search. The system
+///   bar can't do this: it overflows past five items into an automatic "More"
+///   screen and can't host an action item. Every module that used to overflow
+///   into More is reached from its hub (Plan, Wealth, Home, Settings) and from
+///   Search.
+/// - **Regular width** (iPad, a foldable's inner display): the native
+///   `.sidebarAdaptable` TabView, whose sidebar sections list every module and
+///   which includes New Transaction as an action item.
+///
+/// New Transaction never changes the selection: it presents the existing
+/// `AddTransactionView` sheet over whatever is on screen, so saving or
+/// cancelling returns to the same tab and the same pushed screen.
 struct MainTabView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     /// "Pending" is `PendingImportStatus.pending.rawValue`.
     @Query(filter: #Predicate<PendingEmailTransaction> { $0.statusRaw == "Pending" })
     private var pendingReviewItems: [PendingEmailTransaction]
+    /// The bottom bar steps aside while the keyboard is up, as the system tab
+    /// bar does (otherwise it would ride above the keyboard).
+    @State private var isKeyboardVisible = false
 
     /// Every selection (including re-selecting the current tab) bumps
-    /// `popToRootTick`, which each tab root watches to pop back to its main page.
+    /// `popToRootTick`, which each tab root watches to pop back to its main
+    /// page. `.newTransaction` is intercepted: it opens the sheet and keeps
+    /// the current selection.
     private var selection: Binding<AppTab> {
         Binding(get: { appState.selectedTab },
                 set: { newValue in
+                    if newValue == .newTransaction {
+                        appState.showingAddTransaction = true
+                        return
+                    }
                     appState.popToRootTick &+= 1
                     appState.selectedTab = newValue
                 })
@@ -425,6 +447,69 @@ struct MainTabView: View {
     var body: some View {
         @Bindable var appState = appState
 
+        Group {
+            if horizontalSizeClass == .regular {
+                sidebarTabView
+            } else {
+                compactTabView
+            }
+        }
+        // A sidebar-only destination has no place in the bottom bar; fall
+        // back to the tab that owns it when the window narrows.
+        .onChange(of: horizontalSizeClass) { _, sizeClass in
+            if sizeClass != .regular {
+                appState.selectedTab = appState.selectedTab.compactParent
+            }
+        }
+        .sheet(isPresented: $appState.showingAddTransaction) {
+            AddTransactionView()
+        }
+    }
+
+    // MARK: Compact width
+
+    private var compactTabView: some View {
+        TabView(selection: selection) {
+            Tab("Home", systemImage: AppTab.dashboard.icon, value: AppTab.dashboard) {
+                DashboardView().toolbar(.hidden, for: .tabBar)
+            }
+            Tab("Activity", systemImage: AppTab.transactions.icon, value: AppTab.transactions) {
+                TransactionsListView().toolbar(.hidden, for: .tabBar)
+            }
+            Tab("Plan", systemImage: AppTab.budget.icon, value: AppTab.budget) {
+                PlanView().toolbar(.hidden, for: .tabBar)
+            }
+            Tab("Wealth", systemImage: AppTab.accounts.icon, value: AppTab.accounts) {
+                AccountsView().toolbar(.hidden, for: .tabBar)
+            }
+            Tab("Search", systemImage: AppTab.search.icon, value: AppTab.search) {
+                GlobalSearchView().toolbar(.hidden, for: .tabBar)
+            }
+        }
+        // The bar lives in the bottom safe-area inset: scroll content clears
+        // it and scrolls beneath its glass, and it sits above the home
+        // indicator on every screen size.
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if !isKeyboardVisible {
+                AppTabBar(
+                    selection: appState.selectedTab.compactParent,
+                    reviewCount: pendingReviewItems.count,
+                    onSelect: { selection.wrappedValue = $0 },
+                    onNewTransaction: { appState.showingAddTransaction = true }
+                )
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
+            isKeyboardVisible = true
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+            isKeyboardVisible = false
+        }
+    }
+
+    // MARK: Regular width
+
+    private var sidebarTabView: some View {
         TabView(selection: selection) {
             Tab("Home", systemImage: AppTab.dashboard.icon, value: AppTab.dashboard) {
                 DashboardView()
@@ -439,8 +524,12 @@ struct MainTabView: View {
             Tab("Wealth", systemImage: AppTab.accounts.icon, value: AppTab.accounts) {
                 AccountsView()
             }
+            // Action item: intercepted by `selection`, so this content is
+            // never shown.
+            Tab("New Transaction", systemImage: AppTab.newTransaction.icon, value: AppTab.newTransaction) {
+                Color.clear
+            }
 
-            // Sidebar-only destinations (hidden from the compact tab bar).
             TabSection("Plan") {
                 Tab("Budgets", systemImage: AppTab.budgets.icon, value: AppTab.budgets) {
                     BudgetView()
@@ -487,7 +576,8 @@ struct MainTabView: View {
                 .defaultVisibility(.hidden, for: .tabBar)
             }
 
-            TabSection("More") {
+            // Formerly a generic "More" section, now grouped by meaning.
+            TabSection("Insights & Reports") {
                 Tab("Insights", systemImage: AppTab.insights.icon, value: AppTab.insights) {
                     AIAssistantView()
                 }
@@ -496,6 +586,9 @@ struct MainTabView: View {
                     NavigationStack { ReportsView() }
                 }
                 .defaultVisibility(.hidden, for: .tabBar)
+            }
+
+            TabSection("Data & Settings") {
                 Tab("Import & Sync", systemImage: AppTab.importSync.icon, value: AppTab.importSync) {
                     NavigationStack { ImportIntegrationView() }
                 }
@@ -511,40 +604,5 @@ struct MainTabView: View {
             }
         }
         .tabViewStyle(.sidebarAdaptable)
-        .tabBarMinimizeBehavior(.onScrollDown)
-        .tabViewBottomAccessory {
-            AddTransactionAccessory()
-        }
-        // A sidebar-only destination has no tab on compact width; fall back
-        // to the tab that owns it when the window narrows.
-        .onChange(of: horizontalSizeClass) { _, sizeClass in
-            if sizeClass == .compact {
-                appState.selectedTab = appState.selectedTab.compactParent
-            }
-        }
-        .sheet(isPresented: $appState.showingAddTransaction) {
-            AddTransactionView()
-        }
-    }
-}
-
-/// The labelled "Add Transaction" button shown above the tab bar on every tab
-/// (`tabViewBottomAccessory`). Replaces the custom bar's icon-only centre "+".
-struct AddTransactionAccessory: View {
-    @Environment(AppState.self) private var appState
-
-    var body: some View {
-        Button {
-            appState.showingAddTransaction = true
-        } label: {
-            Label("Add Transaction", systemImage: "plus.circle.fill")
-                .font(.ftBodySemibold)
-                .frame(maxWidth: .infinity, minHeight: 44)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .foregroundStyle(FTColor.accent)
-        .accessibilityHint("Record an expense, income or transfer")
-        .keyboardShortcut("n", modifiers: .command)
     }
 }

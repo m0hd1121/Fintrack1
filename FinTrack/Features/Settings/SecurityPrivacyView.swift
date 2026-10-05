@@ -888,7 +888,8 @@ struct AuditLogView: View {
         .navigationTitle("Audit Log (\(entries.count))")
         .navigationBarTitleDisplayMode(.inline)
         .background { FTBackdrop() }
-        .searchable(text: $searchText, prompt: "Search events…")
+        .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .automatic),
+                    prompt: "Search events…")
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Menu {
