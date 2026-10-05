@@ -263,50 +263,65 @@ struct UpcomingPaymentsView: View {
 
     /// False when pushed onto an existing stack (see `OptionalNavigationStack`).
     var embedInNavigationStack = true
+    /// False when shown as the "Upcoming" view inside Bills & Payments, which
+    /// supplies the scroll view, title and background.
+    var showsChrome = true
 
-    init(embedInNavigationStack: Bool = true) {
+    init(embedInNavigationStack: Bool = true, showsChrome: Bool = true) {
         self.embedInNavigationStack = embedInNavigationStack
+        self.showsChrome = showsChrome
     }
 
     var body: some View {
-        OptionalNavigationStack(embed: embedInNavigationStack) {
-            ScrollView {
-                VStack(spacing: 20) {
-                    filterBar
-                        .padding(.horizontal, FTSpacing.lg)
-                        .padding(.top, 8)
-
-                    if selectedRange == .custom {
-                        customDatePickers
-                            .padding(.horizontal, FTSpacing.lg)
-                    }
-
-                    if !allPayments.isEmpty {
-                        summaryCard
-                            .padding(.horizontal, FTSpacing.lg)
-                    }
-
-                    if groupedPayments.isEmpty {
-                        emptyState
-                            .padding(.top, 60)
-                    } else {
-                        ForEach(groupedPayments, id: \.label) { group in
-                            groupSection(group)
-                                .padding(.horizontal, FTSpacing.lg)
+        if showsChrome {
+            OptionalNavigationStack(embed: embedInNavigationStack) {
+                ScrollView {
+                    paymentsContent
+                        .padding(.bottom, 100)
+                }
+                .background { FTBackdrop() }
+                .navigationTitle("Upcoming Payments")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbarBackground(.hidden, for: .navigationBar)
+                .toolbar {
+                    if embedInNavigationStack {
+                        ToolbarItem(placement: .navigationBarTrailing) {
+                            Button("Done") { dismiss() }
                         }
                     }
                 }
-                .padding(.bottom, 100)
             }
-            .background { FTBackdrop() }
-            .navigationTitle("Upcoming Payments")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.hidden, for: .navigationBar)
-            .toolbar {
-                if embedInNavigationStack {
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Button("Done") { dismiss() }
-                    }
+        } else {
+            paymentsContent
+        }
+    }
+
+    /// Range filter, total and payments grouped by when they're due: bills,
+    /// subscriptions, loan EMIs, card minimums, BNPL, recurring expenses and
+    /// money you owe — all converted to the base currency.
+    private var paymentsContent: some View {
+        VStack(spacing: 20) {
+            filterBar
+                .padding(.horizontal, FTSpacing.lg)
+                .padding(.top, 8)
+
+            if selectedRange == .custom {
+                customDatePickers
+                    .padding(.horizontal, FTSpacing.lg)
+            }
+
+            if !allPayments.isEmpty {
+                summaryCard
+                    .padding(.horizontal, FTSpacing.lg)
+            }
+
+            if groupedPayments.isEmpty {
+                emptyState
+                    .padding(.top, 60)
+            } else {
+                ForEach(groupedPayments, id: \.label) { group in
+                    groupSection(group)
+                        .padding(.horizontal, FTSpacing.lg)
                 }
             }
         }

@@ -109,7 +109,7 @@ enum AppTab: String, CaseIterable, Hashable {
 
     // Sidebar-only (regular width)
     case budgets       = "Budgets"
-    case bills         = "Bills & Subscriptions"
+    case bills         = "Bills & Payments"
     case goals         = "Goals"
     case income        = "Income"
     case debt          = "Debt"

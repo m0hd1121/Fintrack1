@@ -9,7 +9,7 @@ private enum PlanRoute: Identifiable, Hashable {
 }
 
 /// Plan tab: where money should go. A hub that opens the existing module
-/// screens — Budgets, Bills & Subscriptions, Goals, Income, Debt, Household
+/// screens — Budgets, Bills & Payments, Goals, Income, Debt, Household
 /// and Planning Tools — each with a one-line live summary so the state is
 /// readable (and spoken by VoiceOver) without opening it. Creating things goes
 /// through the labelled Add menu; navigating goes through the rows.
@@ -77,7 +77,7 @@ struct PlanView: View {
                     HubSection(title: nil) {
                         row(.budgets, symbol: "chart.pie.fill", tint: FTColor.accent, title: "Budgets", subtitle: budgetSummary)
                         divider
-                        row(.bills, symbol: "calendar.badge.clock", tint: FTColor.catCoral, title: "Bills & Subscriptions", subtitle: billSummary)
+                        row(.bills, symbol: "calendar.badge.clock", tint: FTColor.catCoral, title: "Bills & Payments", subtitle: billSummary)
                         divider
                         row(.goals, symbol: "star.fill", tint: FTColor.gold, title: "Goals", subtitle: goalSummary)
                         divider

@@ -7,7 +7,7 @@ import Charts
 /// modifiers on one NavigationStack makes the bindings contend for a single
 /// slot, which spins the main thread (freeze).
 private enum DashboardRoute: Identifiable, Hashable {
-    case reports, profile, insights, netWorth, bills, upcoming, review, customize
+    case reports, profile, insights, netWorth, bills, review, customize
     var id: Self { self }
 }
 
@@ -399,7 +399,6 @@ struct DashboardView: View {
                 case .insights:  AIAssistantView(embedInNavigationStack: false)
                 case .netWorth:  NetWorthDashboardView(embedInNavigationStack: false)
                 case .bills:     BillsView(embedInNavigationStack: false)
-                case .upcoming:  UpcomingPaymentsView(embedInNavigationStack: false)
                 case .review:    EmailReviewQueueView()
                 case .customize: DashboardCustomizerView()
                 }
@@ -491,7 +490,7 @@ struct DashboardView: View {
             ShortcutTile(title: "Reports", symbol: "doc.text.magnifyingglass", tint: FTColor.catBlue, route: .reports),
             ShortcutTile(title: "Insights", symbol: "sparkles", tint: FTColor.catPurple, route: .insights),
             ShortcutTile(title: "Net Worth", symbol: "chart.line.uptrend.xyaxis", tint: FTColor.accent, route: .netWorth),
-            ShortcutTile(title: "Bills", symbol: "calendar.badge.clock", tint: FTColor.catCoral, route: .bills),
+            ShortcutTile(title: "Bills & Payments", symbol: "calendar.badge.clock", tint: FTColor.catCoral, route: .bills),
         ]
         return LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: FTSpacing.sm)], spacing: FTSpacing.sm) {
             ForEach(tiles) { tile in
@@ -652,7 +651,7 @@ struct DashboardView: View {
                     size: 44
                 )
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Bills & Subscriptions")
+                    Text("Bills & Payments")
                         .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
                     if !overdueBills.isEmpty {
                         Text("\(overdueBills.count) overdue · \(totalMonthly.formatted(as: baseCurrency))/mo")
@@ -684,7 +683,8 @@ struct DashboardView: View {
                 Text("Upcoming Payments")
                     .font(.ftHeadline).foregroundStyle(FTColor.textPrimary)
                 Spacer()
-                Button("See All") { dashRoute = .upcoming }
+                // Opens Bills & Payments on its Upcoming view (the default).
+                Button("See All") { dashRoute = .bills }
                     .font(.ftCallout)
                     .foregroundStyle(FTColor.accent)
                     .accessibilityLabel("See all upcoming payments")

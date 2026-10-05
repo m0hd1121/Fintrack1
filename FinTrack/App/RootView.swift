@@ -446,7 +446,7 @@ struct MainTabView: View {
                     BudgetView()
                 }
                 .defaultVisibility(.hidden, for: .tabBar)
-                Tab("Bills & Subscriptions", systemImage: AppTab.bills.icon, value: AppTab.bills) {
+                Tab("Bills & Payments", systemImage: AppTab.bills.icon, value: AppTab.bills) {
                     BillsView()
                 }
                 .defaultVisibility(.hidden, for: .tabBar)

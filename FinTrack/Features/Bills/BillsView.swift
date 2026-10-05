@@ -40,11 +40,15 @@ struct BillsView: View {
                     VStack(spacing: FTSpacing.lg) {
 
                         // Segmented Control
-                        FTSegmentedControl(options: ["Calendar", "Subscriptions"], selection: $tab)
+                        // Upcoming merges the old Upcoming Payments screen:
+                        // everything due, not only bills (EMIs, cards, BNPL…).
+                        FTSegmentedControl(options: ["Upcoming", "Calendar", "Subscriptions"], selection: $tab)
                             .padding(.horizontal, FTSpacing.screen)
                             .padding(.top, FTSpacing.sm)
 
                         if tab == 0 {
+                            UpcomingPaymentsView(embedInNavigationStack: false, showsChrome: false)
+                        } else if tab == 1 {
                             CalendarTabContent(
                                 activeBills: activeBills,
                                 displayedMonth: $displayedMonth,
@@ -67,7 +71,7 @@ struct BillsView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background { FTBackdrop() }
-            .navigationTitle("Bills & Subscriptions")
+            .navigationTitle("Bills & Payments")
             .navigationBarTitleDisplayMode(.large)
             .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
