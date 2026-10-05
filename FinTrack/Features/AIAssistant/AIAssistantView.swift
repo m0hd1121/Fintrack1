@@ -10,15 +10,23 @@ struct AIAssistantView: View {
     @Query private var budgets: [Budget]
     @Query private var savingsGoals: [SavingsGoal]
     @Query private var loans: [Loan]
-    @Query private var investments: [Investment]
-    @Query private var bills: [Bill]
 
     @State private var showingChat = false
-    @State private var healthScore: HealthScoreResult?
+    /// The single app-wide health score (`FinancialIntelligenceService`). The
+    /// older `AIAnalyticsService.computeHealthScore` used different weights and
+    /// grades, so two screens disagreed; only this one is shown now.
+    @State private var healthScore: FinancialHealthScore?
     @State private var anomalyCount = 0
 
+    /// False when pushed onto an existing stack (see `OptionalNavigationStack`).
+    var embedInNavigationStack = true
+
+    init(embedInNavigationStack: Bool = true) {
+        self.embedInNavigationStack = embedInNavigationStack
+    }
+
     var body: some View {
-        NavigationStack {
+        OptionalNavigationStack(embed: embedInNavigationStack) {
             ScrollView {
                 VStack(spacing: FTSpacing.xxl) {
                     heroCard
@@ -29,7 +37,7 @@ struct AIAssistantView: View {
                 .padding(.horizontal, FTSpacing.screen)
                 .padding(.bottom, 32)
             }
-            .navigationTitle("AI & Analytics")
+            .navigationTitle("Insights")
             .background { FTBackdrop() }
             .onAppear { computeQuickStats() }
         }
@@ -38,35 +46,53 @@ struct AIAssistantView: View {
     // MARK: - Hero Card
 
     private var heroCard: some View {
-        HStack(spacing: FTSpacing.lg) {
-            ZStack {
-                Circle()
-                    .fill(FTColor.heroGradient)
-                    .frame(width: 64, height: 64)
-                Image(systemName: "brain.head.profile")
-                    .font(.ftTitle)
-                    .foregroundStyle(.white)
-            }
-            VStack(alignment: .leading, spacing: 4) {
-                Text("AI Financial Intelligence")
-                    .font(.ftHeadline)
-                    .foregroundStyle(FTColor.textPrimary)
-                Text("On-device analytics. No data leaves your device.")
-                    .font(.ftBody)
-                    .foregroundStyle(FTColor.textSecondary)
-                if let score = healthScore {
-                    HStack(spacing: 4) {
-                        Circle().fill(score.gradeColor).frame(width: 8, height: 8)
-                        Text("Health: \(score.grade) · \(score.score)/100")
-                            .font(.ftCaption)
-                            .foregroundStyle(score.gradeColor)
+        NavigationLink {
+            FinancialIntelligenceView()
+        } label: {
+            HStack(spacing: FTSpacing.lg) {
+                ZStack {
+                    Circle()
+                        .fill(FTColor.heroGradient)
+                        .frame(width: 64, height: 64)
+                    if let score = healthScore {
+                        Text("\(score.overall)")
+                            .font(.ftTitle)
+                            .foregroundStyle(.white)
+                    } else {
+                        Image(systemName: "heart.text.square")
+                            .font(.ftTitle)
+                            .foregroundStyle(.white)
                     }
                 }
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Financial Health")
+                        .font(.ftHeadline)
+                        .foregroundStyle(FTColor.textPrimary)
+                    if let score = healthScore {
+                        Text("Grade \(score.grade) · \(score.overall) out of 100")
+                            .font(.ftBody)
+                            .foregroundStyle(FTColor.textSecondary)
+                    } else {
+                        Text("Add an account or a few transactions to get your score.")
+                            .font(.ftBody)
+                            .foregroundStyle(FTColor.textSecondary)
+                    }
+                    Text("Calculated on this iPhone. Tap for the breakdown and predictions.")
+                        .font(.ftCaption)
+                        .foregroundStyle(FTColor.textMuted)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.forward")
+                    .font(.ftCaption.weight(.semibold))
+                    .foregroundStyle(FTColor.textMuted)
+                    .accessibilityHidden(true)
             }
-            Spacer()
+            .padding()
+            .ftGlassInteractive(FTRadius.xl)
+            .contentShape(.rect(cornerRadius: FTRadius.xl))
         }
-        .padding()
-        .ftGlass(FTRadius.xl)
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
     }
 
     // MARK: - Quick Stats Row
@@ -98,9 +124,10 @@ struct AIAssistantView: View {
     // MARK: - Features Grid
 
     private var featuresGrid: some View {
-        let features = AIFeature.allCases
+        // `.healthScore` is left out: the hero card above opens the one score.
+        let features = AIFeature.allCases.filter { $0 != .healthScore }
         return VStack(spacing: FTSpacing.md) {
-            Text("FEATURES")
+            Text("EXPLORE")
                 .font(.ftLabel)
                 .tracking(1.6).fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(FTColor.textMuted)
@@ -158,7 +185,7 @@ struct AIAssistantView: View {
 
     private var chatSection: some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
-            Text("AI CHAT ASSISTANT")
+            Text("ASK")
                 .font(.ftLabel)
                 .tracking(1.6).fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(FTColor.textMuted)
@@ -199,10 +226,9 @@ struct AIAssistantView: View {
     // MARK: - Compute
 
     private func computeQuickStats() {
-        healthScore = AIAnalyticsService.shared.computeHealthScore(
-            transactions: transactions, accounts: accounts, budgets: budgets,
-            savingsGoals: savingsGoals, loans: loans, investments: investments,
-            currency: appState.baseCurrency
+        healthScore = FinancialIntelligenceService.shared.healthScore(
+            transactions: Array(transactions), accounts: Array(accounts),
+            budgets: Array(budgets), goals: Array(savingsGoals), loans: Array(loans)
         )
         anomalyCount = AIAnalyticsService.shared.detectAnomalies(
             transactions: transactions, currency: appState.baseCurrency

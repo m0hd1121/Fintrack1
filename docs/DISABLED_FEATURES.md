@@ -17,11 +17,11 @@ case there, update the table below in the same commit.
 
 | Feature | Where it lived | Notes |
 |---|---|---|
-| Collaborative Planner | Settings → Premium Features | Premium row hidden. |
-| Insurance Optimizer | Settings → Premium Features | Premium row hidden. |
-| Remittance Tracker | Settings → Premium Features | Premium row hidden. |
-| Tax Management | Settings → its own section | Whole `sectionCard` hidden. |
-| Business & Freelancer | Settings → its own section | Whole `sectionCard` hidden. |
+| Collaborative Planner | Plan → Planning Tools | Row hidden. |
+| Insurance Optimizer | Plan → Planning Tools | Row hidden. |
+| Remittance Tracker | Plan → Planning Tools | Row hidden. |
+| Tax Management | Plan → Planning Tools | Row hidden (was its own Settings section). |
+| Business & Freelancer | Plan → Planning Tools | Row hidden (was its own Settings section). |
 | Audit Log | Security & Privacy → Audit Log card | UI card hidden. Background audit **logging** keeps running; only the toggle + viewer are hidden. |
 | Google Drive Backup | Settings → Data & Privacy | Row hidden **and** the background sync loop in `RootView` is gated off, so previously-connected accounts stop uploading. |
 | PDF Statement Import | Settings → Import & Sync → PDF Bank Statement | Row hidden. The screen only simulated parsing (it inserted hard-coded sample transactions); re-enable only once a real PDF parser exists. |

@@ -25,8 +25,15 @@ struct BillsView: View {
 
     private var baseCurrency: String { appState.baseCurrency }
 
+    /// False when pushed onto an existing stack (see `OptionalNavigationStack`).
+    var embedInNavigationStack = true
+
+    init(embedInNavigationStack: Bool = true) {
+        self.embedInNavigationStack = embedInNavigationStack
+    }
+
     var body: some View {
-        NavigationStack {
+        OptionalNavigationStack(embed: embedInNavigationStack) {
             ZStack {
 
                 ScrollView {

@@ -2,15 +2,6 @@ import SwiftUI
 import SwiftData
 import Charts
 
-/// The module screens BudgetView pushes. A single `navigationDestination(item:)`
-/// keeps exactly one destination active — stacking multiple
-/// `.navigationDestination(isPresented:)` on one NavigationStack makes the
-/// bindings contend for a single slot, which spins the main thread (freeze).
-private enum BudgetModuleRoute: Identifiable, Hashable {
-    case income, debt
-    var id: Self { self }
-}
-
 private struct BudgetPendingDeletion: Identifiable {
     let id = UUID()
     let title: String
@@ -42,8 +33,6 @@ struct BudgetView: View {
     @State private var detailBudget: Budget? = nil
     @State private var detailEnvelope: BudgetEnvelope? = nil
     @State private var detailGoal: SavingsGoal? = nil
-    @State private var showingBills = false
-    @State private var moduleRoute: BudgetModuleRoute? = nil
     /// Context-menu deletes ran immediately; a goal or envelope takes its
     /// saved progress with it, so they're confirmed first.
     @State private var pendingDeletion: BudgetPendingDeletion? = nil
@@ -262,8 +251,15 @@ struct BudgetView: View {
 
     // MARK: Body
 
+    /// False when pushed onto an existing stack (see `OptionalNavigationStack`).
+    var embedInNavigationStack = true
+
+    init(embedInNavigationStack: Bool = true) {
+        self.embedInNavigationStack = embedInNavigationStack
+    }
+
     var body: some View {
-        NavigationStack {
+        OptionalNavigationStack(embed: embedInNavigationStack) {
             ZStack {
 
                 VStack(spacing: 0) {
@@ -287,12 +283,11 @@ struct BudgetView: View {
                         .padding(.horizontal, FTSpacing.screen)
                         .padding(.top, FTSpacing.lg)
                     }
-                    .collapsesTabBarOnScroll()
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background { FTBackdrop() }
-            .navigationTitle("Budget & Goals")
+            .navigationTitle("Budgets")
             .navigationBarTitleDisplayMode(.large)
             .toolbar { toolbarContent }
             .sheet(isPresented: $showingAddBudget) { AddBudgetView() }
@@ -318,15 +313,6 @@ struct BudgetView: View {
             .sheet(item: $detailEnvelope) { env in
                 EnvelopeDetailView(envelope: env, transactions: transactions)
             }
-            .sheet(isPresented: $showingBills) {
-                BillsView()
-            }
-            .navigationDestination(item: $moduleRoute) { route in
-                switch route {
-                case .income: IncomeManagementView()
-                case .debt:   DebtManagementView()
-                }
-            }
             .confirmationDialog(pendingDeletion?.title ?? "", isPresented: Binding(
                 get: { pendingDeletion != nil },
                 set: { if !$0 { pendingDeletion = nil } }
@@ -350,9 +336,8 @@ struct BudgetView: View {
                 checkBudgetAlerts()
                 ensureBuiltInTemplates()
             }
-            // Tapping the Budget tab pops any pushed screen back here.
+            // Selecting a tab pops any pushed screen back here.
             .onChange(of: appState.popToRootTick) {
-                moduleRoute = nil
                 detailGoal = nil
             }
         }
@@ -378,23 +363,14 @@ struct BudgetView: View {
                     Label("Seasonal Templates", systemImage: "calendar.badge.plus")
                 }
                 Button { showingRecommendations = true } label: {
-                    Label("AI Recommendations", systemImage: "sparkles")
-                }
-                Divider()
-                Button { showingBills = true } label: {
-                    Label("Bills & Subscriptions", systemImage: "calendar.badge.clock")
-                }
-                Button { moduleRoute = .income } label: {
-                    Label("Income Management", systemImage: "banknote.fill")
-                }
-                Button { moduleRoute = .debt } label: {
-                    Label("Debt Management", systemImage: "creditcard.trianglebadge.exclamationmark")
+                    Label("Suggestions", systemImage: "sparkles")
                 }
             } label: {
-                Image(systemName: "plus")
-                    .font(.system(size: 16, weight: .semibold))
+                // Creating only — Bills, Income and Debt are reached from Plan.
+                Label("Add", systemImage: "plus")
+                    .labelStyle(.titleAndIcon)
             }
-            .accessibilityLabel("Add or open")
+            .accessibilityLabel("Add a budget, goal or envelope")
         }
     }
 

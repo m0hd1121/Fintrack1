@@ -1,10 +1,12 @@
 import SwiftUI
 import SwiftData
 
-/// The five module screens AccountsView pushes. Drives a single
+/// The screens the Wealth tab pushes. Drives a single
 /// `navigationDestination(item:)` so only one destination is ever active.
+/// Income and Goals moved to Plan; Debt stays reachable here as a shortcut to
+/// the same screen Plan → Debt opens.
 private enum ModuleRoute: Identifiable, Hashable {
-    case income, portfolio, goals, assetsLiabilities, debt
+    case netWorth, portfolio, assetsLiabilities, debt
     var id: Self { self }
 }
 
@@ -24,12 +26,7 @@ struct AccountsView: View {
     @Query private var bnplPlans: [BNPLPlan]
     @Query private var moneyBorrowed: [MoneyBorrowed]
     @Query private var moneyLent: [MoneyLent]
-    @Query private var transactions: [Transaction]
     @Query private var netWorthMilestones: [NetWorthMilestone]
-    @Query(filter: #Predicate<SalaryRecord> { $0.isActive }) private var salaryRecords: [SalaryRecord]
-    @Query(filter: #Predicate<FreelanceProject> { $0.isArchived == false }) private var freelanceProjects: [FreelanceProject]
-    @Query(filter: #Predicate<RentalProperty> { $0.isActive }) private var rentalProperties: [RentalProperty]
-    @Query(filter: #Predicate<SavingsGoal> { $0.isArchived == false && $0.isCompleted == false }) private var activeGoals: [SavingsGoal]
     @Query(filter: #Predicate<RealEstateProperty> { $0.isArchived == false }) private var realEstateProperties: [RealEstateProperty]
     @Query(filter: #Predicate<Vehicle> { $0.isArchived == false }) private var vehicles: [Vehicle]
     @Query(filter: #Predicate<PersonalAsset> { $0.isArchived == false }) private var personalAssets: [PersonalAsset]
@@ -59,8 +56,6 @@ struct AccountsView: View {
     // (main-thread spin → freeze) and often fails to push at all. One item
     // binding has exactly one active destination at a time.
     @State private var moduleRoute: ModuleRoute? = nil
-    @State private var showingNetWorth = false
-    @State private var showingNotifications = false
     /// Every delete here goes through one confirmation; the context-menu
     /// deletes used to fire immediately (an account delete cascades to all of
     /// its transactions).
@@ -78,7 +73,7 @@ struct AccountsView: View {
         pendingDeletion = PendingDeletion(title: "Delete \(name)?", message: message, perform: perform)
     }
 
-    private let tabs = ["Accounts", "Investments", "Crypto", "Assets"]
+    private let tabs = ["Accounts", "Investments", "Crypto", "Gold & Rewards"]
     private var baseCurrency: String { appState.baseCurrency }
 
     private var activeAccounts: [Account] { accounts.filter { !$0.isArchived } }
@@ -144,32 +139,7 @@ struct AccountsView: View {
             moneyBorrowed: moneyBorrowed, currencyService: currencyService, base: baseCurrency)
     }
 
-    // MARK: Module metrics (relocated from DashboardView)
-
-    private var activeIncomeStreams: Int {
-        (salaryRecords.isEmpty ? 0 : 1) + (freelanceProjects.isEmpty ? 0 : 1) + (rentalProperties.isEmpty ? 0 : 1)
-    }
-    /// Ledger-derived values, cached: both used to re-scan every transaction
-    /// on each body evaluation (including during the animated tab switch).
-    @State private var monthlyIncome: Double = 0
-    @State private var goalHasConflict = false
-
-    private var ledgerKey: String {
-        "\(transactions.count)|\(activeGoals.map { "\($0.id)\($0.currentAmount)\($0.targetAmount)" }.joined().hashValue)"
-    }
-
-    private func recomputeLedgerValues() {
-        monthlyIncome = transactions
-            .filter { $0.type == .income && !$0.isPending && !$0.isScheduled && !$0.isPrincipalMovement
-                && $0.date.isSameMonth(as: Date()) }
-            .reduce(0) { $0 + $1.amountInBaseCurrency }
-        goalHasConflict = SavingsGoalService.shared.analyzeConflicts(
-            goals: activeGoals, transactions: transactions, currencyService: currencyService, base: baseCurrency
-        ).hasConflict
-    }
-    private var overdueIncomeCount: Int {
-        freelanceProjects.flatMap { $0.overdueInvoices }.count + rentalProperties.flatMap { $0.overduePayments }.count
-    }
+    // MARK: Module metrics
 
     private var portfolioTotalValue: Double {
         InvestmentService.shared.totalValue(
@@ -184,14 +154,6 @@ struct AccountsView: View {
     private var portfolioAssetCount: Int {
         investments.count + cryptoHoldings.count + activeGoldHoldings.count
     }
-
-    private var goalsSaved: Double {
-        activeGoals.reduce(0) { $0 + currencyService.convert($1.currentAmount, from: $1.currency, to: baseCurrency) }
-    }
-    private var goalsTarget: Double {
-        activeGoals.reduce(0) { $0 + currencyService.convert($1.targetAmount, from: $1.currency, to: baseCurrency) }
-    }
-    private var goalsProgress: Double { goalsTarget > 0 ? min(goalsSaved / goalsTarget, 1.0) : 0 }
 
     private var hardAssetsTotal: Double {
         let svc = NetWorthService.shared
@@ -220,7 +182,6 @@ struct AccountsView: View {
             ZStack {
                 ScrollView {
                     VStack(spacing: FTSpacing.lg) {
-                        header
                         netWorthHero
                         moduleGrid
 
@@ -247,13 +208,14 @@ struct AccountsView: View {
                     }
                     .padding(.horizontal, FTSpacing.screen)
                     .padding(.top, FTSpacing.sm)
-                    .padding(.bottom, 120)
+                    .padding(.bottom, FTSpacing.xxl)
                 }
-                .collapsesTabBarOnScroll()
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background { FTBackdrop() }
-            .toolbar(.hidden, for: .navigationBar)
+            .navigationTitle("Wealth")
+            .navigationBarTitleDisplayMode(.large)
+            .toolbar { addMenu }
             .sheet(isPresented: $showingAddAccount) { AddAccountView() }
             .sheet(isPresented: $showingAddCreditCard) { AddCreditCardView() }
             .sheet(isPresented: $showingAddInvestment) { AddInvestmentView() }
@@ -269,14 +231,12 @@ struct AccountsView: View {
             .sheet(item: $editingLoyalty) { p in EditLoyaltyProgramView(program: p) }
             .navigationDestination(item: $moduleRoute) { route in
                 switch route {
-                case .income:            IncomeManagementView()
+                case .netWorth:          NetWorthDashboardView(embedInNavigationStack: false)
                 case .portfolio:         InvestmentPortfolioView()
-                case .goals:             SavingsGoalsView()
                 case .assetsLiabilities: AssetsLiabilitiesView()
                 case .debt:              DebtManagementView()
                 }
             }
-            .sheet(isPresented: $showingNetWorth) { NetWorthDashboardView() }
             .confirmationDialog(pendingDeletion?.title ?? "Delete?",
                                 isPresented: Binding(get: { pendingDeletion != nil },
                                                      set: { if !$0 { pendingDeletion = nil } }),
@@ -287,30 +247,30 @@ struct AccountsView: View {
             } message: { pending in
                 Text(pending.message)
             }
-            .sheet(isPresented: $showingNotifications) { NotificationSettingsView() }
-            // Tapping the Accounts tab pops any pushed module screen back here.
+            // Selecting a tab pops any pushed module screen back here.
             .onChange(of: appState.popToRootTick) { moduleRoute = nil }
-            .task(id: ledgerKey) { recomputeLedgerValues() }
-            .onAppear { recomputeLedgerValues() }
         }
     }
 
-    // MARK: - Header
+    // MARK: - Add menu
 
-    private var header: some View {
-        HStack {
-            Text("Accounts & Assets")
-                .font(.ftTitle)
-                .foregroundStyle(FTColor.textPrimary)
-            Spacer()
-            Button { showingNotifications = true } label: {
-                Image(systemName: "bell.fill")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(FTColor.accent)
-                    .frame(width: 44, height: 44)
-                    .ftGlass(FTRadius.md)
+    @ToolbarContentBuilder
+    private var addMenu: some ToolbarContent {
+        ToolbarItem(placement: .primaryAction) {
+            Menu {
+                Button { showingAddAccount = true } label: { Label("Bank or Cash Account", systemImage: "building.columns") }
+                Button { showingAddCreditCard = true } label: { Label("Credit Card", systemImage: "creditcard") }
+                Divider()
+                Button { showingAddInvestment = true } label: { Label("Investment", systemImage: "chart.line.uptrend.xyaxis") }
+                Button { showingAddCrypto = true } label: { Label("Crypto", systemImage: "bitcoinsign.circle") }
+                Button { showingAddGold = true } label: { Label("Precious Metal", systemImage: "circle.hexagongrid.fill") }
+                Divider()
+                Button { showingAddGiftCard = true } label: { Label("Gift Card", systemImage: "gift") }
+                Button { showingAddLoyalty = true } label: { Label("Loyalty Program", systemImage: "star.circle") }
+            } label: {
+                Label("Add", systemImage: "plus").labelStyle(.titleAndIcon)
             }
-            .accessibilityLabel("Notification Settings")
+            .accessibilityLabel("Add an account, card, investment or reward")
         }
     }
 
@@ -319,7 +279,7 @@ struct AccountsView: View {
     private var netWorthHero: some View {
         let isNegative = netWorth < 0
 
-        return Button { showingNetWorth = true } label: {
+        return Button { moduleRoute = .netWorth } label: {
             VStack(alignment: .leading, spacing: 14) {
                 HStack {
                     Text("TOTAL NET WORTH")
@@ -384,21 +344,10 @@ struct AccountsView: View {
     }
 
     private var moduleCards: [ModuleCardData] {
-        let incomeAlert = overdueIncomeCount > 0
-        let incomeSub = incomeAlert
-            ? "\(overdueIncomeCount) overdue"
-            : activeIncomeStreams > 0
-                ? "\(activeIncomeStreams) active stream\(activeIncomeStreams == 1 ? "" : "s")"
-                : "Track salary, freelance & rental"
-
         let isGain = portfolioPnL >= 0
         let portfolioSub = portfolioAssetCount > 0
             ? "\(portfolioAssetCount) holding\(portfolioAssetCount == 1 ? "" : "s") · \(isGain ? "+" : "")\(portfolioPnL.asCompact(currency: baseCurrency))"
             : "Track stocks, crypto & gold"
-
-        let goalsSub = activeGoals.isEmpty
-            ? "Set savings goals"
-            : "\(activeGoals.count) goal\(activeGoals.count == 1 ? "" : "s") · \(Int(goalsProgress * 100))% funded"
 
         let assetsSub = hardAssetsCount > 0
             ? "\(hardAssetsCount) asset\(hardAssetsCount == 1 ? "" : "s")"
@@ -413,14 +362,6 @@ struct AccountsView: View {
 
         return [
             ModuleCardData(
-                icon: incomeAlert ? "exclamationmark.triangle.fill" : "arrow.down.left.circle.fill",
-                tint: incomeAlert ? FTColor.expense : FTColor.income,
-                label: "Income Management",
-                value: monthlyIncome.asCompact(currency: baseCurrency),
-                valueColor: FTColor.textPrimary, sub: incomeSub, wide: false, badge: false,
-                action: { moduleRoute = .income }
-            ),
-            ModuleCardData(
                 icon: "chart.line.uptrend.xyaxis.circle.fill",
                 tint: isGain ? FTColor.income : FTColor.expense,
                 label: "Investment Portfolio",
@@ -429,15 +370,8 @@ struct AccountsView: View {
                 action: { moduleRoute = .portfolio }
             ),
             ModuleCardData(
-                icon: "star.fill", tint: FTColor.catTeal,
-                label: "Savings Goals",
-                value: goalsSaved.asCompact(currency: baseCurrency),
-                valueColor: FTColor.textPrimary, sub: goalsSub, wide: false, badge: goalHasConflict,
-                action: { moduleRoute = .goals }
-            ),
-            ModuleCardData(
                 icon: "building.columns.fill", tint: FTColor.catBlue,
-                label: "Assets & Liabilities",
+                label: "Property & Assets",
                 value: hardAssetsTotal.asCompact(currency: baseCurrency),
                 valueColor: FTColor.textPrimary, sub: assetsSub, wide: false, badge: false,
                 action: { moduleRoute = .assetsLiabilities }
@@ -445,7 +379,7 @@ struct AccountsView: View {
             ModuleCardData(
                 icon: debtAlert ? "creditcard.trianglebadge.exclamationmark" : "creditcard.fill",
                 tint: FTColor.expense,
-                label: "Debt Management",
+                label: "What You Owe",
                 value: totalDebt.asCompact(currency: baseCurrency),
                 valueColor: FTColor.textPrimary, sub: debtSub, wide: true, badge: false,
                 action: { moduleRoute = .debt }
@@ -519,7 +453,7 @@ struct AccountsView: View {
         case 0:  return "Bank & Cash Accounts"
         case 1:  return "Investments"
         case 2:  return "Crypto Assets"
-        default: return "Other Assets"
+        default: return "Gold, Gift Cards & Loyalty"
         }
     }
 

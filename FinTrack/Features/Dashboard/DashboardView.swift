@@ -7,7 +7,7 @@ import Charts
 /// modifiers on one NavigationStack makes the bindings contend for a single
 /// slot, which spins the main thread (freeze).
 private enum DashboardRoute: Identifiable, Hashable {
-    case reports, profile
+    case reports, profile, insights, netWorth, bills, upcoming, review, customize
     var id: Self { self }
 }
 
@@ -43,12 +43,13 @@ struct DashboardView: View {
     @Query private var savingsGoals: [SavingsGoal]
 
     @Query private var dashSettings: [AppSettings]
+    /// "Pending" is `PendingImportStatus.pending.rawValue`.
+    @Query(filter: #Predicate<PendingEmailTransaction> { $0.statusRaw == "Pending" })
+    private var pendingReviewItems: [PendingEmailTransaction]
 
     @State private var dashRoute: DashboardRoute? = nil
-    @State private var showingAI = false
-    @State private var showingBills = false
-    @State private var showingUpcomingPayments = false
     @State private var selectedTransaction: Transaction? = nil
+    @State private var selectedAccount: Account? = nil
 
     private var baseCurrency: String { appState.baseCurrency }
 
@@ -333,6 +334,14 @@ struct DashboardView: View {
                         header
                             .padding(.horizontal, FTSpacing.screen)
 
+                        VStack(spacing: FTSpacing.lg) {
+                            if !pendingReviewItems.isEmpty {
+                                reviewCard
+                            }
+                            shortcutTiles
+                        }
+                        .padding(.horizontal, FTSpacing.screen)
+
                         if isWidgetVisible(.hero) && !activeAccounts.isEmpty {
                             accountsRow
                         }
@@ -355,11 +364,20 @@ struct DashboardView: View {
                             }
 
                             recentTransactionsSection
+
+                            Button { dashRoute = .customize } label: {
+                                Label("Edit Home", systemImage: "slider.horizontal.3")
+                                    .font(.ftBodySemibold)
+                                    .frame(maxWidth: .infinity, minHeight: 44)
+                            }
+                            .buttonStyle(.glass)
+                            .tint(FTColor.accent)
+                            .accessibilityHint("Choose which sections Home shows")
                         }
                         .padding(.horizontal, FTSpacing.screen)
                     }
                     .padding(.top, FTSpacing.sm)
-                    .padding(.bottom, 120)
+                    .padding(.bottom, FTSpacing.xxl)
                 }
                 .refreshable {
                     async let rates: () = currencyService.fetchLiveRates()
@@ -370,25 +388,24 @@ struct DashboardView: View {
                     await EmailSyncService.shared.runSyncPass(context: context)
                     refreshDashboard()
                 }
-                .collapsesTabBarOnScroll()
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background { FTBackdrop() }
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(item: $dashRoute) { route in
                 switch route {
-                case .reports: ReportsView()
-                case .profile: SettingsView()
+                case .reports:   ReportsView()
+                case .profile:   SettingsView()
+                case .insights:  AIAssistantView(embedInNavigationStack: false)
+                case .netWorth:  NetWorthDashboardView(embedInNavigationStack: false)
+                case .bills:     BillsView(embedInNavigationStack: false)
+                case .upcoming:  UpcomingPaymentsView(embedInNavigationStack: false)
+                case .review:    EmailReviewQueueView()
+                case .customize: DashboardCustomizerView()
                 }
             }
-            .sheet(isPresented: $showingAI) {
-                AIAssistantView()
-            }
-            .sheet(isPresented: $showingBills) {
-                BillsView()
-            }
-            .sheet(isPresented: $showingUpcomingPayments) {
-                UpcomingPaymentsView()
+            .sheet(item: $selectedAccount, onDismiss: { refreshDashboard() }) { account in
+                AccountDetailView(account: account)
             }
             .sheet(item: $selectedTransaction, onDismiss: { refreshDashboard() }) { tx in
                 TransactionDetailView(transaction: tx)
@@ -401,7 +418,7 @@ struct DashboardView: View {
             .onAppear {
                 if hasAppeared { refreshDashboard() } else { hasAppeared = true }
             }
-            // Tapping the Dashboard tab pops any pushed screen back here.
+            // Selecting a tab pops any pushed screen back here.
             .onChange(of: appState.popToRootTick) { dashRoute = nil }
         }
     }
@@ -414,44 +431,84 @@ struct DashboardView: View {
                 Text(greeting)
                     .font(.ftCaption)
                     .foregroundStyle(FTColor.textSecondary)
-                Text("Your Finances")
+                Text("Home")
                     .font(.ftTitle)
                     .foregroundStyle(FTColor.textPrimary)
+                    .accessibilityAddTraits(.isHeader)
             }
             Spacer()
-            HStack(spacing: FTSpacing.sm) {
-                Button {
-                    showingAI = true
-                } label: {
-                    Image(systemName: "brain.head.profile")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(FTColor.accent)
-                        .frame(width: 44, height: 44)
-                        .ftGlass(FTRadius.md)
-                }
-                .accessibilityLabel("AI Assistant")
+            Button {
+                dashRoute = .profile
+            } label: {
+                Image(systemName: "person.crop.circle")
+                    .font(.ftTitle)
+                    .foregroundStyle(FTColor.accent)
+                    .frame(width: 44, height: 44)
+                    .ftGlass(FTRadius.pill)
+            }
+            .accessibilityLabel("Settings and profile")
+        }
+    }
 
-                Button {
-                    dashRoute = .reports
-                } label: {
-                    Image(systemName: "chart.bar.xaxis")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(FTColor.accent)
-                        .frame(width: 44, height: 44)
-                        .ftGlass(FTRadius.md)
-                }
-                .accessibilityLabel("Reports")
+    // MARK: - To review
 
-                Button {
-                    dashRoute = .profile
-                } label: {
-                    Image(systemName: "person.fill")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(FTColor.accent)
-                        .frame(width: 44, height: 44)
-                        .ftGlass(FTRadius.md)
+    /// Imports wait here until approved — the only way they reach the ledger —
+    /// so the queue is surfaced on Home rather than only inside Activity.
+    private var reviewCard: some View {
+        let count = pendingReviewItems.count
+        return HStack(spacing: FTSpacing.md) {
+            FTIconTile(symbol: "tray.full.fill", tint: FTColor.accent, size: 40)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("\(count) imported transaction\(count == 1 ? "" : "s") to review")
+                    .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
+                Text("From bank emails, SMS and Apple Pay. Nothing is added to your accounts until you approve it.")
+                    .font(.ftCaption).foregroundStyle(FTColor.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: FTSpacing.sm)
+            Button("Review") { dashRoute = .review }
+                .buttonStyle(.glassProminent)
+                .tint(FTColor.accent)
+                .accessibilityLabel("Review \(count) imported transactions")
+        }
+        .padding(FTSpacing.lg)
+        .ftGlass(FTRadius.lg)
+    }
+
+    // MARK: - Shortcuts
+
+    /// Labelled replacements for the old icon-only header buttons.
+    private struct ShortcutTile: Identifiable {
+        let title: String
+        let symbol: String
+        let tint: Color
+        let route: DashboardRoute
+        var id: String { title }
+    }
+
+    private var shortcutTiles: some View {
+        let tiles = [
+            ShortcutTile(title: "Reports", symbol: "doc.text.magnifyingglass", tint: FTColor.catBlue, route: .reports),
+            ShortcutTile(title: "Insights", symbol: "sparkles", tint: FTColor.catPurple, route: .insights),
+            ShortcutTile(title: "Net Worth", symbol: "chart.line.uptrend.xyaxis", tint: FTColor.accent, route: .netWorth),
+            ShortcutTile(title: "Bills", symbol: "calendar.badge.clock", tint: FTColor.catCoral, route: .bills),
+        ]
+        return LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: FTSpacing.sm)], spacing: FTSpacing.sm) {
+            ForEach(tiles) { tile in
+                Button { dashRoute = tile.route } label: {
+                    HStack(spacing: FTSpacing.sm) {
+                        FTIconTile(symbol: tile.symbol, tint: tile.tint, size: 32)
+                        Text(tile.title)
+                            .font(.ftBodySemibold)
+                            .foregroundStyle(FTColor.textPrimary)
+                        Spacer(minLength: 0)
+                    }
+                    .padding(FTSpacing.md)
+                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                    .ftGlassInteractive(FTRadius.md)
+                    .contentShape(.rect(cornerRadius: FTRadius.md))
                 }
-                .accessibilityLabel("Profile and Settings")
+                .buttonStyle(.plain)
             }
         }
     }
@@ -464,7 +521,7 @@ struct DashboardView: View {
                 ForEach(activeAccounts.prefix(8)) { account in
 
                     Button {
-                        appState.selectedTab = .accounts
+                        selectedAccount = account
                     } label: {
                         VStack(alignment: .leading, spacing: FTSpacing.md) {
                             FTIconTile(symbol: account.icon, tint: Color.fromString(account.color), size: 38)
@@ -486,7 +543,7 @@ struct DashboardView: View {
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("\(account.name), \(account.balance.formatted(as: account.currency))")
-                    .accessibilityHint("Open Accounts")
+                    .accessibilityHint("Shows the account")
                 }
             }
             .padding(.leading, FTSpacing.screen)
@@ -587,7 +644,7 @@ struct DashboardView: View {
             $0 + currencyService.convert($1.monthlyEquivalent, from: $1.currency, to: baseCurrency)
         }
 
-        return Button { showingBills = true } label: {
+        return Button { dashRoute = .bills } label: {
             HStack(spacing: FTSpacing.md) {
                 FTIconTile(
                     symbol: overdueBills.isEmpty ? "calendar.badge.clock" : "calendar.badge.exclamationmark",
@@ -627,7 +684,7 @@ struct DashboardView: View {
                 Text("Upcoming Payments")
                     .font(.ftHeadline).foregroundStyle(FTColor.textPrimary)
                 Spacer()
-                Button("See All") { showingUpcomingPayments = true }
+                Button("See All") { dashRoute = .upcoming }
                     .font(.ftCallout)
                     .foregroundStyle(FTColor.accent)
                     .accessibilityLabel("See all upcoming payments")
@@ -657,8 +714,14 @@ struct DashboardView: View {
 
     private var insightsSection: some View {
         VStack(alignment: .leading, spacing: FTSpacing.md) {
-            Text("AI Insights")
-                .font(.ftHeadline).foregroundStyle(FTColor.textPrimary)
+            HStack {
+                Text("Insights")
+                    .font(.ftHeadline).foregroundStyle(FTColor.textPrimary)
+                Spacer()
+                Button("See all") { dashRoute = .insights }
+                    .font(.ftCallout).foregroundStyle(FTColor.accent)
+                    .accessibilityLabel("See all insights")
+            }
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: FTSpacing.md) {
@@ -929,6 +992,8 @@ struct TransactionRowView: View {
         }
         .padding(.vertical, 13)
         .opacity(transaction.isPending || transaction.isScheduled ? 0.75 : 1)
+        // iOS 27: lets Siri resolve "this transaction" (see SystemIntegration.swift).
+        .annotatesTransaction(transaction.id)
     }
 
     private var signPrefix: String {

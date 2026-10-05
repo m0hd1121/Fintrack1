@@ -15,7 +15,7 @@ struct AnomalyDetectionView: View {
     }
 
     var body: some View {
-        NavigationStack {
+        Group {  // pushed from the Insights hub — no stack of its own
             VStack(spacing: 0) {
                 if isLoading {
                     loadingView

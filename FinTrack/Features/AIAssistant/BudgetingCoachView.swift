@@ -10,7 +10,7 @@ struct BudgetingCoachView: View {
     @State private var expandedTips: Set<UUID> = []
 
     var body: some View {
-        NavigationStack {
+        Group {  // pushed from the Insights hub — no stack of its own
             ScrollView {
                 VStack(spacing: FTSpacing.xxl) {
                     headerCard

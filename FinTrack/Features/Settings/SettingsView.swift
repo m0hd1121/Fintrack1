@@ -11,12 +11,8 @@ struct SettingsView: View {
 
     private var setting: AppSettings? { settings.first }
     private var profile: UserProfile? { profiles.first }
-    private var visibleFeatures: [DisableableFeature] {
-        DisableableFeature.allCases.filter { $0.category == .premium && $0.isEnabled }
-    }
 
     @State private var showingCurrencyPicker = false
-    @State private var showingPINSetup = false
     @State private var showingAbout = false
     @State private var showingCategoryManagement = false
     @State private var showingRuleManagement = false
@@ -42,24 +38,6 @@ struct SettingsView: View {
 
     // MARK: - Bindings
 
-    private var biometricsBinding: Binding<Bool> {
-        Binding(get: { setting?.useBiometrics ?? true },
-                set: { setting?.useBiometrics = $0; try? context.save() })
-    }
-    private var pinBinding: Binding<Bool> {
-        Binding(get: { setting?.usePIN ?? false },
-                set: { newValue in
-                    // Turning PIN on opens setup; `PINSetupSheet` enables it once a PIN
-                    // is saved. Turning it off also forgets the stored hash.
-                    if newValue {
-                        showingPINSetup = true
-                    } else {
-                        setting?.usePIN = false
-                        setting?.pinHash = nil
-                        try? context.save()
-                    }
-                })
-    }
     private var notificationsBinding: Binding<Bool> {
         Binding(get: { setting?.notificationsEnabled ?? true },
                 set: { setting?.notificationsEnabled = $0; try? context.save() })
@@ -72,68 +50,10 @@ struct SettingsView: View {
         Binding(get: { setting?.billRemindersEnabled ?? true },
                 set: { setting?.billRemindersEnabled = $0; try? context.save() })
     }
-    private var autoLockBinding: Binding<Int> {
-        Binding(get: { setting?.autoLockMinutes ?? 5 },
-                set: { setting?.autoLockMinutes = $0; try? context.save() })
-    }
-    private var autoLockText: String {
-        switch autoLockBinding.wrappedValue {
-        case 0:  return "Never"
-        case 1:  return "1 minute"
-        default: return "\(autoLockBinding.wrappedValue) minutes"
-        }
-    }
-
     var body: some View {
         ScrollView {
             VStack(spacing: FTSpacing.xl) {
                 profileCard
-
-                if !visibleFeatures.isEmpty {
-                    sectionCard("Premium Features") {
-                        ForEach(Array(visibleFeatures.enumerated()), id: \.element.id) { index, feature in
-                            NavigationLink(destination: LazyView { destinationView(for: feature) }) {
-                                settingRow(symbol: feature.symbol, tint: feature.tint,
-                                           title: feature.title, chevron: true)
-                            }
-                            if index < visibleFeatures.count - 1 {
-                                rowDivider
-                            }
-                        }
-                    }
-                }
-
-                sectionCard("Financial Intelligence") {
-                    NavigationLink(destination: LazyView { FinancialIntelligenceView() }) {
-                        settingRow(symbol: "brain.head.profile", tint: FTColor.gold,
-                                   title: "Health Score & Insights", chevron: true)
-                    }
-                }
-
-                if DisableableFeature.taxManagement.isEnabled {
-                    sectionCard("Tax Management") {
-                        NavigationLink(destination: LazyView { TaxManagementView() }) {
-                            settingRow(symbol: "doc.text.fill", tint: FTColor.catPurple,
-                                       title: "Tax Management", chevron: true)
-                        }
-                    }
-                }
-
-                sectionCard("Family Finance") {
-                    NavigationLink(destination: LazyView { FamilyFinanceView() }) {
-                        settingRow(symbol: "person.3.fill", tint: FTColor.catTeal,
-                                   title: "Family & Shared Finance", chevron: true)
-                    }
-                }
-
-                if DisableableFeature.businessFreelancer.isEnabled {
-                    sectionCard("Business & Freelancer") {
-                        NavigationLink(destination: LazyView { BusinessFreelancerView() }) {
-                            settingRow(symbol: "briefcase.fill", tint: FTColor.catBlue,
-                                       title: "Business & Freelancer", chevron: true)
-                        }
-                    }
-                }
 
                 sectionCard("Import & Integration") {
                     NavigationLink(destination: LazyView { ImportIntegrationView() }) {
@@ -155,27 +75,11 @@ struct SettingsView: View {
                 }
 
                 sectionCard("Security & Privacy") {
+                    // Face ID, passcode and auto-lock live on this one page
+                    // (they were duplicated here as inline toggles).
                     NavigationLink(destination: LazyView { SecurityPrivacyView() }) {
                         settingRow(symbol: "lock.shield.fill", tint: FTColor.accent,
-                                   title: "Security & Privacy", chevron: true)
-                    }
-                    rowDivider
-                    FTToggleRow(symbol: BiometricService.shared.biometricIcon, tint: FTColor.accent,
-                                title: BiometricService.shared.biometricTypeName, isOn: biometricsBinding)
-                    rowDivider
-                    FTToggleRow(symbol: "lock.fill", tint: FTColor.catPurple,
-                                title: "PIN Lock", isOn: pinBinding)
-                    rowDivider
-                    Menu {
-                        Picker("Auto-Lock", selection: autoLockBinding) {
-                            Text("1 minute").tag(1)
-                            Text("5 minutes").tag(5)
-                            Text("15 minutes").tag(15)
-                            Text("Never").tag(0)
-                        }
-                    } label: {
-                        settingRow(symbol: "timer", tint: FTColor.catBlue, title: "Auto-Lock",
-                                   value: autoLockText, chevron: true)
+                                   title: "Face ID, Passcode & Privacy", chevron: true)
                     }
                 }
 
@@ -195,13 +99,18 @@ struct SettingsView: View {
                     rowDivider
                     NavigationLink(destination: LazyView { DashboardCustomizerView() }) {
                         settingRow(symbol: "square.grid.2x2.fill", tint: FTColor.catTeal,
-                                   title: "Dashboard Layout", chevron: true)
+                                   title: "Home Screen", chevron: true)
                     }
-                    .accessibilityLabel("Customize Dashboard Layout")
+                    .accessibilityLabel("Customize the Home screen")
                     rowDivider
                     NavigationLink(destination: LazyView { NotificationSettingsView() }) {
                         settingRow(symbol: "bell.badge.fill", tint: FTColor.gold,
                                    title: "Notifications", chevron: true)
+                    }
+                    rowDivider
+                    NavigationLink(destination: LazyView { SiriShortcutsView() }) {
+                        settingRow(symbol: "mic.fill", tint: FTColor.catBlue,
+                                   title: "Siri & Shortcuts", chevron: true)
                     }
                 }
 
@@ -255,7 +164,7 @@ struct SettingsView: View {
             }
             .padding(.horizontal, FTSpacing.screen)
             .padding(.top, FTSpacing.sm)
-            .padding(.bottom, 120)   // clear the floating tab bar (Settings is now a pushed screen)
+            .padding(.bottom, FTSpacing.xxl)
         }
         .scrollContentBackground(.hidden)
         .background { FTBackdrop() }
@@ -284,9 +193,6 @@ struct SettingsView: View {
                 UserDefaults.standard.set(currency, forKey: "base_currency")
                 if previous != currency { rebaseTransactions(to: currency) }
             }
-        }
-        .sheet(isPresented: $showingPINSetup) {
-            PINSetupSheet()
         }
         .sheet(isPresented: $showingAbout) {
             AboutView()
@@ -437,27 +343,6 @@ struct SettingsView: View {
     }
 
     private var rowDivider: some View { Divider().opacity(0.4) }
-
-    @ViewBuilder
-    private func destinationView(for feature: DisableableFeature) -> some View {
-        switch feature {
-        case .aiCFOMode:            AICFOModeView()
-        case .retirementSimulation: RetirementSimulationView()
-        case .lifeEventPlanning:    LifeEventPlanningView()
-        case .estatePlanning:       EstatePlanningView()
-        case .insuranceOptimizer:   InsuranceOptimizerView()
-        case .smartCashAllocation:  SmartCashAllocationView()
-        case .collaborativePlanner: CollaborativePlannerView()
-        case .financialEducation:   FinancialEducationView()
-        case .remittanceTracker:    RemittanceTrackerView()
-        case .taxManagement:        TaxManagementView()
-        case .businessFreelancer:   BusinessFreelancerView()
-        case .auditLog:             AuditLogView()
-        case .googleDriveBackup:    GoogleDriveBackupView()
-        case .pdfStatementImport:   PDFImportView()
-        case .twoFactorAuth:        TwoFactorSetupView()
-        }
-    }
 
     private func settingRow(symbol: String, tint: Color, title: String,
                             titleColor: Color = FTColor.textPrimary,

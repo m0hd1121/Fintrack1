@@ -261,8 +261,15 @@ struct UpcomingPaymentsView: View {
 
     // MARK: - Body
 
+    /// False when pushed onto an existing stack (see `OptionalNavigationStack`).
+    var embedInNavigationStack = true
+
+    init(embedInNavigationStack: Bool = true) {
+        self.embedInNavigationStack = embedInNavigationStack
+    }
+
     var body: some View {
-        NavigationStack {
+        OptionalNavigationStack(embed: embedInNavigationStack) {
             ScrollView {
                 VStack(spacing: 20) {
                     filterBar
@@ -296,8 +303,10 @@ struct UpcomingPaymentsView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") { dismiss() }
+                if embedInNavigationStack {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button("Done") { dismiss() }
+                    }
                 }
             }
         }

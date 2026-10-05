@@ -48,15 +48,17 @@ enum FTColor {
 
     static let textPrimary  = Color(light: 0x0F1B2A, dark: 0xF2F6FA)
     static let textSecondary = Color(light: 0x5A6B7B, dark: 0x9DB0C0)
-    static let textMuted    = Color(light: 0x9AA8B4, dark: 0x5E6F7E)
+    // Light/dark values below were darkened (light) / lightened (dark) so text
+    // in these colours meets WCAG 4.5:1 on cards (see docs/ai/maintenance.md).
+    static let textMuted    = Color(light: 0x667788, dark: 0x8496A6)
 
-    static let accent       = Color(light: 0x0E9C8A, dark: 0x2FD4BE)
-    static let accentDeep    = Color(light: 0x0C8478, dark: 0x13B89C)
+    static let accent       = Color(light: 0x0A7A6D, dark: 0x2FD4BE)
+    static let accentDeep    = Color(light: 0x086A5F, dark: 0x13B89C)
     static let accentBright = Color(light: 0x13B89C, dark: 0x3BE3CC)
 
-    static let gold         = Color(light: 0xC8902B, dark: 0xE8B64B)
-    static let income       = Color(light: 0x1FA463, dark: 0x3BD685)
-    static let expense      = Color(light: 0xE5484D, dark: 0xFF6B6F)
+    static let gold         = Color(light: 0x946510, dark: 0xE8B64B)
+    static let income       = Color(light: 0x157A48, dark: 0x3BD685)
+    static let expense      = Color(light: 0xC93A3F, dark: 0xFF6B6F)
 
     // Category accents (used for icon tiles)
     static let catBlue      = Color(hex: 0x2E78C8)
@@ -67,11 +69,11 @@ enum FTColor {
 
     // Gradients
     static let accentGradient = LinearGradient(
-        colors: [Color(hex: 0x13B89C), Color(hex: 0x0C8478)],
+        colors: [Color(hex: 0x0C8478), Color(hex: 0x086A5F)],   // white text ≥ 4.5:1
         startPoint: .topLeading, endPoint: .bottomTrailing)
 
     static let heroGradient = LinearGradient(
-        colors: [Color(hex: 0x12A594), Color(hex: 0x0A6E7E)],
+        colors: [Color(hex: 0x0C8478), Color(hex: 0x0A5F6C)],   // white text ≥ 4.5:1
         startPoint: .topLeading, endPoint: .bottomTrailing)
 
     static let portfolioGradient = LinearGradient(
@@ -508,10 +510,11 @@ extension Color {
     static func ftAccent(named name: String) -> Color {
         switch name {
         case "blue":   return Color(light: 0x1A6FD0, dark: 0x4A9EFF)
-        case "purple": return Color(light: 0x7C5BD0, dark: 0xA07EE8)
-        case "coral":  return Color(light: 0xE5736B, dark: 0xFF9590)
-        case "gold":   return Color(light: 0xC8902B, dark: 0xE8B64B)
-        case "rose":   return Color(light: 0xD04B7C, dark: 0xFF70A6)
+        // Light values darkened so tinted text and buttons stay ≥ 4.5:1 on white.
+        case "purple": return Color(light: 0x6A4BBD, dark: 0xA07EE8)
+        case "coral":  return Color(light: 0xB8473F, dark: 0xFF9590)
+        case "gold":   return Color(light: 0x8E6414, dark: 0xE8B64B)
+        case "rose":   return Color(light: 0xB23A66, dark: 0xFF70A6)
         default:       return FTColor.accent  // teal
         }
     }

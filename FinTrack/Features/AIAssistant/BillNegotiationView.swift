@@ -11,7 +11,7 @@ struct BillNegotiationView: View {
     @State private var showScript = false
 
     var body: some View {
-        NavigationStack {
+        Group {  // pushed from the Insights hub — no stack of its own
             ScrollView {
                 VStack(spacing: FTSpacing.xxl) {
                     if tips.isEmpty {

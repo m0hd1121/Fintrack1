@@ -179,8 +179,15 @@ struct NetWorthDashboardView: View {
 
     // MARK: - Body
 
+    /// False when pushed onto an existing stack (see `OptionalNavigationStack`).
+    var embedInNavigationStack = true
+
+    init(embedInNavigationStack: Bool = true) {
+        self.embedInNavigationStack = embedInNavigationStack
+    }
+
     var body: some View {
-        NavigationStack {
+        OptionalNavigationStack(embed: embedInNavigationStack) {
             ZStack {
 
                 VStack(spacing: 0) {
@@ -207,10 +214,12 @@ struct NetWorthDashboardView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Done") { dismiss() }
-                        .font(.ftBodySemibold)
-                        .foregroundStyle(FTColor.accent)
+                if embedInNavigationStack {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        Button("Done") { dismiss() }
+                            .font(.ftBodySemibold)
+                            .foregroundStyle(FTColor.accent)
+                    }
                 }
             }
             .onAppear { checkMilestonesIfNeeded() }

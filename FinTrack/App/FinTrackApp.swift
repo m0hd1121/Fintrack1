@@ -72,12 +72,9 @@ final class AppState {
     var selectedTab: AppTab = .dashboard
     var showingAddTransaction = false
     var baseCurrency = "AED"
-    /// Drives the floating tab bar's shrink-on-scroll: true while the user is
-    /// scrolling down, false near the top or when scrolling up.
-    var tabBarCollapsed = false
-    /// Bumped every time a bottom-nav tab is tapped (including re-tapping the
-    /// current tab). Each tab's root view watches this and pops its pushed
-    /// screens back to the main page, so tapping a tab always lands there.
+    /// Bumped every time a tab is selected (including re-selecting the
+    /// current one). Each tab's root view watches this and pops its pushed
+    /// screens back to the main page, so choosing a tab always lands there.
     var popToRootTick = 0
 
     init() {
@@ -96,33 +93,70 @@ final class AppState {
     func unlock() { isLocked = false }
 }
 
-enum AppTab: String, CaseIterable {
-    case dashboard    = "Dashboard"
-    case transactions = "Transactions"
-    case add          = "Add"          // centre button placeholder
-    case budget       = "Budget"
-    case accounts     = "Accounts"
-    case reports      = "Reports"      // not shown in tab bar; navigated to from Budget
+/// Top-level destinations. The first five are the tab bar (Home, Activity,
+/// Plan, Wealth and the Search tab); the rest only appear in the sidebar on
+/// regular width (iPad, a foldable's inner display), where `.sidebarAdaptable`
+/// turns the tab bar into a sidebar. Case names are kept from the old tabs
+/// (`dashboard`, `transactions`, `budget`, `accounts`) because
+/// `PendingNavigationTarget` maps Siri's "Open…" intents onto them. Raw values
+/// are display names only and are never persisted.
+enum AppTab: String, CaseIterable, Hashable {
+    case dashboard     = "Home"
+    case transactions  = "Activity"
+    case budget        = "Plan"
+    case accounts      = "Wealth"
+    case search        = "Search"
+
+    // Sidebar-only (regular width)
+    case budgets       = "Budgets"
+    case bills         = "Bills & Subscriptions"
+    case goals         = "Goals"
+    case income        = "Income"
+    case debt          = "Debt"
+    case household     = "Household"
+    case planningTools = "Planning Tools"
+    case netWorth      = "Net Worth"
+    case investments   = "Investments"
+    case assets        = "Property & Assets"
+    case insights      = "Insights"
+    case reports       = "Reports"
+    case importSync    = "Import & Sync"
+    case settings      = "Settings"
 
     var icon: String {
         switch self {
-        case .dashboard:    return "square.grid.2x2"
-        case .transactions: return "arrow.left.arrow.right.circle"
-        case .add:          return "plus.circle"
-        case .budget:       return "chart.pie"
-        case .accounts:     return "building.columns"
-        case .reports:      return "chart.bar.xaxis"
+        case .dashboard:     return "house"
+        case .transactions:  return "list.bullet.rectangle.portrait"
+        case .budget:        return "chart.pie"
+        case .accounts:      return "building.columns"
+        case .search:        return "magnifyingglass"
+        case .budgets:       return "chart.pie.fill"
+        case .bills:         return "calendar.badge.clock"
+        case .goals:         return "star"
+        case .income:        return "banknote"
+        case .debt:          return "creditcard"
+        case .household:     return "person.3"
+        case .planningTools: return "compass.drawing"
+        case .netWorth:      return "chart.line.uptrend.xyaxis"
+        case .investments:   return "chart.bar.xaxis.ascending"
+        case .assets:        return "house.lodge"
+        case .insights:      return "sparkles"
+        case .reports:       return "doc.text.magnifyingglass"
+        case .importSync:    return "arrow.down.circle"
+        case .settings:      return "gearshape"
         }
     }
 
-    var selectedIcon: String {
+    /// The tab-bar tab that owns a sidebar-only destination. Used when the
+    /// window narrows to compact width (Split View, folding a foldable) while
+    /// a sidebar-only destination is selected.
+    var compactParent: AppTab {
         switch self {
-        case .dashboard:    return "square.grid.2x2.fill"
-        case .transactions: return "arrow.left.arrow.right.circle.fill"
-        case .add:          return "plus.circle.fill"
-        case .budget:       return "chart.pie.fill"
-        case .accounts:     return "building.columns.fill"
-        case .reports:      return "chart.bar.xaxis"
+        case .dashboard, .transactions, .budget, .accounts, .search: return self
+        case .budgets, .bills, .goals, .income, .debt, .household, .planningTools: return .budget
+        case .netWorth, .investments, .assets: return .accounts
+        case .importSync: return .transactions
+        case .insights, .reports, .settings: return .dashboard
         }
     }
 }

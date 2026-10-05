@@ -96,3 +96,16 @@ Still open (UI): fixed `Font.system(size:)` remains on many icons and ~60 text s
 ## Unresolved questions
 - Do expense saves get blocked for credit-card *accounts* by `AddTransactionView.isBalanceInsufficient` (depends on how card balances are stored)?
 - Swift 6 / strict-concurrency readiness: `InvestmentPortfolioView` runs `InvestmentService.monteCarlo` on a global queue while the type is MainActor by default — builds today in Swift 5 mode; check before raising the language mode.
+
+## UI redesign (branch `claude/redesign-ui`)
+Implements the approved prototype (`prototype/`, see `prototype/README.md`). UI only — no `@Model`/schema change, no business-logic change.
+
+Changed: native adaptive `TabView` shell (`MainTabView`: Home · Activity · Plan · Wealth + Search tab, Add Transaction bottom accessory, sidebar sections on regular width) replacing `CustomTabBar`, the shrink-on-scroll modifier and the iPad `NavigationSplitView`; new `PlanView`, `GlobalSearchView`, `SiriShortcutsView`, `PlanningToolsView`/`FeatureDestinationView`/`OptionalNavigationStack` (`UI/Components/AppNavigation.swift`); Home (To Review card, labelled shortcut tiles, account cards open the account, pushes instead of sheets, Edit Home); Wealth (title, Add menu, Net Worth pushed, Income/Goals cards moved to Plan); Budget menu creates only; Activity (title, Import & Sync entry, “N to review” banner); Insights = one health score (`FinancialIntelligenceService`); Settings preferences only (modules moved, duplicated security toggles removed); Add Transaction “More details”; 9 Insights tools and 5 dual-use screens no longer nest `NavigationStack`s; contrast-tuned `FTColor` light values; iOS 27 transaction view annotation (`SystemIntegration.swift`).
+
+Validation: static only (tree-sitter parse + bracket balance on every changed file, reading). **Not compiled or run.** Verify in Xcode:
+- iOS 26 SDK APIs used for the first time here: `Tab`/`TabSection`/`.defaultVisibility(.hidden, for: .tabBar)`, `Tab(value:role: .search)`, `.tabViewBottomAccessory`, `.tabBarMinimizeBehavior(.onScrollDown)`, `.buttonStyle(.glass/.glassProminent)` on new buttons.
+- Sidebar-only tabs are hidden on the compact tab bar and the accessory shows on iPhone; check how the accessory behaves in sidebar mode on iPad (the sidebar has no Add button of its own; ⌘N works).
+- `annotatesTransaction` compiles only with Swift ≥ 6.3 (Xcode 27); its `appEntityIdentifier`/`EntityIdentifier(for:identifier:)` signature comes from a WWDC26 session sample, not the SDK headers.
+- iPhone Duo: run in Xcode 27.1 Device Hub (open/closed/folded); the inner display ignores the iPhone portrait lock, and layout relies on size classes only.
+
+Still open from the plan: Siri "Open my budget" lands on Plan (one tap from Budgets) rather than Budgets itself; Search only matches transaction titles (not merchant/notes); no String Catalog yet (English only; RTL not exercised); `FinancialHealthView`/`AIAnalyticsService.computeHealthScore` are unused now but kept.

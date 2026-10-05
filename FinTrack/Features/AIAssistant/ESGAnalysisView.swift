@@ -10,7 +10,7 @@ struct ESGAnalysisView: View {
     @State private var showingBreakdown = false
 
     var body: some View {
-        NavigationStack {
+        Group {  // pushed from the Insights hub — no stack of its own
             ScrollView {
                 VStack(spacing: FTSpacing.xxl) {
                     if let r = result {

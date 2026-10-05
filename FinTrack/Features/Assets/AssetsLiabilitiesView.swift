@@ -170,14 +170,7 @@ struct AssetsLiabilitiesView: View {
             }
         }
         .padding(FTSpacing.xl)
-        .background(
-            LinearGradient(
-                colors: [Color(hex: 0x0E9C8A), Color(hex: 0x0A6E7E)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            ),
-            in: .rect(cornerRadius: FTRadius.xl)
-        )
+        .background(FTColor.heroGradient, in: .rect(cornerRadius: FTRadius.xl))
         .shadow(color: Color(hex: 0x0A6E7E).opacity(0.35), radius: 20, y: 8)
     }
 

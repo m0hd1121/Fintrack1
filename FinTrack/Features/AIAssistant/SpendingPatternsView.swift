@@ -12,7 +12,7 @@ struct SpendingPatternsView: View {
     private let tabs = ["Day of Week", "Hour of Day", "By Month"]
 
     var body: some View {
-        NavigationStack {
+        Group {  // pushed from the Insights hub — no stack of its own
             ScrollView {
                 VStack(spacing: FTSpacing.xxl) {
                     if let d = data {

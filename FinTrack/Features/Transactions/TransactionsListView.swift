@@ -1,6 +1,12 @@
 import SwiftUI
 import SwiftData
 
+/// Screens the Activity tab pushes.
+private enum ActivityRoute: Identifiable, Hashable {
+    case review, importSync
+    var id: Self { self }
+}
+
 struct TransactionsListView: View {
     @Environment(AppState.self) private var appState
     @Environment(CurrencyService.self) private var currencyService
@@ -17,7 +23,9 @@ struct TransactionsListView: View {
     @State private var selectedCategory: TransactionCategory? = nil
     @State private var showingFilters = false
     @State private var showingAddTransaction = false
-    @State private var showingEmailReviewFromBanner = false
+    /// One item-driven destination (two `isPresented` destinations on one
+    /// stack contend for the same slot).
+    @State private var activityRoute: ActivityRoute? = nil
     @State private var selectedTransaction: Transaction? = nil
     @State private var debouncedSearch = ""
     @State private var groupedCache: [(String, [Transaction])] = []
@@ -216,7 +224,6 @@ struct TransactionsListView: View {
                             await EmailSyncService.shared.runSyncPass(context: context)
                             recomputeGroups()
                         }
-                        .collapsesTabBarOnScroll()
                     }
                 }
                 .task(id: searchText) {
@@ -236,7 +243,7 @@ struct TransactionsListView: View {
                 }
                 .scrollContentBackground(.hidden)
                 .background { FTBackdrop() }
-                .navigationTitle("Transactions")
+                .navigationTitle("Activity")
                 .toolbar {
                     ToolbarItem(placement: .navigationBarLeading) {
                         Button(isEditing ? "Done" : "Edit") {
@@ -286,10 +293,15 @@ struct TransactionsListView: View {
                             } label: {
                                 Label("Import CSV", systemImage: "doc.text")
                             }
+                            Button {
+                                activityRoute = .importSync
+                            } label: {
+                                Label("Import & Sync…", systemImage: "arrow.down.circle")
+                            }
                         } label: {
                             Image(systemName: "plus")
                         }
-                        .accessibilityLabel("Add")
+                        .accessibilityLabel("Add or import")
                     }
                 }
                 .sheet(isPresented: $showingDateFilter) {
@@ -307,11 +319,14 @@ struct TransactionsListView: View {
                 .sheet(item: $selectedTransaction, onDismiss: { recomputeGroups() }) { tx in
                     TransactionDetailView(transaction: tx)
                 }
-                .navigationDestination(isPresented: $showingEmailReviewFromBanner) {
-                    EmailReviewQueueView()
+                .navigationDestination(item: $activityRoute) { route in
+                    switch route {
+                    case .review:     EmailReviewQueueView()
+                    case .importSync: ImportIntegrationView()
+                    }
                 }
-                // Tapping the Transactions tab pops any pushed screen back here.
-                .onChange(of: appState.popToRootTick) { showingEmailReviewFromBanner = false }
+                // Selecting a tab pops any pushed screen back here.
+                .onChange(of: appState.popToRootTick) { activityRoute = nil }
                 .sheet(isPresented: $showingCSVImport, onDismiss: { recomputeGroups() }) {
                     CSVImportView()
                 }
@@ -442,7 +457,7 @@ struct TransactionsListView: View {
     // MARK: - Duplicate Banner
 
     private var pendingImportsBanner: some View {
-        Button { showingEmailReviewFromBanner = true } label: {
+        Button { activityRoute = .review } label: {
             HStack(spacing: FTSpacing.md) {
                 ZStack {
                     FTIconTile(symbol: "tray.full.fill", tint: FTColor.accent, size: 40)
@@ -453,9 +468,9 @@ struct TransactionsListView: View {
                         .offset(x: 16, y: -16)
                 }
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Pending Imports")
+                    Text("\(pendingImportCount) to review")
                         .font(.ftBodySemibold).foregroundStyle(FTColor.textPrimary)
-                    Text("\(pendingImportCount) transaction\(pendingImportCount == 1 ? "" : "s") from bank emails waiting for review")
+                    Text("Imported from bank emails, SMS and Apple Pay")
                         .font(.ftCaption).foregroundStyle(FTColor.textMuted)
                 }
                 Spacer()

@@ -78,6 +78,11 @@ struct AddTransactionView: View {
 
     // — New: voice
     @State private var showingVoiceEntry = false
+    /// Secondary fields (split, repeat, status, tax, notes, tags, attachments)
+    /// sit behind "More details" so a new entry shows only the essentials.
+    /// Opens automatically when editing.
+    @State private var showMoreDetails = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     // — New: tax flags & custom category
     @State private var isTaxDeductible = false
@@ -320,6 +325,7 @@ struct AddTransactionView: View {
             }
             .onAppear {
                 guard initialSignature == nil else { return }
+                if isEditing { showMoreDetails = true }
                 loadEditingData()
                 syncModeIndex()
                 initialSignature = formSignature
@@ -384,16 +390,24 @@ struct AddTransactionView: View {
             VStack(spacing: FTSpacing.lg) {
                 FTSegmentedControl(options: ["Expense", "Income", "Transfer"], selection: modeBinding)
                 amountCard
+                quickActionsRow
+                if let scan = scanner.scanResult { scanResultsCard(scan) }
                 modeContentCards()
                 detailsCard
-                recurringCard
-                statusCard
-                if type == .expense { taxSection }
-                notesReceiptCard
+                moreDetailsToggle
+                if showMoreDetails {
+                    if type == .expense && !isLoyaltyCategory { splitSection }
+                    recurringCard
+                    statusCard
+                    if type == .expense { taxSection }
+                    notesReceiptCard
+                }
                 if !pendingDocuments.isEmpty { documentsPreviewCard }
-                if let scan = scanner.scanResult { scanResultsCard(scan) }
                 Color.clear.frame(height: 80)
             }
+            // Here rather than on the picker: the notes card (with its picker)
+            // isn't rendered while "More details" is collapsed.
+            .onChange(of: selectedPhoto) { _, item in loadReceiptImage(from: item) }
         )
     }
 
@@ -402,8 +416,62 @@ struct AddTransactionView: View {
         return AnyView(Group {
             categorySection
             if isLoyaltyCategory { loyaltyProgramCard }
-            if type == .expense && !isLoyaltyCategory { splitSection }
         })
+    }
+
+    // MARK: - Quick actions & More details
+
+    /// Labelled entry points for the two shortcuts that used to be found only
+    /// in the toolbar (dictation) or at the bottom of the form (receipt).
+    private var quickActionsRow: some View {
+        HStack(spacing: FTSpacing.sm) {
+            PhotosPicker(selection: $selectedPhoto, matching: .images) {
+                Label("Scan Receipt", systemImage: "doc.viewfinder")
+                    .font(.ftCallout)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+            }
+            .buttonStyle(.glass)
+            .tint(FTColor.accent)
+            .accessibilityHint("Choose a receipt photo to fill in the amount, merchant and date")
+
+            Button { showingVoiceEntry = true } label: {
+                Label("Dictate", systemImage: "mic.fill")
+                    .font(.ftCallout)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+            }
+            .buttonStyle(.glass)
+            .tint(FTColor.accent)
+            .accessibilityHint("Say something like “Spent 45 dirhams at Starbucks”")
+        }
+    }
+
+    private var moreDetailsToggle: some View {
+        Button {
+            withAnimation(reduceMotion ? nil : .snappy(duration: 0.25)) { showMoreDetails.toggle() }
+        } label: {
+            HStack(spacing: FTSpacing.md) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("More details")
+                        .font(.ftBodySemibold)
+                        .foregroundStyle(FTColor.textPrimary)
+                    Text("Split, repeat, status, tax, notes, tags and attachments")
+                        .font(.ftCaption)
+                        .foregroundStyle(FTColor.textSecondary)
+                }
+                Spacer(minLength: FTSpacing.sm)
+                Image(systemName: "chevron.down")
+                    .font(.ftCaption.weight(.semibold))
+                    .foregroundStyle(FTColor.textMuted)
+                    .rotationEffect(.degrees(showMoreDetails ? 180 : 0))
+                    .accessibilityHidden(true)
+            }
+            .padding(FTSpacing.lg)
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .ftGlassInteractive(FTRadius.lg)
+            .contentShape(.rect(cornerRadius: FTRadius.lg))
+        }
+        .buttonStyle(.plain)
+        .accessibilityValue(showMoreDetails ? "Expanded" : "Collapsed")
     }
 
     // MARK: - Amount card
@@ -1204,7 +1272,6 @@ struct AddTransactionView: View {
                                 .foregroundStyle(FTColor.accent.opacity(0.4))
                         )
                 }
-                .onChange(of: selectedPhoto) { _, item in loadReceiptImage(from: item) }
 
                 // Document attach
                 Button { showingDocumentPicker = true } label: {

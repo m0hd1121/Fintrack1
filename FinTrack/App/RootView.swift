@@ -25,7 +25,6 @@ struct RootView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.scenePhase) private var scenePhase
     @Environment(CurrencyService.self) private var currencyService
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     private var preferredScheme: ColorScheme? {
         switch settings.first?.theme {
@@ -79,9 +78,9 @@ struct RootView: View {
                 OnboardingView()
             } else if appState.isLocked {
                 LockScreenView()
-            } else if horizontalSizeClass == .regular {
-                iPadMainView()
             } else {
+                // One adaptive TabView: a tab bar on compact width, a sidebar
+                // on regular width (iPad, a foldable's inner display).
                 MainTabView()
             }
         }
@@ -174,60 +173,6 @@ struct RootView: View {
             stockPriceService.updateHoldings(Array(investments))
             try? context.save()
         }
-    }
-
-    // MARK: – iPad layout
-
-    @ViewBuilder
-    private func iPadMainView() -> some View {
-        @Bindable var appState = appState
-        let sidebarSelection = Binding<AppTab?>(
-            get: { appState.selectedTab },
-            set: { if let v = $0 { appState.selectedTab = v } }
-        )
-
-        NavigationSplitView {
-            List(selection: sidebarSelection) {
-                Section("Main") {
-                    iPadSidebarRow(tab: .dashboard, label: "Dashboard", icon: "square.grid.2x2.fill")
-                    iPadSidebarRow(tab: .transactions, label: "Transactions", icon: "arrow.left.arrow.right.circle.fill")
-                    iPadSidebarRow(tab: .budget, label: "Budget", icon: "chart.pie.fill")
-                    iPadSidebarRow(tab: .accounts, label: "Accounts", icon: "building.columns.fill")
-                }
-            }
-            .listStyle(.sidebar)
-            .navigationTitle("FinTrack")
-            .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        appState.showingAddTransaction = true
-                    } label: {
-                        Image(systemName: "plus.circle.fill")
-                            .font(.title3)
-                            .foregroundStyle(FTColor.accent)
-                    }
-                    .accessibilityLabel("Add Transaction")
-                }
-            }
-        } detail: {
-            switch appState.selectedTab {
-            case .dashboard:    DashboardView()
-            case .transactions: TransactionsListView()
-            case .budget:       BudgetView()
-            case .accounts:     AccountsView()
-            case .reports:      ReportsView()
-            default:            DashboardView()
-            }
-        }
-        .sheet(isPresented: $appState.showingAddTransaction) {
-            AddTransactionView()
-        }
-    }
-
-    @ViewBuilder
-    private func iPadSidebarRow(tab: AppTab, label: String, icon: String) -> some View {
-        Label(label, systemImage: icon)
-            .tag(tab)
     }
 
     // MARK: – Pending intent queue (Siri / Apple Watch)
@@ -455,215 +400,151 @@ struct RootView: View {
 
 // MARK: – Main tab container
 
+/// Native, adaptive tab container. On compact width it is the system Liquid
+/// Glass tab bar (Home · Activity · Plan · Wealth + the Search tab) with the
+/// Add Transaction accessory above it; on regular width `.sidebarAdaptable`
+/// shows a sidebar whose sections also list every module, so iPad and a
+/// foldable's inner display get the same hierarchy one level flatter.
 struct MainTabView: View {
     @Environment(AppState.self) private var appState
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    /// "Pending" is `PendingImportStatus.pending.rawValue`.
+    @Query(filter: #Predicate<PendingEmailTransaction> { $0.statusRaw == "Pending" })
+    private var pendingReviewItems: [PendingEmailTransaction]
+
+    /// Every selection (including re-selecting the current tab) bumps
+    /// `popToRootTick`, which each tab root watches to pop back to its main page.
+    private var selection: Binding<AppTab> {
+        Binding(get: { appState.selectedTab },
+                set: { newValue in
+                    appState.popToRootTick &+= 1
+                    appState.selectedTab = newValue
+                })
+    }
 
     var body: some View {
         @Bindable var appState = appState
 
-        ZStack(alignment: .bottom) {
-            // Standard TabView – NO .page style so pickers & swipe gestures work correctly.
-            // The native tab bar is hidden; our CustomTabBar is overlaid instead.
-            TabView(selection: $appState.selectedTab) {
+        TabView(selection: selection) {
+            Tab("Home", systemImage: AppTab.dashboard.icon, value: AppTab.dashboard) {
                 DashboardView()
-                    .tag(AppTab.dashboard)
-                    .toolbar(.hidden, for: .tabBar)
-
-                TransactionsListView()
-                    .tag(AppTab.transactions)
-                    .toolbar(.hidden, for: .tabBar)
-
-                // .add is never navigated to — the centre + button calls onAdd directly.
-                // We include it only so the selection binding has a valid tag.
-                Color.clear
-                    .tag(AppTab.add)
-                    .toolbar(.hidden, for: .tabBar)
-
-                BudgetView()
-                    .tag(AppTab.budget)
-                    .toolbar(.hidden, for: .tabBar)
-
-                AccountsView()
-                    .tag(AppTab.accounts)
-                    .toolbar(.hidden, for: .tabBar)
             }
-            // Bottom padding so page content isn't hidden behind the floating bar
-            .safeAreaInset(edge: .bottom) { Color.clear.frame(height: 100) }
+            Tab("Activity", systemImage: AppTab.transactions.icon, value: AppTab.transactions) {
+                TransactionsListView()
+            }
+            .badge(pendingReviewItems.count)
+            Tab("Plan", systemImage: AppTab.budget.icon, value: AppTab.budget) {
+                PlanView()
+            }
+            Tab("Wealth", systemImage: AppTab.accounts.icon, value: AppTab.accounts) {
+                AccountsView()
+            }
 
-            // Custom bottom bar with centre + button
-            CustomTabBar(
-                selectedTab: $appState.selectedTab,
-                onAdd: { appState.showingAddTransaction = true }
-            )
+            // Sidebar-only destinations (hidden from the compact tab bar).
+            TabSection("Plan") {
+                Tab("Budgets", systemImage: AppTab.budgets.icon, value: AppTab.budgets) {
+                    BudgetView()
+                }
+                .defaultVisibility(.hidden, for: .tabBar)
+                Tab("Bills & Subscriptions", systemImage: AppTab.bills.icon, value: AppTab.bills) {
+                    BillsView()
+                }
+                .defaultVisibility(.hidden, for: .tabBar)
+                Tab("Goals", systemImage: AppTab.goals.icon, value: AppTab.goals) {
+                    NavigationStack { SavingsGoalsView() }
+                }
+                .defaultVisibility(.hidden, for: .tabBar)
+                Tab("Income", systemImage: AppTab.income.icon, value: AppTab.income) {
+                    NavigationStack { IncomeManagementView() }
+                }
+                .defaultVisibility(.hidden, for: .tabBar)
+                Tab("Debt", systemImage: AppTab.debt.icon, value: AppTab.debt) {
+                    NavigationStack { DebtManagementView() }
+                }
+                .defaultVisibility(.hidden, for: .tabBar)
+                Tab("Household", systemImage: AppTab.household.icon, value: AppTab.household) {
+                    NavigationStack { FamilyFinanceView() }
+                }
+                .defaultVisibility(.hidden, for: .tabBar)
+                Tab("Planning Tools", systemImage: AppTab.planningTools.icon, value: AppTab.planningTools) {
+                    NavigationStack { PlanningToolsView() }
+                }
+                .defaultVisibility(.hidden, for: .tabBar)
+            }
+
+            TabSection("Wealth") {
+                Tab("Net Worth", systemImage: AppTab.netWorth.icon, value: AppTab.netWorth) {
+                    NavigationStack { NetWorthDashboardView(embedInNavigationStack: false) }
+                }
+                .defaultVisibility(.hidden, for: .tabBar)
+                Tab("Investments", systemImage: AppTab.investments.icon, value: AppTab.investments) {
+                    NavigationStack { InvestmentPortfolioView() }
+                }
+                .defaultVisibility(.hidden, for: .tabBar)
+                Tab("Property & Assets", systemImage: AppTab.assets.icon, value: AppTab.assets) {
+                    NavigationStack { AssetsLiabilitiesView() }
+                }
+                .defaultVisibility(.hidden, for: .tabBar)
+            }
+
+            TabSection("More") {
+                Tab("Insights", systemImage: AppTab.insights.icon, value: AppTab.insights) {
+                    AIAssistantView()
+                }
+                .defaultVisibility(.hidden, for: .tabBar)
+                Tab("Reports", systemImage: AppTab.reports.icon, value: AppTab.reports) {
+                    NavigationStack { ReportsView() }
+                }
+                .defaultVisibility(.hidden, for: .tabBar)
+                Tab("Import & Sync", systemImage: AppTab.importSync.icon, value: AppTab.importSync) {
+                    NavigationStack { ImportIntegrationView() }
+                }
+                .defaultVisibility(.hidden, for: .tabBar)
+                Tab("Settings", systemImage: AppTab.settings.icon, value: AppTab.settings) {
+                    NavigationStack { SettingsView() }
+                }
+                .defaultVisibility(.hidden, for: .tabBar)
+            }
+
+            Tab(value: AppTab.search, role: .search) {
+                GlobalSearchView()
+            }
         }
-        .ignoresSafeArea(edges: .bottom)
-        // Switching tabs always restores the bar to full size.
-        .onChange(of: appState.selectedTab) { appState.tabBarCollapsed = false }
+        .tabViewStyle(.sidebarAdaptable)
+        .tabBarMinimizeBehavior(.onScrollDown)
+        .tabViewBottomAccessory {
+            AddTransactionAccessory()
+        }
+        // A sidebar-only destination has no tab on compact width; fall back
+        // to the tab that owns it when the window narrows.
+        .onChange(of: horizontalSizeClass) { _, sizeClass in
+            if sizeClass == .compact {
+                appState.selectedTab = appState.selectedTab.compactParent
+            }
+        }
         .sheet(isPresented: $appState.showingAddTransaction) {
             AddTransactionView()
         }
     }
 }
 
-// MARK: – Shrink-on-scroll for the floating tab bar
-
-/// Collapses (shrinks) the floating `CustomTabBar` while the enclosing scroll
-/// view is scrolled down, and restores it when scrolling up or near the top.
-/// Attach to a tab's main vertical `ScrollView`/`List` via `.collapsesTabBarOnScroll()`.
-private struct TabBarScrollCollapseModifier: ViewModifier {
+/// The labelled "Add Transaction" button shown above the tab bar on every tab
+/// (`tabViewBottomAccessory`). Replaces the custom bar's icon-only centre "+".
+struct AddTransactionAccessory: View {
     @Environment(AppState.self) private var appState
-    @State private var lastOffset: CGFloat = 0
-
-    func body(content: Content) -> some View {
-        content.onScrollGeometryChange(for: CGFloat.self) { geo in
-            geo.contentOffset.y
-        } action: { _, newOffset in
-            let collapsed: Bool
-            if newOffset <= 40 {
-                collapsed = false                       // near the top → always full size
-            } else if newOffset > lastOffset + 4 {
-                collapsed = true                        // scrolling down
-            } else if newOffset < lastOffset - 4 {
-                collapsed = false                       // scrolling up
-            } else {
-                collapsed = appState.tabBarCollapsed    // tiny move → unchanged
-            }
-            lastOffset = newOffset
-            guard collapsed != appState.tabBarCollapsed else { return }
-            // Defer the write off this scroll/layout pass. CustomTabBar (a sibling
-            // in the same hosting view) reads tabBarCollapsed with an .animation, so
-            // mutating it synchronously here re-invalidates this hosting view's layout
-            // from within its own layout pass — the "observation tracking feedback
-            // loop" SwiftUI warns about. Landing the change in the next runloop breaks
-            // that cycle; the hysteresis thresholds above keep the value from oscillating.
-            DispatchQueue.main.async {
-                if collapsed != appState.tabBarCollapsed {
-                    appState.tabBarCollapsed = collapsed
-                }
-            }
-        }
-    }
-}
-
-extension View {
-    func collapsesTabBarOnScroll() -> some View { modifier(TabBarScrollCollapseModifier()) }
-}
-
-// MARK: – Custom tab bar
-
-struct CustomTabBar: View {
-    @Binding var selectedTab: AppTab
-    let onAdd: () -> Void
-
-    @Namespace private var selectionNamespace
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(AppState.self) private var appState
-
-    private let tabs: [(tab: AppTab, icon: String, selectedIcon: String, label: String)] = [
-        (.dashboard,    "square.grid.2x2",               "square.grid.2x2.fill",              "Dashboard"),
-        (.transactions, "arrow.left.arrow.right.circle", "arrow.left.arrow.right.circle.fill", "Transactions"),
-        (.budget,       "chart.pie",                     "chart.pie.fill",                     "Budget"),
-        (.accounts,     "building.columns",              "building.columns.fill",              "Accounts"),
-    ]
 
     var body: some View {
-        HStack(alignment: .center, spacing: 0) {
-            ForEach(tabs.prefix(2), id: \.tab) { item in
-                tabButton(item)
-            }
-
-            // Centre + button
-            Button(action: onAdd) {
-                ZStack {
-                    Circle()
-                        .fill(FTColor.accentGradient)
-                        .frame(width: 40, height: 40)
-                        .shadow(color: FTColor.accentDeep.opacity(0.4), radius: 10, y: 3)
-                    Image(systemName: "plus")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(.white)
-                }
-                // The 40pt circle stays; the tappable area meets the 44pt minimum.
-                .frame(minWidth: 44, minHeight: 44)
-                .contentShape(Rectangle())
-            }
-            .frame(maxWidth: .infinity)
-            .accessibilityLabel("Add Transaction")
-            .accessibilityShowsLargeContentViewer {
-                Label("Add Transaction", systemImage: "plus")
-            }
-
-            ForEach(tabs.suffix(2), id: \.tab) { item in
-                tabButton(item)
-            }
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        // Liquid Glass capsule (known-good .regular; see note re: transparency).
-        .glassEffect(.regular, in: .capsule)
-        .shadow(color: .black.opacity(0.10), radius: 16, x: 0, y: 5)
-        // Shrink ~20% while scrolling down (see collapsesTabBarOnScroll()).
-        .scaleEffect(appState.tabBarCollapsed ? 0.8 : 1.0, anchor: .bottom)
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.25), value: appState.tabBarCollapsed)
-        .padding(.horizontal, 24)
-        .padding(.bottom, 44)
-    }
-
-    @ViewBuilder
-    private func tabButton(_ item: (tab: AppTab, icon: String, selectedIcon: String, label: String)) -> some View {
-        let isSelected = selectedTab == item.tab
-
         Button {
-            // Always ask the target tab to pop back to its main page — whether
-            // we're re-tapping the current tab (deep in a pushed screen) or
-            // switching to another tab that still has one pushed.
-            appState.popToRootTick &+= 1
-            guard selectedTab != item.tab else { return }
-            if reduceMotion {
-                selectedTab = item.tab
-            } else {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
-                    selectedTab = item.tab
-                }
-            }
+            appState.showingAddTransaction = true
         } label: {
-            VStack(spacing: 3) {
-                ZStack {
-                    // Liquid-glass selected-tab highlight (neutral translucent
-                    // pill that adapts to light/dark, like the reference).
-                    if isSelected {
-                        Capsule()
-                            .fill(FTColor.textPrimary.opacity(0.10))
-                            .frame(width: 46, height: 30)
-                            .matchedGeometryEffect(id: "tabHighlight", in: selectionNamespace)
-                    }
-
-                    Image(systemName: isSelected ? item.selectedIcon : item.icon)
-                        .font(.system(size: 15, weight: isSelected ? .semibold : .regular))
-                        .foregroundStyle(isSelected ? FTColor.accent : FTColor.textMuted)
-                        .scaleEffect(isSelected ? 1.08 : 1.0)
-                        .animation(reduceMotion ? .none : .spring(response: 0.3, dampingFraction: 0.65), value: isSelected)
-                }
-                .frame(height: 24)
-
-                // 10pt like the system tab bar (was 9pt). Tab bars don't grow
-                // with Dynamic Type; long-press shows the large content viewer.
-                Text(item.label)
-                    .font(.system(size: 10, weight: isSelected ? .semibold : .regular))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-                    .foregroundStyle(isSelected ? FTColor.accent : FTColor.textMuted)
-                    .animation(reduceMotion ? .none : .easeOut(duration: 0.2), value: isSelected)
-            }
-            .frame(maxWidth: .infinity)
-            .frame(minWidth: 44, minHeight: 44) // minimum touch target
-            .contentShape(Rectangle())
+            Label("Add Transaction", systemImage: "plus.circle.fill")
+                .font(.ftBodySemibold)
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(item.label)
-        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
-        .accessibilityShowsLargeContentViewer {
-            Label(item.label, systemImage: isSelected ? item.selectedIcon : item.icon)
-        }
+        .foregroundStyle(FTColor.accent)
+        .accessibilityHint("Record an expense, income or transfer")
+        .keyboardShortcut("n", modifiers: .command)
     }
 }
