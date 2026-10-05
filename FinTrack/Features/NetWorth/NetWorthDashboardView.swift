@@ -204,7 +204,7 @@ struct NetWorthDashboardView: View {
                             default: overviewTab
                             }
                         }
-                        .padding(.bottom, 120)
+                        .padding(.bottom, FTSpacing.xxl)
                     }
                 }
             }

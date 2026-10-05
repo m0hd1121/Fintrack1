@@ -151,7 +151,7 @@ struct InvestmentPortfolioView: View {
                         default: overviewTab
                         }
                     }
-                    .padding(.bottom, 120)   // clear the floating tab bar (pushed screen)
+                    .padding(.bottom, FTSpacing.xxl)
                 }
                 .refreshable {
                     let symbols = investments.map { $0.symbol }.filter { !$0.isEmpty }

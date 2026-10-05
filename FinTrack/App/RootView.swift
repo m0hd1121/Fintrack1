@@ -427,6 +427,9 @@ struct MainTabView: View {
     /// The bottom bar steps aside while the keyboard is up, as the system tab
     /// bar does (otherwise it would ride above the keyboard).
     @State private var isKeyboardVisible = false
+    /// Measured height of `AppTabBar`; each compact tab reserves this much at
+    /// the bottom (initial value ≈ the bar at the default text size).
+    @State private var tabBarHeight: CGFloat = 64
 
     /// Every selection (including re-selecting the current tab) bumps
     /// `popToRootTick`, which each tab root watches to pop back to its main
@@ -471,24 +474,24 @@ struct MainTabView: View {
     private var compactTabView: some View {
         TabView(selection: selection) {
             Tab("Home", systemImage: AppTab.dashboard.icon, value: AppTab.dashboard) {
-                DashboardView().toolbar(.hidden, for: .tabBar)
+                reservingTabBarSpace(DashboardView())
             }
             Tab("Activity", systemImage: AppTab.transactions.icon, value: AppTab.transactions) {
-                TransactionsListView().toolbar(.hidden, for: .tabBar)
+                reservingTabBarSpace(TransactionsListView())
             }
             Tab("Plan", systemImage: AppTab.budget.icon, value: AppTab.budget) {
-                PlanView().toolbar(.hidden, for: .tabBar)
+                reservingTabBarSpace(PlanView())
             }
             Tab("Wealth", systemImage: AppTab.accounts.icon, value: AppTab.accounts) {
-                AccountsView().toolbar(.hidden, for: .tabBar)
+                reservingTabBarSpace(AccountsView())
             }
             Tab("Search", systemImage: AppTab.search.icon, value: AppTab.search) {
-                GlobalSearchView().toolbar(.hidden, for: .tabBar)
+                reservingTabBarSpace(GlobalSearchView())
             }
         }
-        // The bar lives in the bottom safe-area inset: scroll content clears
-        // it and scrolls beneath its glass, and it sits above the home
-        // indicator on every screen size.
+        // The bar sits in the TabView's bottom inset, above the home
+        // indicator on every screen size. (A TabView doesn't pass this inset
+        // on to its tabs — see `reservingTabBarSpace`.)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if !isKeyboardVisible {
                 AppTabBar(
@@ -497,6 +500,9 @@ struct MainTabView: View {
                     onSelect: { selection.wrappedValue = $0 },
                     onNewTransaction: { appState.showingAddTransaction = true }
                 )
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height in
+                    tabBarHeight = height
+                }
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
@@ -505,6 +511,23 @@ struct MainTabView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
             isKeyboardVisible = false
         }
+    }
+
+    /// Hides the system tab bar and reserves the custom bar's height at the
+    /// bottom of a tab, so scroll content (and pinned overlays) end above the
+    /// bar on the tab's root and on every pushed screen. Needed per tab: a
+    /// TabView doesn't propagate a safe-area inset applied to the TabView
+    /// itself into its tabs. Nothing is reserved while the keyboard is up
+    /// (the bar is hidden then).
+    private func reservingTabBarSpace<Content: View>(_ content: Content) -> some View {
+        content
+            .toolbar(.hidden, for: .tabBar)
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                Color.clear
+                    .frame(height: isKeyboardVisible ? 0 : tabBarHeight)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            }
     }
 
     // MARK: Regular width

@@ -217,7 +217,7 @@ struct TransactionsListView: View {
                             }
                         }
                         .listStyle(.plain)
-                        .contentMargins(.bottom, 100, for: .scrollContent)
+                        .contentMargins(.bottom, FTSpacing.xxl, for: .scrollContent)
                         // Top placement: the bottom edge belongs to the tab bar.
                         .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .automatic),
                                     prompt: "Search transactions...")
@@ -674,7 +674,7 @@ struct UndoSnackbar: View {
         .padding(.vertical, FTSpacing.md)
         .background(.black.opacity(0.82), in: RoundedRectangle(cornerRadius: FTRadius.lg))
         .padding(.horizontal, FTSpacing.screen)
-        .padding(.bottom, 108)
+        .padding(.bottom, FTSpacing.sm)   // the tab bar's space is reserved by MainTabView
     }
 }
 
@@ -704,7 +704,7 @@ struct BulkEditBar: View {
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: FTRadius.xl))
         .shadow(color: .black.opacity(0.14), radius: 20, x: 0, y: -6)
         .padding(.horizontal, FTSpacing.screen)
-        .padding(.bottom, 100)
+        .padding(.bottom, FTSpacing.sm)   // the tab bar's space is reserved by MainTabView
     }
 
     private func bulkButton(_ icon: String, _ label: String, _ tint: Color, _ action: @escaping () -> Void) -> some View {

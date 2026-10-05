@@ -103,7 +103,7 @@ struct DebtManagementView: View {
 
                 ScrollView {
                     activeTabView()
-                        .padding(.bottom, 120)   // clear the floating tab bar (pushed screen)
+                        .padding(.bottom, FTSpacing.xxl)
                 }
             }
         }

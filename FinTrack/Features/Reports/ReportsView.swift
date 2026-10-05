@@ -254,7 +254,7 @@ struct ReportsView: View {
                         }
                         .padding(.horizontal, FTSpacing.screen)
                         .padding(.top, FTSpacing.xs)
-                        .padding(.bottom, 120)
+                        .padding(.bottom, FTSpacing.xxl)
                     }
                 }
             }

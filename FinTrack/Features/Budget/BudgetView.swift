@@ -278,7 +278,7 @@ struct BudgetView: View {
                             case 2: envelopesContent
                             default: zeroBasedContent
                             }
-                            Color.clear.frame(height: 100)
+                            Color.clear.frame(height: FTSpacing.xxl)
                         }
                         .padding(.horizontal, FTSpacing.screen)
                         .padding(.top, FTSpacing.lg)

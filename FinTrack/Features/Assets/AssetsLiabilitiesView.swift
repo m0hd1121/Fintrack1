@@ -125,7 +125,7 @@ struct AssetsLiabilitiesView: View {
                     }
                     .padding(.horizontal, FTSpacing.screen)
 
-                    Color.clear.frame(height: 120)   // clear the floating tab bar (pushed screen)
+                    Color.clear.frame(height: FTSpacing.xxl)
                 }
                 .padding(.top, FTSpacing.md)
             }

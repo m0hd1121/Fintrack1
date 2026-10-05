@@ -67,7 +67,7 @@ struct SavingsGoalsView: View {
                         goalsGrid
                     }
                     if !insights.isEmpty { insightsSection }
-                    Color.clear.frame(height: 120)   // clear the floating tab bar (pushed screen)
+                    Color.clear.frame(height: FTSpacing.xxl)
                 }
                 .padding(.horizontal, FTSpacing.screen)
                 .padding(.top, FTSpacing.sm)
